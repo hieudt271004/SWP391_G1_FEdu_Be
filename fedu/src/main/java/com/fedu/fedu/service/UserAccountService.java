@@ -1,0 +1,36 @@
+package com.fedu.fedu.service;
+
+import com.fedu.fedu.dto.UserCreateDTO;
+import com.fedu.fedu.dto.req.RegisterRequest;
+import com.fedu.fedu.dto.req.SignInRequest;
+import com.fedu.fedu.entity.UserAccount;
+import com.fedu.fedu.utils.enums.UserStatus;
+import org.springframework.security.core.userdetails.UserDetailsService;
+
+import java.util.List;
+
+public interface UserAccountService {
+
+    UserDetailsService userDetailService();
+
+    List<String> getAllRoleByEmail(long userId);
+
+    boolean emailExist(String email);
+
+    UserAccount getByEmail(String email);
+
+    void changeUserStatus(String username, UserStatus status);
+    void verifyAccount(String email);
+
+    void save(UserAccount userAccount);
+
+    void save(RegisterRequest request);
+
+    void registerUser(UserAccount userAccount);
+
+    void updateLastLogin(SignInRequest request);
+
+    void createUser(UserCreateDTO userCreateDTO);
+
+    void deleteByEmail(String email);
+}

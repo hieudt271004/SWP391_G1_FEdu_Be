@@ -1,7 +1,18 @@
 spring:
   application:
     name: fedu
-
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+openapi:
+  service:
+    api-docs: fedu
+    serverUrl: http://localhost:${server.port}
+    serverName: FEdu System
+    title: FEdu System
+    version: 1.0.0
 jwt:
   expiryHour: 1
   expiryDay: 30
