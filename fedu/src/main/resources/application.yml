@@ -1,11 +1,38 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: fedu
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fedu_db
+    username: postgres
+    password: 123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: hieudtfptu@gmail.com
+    password: vpwohxfxufhjdfif
+    from: hieudtfptu@gmail.com
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 springdoc:
   api-docs:
     enabled: true
   swagger-ui:
     enabled: true
+
 openapi:
   service:
     api-docs: fedu
@@ -13,6 +40,7 @@ openapi:
     serverName: FEdu System
     title: FEdu System
     version: 1.0.0
+
 jwt:
   expiryHour: 1
   expiryDay: 30
