@@ -7,8 +7,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/fedu_db
-    username: postgres
-    password: 123
+    username: sa
+    password: 123456
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -17,9 +17,9 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: hieudtfptu@gmail.com
-    password: vpwohxfxufhjdfif
-    from: hieudtfptu@gmail.com
+    username: longnger0310@gmail.com
+    password: lrgtzaldgslcsjsx
+    from: longnger0310@gmail.com
     properties:
       mail:
         smtp:

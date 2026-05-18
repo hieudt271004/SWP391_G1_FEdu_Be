@@ -132,8 +132,8 @@ public class UserAccountServiceImpl implements UserAccountService {
     private UserAccount createUserAccount(UserCreateDTO userCreateDTO) {
         return UserAccount.builder()
                 .email(userCreateDTO.getEmail())
-                .password(userCreateDTO.getPassword())
-                .status(userCreateDTO.getStatus())
+                .password(passwordEncoder.encode(userCreateDTO.getPassword()))
+                .status(UserStatus.ACTIVE)
                 .build();
     }
 

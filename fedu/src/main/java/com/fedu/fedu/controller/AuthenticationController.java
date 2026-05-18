@@ -32,6 +32,8 @@ import java.io.UnsupportedEncodingException;
 
 import static org.springframework.http.HttpStatus.OK;
 
+import java.util.Map;
+
 @Slf4j
 @Validated
 @RestController
@@ -114,8 +116,15 @@ public class AuthenticationController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@RequestBody String email) {
-        return new ResponseEntity<>(authenticationService.forgotPassword(email), OK);
+    public ResponseData<String> forgotPassword(@RequestBody Map<String, String> body) {
+        try {
+            String email = body.get("email");
+            String resetToken = authenticationService.forgotPassword(email);
+            return new ResponseData<>(HttpStatus.OK.value(), "Send email success", resetToken);
+        } catch (Exception e) {
+            log.error("Lỗi khi gửi email: ", e);
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Unexpected error: " + e.getMessage());
+        }
     }
 
     @GetMapping("/reset-password")
@@ -135,7 +144,13 @@ public class AuthenticationController {
     }
 
     @PostMapping("/change-password")
-    public ResponseEntity<String> changePassword(@RequestBody @Valid ResetPasswordDTO request) {
-        return new ResponseEntity<>(authenticationService.changePassword(request), OK);
+    public ResponseData<String> changePassword(@RequestBody @Valid ResetPasswordDTO request) {
+        try {
+            String response = authenticationService.changePassword(request);
+            return new ResponseData<>(HttpStatus.OK.value(), "Password changed successfully", response);
+        } catch (Exception e) {
+            log.error("Lỗi khi đổi mật khẩu: ", e);
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
     }
 }

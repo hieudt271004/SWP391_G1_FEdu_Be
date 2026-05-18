@@ -54,18 +54,26 @@ public class MailService {
 
     public void sendConfirmLink(String emailTo, String resetToken) throws MessagingException, UnsupportedEncodingException {
         log.info("Sending code to user, email={}", emailTo);
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_NO, StandardCharsets.UTF_8.name());
+        MimeMessage message = mailSender.createMimeMessage();
 
-            helper.setFrom(emailFrom);
-            helper.setTo(emailTo);
-            helper.setSubject("Confirm your account");
-            helper.setText("Code: " + resetToken, false);
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
 
-            mailSender.send(message);
-            log.info("Email sent successfully to {}", emailTo);
+        helper.setFrom(emailFrom);
+        helper.setTo(emailTo);
+        helper.setSubject("Yêu cầu đặt lại mật khẩu - FEdu");
+
+        String resetLink = "http://localhost:5174/reset-password?token=" + resetToken;
+
+        String htmlMsg = "<h3>Xin chào!</h3>"
+                + "<p>Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng click vào nút bên dưới để tạo mật khẩu mới:</p>"
+                + "<a href=\"" + resetLink + "\" style=\"display: inline-block; padding: 10px 20px; background-color: #4338ca; color: white; text-decoration: none; border-radius: 5px;\">Đặt lại mật khẩu</a>"
+                + "<p>Đường link này sẽ hết hạn sau 15 phút.</p>";
+
+        helper.setText(htmlMsg, true);
+
+        mailSender.send(message);
+        log.info("Email sent successfully to {}", emailTo);
     }
-
 
     public boolean isExist(String email) {
         List<UserAccount> users = userAccountRepository.findAll();
