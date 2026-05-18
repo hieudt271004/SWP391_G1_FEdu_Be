@@ -117,14 +117,9 @@ public class AuthenticationController {
 
     @PostMapping("/forgot-password")
     public ResponseData<String> forgotPassword(@RequestBody Map<String, String> body) {
-        try {
-            String email = body.get("email");
-            String resetToken = authenticationService.forgotPassword(email);
-            return new ResponseData<>(HttpStatus.OK.value(), "Send email success", resetToken);
-        } catch (Exception e) {
-            log.error("Lỗi khi gửi email: ", e);
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Unexpected error: " + e.getMessage());
-        }
+        String email = body.get("email");
+        String resetToken = authenticationService.forgotPassword(email);
+        return new ResponseData<>(HttpStatus.OK.value(), "Gửi email thành công", resetToken);
     }
 
     @GetMapping("/reset-password")
