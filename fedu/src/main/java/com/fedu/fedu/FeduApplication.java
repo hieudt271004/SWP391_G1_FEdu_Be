@@ -8,6 +8,6 @@ public class FeduApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(FeduApplication.class, args);
-	}
+	}abc
 
 }
