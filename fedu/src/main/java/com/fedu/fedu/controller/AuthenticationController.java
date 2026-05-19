@@ -33,6 +33,7 @@ import java.io.UnsupportedEncodingException;
 import static org.springframework.http.HttpStatus.OK;
 
 import java.util.Map;
+import com.fedu.fedu.dto.req.GoogleLoginRequest;
 
 @Slf4j
 @Validated
@@ -76,6 +77,17 @@ public class AuthenticationController {
             return new ResponseData<>(HttpStatus.OK.value(), "User login", authenticationService.accessToken(request));
         } catch (Exception e) {
             return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Unexpected error: " + e.getMessage());
+        }
+    }
+
+    @Operation(method = "POST", summary = "Login with Google", description = "Xác minh access_token Google và trả về JWT hệ thống")
+    @PostMapping("/google-login")
+    public ResponseData<TokenResponse> googleLogin(@RequestBody GoogleLoginRequest request) {
+        try {
+            return new ResponseData<>(HttpStatus.OK.value(), "Google login success", authenticationService.googleLogin(request));
+        } catch (Exception e) {
+            log.error("Google login failed: {}", e.getMessage());
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         }
     }
 
