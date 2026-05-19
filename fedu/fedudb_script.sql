@@ -4,7 +4,8 @@ CREATE TYPE public."e_role" AS ENUM (
 	'ADMIN',
 	'TEACHER',
 	'STUDENT',
-	'SUB_MENTOR');
+	'SUB_MENTOR',
+    'USER');
 
 CREATE TYPE public."e_user_status" AS ENUM (
 	'ACTIVE',
@@ -62,7 +63,8 @@ VALUES
 ('ADMIN'),
 ('TEACHER'),
 ('STUDENT'),
-('SUB_MENTOR');
+('SUB_MENTOR'),
+('USER');
 
 INSERT INTO permissions (permission_name, description)
 VALUES

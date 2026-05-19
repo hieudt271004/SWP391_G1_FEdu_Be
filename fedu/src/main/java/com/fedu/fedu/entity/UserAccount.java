@@ -44,7 +44,6 @@ public class UserAccount implements UserDetails {
     private LoginHistory loginHistory;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status")
     private UserStatus status;
 
