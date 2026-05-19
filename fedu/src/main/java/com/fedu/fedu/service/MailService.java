@@ -52,6 +52,9 @@ public class MailService {
         return "Sent";
     }
 
+    @Value("${app.frontend-url}")
+    private  String frontendUrl;
+
     public void sendConfirmLink(String emailTo, String resetToken) throws MessagingException, UnsupportedEncodingException {
         log.info("Sending code to user, email={}", emailTo);
         MimeMessage message = mailSender.createMimeMessage();
@@ -62,7 +65,7 @@ public class MailService {
         helper.setTo(emailTo);
         helper.setSubject("Yêu cầu đặt lại mật khẩu - FEdu");
 
-        String resetLink = "http://localhost:5174/reset-password?token=" + resetToken;
+        String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
 
         String htmlMsg = "<h3>Xin chào!</h3>"
                 + "<p>Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng click vào nút bên dưới để tạo mật khẩu mới:</p>"
