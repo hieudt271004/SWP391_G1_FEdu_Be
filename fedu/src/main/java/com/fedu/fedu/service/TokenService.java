@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class TokenService {
@@ -15,11 +16,12 @@ public class TokenService {
     private final TokenRepository tokenRepository;
 
     public Token getByUsername(String username) {
-        return tokenRepository.findByEmail(username).orElseThrow(() -> new ResourceNotFoundException("Not found token"));
+        return tokenRepository.findByUserAccount_Email(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Not found token"));
     }
 
     public long save(Token token) {
-        Optional<Token> optional = tokenRepository.findByEmail(token.getEmail());
+        Optional<Token> optional = tokenRepository.findByUserAccount_Email(token.getUserAccount().getEmail());
         if (optional.isEmpty()) {
             tokenRepository.save(token);
             return token.getId();
@@ -27,6 +29,9 @@ public class TokenService {
             Token t = optional.get();
             t.setAccessToken(token.getAccessToken());
             t.setRefreshToken(token.getRefreshToken());
+            if (token.getResetToken() != null) {
+                t.setResetToken(token.getResetToken());
+            }
             tokenRepository.save(t);
             return t.getId();
         }

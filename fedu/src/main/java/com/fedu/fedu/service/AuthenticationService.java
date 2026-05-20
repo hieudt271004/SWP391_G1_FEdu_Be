@@ -34,7 +34,7 @@ import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.repository.UserRoleRepository;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.UUID;
 import com.fedu.fedu.utils.enums.UserStatus;
@@ -57,21 +57,17 @@ public class AuthenticationService {
     private final UserRoleRepository userRoleRepository;
     private final LoginHistoryRepository loginHistoryRepository;
 
-    public UserRegisterDTO registerUser(RegisterRequest request) throws MessagingException, UnsupportedEncodingException {
-        String email = request.getEmail();
-        if(email.isBlank() || !mailService.isExist(email)) {
-            throw new InvalidDataException("Invalid email");
-        }
-
-        UserRegisterDTO user =  new UserRegisterDTO();
-        user.setFullName(request.getFullName());
-        user.setBod(request.getBod());
-        user.setGender(request.getGender());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
-        user.setStatus(request.getStatus());
-        return user;
-    }
+//    public UserRegisterDTO registerUser(RegisterRequest request) throws MessagingException, UnsupportedEncodingException {
+//        String email = request.getEmail();
+//        if(email.isBlank() || !mailService.isExist(email)) {
+//            throw new InvalidDataException("Invalid email");
+//        }
+//
+//        UserRegisterDTO user =  new UserRegisterDTO();
+//        user.setEmail(request.getEmail());
+//        user.setStatus(request.getStatus());
+//        return user;
+//    }
 
 
     public TokenResponse accessToken(SignInRequest signInRequest) {
@@ -92,7 +88,7 @@ public class AuthenticationService {
 
         String refreshToken = jwtService.generateRefreshToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -116,7 +112,7 @@ public class AuthenticationService {
 
         String accessToken = jwtService.generateToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -151,7 +147,7 @@ public class AuthenticationService {
 
         String resetToken = jwtService.generateResetToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).resetToken(resetToken).build());
+        tokenService.save(Token.builder().userAccount(user).resetToken(resetToken).build());
 
         try {
             mailService.sendConfirmLink(email, resetToken);
@@ -243,7 +239,7 @@ public class AuthenticationService {
         String refreshToken = jwtService.generateRefreshToken(user);
 
         tokenService.save(Token.builder()
-                .email(user.getUsername())
+                .userAccount(user)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build());
@@ -258,10 +254,16 @@ public class AuthenticationService {
     private UserAccount createGoogleUser(String email) {
         log.info("Creating new Google user for email: {}", email);
 
+        String[] parts = email.split("@");
+        String username = parts[0];
+
         UserAccount userAccount = UserAccount.builder()
                 .email(email)
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .status(UserStatus.ACTIVE)
+                .firstName(username)
+                .lastName("GoogleUser")
+                .isDeleted(false)
                 .build();
         userAccount = userAccountRepository.save(userAccount);
 
@@ -278,7 +280,7 @@ public class AuthenticationService {
 
         LoginHistory loginHistory = new LoginHistory();
         loginHistory.setUserAccount(userAccount);
-        loginHistory.setLastLogin(LocalDate.now());
+        loginHistory.setLastLogin(LocalDateTime.now());
         loginHistoryRepository.save(loginHistory);
         userAccount.setLoginHistory(loginHistory);
 
