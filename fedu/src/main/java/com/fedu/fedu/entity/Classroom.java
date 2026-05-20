@@ -21,19 +21,19 @@ public class Classroom {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "class_id")
+    @Column(name = "classroom_id")
     private Long id;
 
-    @Column(name = "class_code")
+    @Column(name = "code")
     private String classCode;
-    @Column(name = "class_start_date")
+    @Column(name = "start_date")
     private LocalDate startDate;
-    @Column(name = "class_end_date")
+    @Column(name = "end_date")
     private LocalDate endDate;
     @Enumerated(EnumType.STRING)
     private ClassroomStatus status;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
 

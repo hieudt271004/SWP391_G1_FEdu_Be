@@ -14,13 +14,13 @@ public class Teacher {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "teacher_id")
-    private long id;
+    private Long id;
 
-    @Column(name = "teacher_first_name", nullable = false)
+    @Column(name = "first_name", nullable = false)
     private String firstName;
 
-    @Column(name = "teacher_last_name", nullable = false)
-    private String LastName;
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

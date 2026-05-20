@@ -15,15 +15,15 @@ public class Student {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "student_id")
-    private long id;
+    private Long id;
 
     @Column(name = "roll_number", length = 8, nullable = false, unique = true)
     private String rollNumber;
 
-    @Column(name = "student_first_name", nullable = false)
+    @Column(name = "first_name", nullable = false)
     private String firstName;
 
-    @Column(name = "student_last_name", nullable = false)
+    @Column(name = "last_name", nullable = false)
     private String LastName;
 
     @OneToOne(fetch = FetchType.LAZY)

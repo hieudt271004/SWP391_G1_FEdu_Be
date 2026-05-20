@@ -11,7 +11,7 @@ import java.time.LocalDate;
 
 
 @Entity
-@Table(name = "classroom_students")
+@Table(name = "classroom_student")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,6 +19,7 @@ import java.time.LocalDate;
 public class ClassroomStudent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "clasroom_student_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
