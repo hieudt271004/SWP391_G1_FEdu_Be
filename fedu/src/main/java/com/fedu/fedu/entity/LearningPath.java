@@ -9,29 +9,27 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "classrooms")
-public class Classroom extends AbstractEntity<Long> {
+@Table(name = "learning_paths")
+public class LearningPath extends AbstractEntity<Long> {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "classroom_id")
-    private Long classroomId;
+    @Column(name = "path_id")
+    private Long pathId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id", nullable = false)
     private Subject subject;
 
-    @Column(name = "class_name", nullable = false)
-    private String className;
-
-    @Column(name = "semester")
-    private String semester;
+    @Column(name = "path_name", nullable = false)
+    private String pathName;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lecturer_id", nullable = false)
-    private UserAccount lecturer;
+    @JoinColumn(name = "created_by")
+    private UserAccount createdBy;
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;

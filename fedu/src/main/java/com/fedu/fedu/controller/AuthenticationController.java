@@ -49,12 +49,17 @@ public class AuthenticationController {
     private static final String API_KEY = "api-key";
 
     //register user
-//    @Operation(method = "POST", summary = "Save user account and forward to user service ", description = "Send a request to register new user")
-//    @PostMapping("/register")
-//    public ResponseData<UserRegisterDTO> registerUser(@RequestBody RegisterRequest request)
-//            throws MessagingException, UnsupportedEncodingException {
-//        userAccountService.save(request);
-//    }
+    @Operation(method = "POST", summary = "Save user account and forward to user service ", description = "Send a request to register new user")
+    @PostMapping("/register")
+    public ResponseData<Void> registerUser(@RequestBody RegisterRequest request) {
+        try {
+            userAccountService.save(request);
+            return new ResponseData<>(HttpStatus.CREATED.value(), "User registered successfully");
+        } catch (Exception e) {
+            log.error("Failed to register user: {}", e.getMessage(), e);
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
+    }
 
     //get user from user service and save new user to db
     @Operation(method = "POST", summary = "Get user from user service and save new user to db ", description = "Get new user")
@@ -98,20 +103,20 @@ public class AuthenticationController {
         return new ResponseEntity<>(authenticationService.refreshToken(request), OK);
     }
 
-    @Operation(summary = "Delete user permanently", description = "Handle deletion of user in the identity-service")
+    @Operation(summary = "Delete user permanently", description = "Handle deletion of user")
     @DeleteMapping("/delete")
     public ResponseData<Void> deleteUser(@RequestBody String username) {
         try {
             userAccountService.deleteByEmail(username);
             return new ResponseData<>(HttpStatus.OK.value(), "User deleted successfully");
         } catch (Exception e) {
-            log.error("Failed to delete user in identity-service: {}", e.getMessage(), e);
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Failed to delete user in identity-service");
+            log.error("Failed to delete user: {}", e.getMessage(), e);
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Failed to delete user");
         }
     }
 
     @Operation(summary = "Change status of user", description = "Send a request to change status of user")
-    @PatchMapping("/{userId}")
+    @PatchMapping("/status")
     public ResponseData<Void> updateStatus(@RequestBody UserStatusSetDTO userStatusSetDTO) {
         try {
             userAccountService.changeUserStatus(userStatusSetDTO.getUserName(), userStatusSetDTO.getStatus());

@@ -34,11 +34,11 @@ import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.repository.UserRoleRepository;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.UUID;
 import com.fedu.fedu.utils.enums.UserStatus;
-import com.fedu.fedu.entity.Role;             
+import com.fedu.fedu.entity.Role;
 import java.util.Map;
 
 @Slf4j
@@ -56,23 +56,6 @@ public class AuthenticationService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final LoginHistoryRepository loginHistoryRepository;
-
-    public UserRegisterDTO registerUser(RegisterRequest request) throws MessagingException, UnsupportedEncodingException {
-        String email = request.getEmail();
-        if(email.isBlank() || !mailService.isExist(email)) {
-            throw new InvalidDataException("Invalid email");
-        }
-
-        UserRegisterDTO user =  new UserRegisterDTO();
-        user.setFullName(request.getFullName());
-        user.setBod(request.getBod());
-        user.setGender(request.getGender());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
-        user.setStatus(request.getStatus());
-        return user;
-    }
-
 
     public TokenResponse accessToken(SignInRequest signInRequest) {
 
@@ -92,7 +75,7 @@ public class AuthenticationService {
 
         String refreshToken = jwtService.generateRefreshToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -116,7 +99,7 @@ public class AuthenticationService {
 
         String accessToken = jwtService.generateToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -151,7 +134,7 @@ public class AuthenticationService {
 
         String resetToken = jwtService.generateResetToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).resetToken(resetToken).build());
+        tokenService.save(Token.builder().userAccount(user).resetToken(resetToken).build());
 
         try {
             mailService.sendConfirmLink(email, resetToken);
@@ -244,7 +227,7 @@ public class AuthenticationService {
         String refreshToken = jwtService.generateRefreshToken(user);
 
         tokenService.save(Token.builder()
-                .email(user.getUsername())
+                .userAccount(user)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build());
@@ -260,26 +243,20 @@ public class AuthenticationService {
         String email = (String) googleUser.get("email");
         log.info("Creating new Google user for email: {}", email);
 
-<<<<<<< Updated upstream
-=======
         // Lấy thông tin thật từ Google, fallback nếu thiếu
         String givenName  = (String) googleUser.get("given_name");
         String familyName = (String) googleUser.get("family_name");
         String picture    = (String) googleUser.get("picture");
         String fallbackName = email.split("@")[0];
 
->>>>>>> Stashed changes
         UserAccount userAccount = UserAccount.builder()
                 .email(email)
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .status(UserStatus.ACTIVE)
-<<<<<<< Updated upstream
-=======
                 .firstName(givenName  != null && !givenName.isBlank()  ? givenName  : fallbackName)
                 .lastName (familyName != null && !familyName.isBlank() ? familyName : "")
                 .avatarUrl(picture)
                 .isDeleted(false)
->>>>>>> Stashed changes
                 .build();
         userAccount = userAccountRepository.save(userAccount);
 
@@ -295,7 +272,7 @@ public class AuthenticationService {
 
         LoginHistory loginHistory = new LoginHistory();
         loginHistory.setUserAccount(userAccount);
-        loginHistory.setLastLogin(LocalDate.now());
+        loginHistory.setLastLogin(LocalDateTime.now());
         loginHistoryRepository.save(loginHistory);
         userAccount.setLoginHistory(loginHistory);
 
