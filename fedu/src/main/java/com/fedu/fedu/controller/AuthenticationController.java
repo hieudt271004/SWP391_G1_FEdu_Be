@@ -1,5 +1,6 @@
 package com.fedu.fedu.controller;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.fedu.fedu.dto.UserCreateDTO;
 import com.fedu.fedu.dto.UserRegisterDTO;
 import com.fedu.fedu.dto.UserStatusSetDTO;
@@ -104,6 +105,7 @@ public class AuthenticationController {
     }
 
     @Operation(summary = "Delete user permanently", description = "Handle deletion of user")
+    @PreAuthorize("hashRole('ADMIN')")
     @DeleteMapping("/delete")
     public ResponseData<Void> deleteUser(@RequestBody String username) {
         try {
@@ -116,6 +118,7 @@ public class AuthenticationController {
     }
 
     @Operation(summary = "Change status of user", description = "Send a request to change status of user")
+    @PreAuthorize("hashRole('ADMIN')")
     @PatchMapping("/status")
     public ResponseData<Void> updateStatus(@RequestBody UserStatusSetDTO userStatusSetDTO) {
         try {

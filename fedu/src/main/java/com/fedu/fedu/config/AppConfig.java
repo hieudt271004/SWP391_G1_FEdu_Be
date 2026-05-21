@@ -12,6 +12,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -26,6 +27,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 
 @Configuration
+@org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 //@RequiredArgsConstructor
 public class AppConfig {
 
@@ -38,7 +40,15 @@ public class AppConfig {
         this.userService = userService;
     }
 
-    private static final String[] WHITE_LIST = {"/auth/**", "/user/**"};
+    private static final String[] WHITE_LIST = {
+            "/auth/login",
+            "/auth/register",
+            "/auth/google-login",
+            "/auth/forgot-password",
+            "/auth/reset-password",
+            "/auth/change-password",
+            "/auth/refresh-token"
+    };
 
 
     @Bean
