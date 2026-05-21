@@ -32,6 +32,9 @@ import java.io.UnsupportedEncodingException;
 
 import static org.springframework.http.HttpStatus.OK;
 
+import java.util.Map;
+import com.fedu.fedu.dto.req.GoogleLoginRequest;
+
 @Slf4j
 @Validated
 @RestController
@@ -46,12 +49,17 @@ public class AuthenticationController {
     private static final String API_KEY = "api-key";
 
     //register user
-//    @Operation(method = "POST", summary = "Save user account and forward to user service ", description = "Send a request to register new user")
-//    @PostMapping("/register")
-//    public ResponseData<UserRegisterDTO> registerUser(@RequestBody RegisterRequest request)
-//            throws MessagingException, UnsupportedEncodingException {
-//        userAccountService.save(request);
-//    }
+    @Operation(method = "POST", summary = "Save user account and forward to user service ", description = "Send a request to register new user")
+    @PostMapping("/register")
+    public ResponseData<Void> registerUser(@RequestBody RegisterRequest request) {
+        try {
+            userAccountService.save(request);
+            return new ResponseData<>(HttpStatus.CREATED.value(), "User registered successfully");
+        } catch (Exception e) {
+            log.error("Failed to register user: {}", e.getMessage(), e);
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
+    }
 
     //get user from user service and save new user to db
     @Operation(method = "POST", summary = "Get user from user service and save new user to db ", description = "Get new user")
@@ -77,26 +85,37 @@ public class AuthenticationController {
         }
     }
 
+    @Operation(method = "POST", summary = "Login with Google", description = "Xác minh access_token Google và trả về JWT hệ thống")
+    @PostMapping("/google-login")
+    public ResponseData<TokenResponse> googleLogin(@RequestBody GoogleLoginRequest request) {
+        try {
+            return new ResponseData<>(HttpStatus.OK.value(), "Google login success", authenticationService.googleLogin(request));
+        } catch (Exception e) {
+            log.error("Google login failed: {}", e.getMessage());
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
+    }
+
     //refresh token
     @PostMapping("/refresh-token")
     public ResponseEntity<TokenResponse> refreshToken(HttpServletRequest request) {
         return new ResponseEntity<>(authenticationService.refreshToken(request), OK);
     }
 
-    @Operation(summary = "Delete user permanently", description = "Handle deletion of user in the identity-service")
+    @Operation(summary = "Delete user permanently", description = "Handle deletion of user")
     @DeleteMapping("/delete")
     public ResponseData<Void> deleteUser(@RequestBody String username) {
         try {
             userAccountService.deleteByEmail(username);
             return new ResponseData<>(HttpStatus.OK.value(), "User deleted successfully");
         } catch (Exception e) {
-            log.error("Failed to delete user in identity-service: {}", e.getMessage(), e);
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Failed to delete user in identity-service");
+            log.error("Failed to delete user: {}", e.getMessage(), e);
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Failed to delete user");
         }
     }
 
     @Operation(summary = "Change status of user", description = "Send a request to change status of user")
-    @PatchMapping("/{userId}")
+    @PatchMapping("/status")
     public ResponseData<Void> updateStatus(@RequestBody UserStatusSetDTO userStatusSetDTO) {
         try {
             userAccountService.changeUserStatus(userStatusSetDTO.getUserName(), userStatusSetDTO.getStatus());
@@ -114,8 +133,10 @@ public class AuthenticationController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@RequestBody String email) {
-        return new ResponseEntity<>(authenticationService.forgotPassword(email), OK);
+    public ResponseData<String> forgotPassword(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String resetToken = authenticationService.forgotPassword(email);
+        return new ResponseData<>(HttpStatus.OK.value(), "Gửi email thành công", resetToken);
     }
 
     @GetMapping("/reset-password")
@@ -135,7 +156,13 @@ public class AuthenticationController {
     }
 
     @PostMapping("/change-password")
-    public ResponseEntity<String> changePassword(@RequestBody @Valid ResetPasswordDTO request) {
-        return new ResponseEntity<>(authenticationService.changePassword(request), OK);
+    public ResponseData<String> changePassword(@RequestBody @Valid ResetPasswordDTO request) {
+        try {
+            String response = authenticationService.changePassword(request);
+            return new ResponseData<>(HttpStatus.OK.value(), "Password changed successfully", response);
+        } catch (Exception e) {
+            log.error("Lỗi khi đổi mật khẩu: ", e);
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        }
     }
 }

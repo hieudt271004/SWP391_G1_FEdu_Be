@@ -1,38 +1,35 @@
 package com.fedu.fedu.entity;
 
-import com.fedu.fedu.utils.enums.AbsentStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-
-@Entity
-@Table(name = "classroom_student")
 @Getter
 @Setter
+@Entity
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "classroom_student", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"classroom_id", "student_id"})
+})
 public class ClassroomStudent {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "clasroom_student_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id")
+    @JoinColumn(name = "classroom_id", nullable = false)
     private Classroom classroom;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id")
-    private Student student;
+    @JoinColumn(name = "student_id", nullable = false)
+    private UserAccount student;
 
-    @Column(name = "joined_date")
-    private LocalDate joinedDate;
-
-    @Enumerated(EnumType.STRING)
-    private AbsentStatus status;
+    @Column(name = "joined_at", nullable = false, updatable = false)
+    @CreationTimestamp
+    private LocalDateTime joinedAt;
 }

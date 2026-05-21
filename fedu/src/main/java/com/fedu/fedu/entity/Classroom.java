@@ -1,42 +1,39 @@
 package com.fedu.fedu.entity;
 
-import com.fedu.fedu.utils.enums.ClassroomStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-
-@Entity
-@Table(name = "classrooms")
 @Getter
 @Setter
+@Entity
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Classroom {
+@Table(name = "classrooms")
+public class Classroom extends AbstractEntity<Long> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "classroom_id")
-    private Long id;
-
-    @Column(name = "code")
-    private String classCode;
-    @Column(name = "start_date")
-    private LocalDate startDate;
-    @Column(name = "end_date")
-    private LocalDate endDate;
-    @Enumerated(EnumType.STRING)
-    private ClassroomStatus status;
+    private Long classroomId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "teacher_id")
-    private Teacher teacher;
+    @JoinColumn(name = "subject_id", nullable = false)
+    private Subject subject;
 
-    @OneToMany(mappedBy = "classroom", cascade = CascadeType.ALL)
-    private List<ClassroomStudent> classStudents = new ArrayList<>();
+    @Column(name = "class_name", nullable = false)
+    private String className;
+
+    @Column(name = "semester")
+    private String semester;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lecturer_id", nullable = false)
+    private UserAccount lecturer;
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
 }

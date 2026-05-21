@@ -25,6 +25,22 @@ import java.util.List;
 import static com.fedu.fedu.utils.enums.TokenType.*;
 import static org.springframework.http.HttpHeaders.REFERER;
 
+import com.fedu.fedu.dto.req.GoogleLoginRequest;
+import com.fedu.fedu.entity.LoginHistory;
+import com.fedu.fedu.entity.UserRole;
+import com.fedu.fedu.repository.LoginHistoryRepository;
+import com.fedu.fedu.repository.RoleRepository;
+import com.fedu.fedu.repository.UserAccountRepository;
+import com.fedu.fedu.repository.UserRoleRepository;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.*;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.UUID;
+import com.fedu.fedu.utils.enums.UserStatus;
+import com.fedu.fedu.entity.Role;             
+import java.util.Map;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -36,22 +52,22 @@ public class AuthenticationService {
     private final UserAccountService userService;
     private final MailService mailService;
     private final JwtService jwtService;
+    private final UserAccountRepository userAccountRepository;
+    private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
+    private final LoginHistoryRepository loginHistoryRepository;
 
-    public UserRegisterDTO registerUser(RegisterRequest request) throws MessagingException, UnsupportedEncodingException {
-        String email = request.getEmail();
-        if(email.isBlank() || !mailService.isExist(email)) {
-            throw new InvalidDataException("Invalid email");
-        }
-
-        UserRegisterDTO user =  new UserRegisterDTO();
-        user.setFullName(request.getFullName());
-        user.setBod(request.getBod());
-        user.setGender(request.getGender());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
-        user.setStatus(request.getStatus());
-        return user;
-    }
+//    public UserRegisterDTO registerUser(RegisterRequest request) throws MessagingException, UnsupportedEncodingException {
+//        String email = request.getEmail();
+//        if(email.isBlank() || !mailService.isExist(email)) {
+//            throw new InvalidDataException("Invalid email");
+//        }
+//
+//        UserRegisterDTO user =  new UserRegisterDTO();
+//        user.setEmail(request.getEmail());
+//        user.setStatus(request.getStatus());
+//        return user;
+//    }
 
 
     public TokenResponse accessToken(SignInRequest signInRequest) {
@@ -72,7 +88,7 @@ public class AuthenticationService {
 
         String refreshToken = jwtService.generateRefreshToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -96,7 +112,7 @@ public class AuthenticationService {
 
         String accessToken = jwtService.generateToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -131,7 +147,7 @@ public class AuthenticationService {
 
         String resetToken = jwtService.generateResetToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).resetToken(resetToken).build());
+        tokenService.save(Token.builder().userAccount(user).resetToken(resetToken).build());
 
         try {
             mailService.sendConfirmLink(email, resetToken);
@@ -184,5 +200,90 @@ public class AuthenticationService {
             throw new InvalidDataException("User not active");
         }
         return user;
+    }
+
+    public TokenResponse googleLogin(GoogleLoginRequest request) {
+        log.info("---------- googleLogin ----------");
+
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(request.getCredential());
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Map> response;
+        try {
+            response = restTemplate.exchange(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    HttpMethod.GET, entity, Map.class);
+        } catch (Exception e) {
+            log.error("Failed to verify Google access_token: {}", e.getMessage());
+            throw new InvalidDataException("Google access_token không hợp lệ");
+        }
+
+        Map<?, ?> googleUser = response.getBody();
+        if (googleUser == null || googleUser.get("email") == null) {
+            throw new InvalidDataException("Không lấy được thông tin từ Google");
+        }
+
+        String email = (String) googleUser.get("email");
+        log.info("Google verified email: {}", email);
+
+        UserAccount user = userAccountRepository.findByEmail(email)
+                .orElseGet(() -> createGoogleUser(email));
+
+        if (!user.isEnabled()) {
+            throw new InvalidDataException("Tài khoản đã bị vô hiệu hóa");
+        }
+
+        String accessToken = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
+
+        tokenService.save(Token.builder()
+                .userAccount(user)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build());
+
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .userId(user.getUserId())
+                .build();
+    }
+
+    private UserAccount createGoogleUser(String email) {
+        log.info("Creating new Google user for email: {}", email);
+
+        String[] parts = email.split("@");
+        String username = parts[0];
+
+        UserAccount userAccount = UserAccount.builder()
+                .email(email)
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .status(UserStatus.ACTIVE)
+                .firstName(username)
+                .lastName("GoogleUser")
+                .isDeleted(false)
+                .build();
+        userAccount = userAccountRepository.save(userAccount);
+
+        // roleId = 1L là STUDENT — kiểm tra lại DB cho đúng
+        Role defaultRole = roleRepository.findById(1L)
+                .orElseThrow(() -> new RuntimeException("Default role not found"));
+
+        UserRole userRole = UserRole.builder()
+                .userAccount(userAccount)
+                .role(defaultRole)
+                .build();
+        userRoleRepository.save(userRole);
+        userAccount.setUserRoles(Collections.singletonList(userRole));
+
+        LoginHistory loginHistory = new LoginHistory();
+        loginHistory.setUserAccount(userAccount);
+        loginHistory.setLastLogin(LocalDateTime.now());
+        loginHistoryRepository.save(loginHistory);
+        userAccount.setLoginHistory(loginHistory);
+
+        return userAccountRepository.save(userAccount);
     }
 }

@@ -1,15 +1,16 @@
 package com.fedu.fedu.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 @Getter
 @Setter
 @Entity
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Table(name = "permissions")
-public class Permission {
+public class Permission extends AbstractEntity<Long> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,7 +20,7 @@ public class Permission {
     @Column(name = "permission_name", nullable = false, unique = true)
     private String permissionName;
 
-    @Column(name = "description", nullable = false)
-    private String url;
+    @Column(name = "description")
+    private String description;
 
 }

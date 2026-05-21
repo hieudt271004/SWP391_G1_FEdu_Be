@@ -15,4 +15,7 @@ public enum UserRole {
 
     @JsonProperty("SUB_MENTOR")
     SUB_MENTOR,
+
+    @JsonProperty("USER")
+    USER;
 }
