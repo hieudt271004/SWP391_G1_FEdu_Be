@@ -127,7 +127,7 @@ public class AuthenticationService {
         return "Removed!";
     }
 
-    public String forgotPassword(String email) {
+    public void forgotPassword(String email) {
         log.info("---------- forgotPassword ----------");
 
         UserAccount user = userService.getByEmail(email);
@@ -142,8 +142,6 @@ public class AuthenticationService {
             log.error("Send email fail, errorMessage={}", e.getMessage());
             throw new InvalidDataException("Send email fail, please try again!");
         }
-
-        return resetToken;
     }
 
     public String resetPassword(String secretKey) {

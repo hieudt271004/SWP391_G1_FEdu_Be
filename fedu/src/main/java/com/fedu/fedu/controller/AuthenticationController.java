@@ -136,8 +136,16 @@ public class AuthenticationController {
     @PostMapping("/forgot-password")
     public ResponseData<String> forgotPassword(@RequestBody Map<String, String> body) {
         String email = body.get("email");
-        String resetToken = authenticationService.forgotPassword(email);
-        return new ResponseData<>(HttpStatus.OK.value(), "Gửi email thành công", resetToken);
+        if(email == null || email.isBlank()){
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Email không được để trống");
+        }
+        try {
+            authenticationService.forgotPassword(email);
+        }catch (Exception e){
+            log.warn("forgotPassword failed for email={}: {}", email, e.getMessage());
+        }
+        return new ResponseData<>(HttpStatus.OK.value(),
+                "Nếu email tồn tại trong hệ thống, một đường dẫn đặt lại mật khẩu đã được gửi.");
     }
 
     @GetMapping("/reset-password")
