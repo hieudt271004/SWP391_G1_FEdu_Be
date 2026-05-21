@@ -131,9 +131,12 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     private void assignUserRole(UserAccount userAccount, com.fedu.fedu.utils.enums.UserRole userRole) {
-        Long roleId = (userRole == com.fedu.fedu.utils.enums.UserRole.USER) ? 5L : 1L;
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new RuntimeException("Default role not found for role ID: " + roleId));
+        // Mặc định USER nếu input null/invalid — KHÔNG bao giờ fallback về ADMIN
+        com.fedu.fedu.utils.enums.UserRole targetRole =
+                (userRole != null) ? userRole : com.fedu.fedu.utils.enums.UserRole.USER;
+
+        Role role = roleRepository.findByRoleName(targetRole)
+                .orElseThrow(() -> new RuntimeException("Role not found: " + targetRole));
 
         UserRole userRoles = UserRole.builder()
                 .role(role)
@@ -166,7 +169,7 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .build();
         userAccountRepository.save(userAccount);
 
-        Role defaultRole = roleRepository.findById(5L)
+        Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.USER)
                 .orElseThrow(() -> new RuntimeException("Default role USER not found"));
 
         assignRoleToUser(userAccount, defaultRole);

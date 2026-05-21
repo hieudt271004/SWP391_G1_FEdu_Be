@@ -38,7 +38,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.UUID;
 import com.fedu.fedu.utils.enums.UserStatus;
-import com.fedu.fedu.entity.Role;             
+import com.fedu.fedu.entity.Role;
 import java.util.Map;
 
 @Slf4j
@@ -56,19 +56,6 @@ public class AuthenticationService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final LoginHistoryRepository loginHistoryRepository;
-
-//    public UserRegisterDTO registerUser(RegisterRequest request) throws MessagingException, UnsupportedEncodingException {
-//        String email = request.getEmail();
-//        if(email.isBlank() || !mailService.isExist(email)) {
-//            throw new InvalidDataException("Invalid email");
-//        }
-//
-//        UserRegisterDTO user =  new UserRegisterDTO();
-//        user.setEmail(request.getEmail());
-//        user.setStatus(request.getStatus());
-//        return user;
-//    }
-
 
     public TokenResponse accessToken(SignInRequest signInRequest) {
 
@@ -228,8 +215,9 @@ public class AuthenticationService {
         String email = (String) googleUser.get("email");
         log.info("Google verified email: {}", email);
 
+        final Map<?, ?> googleUserFinal = googleUser;
         UserAccount user = userAccountRepository.findByEmail(email)
-                .orElseGet(() -> createGoogleUser(email));
+                .orElseGet(() -> createGoogleUser(googleUserFinal));
 
         if (!user.isEnabled()) {
             throw new InvalidDataException("Tài khoản đã bị vô hiệu hóa");
@@ -251,25 +239,29 @@ public class AuthenticationService {
                 .build();
     }
 
-    private UserAccount createGoogleUser(String email) {
+    private UserAccount createGoogleUser(Map<?, ?> googleUser) {
+        String email = (String) googleUser.get("email");
         log.info("Creating new Google user for email: {}", email);
 
-        String[] parts = email.split("@");
-        String username = parts[0];
+        // Lấy thông tin thật từ Google, fallback nếu thiếu
+        String givenName  = (String) googleUser.get("given_name");
+        String familyName = (String) googleUser.get("family_name");
+        String picture    = (String) googleUser.get("picture");
+        String fallbackName = email.split("@")[0];
 
         UserAccount userAccount = UserAccount.builder()
                 .email(email)
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .status(UserStatus.ACTIVE)
-                .firstName(username)
-                .lastName("GoogleUser")
+                .firstName(givenName  != null && !givenName.isBlank()  ? givenName  : fallbackName)
+                .lastName (familyName != null && !familyName.isBlank() ? familyName : "")
+                .avatarUrl(picture)
                 .isDeleted(false)
                 .build();
         userAccount = userAccountRepository.save(userAccount);
 
-        // roleId = 1L là STUDENT — kiểm tra lại DB cho đúng
-        Role defaultRole = roleRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("Default role not found"));
+        Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.STUDENT)
+                .orElseThrow(() -> new RuntimeException("Default role STUDENT not found"));
 
         UserRole userRole = UserRole.builder()
                 .userAccount(userAccount)
@@ -284,6 +276,6 @@ public class AuthenticationService {
         loginHistoryRepository.save(loginHistory);
         userAccount.setLoginHistory(loginHistory);
 
-        return userAccountRepository.save(userAccount);
+        return userAccount;
     }
 }

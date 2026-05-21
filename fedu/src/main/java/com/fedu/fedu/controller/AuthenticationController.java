@@ -91,8 +91,9 @@ public class AuthenticationController {
         try {
             return new ResponseData<>(HttpStatus.OK.value(), "Google login success", authenticationService.googleLogin(request));
         } catch (Exception e) {
-            log.error("Google login failed: {}", e.getMessage());
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+            log.error("Google login failed", e);
+            String msg = (e.getMessage() != null) ? e.getMessage() : e.getClass().getSimpleName();
+            return new ResponseError(HttpStatus.BAD_REQUEST.value(), msg);
         }
     }
 

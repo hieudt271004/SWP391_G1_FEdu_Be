@@ -11,7 +11,6 @@ import lombok.*;
 @AllArgsConstructor
 @Table(name = "classrooms")
 public class Classroom extends AbstractEntity<Long> {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "classroom_id")
