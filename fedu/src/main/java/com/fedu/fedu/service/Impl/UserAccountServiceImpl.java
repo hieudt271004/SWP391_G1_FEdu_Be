@@ -148,10 +148,18 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     private void assignUserRole(UserAccount userAccount, com.fedu.fedu.utils.enums.UserRole userRole) {
+<<<<<<< Updated upstream
         // Determine role ID based on user type
         Long roleId = (userRole == com.fedu.fedu.utils.enums.UserRole.TEACHER) ? 2L : 1L;
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new RuntimeException("Default role not found for role ID: " + roleId));
+=======
+        com.fedu.fedu.utils.enums.UserRole targetRole =
+                (userRole != null) ? userRole : com.fedu.fedu.utils.enums.UserRole.USER;
+
+        Role role = roleRepository.findByRoleName(targetRole)
+                .orElseThrow(() -> new RuntimeException("Role not found: " + targetRole));
+>>>>>>> Stashed changes
 
         UserRole userRoles = UserRole.builder()
                 .role(role)
@@ -176,7 +184,11 @@ public class UserAccountServiceImpl implements UserAccountService {
 
         UserAccount userAccount = createUserAccount(request.getEmail(), request.getPassword());
 
+<<<<<<< Updated upstream
         Role defaultRole = roleRepository.findById(2L)
+=======
+        Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.USER)
+>>>>>>> Stashed changes
                 .orElseThrow(() -> new RuntimeException("Default role USER not found"));
 
         assignRoleToUser(userAccount, defaultRole);

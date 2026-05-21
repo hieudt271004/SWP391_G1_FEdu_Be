@@ -232,8 +232,9 @@ public class AuthenticationService {
         String email = (String) googleUser.get("email");
         log.info("Google verified email: {}", email);
 
+        final Map<?, ?> googleUserFinal = googleUser;
         UserAccount user = userAccountRepository.findByEmail(email)
-                .orElseGet(() -> createGoogleUser(email));
+                .orElseGet(() -> createGoogleUser(googleUserFinal));
 
         if (!user.isEnabled()) {
             throw new InvalidDataException("Tài khoản đã bị vô hiệu hóa");
@@ -255,19 +256,35 @@ public class AuthenticationService {
                 .build();
     }
 
-    private UserAccount createGoogleUser(String email) {
+    private UserAccount createGoogleUser(Map<?, ?> googleUser) {
+        String email = (String) googleUser.get("email");
         log.info("Creating new Google user for email: {}", email);
 
+<<<<<<< Updated upstream
+=======
+        // Lấy thông tin thật từ Google, fallback nếu thiếu
+        String givenName  = (String) googleUser.get("given_name");
+        String familyName = (String) googleUser.get("family_name");
+        String picture    = (String) googleUser.get("picture");
+        String fallbackName = email.split("@")[0];
+
+>>>>>>> Stashed changes
         UserAccount userAccount = UserAccount.builder()
                 .email(email)
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .status(UserStatus.ACTIVE)
+<<<<<<< Updated upstream
+=======
+                .firstName(givenName  != null && !givenName.isBlank()  ? givenName  : fallbackName)
+                .lastName (familyName != null && !familyName.isBlank() ? familyName : "")
+                .avatarUrl(picture)
+                .isDeleted(false)
+>>>>>>> Stashed changes
                 .build();
         userAccount = userAccountRepository.save(userAccount);
 
-        // roleId = 1L là STUDENT — kiểm tra lại DB cho đúng
-        Role defaultRole = roleRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("Default role not found"));
+        Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.STUDENT)
+                .orElseThrow(() -> new RuntimeException("Default role STUDENT not found"));
 
         UserRole userRole = UserRole.builder()
                 .userAccount(userAccount)
@@ -282,6 +299,6 @@ public class AuthenticationService {
         loginHistoryRepository.save(loginHistory);
         userAccount.setLoginHistory(loginHistory);
 
-        return userAccountRepository.save(userAccount);
+        return userAccount;
     }
 }
