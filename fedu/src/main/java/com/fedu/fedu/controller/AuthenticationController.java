@@ -1,9 +1,8 @@
 package com.fedu.fedu.controller;
 
 import org.springframework.security.access.prepost.PreAuthorize;
-import com.fedu.fedu.dto.UserCreateDTO;
-import com.fedu.fedu.dto.UserRegisterDTO;
-import com.fedu.fedu.dto.UserStatusSetDTO;
+import com.fedu.fedu.dto.req.UserCreateRequest;
+import com.fedu.fedu.dto.req.UserSetStatusRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.ResetPasswordDTO;
 import com.fedu.fedu.dto.req.SignInRequest;
@@ -14,24 +13,14 @@ import com.fedu.fedu.service.AuthenticationService;
 import com.fedu.fedu.service.UserAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.mail.MessagingException;
-import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.Response;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.UnsupportedEncodingException;
-
-import static org.springframework.http.HttpStatus.OK;
 
 import java.util.Map;
 import com.fedu.fedu.dto.req.GoogleLoginRequest;
@@ -47,10 +36,8 @@ public class AuthenticationController {
     private final AuthenticationService authenticationService;
     private final UserAccountService userAccountService;
 
-    private static final String API_KEY = "api-key";
-
     //register user
-    @Operation(method = "POST", summary = "Save user account and forward to user service ", description = "Send a request to register new user")
+    @Operation(method = "POST", summary = "Save new user account", description = "Send a request to register new user")
     @PostMapping("/register")
     public ResponseData<Void> registerUser(@RequestBody RegisterRequest request) {
         try {
@@ -62,21 +49,8 @@ public class AuthenticationController {
         }
     }
 
-    //get user from user service and save new user to db
-    @Operation(method = "POST", summary = "Get user from user service and save new user to db ", description = "Get new user")
-    @PostMapping(value = "/add")
-    public ResponseData<Void> addUser(@RequestBody UserCreateDTO userCreateDTO) {
-        try {
-            userAccountService.createUser(userCreateDTO);
-            return new ResponseData<>(HttpStatus.CREATED.value(), "User added successfully");
-        } catch (Exception e) {
-            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error: " + e.getMessage());
-        }
-
-    }
-
     //login - create token
-    @Operation(method = "POST", summary = "Login", description = "Login")
+    @Operation(method = "POST", summary = "Login", description = "Allow user login get access token")
     @PostMapping("/login")
     public ResponseData<TokenResponse> accessToken(@RequestBody SignInRequest request) {
         try {
@@ -100,40 +74,16 @@ public class AuthenticationController {
 
     //refresh token
     @PostMapping("/refresh-token")
-    public ResponseEntity<TokenResponse> refreshToken(HttpServletRequest request) {
-        return new ResponseEntity<>(authenticationService.refreshToken(request), OK);
-    }
-
-    @Operation(summary = "Delete user permanently", description = "Handle deletion of user")
-    @PreAuthorize("hashRole('ADMIN')")
-    @DeleteMapping("/delete")
-    public ResponseData<Void> deleteUser(@RequestBody String username) {
-        try {
-            userAccountService.deleteByEmail(username);
-            return new ResponseData<>(HttpStatus.OK.value(), "User deleted successfully");
-        } catch (Exception e) {
-            log.error("Failed to delete user: {}", e.getMessage(), e);
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Failed to delete user");
-        }
-    }
-
-    @Operation(summary = "Change status of user", description = "Send a request to change status of user")
-    @PreAuthorize("hashRole('ADMIN')")
-    @PatchMapping("/status")
-    public ResponseData<Void> updateStatus(@RequestBody UserStatusSetDTO userStatusSetDTO) {
-        try {
-            userAccountService.changeUserStatus(userStatusSetDTO.getUserName(), userStatusSetDTO.getStatus());
-            return new ResponseData<>(HttpStatus.ACCEPTED.value(), "update user status success");
-        } catch (Exception e) {
-            log.info("{}", e.getMessage(), e.getCause());
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "update user status failed");
-        }
+    public ResponseData<TokenResponse> refreshToken(HttpServletRequest request) {
+        authenticationService.refreshToken(request);
+        return new ResponseData<>(HttpStatus.OK.value(), "Success");
     }
 
     //log out remove token
     @PostMapping("/log-out")
-    public ResponseEntity<String> removeToken(HttpServletRequest request) {
-        return new ResponseEntity<>(authenticationService.removeToken(request), OK);
+    public ResponseData<String> removeToken(HttpServletRequest request) {
+        authenticationService.removeToken(request);
+        return new ResponseData<>(HttpStatus.OK.value(), "Success");
     }
 
     @PostMapping("/forgot-password")
@@ -152,18 +102,18 @@ public class AuthenticationController {
     }
 
     @GetMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(HttpServletRequest request) {
+    public ResponseData<String> resetPassword(HttpServletRequest request) {
         try {
             String secretKey = request.getHeader("X-Secret-Key");
             if (secretKey == null || secretKey.isBlank()) {
-                return new ResponseEntity<>("Missing or invalid secret key", HttpStatus.BAD_REQUEST);
+                return new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Missing or invalid secret key");
             }
 
             String response = authenticationService.resetPassword(secretKey);
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            return new ResponseData<>( HttpStatus.OK.value(), response);
         } catch (Exception e) {
             log.error("Error during password reset: ", e);
-            return new ResponseEntity<>("Failed to reset password", HttpStatus.BAD_REQUEST);
+            return new ResponseData<>(HttpStatus.BAD_REQUEST.value(), "Failed to reset password");
         }
     }
 

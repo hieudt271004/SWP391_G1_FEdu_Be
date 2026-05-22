@@ -1,7 +1,5 @@
 package com.fedu.fedu.service;
 
-import com.fedu.fedu.dto.UserRegisterDTO;
-import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.ResetPasswordDTO;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.res.TokenResponse;
@@ -9,7 +7,6 @@ import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.entity.Token;
 import com.fedu.fedu.entity.UserAccount;
 import io.micrometer.common.util.StringUtils;
-import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +16,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 import static com.fedu.fedu.utils.enums.TokenType.*;
@@ -59,6 +55,7 @@ public class AuthenticationService {
 
     public TokenResponse accessToken(SignInRequest signInRequest) {
 
+        log.info("----------accessToken ----------");
         UserAccount user = userService.getByEmail(signInRequest.getEmail());
         if (!user.isEnabled()) {
             throw new InvalidDataException("User not active");
@@ -151,7 +148,7 @@ public class AuthenticationService {
         if (user == null) {
             throw new IllegalArgumentException("Invalid or expired secret key");
         }
-        var token = tokenService.getByUsername(user.getUsername());
+        var token = tokenService.getByEmail(user.getUsername());
         if (token == null) {
             throw new IllegalStateException("No token found for user");
         }

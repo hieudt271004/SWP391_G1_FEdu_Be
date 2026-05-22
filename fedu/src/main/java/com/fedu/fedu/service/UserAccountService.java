@@ -1,6 +1,6 @@
 package com.fedu.fedu.service;
 
-import com.fedu.fedu.dto.UserCreateDTO;
+import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.entity.UserAccount;
@@ -20,6 +20,7 @@ public interface UserAccountService {
     UserAccount getByEmail(String email);
 
     void changeUserStatus(String username, UserStatus status);
+
     void verifyAccount(String email);
 
     void save(UserAccount userAccount);
@@ -30,7 +31,7 @@ public interface UserAccountService {
 
     void updateLastLogin(SignInRequest request);
 
-    void createUser(UserCreateDTO userCreateDTO);
+    void createUser(UserCreateRequest userCreateDTO);
 
     void deleteByEmail(String email);
 }

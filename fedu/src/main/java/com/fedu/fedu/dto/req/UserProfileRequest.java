@@ -1,4 +1,4 @@
-package com.fedu.fedu.dto;
+package com.fedu.fedu.dto.req;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fedu.fedu.utils.enums.Gender;
@@ -7,7 +7,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 
@@ -15,8 +14,9 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserRegisterDTO {
-    private String fullName;
+public class UserProfileRequest {
+    private String lastName;
+    private String firstName;
     private Gender gender;
     @JsonFormat(pattern = "dd/MM/yyyy")
     private LocalDate bod;

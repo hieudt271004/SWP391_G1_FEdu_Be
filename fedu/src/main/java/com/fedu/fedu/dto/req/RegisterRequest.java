@@ -34,8 +34,6 @@ public class RegisterRequest {
     @PasswordMatchValidator
     private String confirmPassword;
 
-    //@NotBlank(message = "status can not be invalid")
-    //@Pattern(regexp = "^ACTIVE|INACTIVE|NONE$", message = "status must be one in {ACTIVE INACTIVE NONE}")
     @EnumPattern(name = "status", regexp = "ACTIVE|INACTIVE|NONE")
     private UserStatus status;
 

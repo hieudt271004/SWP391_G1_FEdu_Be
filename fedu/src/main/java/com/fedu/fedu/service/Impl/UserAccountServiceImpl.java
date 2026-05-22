@@ -1,6 +1,6 @@
 package com.fedu.fedu.service.Impl;
 
-import com.fedu.fedu.dto.UserCreateDTO;
+import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.entity.LoginHistory;
@@ -102,14 +102,14 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
-    public void createUser(UserCreateDTO userCreateDTO) {
+    public void createUser(UserCreateRequest userCreateDTO) {
         UserAccount userAccount = createUserAccount(userCreateDTO);
         saveNewLoginHistory(userAccount);
         assignUserRole(userAccount, userCreateDTO.getUserRole());
         userAccountRepository.save(userAccount);
     }
 
-    private UserAccount createUserAccount(UserCreateDTO userCreateDTO) {
+    private UserAccount createUserAccount(UserCreateRequest userCreateDTO) {
         String email = userCreateDTO.getEmail();
         String username = email != null && email.contains("@") ? email.split("@")[0] : "user";
         return UserAccount.builder()
