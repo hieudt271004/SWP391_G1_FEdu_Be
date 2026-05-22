@@ -170,9 +170,18 @@ public class AuthenticationService {
         //get user from token reset password dto
         UserAccount user = validateToken(request.getSecretKey());
 
+        Token tokenEntity = tokenService.getByUsername(user.getEmail());
+        if(tokenEntity == null
+                || tokenEntity.getResetToken() == null
+                || !tokenEntity.getResetToken().equals(request.getSecretKey())){
+            throw new InvalidDataException("Reset token không hợp lệ đã được sử dụng");
+        }
         // update password
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userService.save(user);
+
+        tokenService.clearResetToken(user.getEmail());
+
         return "Changed";
     }
 
