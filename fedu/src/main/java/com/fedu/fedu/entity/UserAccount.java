@@ -47,14 +47,13 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", columnDefinition = "e_user_status")
     private UserStatus status;
 
     @OneToMany(
             mappedBy = "userAccount",
-            fetch = FetchType.LAZY,
+            fetch = FetchType.EAGER,
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
@@ -67,7 +66,6 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     )
     private LoginHistory loginHistory;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "gender", columnDefinition = "e_gender")
     private Gender gender;
@@ -84,7 +82,7 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
         return userRoles.stream()
                 .map(userRole ->
                         new SimpleGrantedAuthority(
-                                userRole.getRole()
+                                "ROLE_" + userRole.getRole()
                                         .getRoleName()
                                         .name()
                         )
