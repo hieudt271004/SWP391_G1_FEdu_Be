@@ -16,20 +16,13 @@ CREATE ROLE sa
     PASSWORD '123456';
 
 CREATE DATABASE fedu_db
-    OWNER sa;
-
-
-
-
+OWNER sa;
 
 DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
 
 GRANT ALL ON SCHEMA public TO sa;
 GRANT ALL ON SCHEMA public TO public;
-
-
-
 
 -- =========================================================
 -- ENUMS
@@ -39,44 +32,49 @@ CREATE TYPE public.e_role AS ENUM (
     'TEACHER',
     'STUDENT',
     'SUB_MENTOR',
-    'USER'
-    );
+	'USER'
+);
 
 CREATE TYPE public.e_user_status AS ENUM (
     'ACTIVE',
     'INACTIVE',
     'NONE'
-    );
+);
 
 CREATE TYPE public.e_node_type AS ENUM (
     'AT_HOME',
     'ON_CLASS'
-    );
+);
 
 CREATE TYPE public.e_node_status AS ENUM (
     'LOCKED',
     'OPEN',
     'HIDDEN'
-    );
+);
 
 CREATE TYPE public.e_ticket_status AS ENUM (
     'OPEN',
     'PROCESSING',
     'RESOLVED',
     'CLOSED'
-    );
+);
 
 CREATE TYPE public.e_ticket_level AS ENUM (
     'SUB_MENTOR',
     'LECTURER'
-    );
+);
 
 CREATE TYPE public.e_submission_status AS ENUM (
     'PENDING',
     'SUBMITTED',
     'LATE',
     'GRADED'
-    );
+);
+
+CREATE TYPE public."e_gender" AS ENUM (
+    'MALE',
+    'FEMALE',
+    'OTHER');
 
 -- =========================================================
 -- AUTHENTICATION & AUTHORIZATION
@@ -90,6 +88,9 @@ CREATE TABLE user_account (
                               last_name VARCHAR(255) NOT NULL,
                               first_name VARCHAR(255) NOT NULL,
                               avatar_url TEXT,
+                              gender public."e_gender",
+                              bod DATE,
+                              phone VARCHAR(50),
 
                               status public.e_user_status NOT NULL DEFAULT 'ACTIVE',
 

@@ -1,5 +1,6 @@
 package com.fedu.fedu.entity;
 
+import com.fedu.fedu.utils.enums.Gender;
 import com.fedu.fedu.utils.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,6 +10,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -64,6 +66,18 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
             orphanRemoval = true
     )
     private LoginHistory loginHistory;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "gender", columnDefinition = "e_gender")
+    private Gender gender;
+
+    @Column(name = "bod")
+    @Temporal(TemporalType.DATE)
+    private LocalDate bod;
+
+    @Column(name = "phone")
+    private String phone;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

@@ -5,6 +5,8 @@ import com.fedu.fedu.utils.enums.NodeType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
@@ -31,7 +33,8 @@ public class LearningNode extends AbstractEntity<Long> {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "node_type", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "node_type", columnDefinition = "e_node_type")
     private NodeType nodeType;
 
     @Column(name = "branch_name")
@@ -41,7 +44,8 @@ public class LearningNode extends AbstractEntity<Long> {
     private Integer displayOrder;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "node_status", columnDefinition = "e_node_status")
     private NodeStatus status;
 
     @Column(name = "is_required")

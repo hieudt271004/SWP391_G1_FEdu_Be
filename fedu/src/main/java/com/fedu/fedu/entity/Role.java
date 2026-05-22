@@ -4,6 +4,8 @@ import com.fedu.fedu.utils.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
@@ -19,8 +21,10 @@ public class Role extends AbstractEntity<Long> {
     @Column(name = "role_id")
     private long roleId;
 
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "role_name", nullable = false, unique = true)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "role_name", columnDefinition = "e_role")
     private UserRole roleName;
 
 }

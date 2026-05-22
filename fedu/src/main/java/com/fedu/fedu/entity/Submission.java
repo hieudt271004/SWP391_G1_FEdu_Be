@@ -4,6 +4,8 @@ import com.fedu.fedu.utils.enums.SubmissionStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -40,7 +42,8 @@ public class Submission extends AbstractEntity<Long> {
     private String fileUrl;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "submission_status", columnDefinition = "e_submission_status")
     private SubmissionStatus status = SubmissionStatus.PENDING;
 
     @Column(name = "grade", precision = 5, scale = 2)

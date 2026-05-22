@@ -35,18 +35,6 @@ public class PreFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         log.info("---------- doFilterInternal ----------");
 
-        if ("/auth/add".equals(request.getRequestURI())) {
-            String apiKey = request.getHeader("API-KEY");
-            if ("api-key".equals(apiKey)) {
-                filterChain.doFilter(request, response);
-                return;
-            } else {
-                log.info("API-KEY Invalid");
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "API-KEY Invalid");
-                return;
-            }
-        }
-
         final String authorization = request.getHeader(AUTHORIZATION);
 
         if (StringUtils.isBlank(authorization) || !authorization.startsWith("Bearer ")) {
