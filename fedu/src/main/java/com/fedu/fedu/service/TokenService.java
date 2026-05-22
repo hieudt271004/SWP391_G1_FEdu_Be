@@ -48,6 +48,15 @@ public class TokenService {
         tokenRepository.delete(token);
     }
 
+    public void clearResetToken(String username) {
+        Token token = tokenRepository.findByUserAccount_Email(username)
+                .orElse(null);
+        if (token != null) {
+            token.setResetToken(null);
+            tokenRepository.save(token);
+        }
+    }
+
     // kiểm tra tồn tại token bằng id
     public boolean isExists(long id) {
         if (!tokenRepository.existsById(id)) {
