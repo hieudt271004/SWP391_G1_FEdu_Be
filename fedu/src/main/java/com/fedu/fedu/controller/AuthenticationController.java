@@ -1,8 +1,5 @@
 package com.fedu.fedu.controller;
 
-import org.springframework.security.access.prepost.PreAuthorize;
-import com.fedu.fedu.dto.req.UserCreateRequest;
-import com.fedu.fedu.dto.req.UserSetStatusRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.ResetPasswordDTO;
 import com.fedu.fedu.dto.req.SignInRequest;
@@ -39,7 +36,7 @@ public class AuthenticationController {
     //register user
     @Operation(method = "POST", summary = "Save new user account", description = "Send a request to register new user")
     @PostMapping("/register")
-    public ResponseData<Void> registerUser(@RequestBody RegisterRequest request) {
+    public ResponseData<Void> registerUser(@Valid @RequestBody RegisterRequest request) {
         try {
             userAccountService.save(request);
             return new ResponseData<>(HttpStatus.CREATED.value(), "User registered successfully");
@@ -52,7 +49,7 @@ public class AuthenticationController {
     //login - create token
     @Operation(method = "POST", summary = "Login", description = "Allow user login get access token")
     @PostMapping("/login")
-    public ResponseData<TokenResponse> accessToken(@RequestBody SignInRequest request) {
+    public ResponseData<TokenResponse> accessToken(@Valid @RequestBody SignInRequest request) {
         try {
             return new ResponseData<>(HttpStatus.OK.value(), "User login", authenticationService.accessToken(request));
         } catch (Exception e) {

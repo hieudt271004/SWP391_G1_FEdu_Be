@@ -167,7 +167,7 @@ public class AuthenticationService {
         //get user from token reset password dto
         UserAccount user = validateToken(request.getSecretKey());
 
-        Token tokenEntity = tokenService.getByUsername(user.getEmail());
+        Token tokenEntity = tokenService.getByEmail(user.getEmail());
         if(tokenEntity == null
                 || tokenEntity.getResetToken() == null
                 || !tokenEntity.getResetToken().equals(request.getSecretKey())){
