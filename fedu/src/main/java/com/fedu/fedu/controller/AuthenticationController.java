@@ -1,11 +1,13 @@
 package com.fedu.fedu.controller;
 
+import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.ResetPasswordDTO;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.res.ResponseData;
 import com.fedu.fedu.dto.res.ResponseError;
 import com.fedu.fedu.dto.res.TokenResponse;
+import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.service.AuthenticationService;
 import com.fedu.fedu.service.UserAccountService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,7 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 
 import java.util.Map;
 import com.fedu.fedu.dto.req.GoogleLoginRequest;
@@ -54,6 +55,19 @@ public class AuthenticationController {
             return new ResponseData<>(HttpStatus.OK.value(), "User login", authenticationService.accessToken(request));
         } catch (Exception e) {
             return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Unexpected error: " + e.getMessage());
+        }
+    }
+
+    @Operation(method = "GET", summary = "Get current user infor",
+               description = "Return user infor based on JWT token in Authorization header")
+    @GetMapping("/me")
+    public ResponseData<UserResponse> getCurrentUser(){
+        try {
+            UserResponse user = authenticationService.getCurrentUser();
+            return new ResponseData<>(HttpStatus.OK.value(), "Success", user);
+        }catch (Exception e){
+            return new ResponseError(HttpStatus.UNAUTHORIZED.value(),
+                    "Failed to get user infor: " + e.getMessage());
         }
     }
 

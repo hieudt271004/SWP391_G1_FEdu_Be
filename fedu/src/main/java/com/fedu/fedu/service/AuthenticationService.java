@@ -3,6 +3,7 @@ package com.fedu.fedu.service;
 import com.fedu.fedu.dto.req.ResetPasswordDTO;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.res.TokenResponse;
+import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.entity.Token;
 import com.fedu.fedu.entity.UserAccount;
@@ -281,5 +282,29 @@ public class AuthenticationService {
         userAccount.setLoginHistory(loginHistory);
 
         return userAccount;
+    }
+
+    public UserResponse getCurrentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        UserAccount user = userService.getByEmail(email);
+
+        List<String> roles = userService.getAllRoleByEmail(user.getUserId());
+
+        return UserResponse.builder()
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .avatarUrl(user.getAvatarUrl())
+                .roles(roles)
+                .status(user.getStatus())
+                .gender(user.getGender())
+                .bod(user.getBod())
+                .phone(user.getPhone())
+                .build();
     }
 }
