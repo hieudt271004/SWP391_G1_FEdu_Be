@@ -286,6 +286,8 @@ CREATE TABLE learning_nodes (
 
                                 is_deleted BOOLEAN DEFAULT FALSE,
 
+                                path_id INT REFERENCES learning_paths(path_id) ON DELETE CASCADE,
+
                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
