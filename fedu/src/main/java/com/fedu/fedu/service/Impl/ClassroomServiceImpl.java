@@ -34,8 +34,6 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final SubjectRepository subjectRepository;
     private final UserAccountRepository userAccountRepository;
 
-    // ─── CREATE ──────────────────────────────────────────────────────────────
-
     @Override
     @Transactional
     public ClassroomResponse createClassroom(ClassroomRequest request, long currentUserId) {
@@ -134,6 +132,8 @@ public class ClassroomServiceImpl implements ClassroomService {
         return classroomRepository.findAllBySubject(subjectId)
                 .stream()
                 .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
 
     @Override
     public List<ClassroomResponse> getClassroomsByLecturerId(Long lecturerId) {
@@ -177,6 +177,21 @@ public class ClassroomServiceImpl implements ClassroomService {
         Subject subject = classroom.getSubject();
         int studentCount = classroomStudentRepository.findAllByClassroomId(classroom.getClassroomId()).size();
 
+        return ClassroomResponse.builder()
+                .classroomId(classroom.getClassroomId())
+                .className(classroom.getClassName())
+                .semester(classroom.getSemester())
+                .description(classroom.getDescription())
+                .subjectId(classroom.getSubject().getSubjectId())
+                .subjectCode(classroom.getSubject().getSubjectCode())
+                .subjectName(classroom.getSubject().getSubjectName())
+                .lecturerId(classroom.getLecturer().getUserId())
+                .lecturerEmail(classroom.getLecturer().getEmail())
+                .lecturerName(lecturer.getFirstName() + " " + lecturer.getLastName())
+                .studentCount(studentCount)
+                .build();
+    }
+
     public List<SubjectResponse> getSubjectsByLecturerId(Long lecturerId) {
         List<Classroom> classrooms = classroomRepository.findByLecturer_UserIdAndIsDeletedFalse(lecturerId);
         return classrooms.stream()
@@ -197,25 +212,8 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .className(classroom.getClassName())
                 .semester(classroom.getSemester())
                 .description(classroom.getDescription())
-                .subjectId(subject.getSubjectId())
-                .subjectCode(subject.getSubjectCode())
-                .subjectName(subject.getSubjectName())
-                .lecturerId(lecturer.getUserId())
-                .lecturerName(lecturer.getFirstName() + " " + lecturer.getLastName())
-                .lecturerEmail(lecturer.getEmail())
-                .studentCount(studentCount)
                 .createdAt(classroom.getCreatedAt())
                 .updatedAt(classroom.getUpdatedAt())
-                .build();
-    }
-}
-                .subjectId(classroom.getSubject().getSubjectId())
-                .subjectCode(classroom.getSubject().getSubjectCode())
-                .subjectName(classroom.getSubject().getSubjectName())
-                .lecturerId(classroom.getLecturer().getUserId())
-                .lecturerEmail(classroom.getLecturer().getEmail())
-                .lecturerFirstName(classroom.getLecturer().getFirstName())
-                .lecturerLastName(classroom.getLecturer().getLastName())
                 .build();
     }
 }

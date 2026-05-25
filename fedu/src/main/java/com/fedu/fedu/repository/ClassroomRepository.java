@@ -22,7 +22,5 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
     @Query("SELECT c FROM Classroom c WHERE c.lecturer.userId = :lecturerId AND c.isDeleted = false ORDER BY c.createdAt DESC")
     List<Classroom> findAllByLecturer(long lecturerId);
 
-@Repository
-public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
     List<Classroom> findByLecturer_UserIdAndIsDeletedFalse(Long lecturerId);
 }
