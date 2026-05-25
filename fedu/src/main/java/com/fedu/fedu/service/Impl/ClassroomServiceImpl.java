@@ -11,6 +11,10 @@ import com.fedu.fedu.repository.ClassroomRepository;
 import com.fedu.fedu.repository.ClassroomStudentRepository;
 import com.fedu.fedu.repository.SubjectRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
+import com.fedu.fedu.dto.res.ClassroomResponse;
+import com.fedu.fedu.dto.res.SubjectResponse;
+import com.fedu.fedu.entity.Classroom;
+import com.fedu.fedu.repository.ClassroomRepository;
 import com.fedu.fedu.service.ClassroomService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -130,6 +134,12 @@ public class ClassroomServiceImpl implements ClassroomService {
         return classroomRepository.findAllBySubject(subjectId)
                 .stream()
                 .map(this::toResponse)
+
+    @Override
+    public List<ClassroomResponse> getClassroomsByLecturerId(Long lecturerId) {
+        List<Classroom> classrooms = classroomRepository.findByLecturer_UserIdAndIsDeletedFalse(lecturerId);
+        return classrooms.stream()
+                .map(this::mapToClassroomResponse)
                 .collect(Collectors.toList());
     }
 
@@ -167,6 +177,21 @@ public class ClassroomServiceImpl implements ClassroomService {
         Subject subject = classroom.getSubject();
         int studentCount = classroomStudentRepository.findAllByClassroomId(classroom.getClassroomId()).size();
 
+    public List<SubjectResponse> getSubjectsByLecturerId(Long lecturerId) {
+        List<Classroom> classrooms = classroomRepository.findByLecturer_UserIdAndIsDeletedFalse(lecturerId);
+        return classrooms.stream()
+                .map(Classroom::getSubject)
+                .distinct()
+                .map(subject -> SubjectResponse.builder()
+                        .subjectId(subject.getSubjectId())
+                        .subjectCode(subject.getSubjectCode())
+                        .subjectName(subject.getSubjectName())
+                        .description(subject.getDescription())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private ClassroomResponse mapToClassroomResponse(Classroom classroom) {
         return ClassroomResponse.builder()
                 .classroomId(classroom.getClassroomId())
                 .className(classroom.getClassName())
@@ -181,6 +206,16 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .studentCount(studentCount)
                 .createdAt(classroom.getCreatedAt())
                 .updatedAt(classroom.getUpdatedAt())
+                .build();
+    }
+}
+                .subjectId(classroom.getSubject().getSubjectId())
+                .subjectCode(classroom.getSubject().getSubjectCode())
+                .subjectName(classroom.getSubject().getSubjectName())
+                .lecturerId(classroom.getLecturer().getUserId())
+                .lecturerEmail(classroom.getLecturer().getEmail())
+                .lecturerFirstName(classroom.getLecturer().getFirstName())
+                .lecturerLastName(classroom.getLecturer().getLastName())
                 .build();
     }
 }

@@ -7,6 +7,15 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ClassroomResponse {
     private Long classroomId;
     private String className;
@@ -26,4 +35,7 @@ public class ClassroomResponse {
     private int studentCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String lecturerEmail;
+    private String lecturerFirstName;
+    private String lecturerLastName;
 }
