@@ -55,6 +55,9 @@ public class AppConfig {
                                 .requestMatchers(WHITE_LIST).permitAll()
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/teacher/**").hasRole("TEACHER")
+                                .requestMatchers("/teacher-manage/**").hasRole("TEACHER")
+                                .requestMatchers("/student/**").hasRole("STUDENT")
+                                .requestMatchers("/support/**").hasRole("SUB_MENTOR")
                                 .anyRequest().authenticated()
                 )
                 .sessionManagement(manager ->

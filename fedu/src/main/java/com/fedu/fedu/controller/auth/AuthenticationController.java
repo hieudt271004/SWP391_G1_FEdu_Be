@@ -1,4 +1,4 @@
-package com.fedu.fedu.controller;
+package com.fedu.fedu.controller.auth;
 
 import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.dto.req.RegisterRequest;

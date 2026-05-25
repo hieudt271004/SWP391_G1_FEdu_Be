@@ -1,4 +1,4 @@
-package com.fedu.fedu.controller;
+package com.fedu.fedu.controller.admin;
 
 import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.UserSetStatusRequest;

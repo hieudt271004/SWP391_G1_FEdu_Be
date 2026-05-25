@@ -104,9 +104,10 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void createUser(UserCreateRequest userCreateDTO) {
         UserAccount userAccount = createUserAccount(userCreateDTO);
-        saveNewLoginHistory(userAccount);
-        assignUserRole(userAccount, userCreateDTO.getUserRole());
+        //saveNewLoginHistory(userAccount);
         userAccountRepository.save(userAccount);
+        assignUserRole(userAccount, userCreateDTO.getUserRole());
+
     }
 
     private UserAccount createUserAccount(UserCreateRequest userCreateDTO) {

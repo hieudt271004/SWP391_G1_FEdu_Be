@@ -53,4 +53,8 @@ public class LearningNode extends AbstractEntity<Long> {
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "path_id")
+    private LearningPath learningPath;
 }
