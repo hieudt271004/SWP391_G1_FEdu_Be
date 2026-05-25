@@ -1,8 +1,11 @@
 package com.fedu.fedu.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +16,7 @@ import java.util.List;
 
 @Configuration
 public class OpenAPIConfig {
+    private static final String BEARER_SCHEME = "bearerAuth";
 
     @Bean
     public GroupedOpenApi publicApi(@Value("${openapi.service.api-docs}") String apiDocs) {
@@ -28,11 +32,25 @@ public class OpenAPIConfig {
             @Value("${openapi.service.version}") String version,
             @Value("${openapi.service.serverUrl}") String serverUrl,
             @Value("${openapi.service.serverName}") String serverName) {
+
+        // Define scheme Bearer JWT
+        SecurityScheme bearerScheme = new SecurityScheme()
+                .type(SecurityScheme.Type.HTTP)
+                .scheme("bearer")
+                .bearerFormat("JWT")
+                .description("Enter access token get from /auth/login");
+
+        SecurityRequirement securityRequirement = new SecurityRequirement()
+                .addList(BEARER_SCHEME);
+
         return new OpenAPI()
                 .servers(List.of(new Server().url(serverUrl).description(serverName)))
                 .info(new Info().title(title)
                         .description("FEdu System documents")
                         .version(version)
-                        .license(new License().name("Apache 2.0").url("https://springdoc.org")));
+                        .license(new License().name("Apache 2.0").url("https://springdoc.org")))
+                .components(new Components()
+                        .addSecuritySchemes(BEARER_SCHEME, bearerScheme))
+                .addSecurityItem(securityRequirement);
     }
 }
