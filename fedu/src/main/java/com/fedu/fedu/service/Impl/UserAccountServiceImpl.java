@@ -192,13 +192,7 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Override
     public boolean emailExist(String email) {
-        List<UserAccount> users = userAccountRepository.findAll();
-        for (UserAccount user : users) {
-            if (email.equals(user.getEmail())) {
-                return true;
-            }
-        }
-        return false;
+        return userAccountRepository.existsByEmail(email);
     }
 
     @Override
