@@ -30,7 +30,7 @@ public class AppConfig {
     private final PreFilter preFilter;
     private final UserAccountService userService;
 
-    @Value("${app.cors.allowed-origins}")
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private String[] allowedOrigins;
 
     public AppConfig(@Lazy PreFilter preFilter,
