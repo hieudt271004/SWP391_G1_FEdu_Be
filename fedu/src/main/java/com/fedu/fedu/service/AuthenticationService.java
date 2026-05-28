@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 import static com.fedu.fedu.utils.enums.TokenType.*;
-import static org.springframework.http.HttpHeaders.REFERER;
 
 import com.fedu.fedu.dto.req.GoogleLoginRequest;
 import com.fedu.fedu.entity.LoginHistory;
@@ -85,9 +84,9 @@ public class AuthenticationService {
     public TokenResponse refreshToken(HttpServletRequest request) {
         log.info("---------- refreshToken ----------");
 
-        final String refreshToken = request.getHeader(REFERER);
+        final String refreshToken = request.getHeader("x-refresh-token");
         if (StringUtils.isBlank(refreshToken)) {
-            throw new InvalidDataException("Token must be not blank");
+            throw new InvalidDataException("Refresh token must be not blank");
         }
         final String userName = jwtService.extractUsername(refreshToken, REFRESH_TOKEN);
         var user = userService.getByEmail(userName);
@@ -110,10 +109,9 @@ public class AuthenticationService {
     public String removeToken(HttpServletRequest request) {
         log.info("---------- removeToken ----------");
 
-        //get token from referer
-        final String token = request.getHeader(REFERER);
+        final String token = request.getHeader("x-refresh-token");
         if (StringUtils.isBlank(token)) {
-            throw new InvalidDataException("Token must be not blank");
+            throw new InvalidDataException(" Refresh token must be not blank");
         }
 
         //get username from token
