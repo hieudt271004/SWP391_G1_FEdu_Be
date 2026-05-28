@@ -51,3 +51,7 @@ jwt:
 
 app:
   frontend-url: http://localhost:5173
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      - http://localhost:3000
