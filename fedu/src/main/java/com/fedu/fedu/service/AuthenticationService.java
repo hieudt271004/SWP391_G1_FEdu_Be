@@ -183,7 +183,12 @@ public class AuthenticationService {
 
     //check user status
     private UserAccount validateToken(String token) {
-        var userName = jwtService.extractUsername(token, RESET_TOKEN);
+        final String userName;
+        try{
+            userName = jwtService.extractUsername(token, RESET_TOKEN);
+        }catch (Exception e){
+            throw new InvalidDataException("Link đặt lại mật khẩu đã hết hạn hoặc không hợp lệ");
+        }
 
         var user = userService.getByEmail(userName);
         if (!user.isEnabled()) {

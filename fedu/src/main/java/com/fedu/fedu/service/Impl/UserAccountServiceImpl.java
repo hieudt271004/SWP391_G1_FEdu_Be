@@ -9,6 +9,7 @@ import com.fedu.fedu.entity.LoginHistory;
 import com.fedu.fedu.entity.Role;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.entity.UserRole;
+import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.LoginHistoryRepository;
 import com.fedu.fedu.repository.RoleRepository;
@@ -161,7 +162,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     public void save(RegisterRequest request) {
         // chekc duplicate user
         if (userAccountRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new InvalidDataException("Email already exists");
         }
 
         UserAccount userAccount = UserAccount.builder()
@@ -174,8 +175,8 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .build();
         userAccountRepository.save(userAccount);
 
-        Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.USER)
-                .orElseThrow(() -> new RuntimeException("Default role USER not found"));
+        Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.STUDENT)
+                .orElseThrow(() -> new RuntimeException("Default role STUDENT not found"));
 
         assignRoleToUser(userAccount, defaultRole);
         saveLoginHistory(userAccount);
