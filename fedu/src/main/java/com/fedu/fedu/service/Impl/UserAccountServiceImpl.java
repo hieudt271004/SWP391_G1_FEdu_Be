@@ -3,6 +3,8 @@ package com.fedu.fedu.service.Impl;
 import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.SignInRequest;
+import com.fedu.fedu.dto.req.UserProfileRequest;
+import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.entity.LoginHistory;
 import com.fedu.fedu.entity.Role;
 import com.fedu.fedu.entity.UserAccount;
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -206,5 +209,59 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public List<String> getAllRoleByEmail(long userId) {
         return userAccountRepository.findAllRoleByUserId(userId);
+    }
+    
+    @Override
+    public UserAccount getById(long userId) {
+        return userAccountRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+    }
+    
+    @Override
+    public UserResponse updateProfile(long userId, UserProfileRequest request) {
+        log.info("---------- updateProfile for userId: {} ----------", userId);
+        
+        UserAccount userAccount = getById(userId);
+        
+        // Update fields
+        userAccount.setFirstName(request.getFirstName());
+        userAccount.setLastName(request.getLastName());
+        userAccount.setPhone(request.getPhone());
+        userAccount.setGender(request.getGender());
+        userAccount.setBod(request.getBod());
+        
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
+            userAccount.setAvatarUrl(request.getAvatarUrl());
+        }
+        
+        userAccountRepository.save(userAccount);
+        
+        return convertToUserResponse(userAccount);
+    }
+    
+    @Override
+    public UserResponse getProfile(long userId) {
+        log.info("---------- getProfile for userId: {} ----------", userId);
+        UserAccount userAccount = getById(userId);
+        return convertToUserResponse(userAccount);
+    }
+    
+    private UserResponse convertToUserResponse(UserAccount userAccount) {
+        List<String> roles = userAccount.getUserRoles().stream()
+                .map(ur -> ur.getRole().getRoleName().name())
+                .collect(Collectors.toList());
+        
+        return UserResponse.builder()
+                .userId(userAccount.getUserId())
+                .email(userAccount.getEmail())
+                .firstName(userAccount.getFirstName())
+                .lastName(userAccount.getLastName())
+                .phone(userAccount.getPhone())
+                .gender(userAccount.getGender())
+                .bod(userAccount.getBod())
+                .avatarUrl(userAccount.getAvatarUrl())
+                .status(userAccount.getStatus())
+                .roles(roles)
+                .build();
     }
 }

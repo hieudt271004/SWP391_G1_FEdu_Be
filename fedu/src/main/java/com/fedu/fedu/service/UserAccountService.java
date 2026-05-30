@@ -3,6 +3,8 @@ package com.fedu.fedu.service;
 import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.SignInRequest;
+import com.fedu.fedu.dto.req.UserProfileRequest;
+import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.utils.enums.UserStatus;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -18,6 +20,8 @@ public interface UserAccountService {
     boolean emailExist(String email);
 
     UserAccount getByEmail(String email);
+    
+    UserAccount getById(long userId);
 
     void changeUserStatus(String username, UserStatus status);
 
@@ -34,4 +38,8 @@ public interface UserAccountService {
     void createUser(UserCreateRequest userCreateDTO);
 
     void deleteByEmail(String email);
+    
+    UserResponse updateProfile(long userId, UserProfileRequest request);
+    
+    UserResponse getProfile(long userId);
 }
