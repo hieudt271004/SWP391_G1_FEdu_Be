@@ -16,7 +16,6 @@ import java.util.List;
 
 @Configuration
 public class OpenAPIConfig {
-    private static final String BEARER_SCHEME = "bearerAuth";
 
     @Bean
     public GroupedOpenApi publicApi(@Value("${openapi.service.api-docs}") String apiDocs) {
@@ -32,25 +31,19 @@ public class OpenAPIConfig {
             @Value("${openapi.service.version}") String version,
             @Value("${openapi.service.serverUrl}") String serverUrl,
             @Value("${openapi.service.serverName}") String serverName) {
-
-        // Define scheme Bearer JWT
-        SecurityScheme bearerScheme = new SecurityScheme()
-                .type(SecurityScheme.Type.HTTP)
-                .scheme("bearer")
-                .bearerFormat("JWT")
-                .description("Enter access token get from /auth/login");
-
-        SecurityRequirement securityRequirement = new SecurityRequirement()
-                .addList(BEARER_SCHEME);
-
         return new OpenAPI()
                 .servers(List.of(new Server().url(serverUrl).description(serverName)))
                 .info(new Info().title(title)
                         .description("FEdu System documents")
                         .version(version)
+                        .license(new License().name("Apache 2.0").url("https://springdoc.org")));
                         .license(new License().name("Apache 2.0").url("https://springdoc.org")))
-                .components(new Components()
-                        .addSecuritySchemes(BEARER_SCHEME, bearerScheme))
-                .addSecurityItem(securityRequirement);
+                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
+                .components(new Components().addSecuritySchemes("Bearer Authentication",
+                        new SecurityScheme()
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")
+                                .description("Enter JWT token")));
     }
 }
