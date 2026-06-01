@@ -4,10 +4,7 @@ import com.fedu.fedu.dto.req.CreateLearningNodeRequest;
 import com.fedu.fedu.dto.req.CreateLearningPathRequest;
 import com.fedu.fedu.dto.req.UpdateLearningNodeRequest;
 import com.fedu.fedu.dto.req.UpdateLearningPathRequest;
-import com.fedu.fedu.dto.res.ClassroomLearningPathResponse;
-import com.fedu.fedu.dto.res.LearningNodeResponse;
-import com.fedu.fedu.dto.res.LearningPathResponse;
-import com.fedu.fedu.dto.res.NodeEdgeResponse;
+import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
@@ -285,10 +282,38 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .build();
     }
 
-    private ClassroomLearningPathResponse
-    mapToClassroomPathResponse(
-            ClassroomLearningPath classroomPath
-    ) {
+    @Override
+    public LearningPathGraphResponse getLearningPathGraph(Long pathId) {
+
+        LearningPath learningPath = learningPathRepository
+                .findById(pathId)
+                .orElseThrow(() ->
+                        new RuntimeException("Learning path not found"));
+
+        List<LearningNodeResponse> nodes =
+                learningNodeRepository
+                        .findByLearningPathPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(pathId)
+                        .stream()
+                        .map(this::mapToLearningNodeResponse)
+                        .toList();
+
+        List<NodeEdgeResponse> edges =
+                nodeEdgeRepository
+                        .findByFromNodeLearningPathPathId(pathId)
+                        .stream()
+                        .map(this::mapToEdgeResponse)
+                        .toList();
+
+        return LearningPathGraphResponse.builder()
+                .pathId(learningPath.getPathId())
+                .pathName(learningPath.getPathName())
+                .description(learningPath.getDescription())
+                .nodes(nodes)
+                .edges(edges)
+                .build();
+    }
+
+    private ClassroomLearningPathResponse mapToClassroomPathResponse(ClassroomLearningPath classroomPath) {
 
         return ClassroomLearningPathResponse.builder()
                 .classroomPathId(classroomPath.getClassroomPathId())
@@ -317,6 +342,122 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .isDeleted(node.getIsDeleted())
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
+                .build();
+    }
+
+    private NodeEdgeResponse mapToEdgeResponse(NodeEdge edge) {
+        return NodeEdgeResponse.builder()
+                .edgeId(edge.getEdgeId())
+                .fromNodeId(edge.getFromNode().getNodeId())
+                .toNodeId(edge.getToNode().getNodeId())
+                .branchName(edge.getBranchName())
+                .minScore(edge.getMinScore())
+                .maxScore(edge.getMaxScore())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public LearningPathGraphResponse getClassroomLearningPathGraph(Long classroomId) {
+        Classroom classroom = classroomRepository.findById(classroomId)
+                .orElseThrow(() -> new RuntimeException("Classroom not found"));
+
+        List<ClassroomLearningPath> classroomPaths = classroomLearningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(classroomId);
+
+        ClassroomLearningPath classroomPath;
+        if (classroomPaths.isEmpty()) {
+            List<LearningPath> subjectPaths = learningPathRepository
+                    .findBySubjectSubjectIdAndIsDeletedFalse(classroom.getSubject().getSubjectId());
+
+            LearningPath templatePath;
+            if (subjectPaths.isEmpty()) {
+                templatePath = LearningPath.builder()
+                        .subject(classroom.getSubject())
+                        .pathName("Default Roadmap - " + classroom.getSubject().getSubjectCode())
+                        .description("Default roadmap template")
+                        .isDeleted(false)
+                        .build();
+                learningPathRepository.save(templatePath);
+            } else {
+                templatePath = subjectPaths.get(0);
+            }
+
+            classroomPath = ClassroomLearningPath.builder()
+                    .classroom(classroom)
+                    .originalPath(templatePath)
+                    .pathName(templatePath.getPathName())
+                    .description(templatePath.getDescription())
+                    .isDeleted(false)
+                    .build();
+            classroomLearningPathRepository.save(classroomPath);
+
+            List<LearningNode> templateNodes = learningNodeRepository
+                    .findByLearningPathPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(templatePath.getPathId());
+
+            Map<Long, LearningNode> nodeMapping = new HashMap<>();
+            for (LearningNode templateNode : templateNodes) {
+                LearningNode clonedNode = LearningNode.builder()
+                        .classroomLearningPath(classroomPath)
+                        .title(templateNode.getTitle())
+                        .description(templateNode.getDescription())
+                        .nodeType(templateNode.getNodeType())
+                        .branchName(templateNode.getBranchName())
+                        .displayOrder(templateNode.getDisplayOrder())
+                        .status(NodeStatus.LOCKED)
+                        .isRequired(templateNode.getIsRequired())
+                        .isDeleted(false)
+                        .build();
+                learningNodeRepository.save(clonedNode);
+                nodeMapping.put(templateNode.getNodeId(), clonedNode);
+            }
+
+            List<Long> templateNodeIds = templateNodes.stream()
+                    .map(LearningNode::getNodeId)
+                    .toList();
+            if (!templateNodeIds.isEmpty()) {
+                List<NodeEdge> templateEdges = nodeEdgeRepository.findByFromNodeNodeIdIn(templateNodeIds);
+                List<NodeEdge> clonedEdges = new ArrayList<>();
+                for (NodeEdge templateEdge : templateEdges) {
+                    LearningNode clonedFrom = nodeMapping.get(templateEdge.getFromNode().getNodeId());
+                    LearningNode clonedTo = nodeMapping.get(templateEdge.getToNode().getNodeId());
+                    if (clonedFrom != null && clonedTo != null) {
+                        NodeEdge clonedEdge = NodeEdge.builder()
+                                .fromNode(clonedFrom)
+                                .toNode(clonedTo)
+                                .branchName(templateEdge.getBranchName())
+                                .minScore(templateEdge.getMinScore())
+                                .maxScore(templateEdge.getMaxScore())
+                                .build();
+                        clonedEdges.add(clonedEdge);
+                    }
+                }
+                nodeEdgeRepository.saveAll(clonedEdges);
+            }
+        } else {
+            classroomPath = classroomPaths.get(0);
+        }
+
+        List<LearningNodeResponse> nodes = learningNodeRepository
+                .findByClassroomLearningPathClassroomPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(classroomPath.getClassroomPathId())
+                .stream()
+                .map(this::mapToLearningNodeResponse)
+                .toList();
+
+        List<Long> nodeIds = nodes.stream().map(LearningNodeResponse::getNodeId).toList();
+        List<NodeEdgeResponse> edges = new ArrayList<>();
+        if (!nodeIds.isEmpty()) {
+            edges = nodeEdgeRepository.findByFromNodeNodeIdIn(nodeIds)
+                    .stream()
+                    .map(this::mapToEdgeResponse)
+                    .toList();
+        }
+
+        return LearningPathGraphResponse.builder()
+                .pathId(classroomPath.getClassroomPathId())
+                .pathName(classroomPath.getPathName())
+                .description(classroomPath.getDescription())
+                .nodes(nodes)
+                .edges(edges)
                 .build();
     }
 }

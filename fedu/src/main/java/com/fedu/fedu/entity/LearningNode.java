@@ -23,7 +23,7 @@ public class LearningNode extends AbstractEntity<Long> {
     private Long nodeId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_path_id", nullable = false)
+    @JoinColumn(name = "classroom_path_id", nullable = true)
     private ClassroomLearningPath classroomLearningPath;
 
     @Column(name = "title", nullable = false)
