@@ -1,7 +1,5 @@
 package com.fedu.fedu.service;
 
-import com.fedu.fedu.entity.UserAccount;
-import com.fedu.fedu.repository.UserAccountRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
@@ -15,7 +13,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Objects;
 
 @Slf4j
@@ -24,7 +21,6 @@ import java.util.Objects;
 public class MailService {
 
     private final JavaMailSender mailSender;
-    private final UserAccountRepository userAccountRepository;
 
     @Value("${spring.mail.from}")
     private String emailFrom;
@@ -76,15 +72,5 @@ public class MailService {
 
         mailSender.send(message);
         log.info("Email sent successfully to {}", emailTo);
-    }
-
-    public boolean isExist(String email) {
-        List<UserAccount> users = userAccountRepository.findAll();
-        for(UserAccount account : users) {
-            if(account.getEmail().equals(email)) {
-                return false;
-            }
-        }
-        return true;
     }
 }

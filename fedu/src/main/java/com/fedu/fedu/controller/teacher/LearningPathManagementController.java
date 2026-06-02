@@ -259,4 +259,28 @@ public class LearningPathManagementController {
 //                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
 //            }
 //        }
+
+    @Operation(summary = "Get learning path graph")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @GetMapping("/learning-paths/{pathId}/graph")
+    public ResponseData<LearningPathGraphResponse> getLearningPathGraph(@PathVariable Long pathId) {
+        try {
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning path graph retrieved successfully", learningPathService.getLearningPathGraph(pathId));
+        } catch (Exception e) {
+            log.error("Get learning path graph failed", e);
+            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Get classroom learning path graph")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @GetMapping("/classrooms/{classroomId}/graph")
+    public ResponseData<LearningPathGraphResponse> getClassroomLearningPathGraph(@PathVariable Long classroomId) {
+        try {
+            return new ResponseData<>(HttpStatus.OK.value(), "Classroom learning path graph retrieved successfully", learningPathService.getClassroomLearningPathGraph(classroomId));
+        } catch (Exception e) {
+            log.error("Get classroom learning path graph failed", e);
+            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
+        }
+    }
 }

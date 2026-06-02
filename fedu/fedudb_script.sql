@@ -269,7 +269,7 @@ CREATE TABLE classroom_learning_paths (
 CREATE TABLE learning_nodes (
                                 node_id SERIAL PRIMARY KEY,
 
-                                classroom_path_id INT NOT NULL REFERENCES classroom_learning_paths(classroom_path_id) ON DELETE CASCADE,
+                                classroom_path_id INT REFERENCES classroom_learning_paths(classroom_path_id) ON DELETE CASCADE,
 
                                 title VARCHAR(255) NOT NULL,
                                 description TEXT,

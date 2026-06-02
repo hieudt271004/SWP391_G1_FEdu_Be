@@ -11,4 +11,5 @@ public interface NodeEdgeRepository extends JpaRepository<NodeEdge, Long> {
 
     List<NodeEdge> findByFromNodeNodeIdIn(List<Long> nodeIds);
 
+    List<NodeEdge> findByFromNodeLearningPathPathId(Long pathId);
 }

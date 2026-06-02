@@ -1,10 +1,7 @@
 package com.fedu.fedu.service;
 
 import com.fedu.fedu.dto.req.*;
-import com.fedu.fedu.dto.res.ClassroomLearningPathResponse;
-import com.fedu.fedu.dto.res.LearningNodeResponse;
-import com.fedu.fedu.dto.res.LearningPathResponse;
-import com.fedu.fedu.dto.res.NodeEdgeResponse;
+import com.fedu.fedu.dto.res.*;
 
 import java.util.List;
 
@@ -48,4 +45,8 @@ public interface LearningPathService {
 //    void deleteEdge(Long edgeId);
 //
 //    List<NodeEdgeResponse> getEdgesByNodeId(Long nodeId);
+
+    LearningPathGraphResponse getLearningPathGraph(Long pathId);
+
+    LearningPathGraphResponse getClassroomLearningPathGraph(Long classroomId);
 }

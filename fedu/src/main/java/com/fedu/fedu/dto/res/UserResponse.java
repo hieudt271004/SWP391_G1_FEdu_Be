@@ -1,37 +1,33 @@
-package com.fedu.fedu.dto.req;
+package com.fedu.fedu.dto.res;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fedu.fedu.dto.validator.GenderSubset;
-import com.fedu.fedu.dto.validator.PhoneNumber;
 import com.fedu.fedu.utils.enums.Gender;
-import jakarta.validation.constraints.NotBlank;
+import com.fedu.fedu.utils.enums.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserProfileRequest {
+public class UserResponse {
     
-    @NotBlank(message = "First name must not be blank")
+    private long userId;
+    private String email;
     private String firstName;
-    
-    @NotBlank(message = "Last name must not be blank")
     private String lastName;
-    
-    @PhoneNumber(message = "Phone number invalid format")
     private String phone;
-    
-    @GenderSubset(anyOf = {Gender.MALE, Gender.FEMALE, Gender.OTHER})
     private Gender gender;
     
     @JsonFormat(pattern = "dd/MM/yyyy")
     private LocalDate bod;
     
     private String avatarUrl;
+    private UserStatus status;
+    private List<String> roles;
 }
