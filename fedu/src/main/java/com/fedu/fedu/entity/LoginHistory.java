@@ -23,6 +23,7 @@ public class LoginHistory {
 
     @OneToOne
     @JoinColumn(name = "user_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private UserAccount userAccount;
 
     @Column(name = "created_at", nullable = false, updatable = false)

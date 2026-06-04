@@ -145,6 +145,15 @@ public class ClassroomServiceImpl implements ClassroomService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<ClassroomResponse> getClassroomsByStudent(long studentId) {
+        return classroomStudentRepository.findAllByStudentId(studentId)
+                .stream()
+                .map(cs -> toResponse(cs.getClassroom()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ClassroomResponse> getClassroomsByTeacher(long teacherId) {
         return classroomRepository.findAllByLecturer(teacherId)
                 .stream()

@@ -25,6 +25,9 @@ public interface ClassroomService {
     List<ClassroomResponse> getClassroomsByTeacher(long teacherId);
 
     ClassroomResponse assignTeacher(Long classroomId, AssignTeacherRequest request);
+    
+    List<ClassroomResponse> getClassroomsByStudent(long studentId);
+    
     List<ClassroomResponse> getClassroomsByLecturerId(Long lecturerId);
 
     List<SubjectResponse> getSubjectsByLecturerId(Long lecturerId);

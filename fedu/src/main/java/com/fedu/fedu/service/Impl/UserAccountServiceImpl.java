@@ -118,12 +118,20 @@ public class UserAccountServiceImpl implements UserAccountService {
     private UserAccount createUserAccount(UserCreateRequest userCreateDTO) {
         String email = userCreateDTO.getEmail();
         String username = email != null && email.contains("@") ? email.split("@")[0] : "user";
+        
+        String firstName = (userCreateDTO.getFirstName() != null && !userCreateDTO.getFirstName().trim().isEmpty()) 
+                ? userCreateDTO.getFirstName() : username;
+        String lastName = (userCreateDTO.getLastName() != null && !userCreateDTO.getLastName().trim().isEmpty()) 
+                ? userCreateDTO.getLastName() : "Created";
+        
         return UserAccount.builder()
                 .email(userCreateDTO.getEmail())
                 .password(passwordEncoder.encode(userCreateDTO.getPassword()))
-                .status(UserStatus.ACTIVE)
-                .firstName(username)
-                .lastName("Created")
+                .status(userCreateDTO.getStatus() != null ? userCreateDTO.getStatus() : UserStatus.ACTIVE)
+                .firstName(firstName)
+                .lastName(lastName)
+                .phone(userCreateDTO.getPhone())
+                .avatarUrl(userCreateDTO.getAvatarUrl())
                 .isDeleted(false)
                 .build();
     }
@@ -239,6 +247,13 @@ public class UserAccountServiceImpl implements UserAccountService {
         return convertToUserResponse(userAccount);
     }
     
+    @Override
+    public List<UserResponse> getAllUsers() {
+        return userAccountRepository.findAll().stream()
+                .map(this::convertToUserResponse)
+                .collect(Collectors.toList());
+    }
+
     @Override
     public UserResponse getProfile(long userId) {
         log.info("---------- getProfile for userId: {} ----------", userId);

@@ -23,6 +23,8 @@ public interface UserAccountService {
     
     UserAccount getById(long userId);
 
+    List<UserResponse> getAllUsers();
+
     void changeUserStatus(String username, UserStatus status);
 
     void verifyAccount(String email);
