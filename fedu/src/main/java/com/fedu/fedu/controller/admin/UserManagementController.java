@@ -24,6 +24,20 @@ public class UserManagementController {
 
     private final UserAccountService userAccountService;
 
+    @Operation(summary = "Get all users", description = "Return a list of all users")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @GetMapping("/users")
+    public ResponseData<java.util.List<com.fedu.fedu.dto.res.UserResponse>> getAllUsers() {
+        return new ResponseData<>(HttpStatus.OK.value(), "Success", userAccountService.getAllUsers());
+    }
+
+    @Operation(summary = "Get user by ID", description = "Return a specific user by ID")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @GetMapping("/users/{userId}")
+    public ResponseData<com.fedu.fedu.dto.res.UserResponse> getUserById(@PathVariable long userId) {
+        return new ResponseData<>(HttpStatus.OK.value(), "Success", userAccountService.getProfile(userId));
+    }
+
     // get user from user service and save new user to db
     @Operation(method = "POST", summary = "Get user from user service and save new user to db ", description = "Get new user")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
