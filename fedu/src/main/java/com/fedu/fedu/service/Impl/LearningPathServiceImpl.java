@@ -9,7 +9,7 @@ import com.fedu.fedu.entity.*;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
 import com.fedu.fedu.utils.enums.NodeStatus;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +31,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final ClassroomRepository classroomRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public List<LearningPathResponse> getLearningPathsBySubjectId(Long subjectId) {
         List<LearningPath> learningPaths = learningPathRepository.findBySubjectSubjectIdAndIsDeletedFalse(subjectId);
         return learningPaths.stream()
@@ -78,6 +79,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LearningPathResponse getLearningPathById(Long pathId) {
 
         LearningPath learningPath = learningPathRepository.findById(pathId)
@@ -151,6 +153,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ClassroomLearningPathResponse> getClassroomLearningPaths(Long classroomId) {
         return classroomLearningPathRepository
                 .findByClassroomClassroomIdAndIsDeletedFalse(classroomId)
@@ -215,6 +218,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LearningNodeResponse getLearningNodeById(Long nodeId) {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new RuntimeException("Node not found"));
@@ -222,6 +226,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LearningNodeResponse> getTemplateNodesByPathId(Long pathId) {
         return learningNodeRepository
                 .findByLearningPathPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(pathId)
@@ -231,6 +236,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LearningNodeResponse> getTemplateNodesBySubjectId(Long subjectId) {
         return learningNodeRepository
                 .findAllTemplateNodesBySubjectId(subjectId)
@@ -240,6 +246,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LearningNodeResponse> getClassroomNodesByClassroomPathId(Long classroomPathId) {
         return learningNodeRepository
                 .findByClassroomLearningPathClassroomPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(classroomPathId)
@@ -249,6 +256,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<LearningNodeResponse> getClassroomNodesByClassroomId(Long classroomId) {
         return learningNodeRepository
                 .findAllClassroomNodesByClassroomId(classroomId)
@@ -283,6 +291,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LearningPathGraphResponse getLearningPathGraph(Long pathId) {
 
         LearningPath learningPath = learningPathRepository

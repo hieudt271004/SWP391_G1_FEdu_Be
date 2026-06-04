@@ -1,5 +1,6 @@
 package com.fedu.fedu.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,6 +27,7 @@ public class Subject extends AbstractEntity<Long> {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private UserAccount createdBy;
