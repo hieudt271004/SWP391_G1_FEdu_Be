@@ -77,6 +77,15 @@ public class ClassroomController {
                 classroomService.getClassroomsByTeacher(teacherId));
     }
 
+    @Operation(summary = "Get classrooms by student")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
+    @GetMapping("/student/{studentId}")
+    public ResponseData<List<ClassroomResponse>> getClassroomsByStudent(@PathVariable long studentId) {
+        log.info("Request get classrooms by student id: {}", studentId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved classroom list successfully",
+                classroomService.getClassroomsByStudent(studentId));
+    }
+
     @Operation(summary = "Update classroom information")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     @PutMapping("/{classroomId}")
