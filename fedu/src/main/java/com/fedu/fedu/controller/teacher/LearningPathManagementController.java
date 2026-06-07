@@ -31,220 +31,136 @@ public class LearningPathManagementController {
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @PostMapping("/learning-paths")
         public ResponseData<LearningPathResponse> createLearningPath(@Valid @RequestBody CreateLearningPathRequest request) {
-            try {
-                return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path created successfully", learningPathService.createLearningPath(request));
-
-            } catch (Exception e) {
-                log.error("Create learning path failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path created successfully",
+                    learningPathService.createLearningPath(request));
         }
 
         @Operation(summary = "Update learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @PutMapping("/learning-paths/{pathId}")
         public ResponseData<LearningPathResponse> updateLearningPath(@PathVariable Long pathId, @Valid @RequestBody UpdateLearningPathRequest request) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Learning path updated successfully", learningPathService.updateLearningPath(pathId, request)
-                );
-
-            } catch (Exception e) {
-                log.error("Update learning path failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning path updated successfully",
+                    learningPathService.updateLearningPath(pathId, request));
         }
 
         @Operation(summary = "Delete learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @DeleteMapping("/learning-paths/{pathId}")
         public ResponseData<Void> deleteLearningPath(@PathVariable Long pathId) {
-            try {
-                learningPathService.deleteLearningPath(pathId);
-                return new ResponseData<>(HttpStatus.OK.value(), "Learning path deleted successfully");
-
-            } catch (Exception e) {
-                log.error("Delete learning path failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            learningPathService.deleteLearningPath(pathId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning path deleted successfully");
         }
 
         @Operation(summary = "Get learning path by id")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/learning-paths/{pathId}")
         public ResponseData<LearningPathResponse> getLearningPathById(@PathVariable Long pathId) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Learning path retrieved successfully", learningPathService.getLearningPathById(pathId));
-
-            } catch (Exception e) {
-                log.error("Get learning path failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning path retrieved successfully",
+                    learningPathService.getLearningPathById(pathId));
         }
 
         @Operation(summary = "Get learning paths by subject")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/subjects/{subjectId}/learning-paths")
         public ResponseData<List<LearningPathResponse>> getLearningPathsBySubjectId(@PathVariable Long subjectId) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Learning paths retrieved successfully", learningPathService.getLearningPathsBySubjectId(subjectId));
-            } catch (Exception e) {
-                log.error("Get learning paths failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning paths retrieved successfully",
+                    learningPathService.getLearningPathsBySubjectId(subjectId));
         }
 
         @Operation(summary = "Clone learning path to classroom")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @PostMapping("/classrooms/{classroomId}/clone-learning-path/{pathId}")
-        public ResponseData<ClassroomLearningPathResponse>
-        cloneLearningPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
-            try {
-                return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path cloned successfully", learningPathService.cloneLearningPath(classroomId, pathId));
-            } catch (Exception e) {
-                log.error("Clone learning path failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+        public ResponseData<ClassroomLearningPathResponse> cloneLearningPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
+            return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path cloned successfully",
+                    learningPathService.cloneLearningPath(classroomId, pathId));
         }
 
         @Operation(summary = "Get classroom learning paths")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/classrooms/{classroomId}/learning-paths")
-        public ResponseData<List<ClassroomLearningPathResponse>>
-        getClassroomLearningPaths(
-                @PathVariable Long classroomId) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Classroom learning paths retrieved successfully", learningPathService.getClassroomLearningPaths(classroomId));
-            } catch (Exception e) {
-                log.error("Get classroom paths failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+        public ResponseData<List<ClassroomLearningPathResponse>> getClassroomLearningPaths(@PathVariable Long classroomId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Classroom learning paths retrieved successfully",
+                    learningPathService.getClassroomLearningPaths(classroomId));
         }
 
         @Operation(summary = "Create learning node")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @PostMapping("/learning-nodes")
         public ResponseData<LearningNodeResponse> createLearningNode(@Valid @RequestBody CreateLearningNodeRequest request) {
-            try {
-                return new ResponseData<>(HttpStatus.CREATED.value(), "Learning node created successfully", learningPathService.createLearningNode(request));
-            } catch (Exception e) {
-                log.error("Create learning node failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            return new ResponseData<>(HttpStatus.CREATED.value(), "Learning node created successfully",
+                    learningPathService.createLearningNode(request));
         }
 
         @Operation(summary = "Update learning node")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @PutMapping("/learning-nodes/{nodeId}")
         public ResponseData<LearningNodeResponse> updateLearningNode(@PathVariable Long nodeId, @Valid @RequestBody UpdateLearningNodeRequest request) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Learning node updated successfully", learningPathService.updateLearningNode(nodeId, request));
-            } catch (Exception e) {
-                log.error("Update learning node failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning node updated successfully",
+                    learningPathService.updateLearningNode(nodeId, request));
         }
 
         @Operation(summary = "Delete learning node")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @DeleteMapping("/learning-nodes/{nodeId}")
         public ResponseData<Void> deleteLearningNode(@PathVariable Long nodeId) {
-
-            try {
-                learningPathService.deleteLearningNode(nodeId);
-                return new ResponseData<>(HttpStatus.OK.value(), "Learning node deleted successfully");
-            } catch (Exception e) {
-                log.error("Delete learning node failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            learningPathService.deleteLearningNode(nodeId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning node deleted successfully");
         }
 
         @Operation(summary = "Get learning node by id")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/learning-nodes/{nodeId}")
         public ResponseData<LearningNodeResponse> getLearningNodeById(@PathVariable Long nodeId) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Learning node retrieved successfully", learningPathService.getLearningNodeById(nodeId));
-            } catch (Exception e) {
-                log.error("Get learning node failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning node retrieved successfully",
+                    learningPathService.getLearningNodeById(nodeId));
         }
 
         @Operation(summary = "Get template nodes by path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/learning-paths/{pathId}/nodes")
-        public ResponseData<List<LearningNodeResponse>>
-        getTemplateNodesByPathId(@PathVariable Long pathId) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Template nodes retrieved successfully", learningPathService.getTemplateNodesByPathId(pathId));
-            } catch (Exception e) {
-                log.error("Get template nodes failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+        public ResponseData<List<LearningNodeResponse>> getTemplateNodesByPathId(@PathVariable Long pathId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Template nodes retrieved successfully",
+                    learningPathService.getTemplateNodesByPathId(pathId));
         }
 
         @Operation(summary = "Get template nodes by subject")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/subjects/{subjectId}/learning-nodes")
-        public ResponseData<List<LearningNodeResponse>>
-        getTemplateNodesBySubjectId(@PathVariable Long subjectId) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Template nodes retrieved successfully", learningPathService.getTemplateNodesBySubjectId(subjectId));
-            } catch (Exception e) {
-                log.error("Get subject nodes failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+        public ResponseData<List<LearningNodeResponse>> getTemplateNodesBySubjectId(@PathVariable Long subjectId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Template nodes retrieved successfully",
+                    learningPathService.getTemplateNodesBySubjectId(subjectId));
         }
 
         @Operation(summary = "Get classroom nodes by classroom path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/classroom-learning-paths/{classroomPathId}/nodes")
-        public ResponseData<List<LearningNodeResponse>>
-        getClassroomNodesByClassroomPathId(@PathVariable Long classroomPathId) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Classroom nodes retrieved successfully", learningPathService.getClassroomNodesByClassroomPathId(classroomPathId));
-            } catch (Exception e) {
-                log.error("Get classroom nodes failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+        public ResponseData<List<LearningNodeResponse>> getClassroomNodesByClassroomPathId(@PathVariable Long classroomPathId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Classroom nodes retrieved successfully",
+                    learningPathService.getClassroomNodesByClassroomPathId(classroomPathId));
         }
 
         @Operation(summary = "Get classroom nodes by classroom")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/classrooms/{classroomId}/learning-nodes")
-        public ResponseData<List<LearningNodeResponse>>
-        getClassroomNodesByClassroomId(@PathVariable Long classroomId) {
-            try {
-                return new ResponseData<>(HttpStatus.OK.value(), "Classroom nodes retrieved successfully", learningPathService.getClassroomNodesByClassroomId(classroomId));
-            } catch (Exception e) {
-                log.error("Get classroom nodes failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+        public ResponseData<List<LearningNodeResponse>> getClassroomNodesByClassroomId(@PathVariable Long classroomId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Classroom nodes retrieved successfully",
+                    learningPathService.getClassroomNodesByClassroomId(classroomId));
         }
 
         @Operation(summary = "Create node edge")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @PostMapping("/node-edges")
         public ResponseData<NodeEdgeResponse> createEdge(@Valid @RequestBody CreateNodeEdgeRequest request) {
-            try {
-                return new ResponseData<>(HttpStatus.CREATED.value(), "Edge created successfully",nodeEdgeService.createEdge(request));
-            } catch (Exception e) {
-                log.error("Create edge failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            return new ResponseData<>(HttpStatus.CREATED.value(), "Edge created successfully",
+                    nodeEdgeService.createEdge(request));
         }
 
         @Operation(summary = "Delete node edge")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @DeleteMapping("/node-edges/{edgeId}")
         public ResponseData<Void> deleteEdge(@PathVariable Long edgeId) {
-            try {
-                nodeEdgeService.deleteEdge(edgeId);
-                return new ResponseData<>(HttpStatus.OK.value(), "Edge deleted successfully");
-            } catch (Exception e) {
-                log.error("Delete edge failed", e);
-                return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-            }
+            nodeEdgeService.deleteEdge(edgeId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Edge deleted successfully");
         }
 
 //        @Operation(summary = "Get node edges")
@@ -264,23 +180,15 @@ public class LearningPathManagementController {
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/learning-paths/{pathId}/graph")
     public ResponseData<LearningPathGraphResponse> getLearningPathGraph(@PathVariable Long pathId) {
-        try {
-            return new ResponseData<>(HttpStatus.OK.value(), "Learning path graph retrieved successfully", learningPathService.getLearningPathGraph(pathId));
-        } catch (Exception e) {
-            log.error("Get learning path graph failed", e);
-            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-        }
+        return new ResponseData<>(HttpStatus.OK.value(), "Learning path graph retrieved successfully",
+                learningPathService.getLearningPathGraph(pathId));
     }
 
     @Operation(summary = "Get classroom learning path graph")
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/classrooms/{classroomId}/graph")
     public ResponseData<LearningPathGraphResponse> getClassroomLearningPathGraph(@PathVariable Long classroomId) {
-        try {
-            return new ResponseData<>(HttpStatus.OK.value(), "Classroom learning path graph retrieved successfully", learningPathService.getClassroomLearningPathGraph(classroomId));
-        } catch (Exception e) {
-            log.error("Get classroom learning path graph failed", e);
-            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-        }
+        return new ResponseData<>(HttpStatus.OK.value(), "Classroom learning path graph retrieved successfully",
+                learningPathService.getClassroomLearningPathGraph(classroomId));
     }
 }
