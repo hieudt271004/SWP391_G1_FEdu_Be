@@ -50,7 +50,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void changeUserStatus(String username, UserStatus status) {
         UserAccount userAccount = userAccountRepository.findByEmail(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         userAccount.setStatus(status);
         userAccountRepository.save(userAccount);
     }
@@ -77,7 +77,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
-               .orElseThrow(() -> new RuntimeException("User not found"));
+               .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         userAccountRepository.delete(userAccount);
     }
 
@@ -93,7 +93,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     public void updateLastLogin(SignInRequest request) {
         String email = request.getEmail();
         UserAccount account = userAccountRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         LoginHistory loginHistory = loginHistoryRepository.findByUserAccount(account)
                 .orElseGet(() -> {
