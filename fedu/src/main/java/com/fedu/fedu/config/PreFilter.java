@@ -35,38 +35,31 @@ public class PreFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         log.info("---------- doFilterInternal ----------");
 
-        if ("/auth/add".equals(request.getRequestURI())) {
-            String apiKey = request.getHeader("API-KEY");
-            if ("api-key".equals(apiKey)) {
-                filterChain.doFilter(request, response);
-                return;
-            } else {
-                log.info("API-KEY Invalid");
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "API-KEY Invalid");
-                return;
-            }
-        }
-
         final String authorization = request.getHeader(AUTHORIZATION);
 
         if (StringUtils.isBlank(authorization) || !authorization.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
-
         final String token = authorization.substring("Bearer ".length());
-
-        final String userName = jwtService.extractUsername(token, TokenType.ACCESS_TOKEN);
-
-        if (StringUtils.isNotEmpty(userName) && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userService.userDetailService().loadUserByUsername(userName);
-            if (jwtService.isValid(token, TokenType.ACCESS_TOKEN, userDetails)) {
-                SecurityContext context = SecurityContextHolder.createEmptyContext();
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                context.setAuthentication(authentication);
-                SecurityContextHolder.setContext(context);
+        try {
+            final String userName = jwtService.extractUsername(token, TokenType.ACCESS_TOKEN);
+            if (StringUtils.isNotEmpty(userName) && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userService.userDetailService().loadUserByUsername(userName);
+                if (jwtService.isValid(token, TokenType.ACCESS_TOKEN, userDetails)) {
+                    SecurityContext context = SecurityContextHolder.createEmptyContext();
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    context.setAuthentication(authentication);
+                    SecurityContextHolder.setContext(context);
+                }
             }
+        } catch (Exception e) {
+            log.warn("Invalid/expired access token: {}", e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"status\":401,\"message\":\"Token không hợp lệ hoặc đã hết hạn\"}");
+            return; // dừng, KHÔNG gọi doFilter
         }
 
         filterChain.doFilter(request, response);

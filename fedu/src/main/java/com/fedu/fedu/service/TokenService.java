@@ -8,35 +8,56 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class TokenService {
 
     private final TokenRepository tokenRepository;
 
-    public Token getByUsername(String username) {
-        return tokenRepository.findByEmail(username).orElseThrow(() -> new ResourceNotFoundException("Not found token"));
+    // lấy token bằng email ở user account
+    public Token getByEmail(String email) {
+        return tokenRepository.findByUserAccount_Email(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Not found token"));
     }
 
+    // lưu token cho user
     public long save(Token token) {
-        Optional<Token> optional = tokenRepository.findByEmail(token.getEmail());
+        Optional<Token> optional = tokenRepository.findByUserAccount_Email(token.getUserAccount().getEmail());
+        // chưa có token
         if (optional.isEmpty()) {
             tokenRepository.save(token);
             return token.getId();
-        } else {
+        }
+        // nếu user đã có token
+        else {
             Token t = optional.get();
             t.setAccessToken(token.getAccessToken());
             t.setRefreshToken(token.getRefreshToken());
+            if (token.getResetToken() != null) {
+                t.setResetToken(token.getResetToken());
+            }
             tokenRepository.save(t);
             return t.getId();
         }
     }
 
-    public void delete(String username) {
-        Token token = getByUsername(username);
+    // xóa cứng token bằng email
+    public void delete(String email) {
+        Token token = getByEmail(email);
         tokenRepository.delete(token);
     }
 
+    public void clearResetToken(String username) {
+        Token token = tokenRepository.findByUserAccount_Email(username)
+                .orElse(null);
+        if (token != null) {
+            token.setResetToken(null);
+            tokenRepository.save(token);
+        }
+    }
+
+    // kiểm tra tồn tại token bằng id
     public boolean isExists(long id) {
         if (!tokenRepository.existsById(id)) {
             throw new InvalidDataException("Token not exists");

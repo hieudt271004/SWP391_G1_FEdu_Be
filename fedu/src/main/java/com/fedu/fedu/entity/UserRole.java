@@ -19,6 +19,7 @@ public class UserRole {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private UserAccount userAccount;
 
     @ManyToOne
