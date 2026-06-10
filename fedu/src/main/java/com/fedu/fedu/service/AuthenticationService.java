@@ -1,15 +1,13 @@
 package com.fedu.fedu.service;
 
-import com.fedu.fedu.dto.UserRegisterDTO;
-import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.ResetPasswordDTO;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.res.TokenResponse;
+import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.entity.Token;
 import com.fedu.fedu.entity.UserAccount;
 import io.micrometer.common.util.StringUtils;
-import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,11 +17,22 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 import static com.fedu.fedu.utils.enums.TokenType.*;
-import static org.springframework.http.HttpHeaders.REFERER;
+
+import com.fedu.fedu.dto.req.GoogleLoginRequest;
+import com.fedu.fedu.entity.UserRole;
+import com.fedu.fedu.repository.RoleRepository;
+import com.fedu.fedu.repository.UserAccountRepository;
+import com.fedu.fedu.repository.UserRoleRepository;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.*;
+import java.util.Collections;
+import java.util.UUID;
+import com.fedu.fedu.utils.enums.UserStatus;
+import com.fedu.fedu.entity.Role;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -36,26 +45,13 @@ public class AuthenticationService {
     private final UserAccountService userService;
     private final MailService mailService;
     private final JwtService jwtService;
-
-    public UserRegisterDTO registerUser(RegisterRequest request) throws MessagingException, UnsupportedEncodingException {
-        String email = request.getEmail();
-        if(email.isBlank() || !mailService.isExist(email)) {
-            throw new InvalidDataException("Invalid email");
-        }
-
-        UserRegisterDTO user =  new UserRegisterDTO();
-        user.setFullName(request.getFullName());
-        user.setBod(request.getBod());
-        user.setGender(request.getGender());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
-        user.setStatus(request.getStatus());
-        return user;
-    }
-
+    private final UserAccountRepository userAccountRepository;
+    private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
 
     public TokenResponse accessToken(SignInRequest signInRequest) {
 
+        log.info("----------accessToken ----------");
         UserAccount user = userService.getByEmail(signInRequest.getEmail());
         if (!user.isEnabled()) {
             throw new InvalidDataException("User not active");
@@ -72,7 +68,7 @@ public class AuthenticationService {
 
         String refreshToken = jwtService.generateRefreshToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -84,9 +80,9 @@ public class AuthenticationService {
     public TokenResponse refreshToken(HttpServletRequest request) {
         log.info("---------- refreshToken ----------");
 
-        final String refreshToken = request.getHeader(REFERER);
+        final String refreshToken = request.getHeader("x-refresh-token");
         if (StringUtils.isBlank(refreshToken)) {
-            throw new InvalidDataException("Token must be not blank");
+            throw new InvalidDataException("Refresh token must be not blank");
         }
         final String userName = jwtService.extractUsername(refreshToken, REFRESH_TOKEN);
         var user = userService.getByEmail(userName);
@@ -96,7 +92,7 @@ public class AuthenticationService {
 
         String accessToken = jwtService.generateToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -109,10 +105,9 @@ public class AuthenticationService {
     public String removeToken(HttpServletRequest request) {
         log.info("---------- removeToken ----------");
 
-        //get token from referer
-        final String token = request.getHeader(REFERER);
+        final String token = request.getHeader("x-refresh-token");
         if (StringUtils.isBlank(token)) {
-            throw new InvalidDataException("Token must be not blank");
+            throw new InvalidDataException(" Refresh token must be not blank");
         }
 
         //get username from token
@@ -124,14 +119,14 @@ public class AuthenticationService {
         return "Removed!";
     }
 
-    public String forgotPassword(String email) {
+    public void forgotPassword(String email) {
         log.info("---------- forgotPassword ----------");
 
         UserAccount user = userService.getByEmail(email);
 
         String resetToken = jwtService.generateResetToken(user);
 
-        tokenService.save(Token.builder().email(user.getUsername()).resetToken(resetToken).build());
+        tokenService.save(Token.builder().userAccount(user).resetToken(resetToken).build());
 
         try {
             mailService.sendConfirmLink(email, resetToken);
@@ -139,8 +134,6 @@ public class AuthenticationService {
             log.error("Send email fail, errorMessage={}", e.getMessage());
             throw new InvalidDataException("Send email fail, please try again!");
         }
-
-        return resetToken;
     }
 
     public String resetPassword(String secretKey) {
@@ -150,7 +143,7 @@ public class AuthenticationService {
         if (user == null) {
             throw new IllegalArgumentException("Invalid or expired secret key");
         }
-        var token = tokenService.getByUsername(user.getUsername());
+        var token = tokenService.getByEmail(user.getUsername());
         if (token == null) {
             throw new IllegalStateException("No token found for user");
         }
@@ -169,20 +162,142 @@ public class AuthenticationService {
         //get user from token reset password dto
         UserAccount user = validateToken(request.getSecretKey());
 
+        Token tokenEntity = tokenService.getByEmail(user.getEmail());
+        if(tokenEntity == null
+                || tokenEntity.getResetToken() == null
+                || !tokenEntity.getResetToken().equals(request.getSecretKey())){
+            throw new InvalidDataException("Reset token không hợp lệ đã được sử dụng");
+        }
         // update password
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userService.save(user);
+
+        tokenService.clearResetToken(user.getEmail());
+
         return "Changed";
     }
 
     //check user status
     private UserAccount validateToken(String token) {
-        var userName = jwtService.extractUsername(token, RESET_TOKEN);
+        final String userName;
+        try{
+            userName = jwtService.extractUsername(token, RESET_TOKEN);
+        }catch (Exception e){
+            throw new InvalidDataException("Link đặt lại mật khẩu đã hết hạn hoặc không hợp lệ");
+        }
 
         var user = userService.getByEmail(userName);
         if (!user.isEnabled()) {
             throw new InvalidDataException("User not active");
         }
         return user;
+    }
+
+    public TokenResponse googleLogin(GoogleLoginRequest request) {
+        log.info("---------- googleLogin ----------");
+
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(request.getCredential());
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Map> response;
+        try {
+            response = restTemplate.exchange(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    HttpMethod.GET, entity, Map.class);
+        } catch (Exception e) {
+            log.error("Failed to verify Google access_token: {}", e.getMessage());
+            throw new InvalidDataException("Google access_token không hợp lệ");
+        }
+
+        Map<?, ?> googleUser = response.getBody();
+        if (googleUser == null || googleUser.get("email") == null) {
+            throw new InvalidDataException("Không lấy được thông tin từ Google");
+        }
+
+        String email = (String) googleUser.get("email");
+        log.info("Google verified email: {}", email);
+
+        final Map<?, ?> googleUserFinal = googleUser;
+        UserAccount user = userAccountRepository.findByEmail(email)
+                .orElseGet(() -> createGoogleUser(googleUserFinal));
+
+        if (!user.isEnabled()) {
+            throw new InvalidDataException("Tài khoản đã bị vô hiệu hóa");
+        }
+
+        String accessToken = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
+
+        tokenService.save(Token.builder()
+                .userAccount(user)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build());
+
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .userId(user.getUserId())
+                .build();
+    }
+
+    private UserAccount createGoogleUser(Map<?, ?> googleUser) {
+        String email = (String) googleUser.get("email");
+        log.info("Creating new Google user for email: {}", email);
+
+        // Lấy thông tin thật từ Google, fallback nếu thiếu
+        String givenName  = (String) googleUser.get("given_name");
+        String familyName = (String) googleUser.get("family_name");
+        String picture    = (String) googleUser.get("picture");
+        String fallbackName = email.split("@")[0];
+
+        UserAccount userAccount = UserAccount.builder()
+                .email(email)
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .status(UserStatus.ACTIVE)
+                .firstName(givenName  != null && !givenName.isBlank()  ? givenName  : fallbackName)
+                .lastName (familyName != null && !familyName.isBlank() ? familyName : "")
+                .avatarUrl(picture)
+                .isDeleted(false)
+                .build();
+        userAccount = userAccountRepository.save(userAccount);
+
+        Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.STUDENT)
+                .orElseThrow(() -> new RuntimeException("Default role STUDENT not found"));
+
+        UserRole userRole = UserRole.builder()
+                .userAccount(userAccount)
+                .role(defaultRole)
+                .build();
+        userRoleRepository.save(userRole);
+        userAccount.setUserRoles(Collections.singletonList(userRole));
+
+        return userAccount;
+    }
+
+    public UserResponse getCurrentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        UserAccount user = userService.getByEmail(email);
+
+        List<String> roles = userService.getAllRoleByEmail(user.getUserId());
+
+        return UserResponse.builder()
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .avatarUrl(user.getAvatarUrl())
+                .roles(roles)
+                .status(user.getStatus())
+                .gender(user.getGender())
+                .bod(user.getBod())
+                .phone(user.getPhone())
+                .build();
     }
 }

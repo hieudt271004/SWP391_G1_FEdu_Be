@@ -1,9 +1,4 @@
--- ============================================================
--- CHẠY FILE NÀY TRONG fedu_db (KHÔNG phải postgres)
--- pgAdmin: Click đúp vào fedu_db → Tools → Query Tool → paste vào → Run
--- ============================================================
 
--- ENUM TYPES
 CREATE TYPE e_role AS ENUM ('ADMIN', 'TEACHER', 'STUDENT', 'SUB_MENTOR', 'USER');
 CREATE TYPE e_user_status AS ENUM ('ACTIVE', 'INACTIVE', 'NONE');
 CREATE TYPE e_gender AS ENUM ('MALE', 'FEMALE', 'OTHER');
@@ -13,8 +8,7 @@ CREATE TYPE e_submission_status AS ENUM ('PENDING', 'SUBMITTED', 'LATE', 'GRADED
 CREATE TYPE e_ticket_status AS ENUM ('OPEN', 'PROCESSING', 'RESOLVED', 'CLOSED');
 CREATE TYPE e_ticket_level AS ENUM ('SUB_MENTOR', 'LECTURER');
 
--- user_account
-CREATE TABLE user_account (
+CREATE TABLE IF NOT EXISTS user_account (
     user_id    BIGSERIAL PRIMARY KEY,
     email      VARCHAR(100) NOT NULL UNIQUE,
     password   VARCHAR(255) NOT NULL,
@@ -30,24 +24,21 @@ CREATE TABLE user_account (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- roles
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     role_id    BIGSERIAL PRIMARY KEY,
     role_name  e_role NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- user_role
-CREATE TABLE user_role (
+CREATE TABLE IF NOT EXISTS user_role (
     user_role_id BIGSERIAL PRIMARY KEY,
     user_id      BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
     role_id      BIGINT NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
     UNIQUE(user_id, role_id)
 );
 
--- permissions
-CREATE TABLE permissions (
+CREATE TABLE IF NOT EXISTS permissions (
     permission_id   BIGSERIAL PRIMARY KEY,
     permission_name VARCHAR(100) NOT NULL UNIQUE,
     description     VARCHAR(255),
@@ -55,7 +46,7 @@ CREATE TABLE permissions (
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE role_permission (
+CREATE TABLE IF NOT EXISTS role_permission (
     role_permission_id BIGSERIAL PRIMARY KEY,
     role_id            BIGINT NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
     permission_id      BIGINT NOT NULL REFERENCES permissions(permission_id) ON DELETE CASCADE,
@@ -63,8 +54,7 @@ CREATE TABLE role_permission (
     UNIQUE(role_id, permission_id)
 );
 
--- tokens
-CREATE TABLE tokens (
+CREATE TABLE IF NOT EXISTS tokens (
     id            BIGSERIAL PRIMARY KEY,
     user_id       BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
     access_token  TEXT,
@@ -76,8 +66,7 @@ CREATE TABLE tokens (
     updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- subjects
-CREATE TABLE subjects (
+CREATE TABLE IF NOT EXISTS subjects (
     subject_id   BIGSERIAL PRIMARY KEY,
     subject_code VARCHAR(50) UNIQUE NOT NULL,
     subject_name VARCHAR(255) NOT NULL,
@@ -88,8 +77,7 @@ CREATE TABLE subjects (
     updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- classrooms
-CREATE TABLE classrooms (
+CREATE TABLE IF NOT EXISTS classrooms (
     classroom_id BIGSERIAL PRIMARY KEY,
     class_name   VARCHAR(255) NOT NULL UNIQUE,
     semester     VARCHAR(50),
@@ -99,8 +87,7 @@ CREATE TABLE classrooms (
     updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- classroom_subjects
-CREATE TABLE classroom_subjects (
+CREATE TABLE IF NOT EXISTS classroom_subjects (
     id           BIGSERIAL PRIMARY KEY,
     classroom_id BIGINT NOT NULL REFERENCES classrooms(classroom_id) ON DELETE CASCADE,
     subject_id   BIGINT NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
@@ -110,8 +97,7 @@ CREATE TABLE classroom_subjects (
     UNIQUE(classroom_id, subject_id)
 );
 
--- classroom_subject_students
-CREATE TABLE classroom_subject_students (
+CREATE TABLE IF NOT EXISTS classroom_subject_students (
     id                   BIGSERIAL PRIMARY KEY,
     classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
     student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -121,8 +107,7 @@ CREATE TABLE classroom_subject_students (
     UNIQUE(classroom_subject_id, student_id)
 );
 
--- classroom_sub_mentor
-CREATE TABLE classroom_sub_mentor (
+CREATE TABLE IF NOT EXISTS classroom_sub_mentor (
     id                   BIGSERIAL PRIMARY KEY,
     classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
     sub_mentor_id        BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -132,8 +117,7 @@ CREATE TABLE classroom_sub_mentor (
     UNIQUE(classroom_subject_id, sub_mentor_id)
 );
 
--- learning_paths
-CREATE TABLE learning_paths (
+CREATE TABLE IF NOT EXISTS learning_paths (
     path_id          BIGSERIAL PRIMARY KEY,
     subject_id       BIGINT REFERENCES subjects(subject_id) ON DELETE CASCADE,
     path_name        VARCHAR(255) NOT NULL,
@@ -146,8 +130,7 @@ CREATE TABLE learning_paths (
     updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- learning_nodes
-CREATE TABLE learning_nodes (
+CREATE TABLE IF NOT EXISTS learning_nodes (
     node_id     BIGSERIAL PRIMARY KEY,
     path_id     BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
     title       VARCHAR(255) NOT NULL,
@@ -159,8 +142,7 @@ CREATE TABLE learning_nodes (
     updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- node_materials
-CREATE TABLE node_materials (
+CREATE TABLE IF NOT EXISTS node_materials (
     material_id BIGSERIAL PRIMARY KEY,
     node_id     BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
     title       VARCHAR(255) NOT NULL,
@@ -171,8 +153,7 @@ CREATE TABLE node_materials (
     updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- videos
-CREATE TABLE videos (
+CREATE TABLE IF NOT EXISTS videos (
     video_id         BIGSERIAL PRIMARY KEY,
     material_id      BIGINT NOT NULL REFERENCES node_materials(material_id) ON DELETE CASCADE,
     video_url        TEXT NOT NULL,
@@ -184,8 +165,7 @@ CREATE TABLE videos (
     updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- files
-CREATE TABLE files (
+CREATE TABLE IF NOT EXISTS files (
     file_id     BIGSERIAL PRIMARY KEY,
     material_id BIGINT NOT NULL REFERENCES node_materials(material_id) ON DELETE CASCADE,
     file_url    TEXT NOT NULL,
@@ -197,8 +177,7 @@ CREATE TABLE files (
     updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- tests
-CREATE TABLE tests (
+CREATE TABLE IF NOT EXISTS tests (
     test_id            BIGSERIAL PRIMARY KEY,
     node_id            BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
     title              VARCHAR(255) NOT NULL,
@@ -210,8 +189,7 @@ CREATE TABLE tests (
     updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- test_questions
-CREATE TABLE test_questions (
+CREATE TABLE IF NOT EXISTS test_questions (
     question_id      BIGSERIAL PRIMARY KEY,
     test_id          BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
     question_content TEXT NOT NULL,
@@ -221,8 +199,7 @@ CREATE TABLE test_questions (
     updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- test_answers
-CREATE TABLE test_answers (
+CREATE TABLE IF NOT EXISTS test_answers (
     answer_id      BIGSERIAL PRIMARY KEY,
     question_id    BIGINT NOT NULL REFERENCES test_questions(question_id) ON DELETE CASCADE,
     answer_content TEXT NOT NULL,
@@ -231,8 +208,7 @@ CREATE TABLE test_answers (
     updated_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- student_test_attempts
-CREATE TABLE student_test_attempts (
+CREATE TABLE IF NOT EXISTS student_test_attempts (
     attempt_id   BIGSERIAL PRIMARY KEY,
     test_id      BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
     student_id   BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -243,8 +219,7 @@ CREATE TABLE student_test_attempts (
     updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- student_test_responses
-CREATE TABLE student_test_responses (
+CREATE TABLE IF NOT EXISTS student_test_responses (
     response_id        BIGSERIAL PRIMARY KEY,
     attempt_id         BIGINT NOT NULL REFERENCES student_test_attempts(attempt_id) ON DELETE CASCADE,
     question_id        BIGINT NOT NULL REFERENCES test_questions(question_id) ON DELETE CASCADE,
@@ -256,15 +231,13 @@ CREATE TABLE student_test_responses (
     UNIQUE(attempt_id, question_id)
 );
 
--- student_selected_answers (join table cho ManyToMany)
-CREATE TABLE student_selected_answers (
+CREATE TABLE IF NOT EXISTS student_selected_answers (
     response_id BIGINT NOT NULL REFERENCES student_test_responses(response_id) ON DELETE CASCADE,
     answer_id   BIGINT NOT NULL REFERENCES test_answers(answer_id) ON DELETE CASCADE,
     PRIMARY KEY (response_id, answer_id)
 );
 
--- student_node_progress
-CREATE TABLE student_node_progress (
+CREATE TABLE IF NOT EXISTS student_node_progress (
     progress_id  BIGSERIAL PRIMARY KEY,
     student_id   BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
     node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
@@ -278,8 +251,7 @@ CREATE TABLE student_node_progress (
     UNIQUE(student_id, node_id, path_id)
 );
 
--- submissions
-CREATE TABLE submissions (
+CREATE TABLE IF NOT EXISTS submissions (
     submission_id     BIGSERIAL PRIMARY KEY,
     node_id           BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
     student_id        BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -297,8 +269,7 @@ CREATE TABLE submissions (
     updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- node_questions
-CREATE TABLE node_questions (
+CREATE TABLE IF NOT EXISTS node_questions (
     question_id BIGSERIAL PRIMARY KEY,
     node_id     BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
     student_id  BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -308,8 +279,7 @@ CREATE TABLE node_questions (
     updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- question_answers
-CREATE TABLE question_answers (
+CREATE TABLE IF NOT EXISTS question_answers (
     answer_id   BIGSERIAL PRIMARY KEY,
     question_id BIGINT NOT NULL REFERENCES node_questions(question_id) ON DELETE CASCADE,
     lecturer_id BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -318,8 +288,7 @@ CREATE TABLE question_answers (
     updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- node_reviews
-CREATE TABLE node_reviews (
+CREATE TABLE IF NOT EXISTS node_reviews (
     review_id  BIGSERIAL PRIMARY KEY,
     node_id    BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
     student_id BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -331,8 +300,7 @@ CREATE TABLE node_reviews (
     UNIQUE(student_id, node_id)
 );
 
--- support_tickets
-CREATE TABLE support_tickets (
+CREATE TABLE IF NOT EXISTS support_tickets (
     ticket_id            BIGSERIAL PRIMARY KEY,
     classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
     created_by           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -346,8 +314,7 @@ CREATE TABLE support_tickets (
     updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ticket_comments
-CREATE TABLE ticket_comments (
+CREATE TABLE IF NOT EXISTS ticket_comments (
     comment_id BIGSERIAL PRIMARY KEY,
     ticket_id  BIGINT NOT NULL REFERENCES support_tickets(ticket_id) ON DELETE CASCADE,
     user_id    BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
@@ -356,17 +323,8 @@ CREATE TABLE ticket_comments (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- DEFAULT DATA
-INSERT INTO roles(role_name) VALUES ('ADMIN'),('TEACHER'),('STUDENT'),('SUB_MENTOR'),('USER');
-
-INSERT INTO permissions(permission_name, description) VALUES
-    ('CREATE_CLASSROOM',   '/classroom/create'),
-    ('MANAGE_NODE',        '/node/manage'),
-    ('GRADE_SUBMISSION',   '/submission/grade'),
-    ('OPEN_ON_CLASS_NODE', '/node/open'),
-    ('CREATE_TICKET',      '/ticket/create'),
-    ('ANSWER_QUESTION',    '/question/answer');
-
-INSERT INTO role_permission(role_id, permission_id) VALUES (2,1),(2,2),(2,3),(2,4);
-INSERT INTO role_permission(role_id, permission_id) VALUES (3,5);
-INSERT INTO role_permission(role_id, permission_id) VALUES (4,5),(4,6);
+INSERT INTO roles(role_name) VALUES ('ADMIN') ON CONFLICT (role_name) DO NOTHING;
+INSERT INTO roles(role_name) VALUES ('TEACHER') ON CONFLICT (role_name) DO NOTHING;
+INSERT INTO roles(role_name) VALUES ('STUDENT') ON CONFLICT (role_name) DO NOTHING;
+INSERT INTO roles(role_name) VALUES ('SUB_MENTOR') ON CONFLICT (role_name) DO NOTHING;
+INSERT INTO roles(role_name) VALUES ('USER') ON CONFLICT (role_name) DO NOTHING;
