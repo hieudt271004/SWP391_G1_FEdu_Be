@@ -6,7 +6,9 @@ import com.fedu.fedu.dto.res.*;
 import java.util.List;
 
 public interface LearningPathService {
-    // learning path gốc
+
+    // ── Learning Path (Template & Classroom) ──────────────────────────────────
+
     LearningPathResponse createLearningPath(CreateLearningPathRequest request);
 
     LearningPathResponse updateLearningPath(Long pathId, UpdateLearningPathRequest request);
@@ -17,11 +19,18 @@ public interface LearningPathService {
 
     List<LearningPathResponse> getLearningPathsBySubjectId(Long subjectId);
 
-    // classroom path clone
-    ClassroomLearningPathResponse cloneLearningPath(Long classroomId, Long pathId);
+    /**
+     * Clone lộ trình mẫu thành lộ trình riêng cho lớp học.
+     * Trả về LearningPathResponse (bảng classroom_learning_path đã gộp vào learning_paths).
+     */
+    LearningPathResponse cloneLearningPath(Long classroomId, Long pathId);
 
-    List<ClassroomLearningPathResponse> getClassroomLearningPaths(Long classroomId);
+    /**
+     * Lấy danh sách các lộ trình đã clone riêng cho lớp học.
+     */
+    List<LearningPathResponse> getClassroomLearningPaths(Long classroomId);
 
+    // ── Learning Node ─────────────────────────────────────────────────────────
 
     LearningNodeResponse createLearningNode(CreateLearningNodeRequest request);
 
@@ -29,24 +38,13 @@ public interface LearningPathService {
 
     void deleteLearningNode(Long nodeId);
 
-
     LearningNodeResponse getLearningNodeById(Long nodeId);
 
     List<LearningNodeResponse> getTemplateNodesByPathId(Long pathId);
 
-    List<LearningNodeResponse> getTemplateNodesBySubjectId(Long subjectId);
-
-    List<LearningNodeResponse> getClassroomNodesByClassroomPathId(Long classroomPathId);
-
     List<LearningNodeResponse> getClassroomNodesByClassroomId(Long classroomId);
 
-//    NodeEdgeResponse createEdge(CreateNodeEdgeRequest request);
-//
-//    void deleteEdge(Long edgeId);
-//
-//    List<NodeEdgeResponse> getEdgesByNodeId(Long nodeId);
+    // ── Graph View ────────────────────────────────────────────────────────────
 
     LearningPathGraphResponse getLearningPathGraph(Long pathId);
-
-    LearningPathGraphResponse getClassroomLearningPathGraph(Long classroomId);
 }

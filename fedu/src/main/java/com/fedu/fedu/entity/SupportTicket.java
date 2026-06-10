@@ -4,7 +4,6 @@ import com.fedu.fedu.utils.enums.TicketLevel;
 import com.fedu.fedu.utils.enums.TicketStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -23,8 +22,8 @@ public class SupportTicket extends AbstractEntity<Long> {
     private Long ticketId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id", nullable = false)
-    private Classroom classroom;
+    @JoinColumn(name = "classroom_subject_id", nullable = false)
+    private ClassroomSubject classroomSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)

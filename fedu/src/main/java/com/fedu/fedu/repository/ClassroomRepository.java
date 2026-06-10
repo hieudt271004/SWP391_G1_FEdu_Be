@@ -15,12 +15,4 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
 
     @Query("SELECT c FROM Classroom c WHERE c.isDeleted = false ORDER BY c.createdAt DESC")
     List<Classroom> findAllActive();
-
-    @Query("SELECT c FROM Classroom c WHERE c.subject.subjectId = :subjectId AND c.isDeleted = false ORDER BY c.createdAt DESC")
-    List<Classroom> findAllBySubject(Long subjectId);
-
-    @Query("SELECT c FROM Classroom c WHERE c.lecturer.userId = :lecturerId AND c.isDeleted = false ORDER BY c.createdAt DESC")
-    List<Classroom> findAllByLecturer(long lecturerId);
-
-    List<Classroom> findByLecturer_UserIdAndIsDeletedFalse(Long lecturerId);
 }

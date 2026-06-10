@@ -13,10 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,9 +21,7 @@ import java.util.stream.Collectors;
 public class LearningPathServiceImpl implements LearningPathService {
 
     private final LearningPathRepository learningPathRepository;
-    private final ClassroomLearningPathRepository classroomLearningPathRepository;
     private final LearningNodeRepository learningNodeRepository;
-    private final NodeEdgeRepository nodeEdgeRepository;
     private final SubjectRepository subjectRepository;
     private final ClassroomRepository classroomRepository;
 
@@ -59,7 +54,6 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     @Transactional
     public LearningPathResponse updateLearningPath(Long pathId, UpdateLearningPathRequest request) {
-
         LearningPath learningPath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new RuntimeException("Learning path not found"));
 
@@ -81,112 +75,79 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     @Transactional(readOnly = true)
     public LearningPathResponse getLearningPathById(Long pathId) {
-
         LearningPath learningPath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new RuntimeException("Learning path not found"));
         return mapToResponse(learningPath);
     }
 
+    /**
+     * Clone lộ trình mẫu (template) thành một lộ trình riêng cho lớp học.
+     * Bảng ClassroomLearningPath đã được gộp vào LearningPath với classroom_id và original_path_id.
+     */
     @Override
     @Transactional
-    public ClassroomLearningPathResponse cloneLearningPath(Long classroomId, Long pathId) {
+    public LearningPathResponse cloneLearningPath(Long classroomId, Long pathId) {
         Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new RuntimeException("Classroom not found"));
 
-        LearningPath learningPath = learningPathRepository.findById(pathId)
+        LearningPath templatePath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new RuntimeException("Learning path not found"));
 
-        ClassroomLearningPath classroomPath = ClassroomLearningPath.builder()
+        // Tạo bản clone LearningPath cho lớp học
+        LearningPath classroomPath = LearningPath.builder()
+                .subject(templatePath.getSubject())
+                .pathName(templatePath.getPathName())
+                .description(templatePath.getDescription())
                 .classroom(classroom)
-                .originalPath(learningPath)
-                .pathName(learningPath.getPathName())
-                .description(learningPath.getDescription())
+                .originalPath(templatePath)
                 .isDeleted(false)
                 .build();
-        classroomLearningPathRepository.save(classroomPath);
+        learningPathRepository.save(classroomPath);
 
+        // Clone các node từ template sang path của lớp học
         List<LearningNode> templateNodes = learningNodeRepository
-                .findByLearningPathPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(pathId);
+                .findByLearningPathPathIdAndIsDeletedFalse(pathId);
 
-        Map<Long, LearningNode> nodeMapping = new HashMap<>();
         for (LearningNode templateNode : templateNodes) {
-
             LearningNode clonedNode = LearningNode.builder()
-                    .classroomLearningPath(classroomPath)
+                    .learningPath(classroomPath)
                     .title(templateNode.getTitle())
                     .description(templateNode.getDescription())
                     .nodeType(templateNode.getNodeType())
-                    .branchName(templateNode.getBranchName())
-                    .displayOrder(templateNode.getDisplayOrder())
                     .status(NodeStatus.LOCKED)
-                    .isRequired(templateNode.getIsRequired())
                     .isDeleted(false)
                     .build();
             learningNodeRepository.save(clonedNode);
-            nodeMapping.put(templateNode.getNodeId(), clonedNode);
         }
-        List<Long> templateNodeIds = templateNodes.stream()
-                        .map(LearningNode::getNodeId)
-                        .collect(Collectors.toList());
 
-        List<NodeEdge> templateEdges = nodeEdgeRepository
-                        .findByFromNodeNodeIdIn(templateNodeIds);
-
-        List<NodeEdge> clonedEdges = new ArrayList<>();
-        for (NodeEdge templateEdge : templateEdges) {
-            LearningNode clonedFrom = nodeMapping.get(templateEdge.getFromNode().getNodeId());
-            LearningNode clonedTo = nodeMapping.get(templateEdge.getToNode().getNodeId());
-
-            NodeEdge clonedEdge = NodeEdge.builder()
-                    .fromNode(clonedFrom)
-                    .toNode(clonedTo)
-                    .branchName(templateEdge.getBranchName())
-                    .minScore(templateEdge.getMinScore())
-                    .maxScore(templateEdge.getMaxScore())
-                    .build();
-
-            clonedEdges.add(clonedEdge);
-        }
-            nodeEdgeRepository.saveAll(clonedEdges);
-
-            return mapToClassroomPathResponse(classroomPath);
+        return mapToResponse(classroomPath);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<ClassroomLearningPathResponse> getClassroomLearningPaths(Long classroomId) {
-        return classroomLearningPathRepository
+    public List<LearningPathResponse> getClassroomLearningPaths(Long classroomId) {
+        return learningPathRepository
                 .findByClassroomClassroomIdAndIsDeletedFalse(classroomId)
                 .stream()
-                .map(this::mapToClassroomPathResponse)
+                .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
     public LearningNodeResponse createLearningNode(CreateLearningNodeRequest request) {
-        LearningNode.LearningNodeBuilder builder = LearningNode.builder()
-                        .title(request.getTitle())
-                        .description(request.getDescription())
-                        .nodeType(request.getNodeType())
-                        .branchName(request.getBranchName())
-                        .displayOrder(request.getDisplayOrder())
-                        .status(request.getStatus())
-                        .isRequired(request.getIsRequired())
-                        .isDeleted(false);
+        LearningPath learningPath = learningPathRepository.findById(request.getLearningPathId())
+                .orElseThrow(() -> new RuntimeException("Learning path not found"));
 
-        if (request.getLearningPathId() != null) {
+        LearningNode learningNode = LearningNode.builder()
+                .learningPath(learningPath)
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .nodeType(request.getNodeType())
+                .status(request.getStatus())
+                .isDeleted(false)
+                .build();
 
-            LearningPath learningPath = learningPathRepository.findById(request.getLearningPathId())
-                            .orElseThrow(() -> new RuntimeException("Path not found"));
-            builder.learningPath(learningPath);
-        }
-        if (request.getClassroomPathId() != null) {
-            ClassroomLearningPath classroomPath = classroomLearningPathRepository.findById(request.getClassroomPathId())
-                            .orElseThrow(() -> new RuntimeException("Classroom path not found"));
-            builder.classroomLearningPath(classroomPath);
-        }
-        LearningNode learningNode = builder.build();
         learningNodeRepository.save(learningNode);
         return mapToLearningNodeResponse(learningNode);
     }
@@ -200,10 +161,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         node.setTitle(request.getTitle());
         node.setDescription(request.getDescription());
         node.setNodeType(request.getNodeType());
-        node.setBranchName(request.getBranchName());
-        node.setDisplayOrder(request.getDisplayOrder());
         node.setStatus(request.getStatus());
-        node.setIsRequired(request.getIsRequired());
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
     }
@@ -229,27 +187,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional(readOnly = true)
     public List<LearningNodeResponse> getTemplateNodesByPathId(Long pathId) {
         return learningNodeRepository
-                .findByLearningPathPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(pathId)
-                .stream()
-                .map(this::mapToLearningNodeResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<LearningNodeResponse> getTemplateNodesBySubjectId(Long subjectId) {
-        return learningNodeRepository
-                .findAllTemplateNodesBySubjectId(subjectId)
-                .stream()
-                .map(this::mapToLearningNodeResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<LearningNodeResponse> getClassroomNodesByClassroomPathId(Long classroomPathId) {
-        return learningNodeRepository
-                .findByClassroomLearningPathClassroomPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(classroomPathId)
+                .findByLearningPathPathIdAndIsDeletedFalse(pathId)
                 .stream()
                 .map(this::mapToLearningNodeResponse)
                 .collect(Collectors.toList());
@@ -258,9 +196,12 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     @Transactional(readOnly = true)
     public List<LearningNodeResponse> getClassroomNodesByClassroomId(Long classroomId) {
-        return learningNodeRepository
-                .findAllClassroomNodesByClassroomId(classroomId)
+        return learningPathRepository
+                .findByClassroomClassroomIdAndIsDeletedFalse(classroomId)
                 .stream()
+                .flatMap(path -> learningNodeRepository
+                        .findByLearningPathPathIdAndIsDeletedFalse(path.getPathId())
+                        .stream())
                 .map(this::mapToLearningNodeResponse)
                 .collect(Collectors.toList());
     }
@@ -272,19 +213,8 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .pathName(learningPath.getPathName())
                 .description(learningPath.getDescription())
                 .createdById(learningPath.getCreatedBy() != null ? learningPath.getCreatedBy().getUserId() : null)
-                .createdAt(learningPath.getCreatedAt())
-                .updatedAt(learningPath.getUpdatedAt())
-                .build();
-    }
-
-    private LearningPathResponse mapToLearningPathResponse(LearningPath learningPath) {
-        return LearningPathResponse.builder()
-                .pathId(learningPath.getPathId())
-                .subjectId(learningPath.getSubject() != null ? learningPath.getSubject().getSubjectId() : null)
-                .pathName(learningPath.getPathName())
-                .description(learningPath.getDescription())
-                .createdById(learningPath.getCreatedBy() != null ? learningPath.getCreatedBy().getUserId() : null)
-                //.isDeleted(learningPath.getIsDeleted())
+                .classroomId(learningPath.getClassroom() != null ? learningPath.getClassroom().getClassroomId() : null)
+                .originalPathId(learningPath.getOriginalPath() != null ? learningPath.getOriginalPath().getPathId() : null)
                 .createdAt(learningPath.getCreatedAt())
                 .updatedAt(learningPath.getUpdatedAt())
                 .build();
@@ -293,180 +223,44 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     @Transactional(readOnly = true)
     public LearningPathGraphResponse getLearningPathGraph(Long pathId) {
+        LearningPath learningPath = learningPathRepository.findById(pathId)
+                .orElseThrow(() -> new RuntimeException("Learning path not found"));
 
-        LearningPath learningPath = learningPathRepository
-                .findById(pathId)
-                .orElseThrow(() ->
-                        new RuntimeException("Learning path not found"));
-
-        List<LearningNodeResponse> nodes =
-                learningNodeRepository
-                        .findByLearningPathPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(pathId)
-                        .stream()
-                        .map(this::mapToLearningNodeResponse)
-                        .toList();
-
-        List<NodeEdgeResponse> edges =
-                nodeEdgeRepository
-                        .findByFromNodeLearningPathPathId(pathId)
-                        .stream()
-                        .map(this::mapToEdgeResponse)
-                        .toList();
+        List<LearningNodeResponse> nodes = learningNodeRepository
+                .findByLearningPathPathIdAndIsDeletedFalse(pathId)
+                .stream()
+                .map(this::mapToLearningNodeResponse)
+                .collect(Collectors.toList());
 
         return LearningPathGraphResponse.builder()
                 .pathId(learningPath.getPathId())
                 .pathName(learningPath.getPathName())
                 .description(learningPath.getDescription())
                 .nodes(nodes)
-                .edges(edges)
                 .build();
     }
 
-    private ClassroomLearningPathResponse mapToClassroomPathResponse(ClassroomLearningPath classroomPath) {
-
-        return ClassroomLearningPathResponse.builder()
-                .classroomPathId(classroomPath.getClassroomPathId())
-                .classroomId(classroomPath.getClassroom().getClassroomId())
-                .originalPathId(classroomPath.getOriginalPath() != null ? classroomPath.getOriginalPath().getPathId() : null)
-                .pathName(classroomPath.getPathName())
-                .description(classroomPath.getDescription())
-                .isDeleted(classroomPath.getIsDeleted())
-                .createdAt(classroomPath.getCreatedAt())
-                .updatedAt(classroomPath.getUpdatedAt())
-                .build();
+    //@Override
+    @Transactional(readOnly = true)
+    public List<LearningNodeResponse> getTemplateNodesBySubjectId(Long subjectId) {
+        return learningNodeRepository
+                .findAllTemplateNodesBySubjectId(subjectId)
+                .stream()
+                .map(this::mapToLearningNodeResponse)
+                .collect(Collectors.toList());
     }
 
     private LearningNodeResponse mapToLearningNodeResponse(LearningNode node) {
         return LearningNodeResponse.builder()
                 .nodeId(node.getNodeId())
                 .learningPathId(node.getLearningPath() != null ? node.getLearningPath().getPathId() : null)
-                .classroomPathId(node.getClassroomLearningPath() != null ? node.getClassroomLearningPath().getClassroomPathId() : null)
                 .title(node.getTitle())
                 .description(node.getDescription())
                 .nodeType(node.getNodeType())
-                .branchName(node.getBranchName())
-                .displayOrder(node.getDisplayOrder())
                 .status(node.getStatus())
-                .isRequired(node.getIsRequired())
                 .isDeleted(node.getIsDeleted())
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
-                .build();
-    }
-
-    private NodeEdgeResponse mapToEdgeResponse(NodeEdge edge) {
-        return NodeEdgeResponse.builder()
-                .edgeId(edge.getEdgeId())
-                .fromNodeId(edge.getFromNode().getNodeId())
-                .toNodeId(edge.getToNode().getNodeId())
-                .branchName(edge.getBranchName())
-                .minScore(edge.getMinScore())
-                .maxScore(edge.getMaxScore())
-                .build();
-    }
-
-    @Override
-    @Transactional
-    public LearningPathGraphResponse getClassroomLearningPathGraph(Long classroomId) {
-        Classroom classroom = classroomRepository.findById(classroomId)
-                .orElseThrow(() -> new RuntimeException("Classroom not found"));
-
-        List<ClassroomLearningPath> classroomPaths = classroomLearningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(classroomId);
-
-        ClassroomLearningPath classroomPath;
-        if (classroomPaths.isEmpty()) {
-            List<LearningPath> subjectPaths = learningPathRepository
-                    .findBySubjectSubjectIdAndIsDeletedFalse(classroom.getSubject().getSubjectId());
-
-            LearningPath templatePath;
-            if (subjectPaths.isEmpty()) {
-                templatePath = LearningPath.builder()
-                        .subject(classroom.getSubject())
-                        .pathName("Default Roadmap - " + classroom.getSubject().getSubjectCode())
-                        .description("Default roadmap template")
-                        .isDeleted(false)
-                        .build();
-                learningPathRepository.save(templatePath);
-            } else {
-                templatePath = subjectPaths.get(0);
-            }
-
-            classroomPath = ClassroomLearningPath.builder()
-                    .classroom(classroom)
-                    .originalPath(templatePath)
-                    .pathName(templatePath.getPathName())
-                    .description(templatePath.getDescription())
-                    .isDeleted(false)
-                    .build();
-            classroomLearningPathRepository.save(classroomPath);
-
-            List<LearningNode> templateNodes = learningNodeRepository
-                    .findByLearningPathPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(templatePath.getPathId());
-
-            Map<Long, LearningNode> nodeMapping = new HashMap<>();
-            for (LearningNode templateNode : templateNodes) {
-                LearningNode clonedNode = LearningNode.builder()
-                        .classroomLearningPath(classroomPath)
-                        .title(templateNode.getTitle())
-                        .description(templateNode.getDescription())
-                        .nodeType(templateNode.getNodeType())
-                        .branchName(templateNode.getBranchName())
-                        .displayOrder(templateNode.getDisplayOrder())
-                        .status(NodeStatus.LOCKED)
-                        .isRequired(templateNode.getIsRequired())
-                        .isDeleted(false)
-                        .build();
-                learningNodeRepository.save(clonedNode);
-                nodeMapping.put(templateNode.getNodeId(), clonedNode);
-            }
-
-            List<Long> templateNodeIds = templateNodes.stream()
-                    .map(LearningNode::getNodeId)
-                    .toList();
-            if (!templateNodeIds.isEmpty()) {
-                List<NodeEdge> templateEdges = nodeEdgeRepository.findByFromNodeNodeIdIn(templateNodeIds);
-                List<NodeEdge> clonedEdges = new ArrayList<>();
-                for (NodeEdge templateEdge : templateEdges) {
-                    LearningNode clonedFrom = nodeMapping.get(templateEdge.getFromNode().getNodeId());
-                    LearningNode clonedTo = nodeMapping.get(templateEdge.getToNode().getNodeId());
-                    if (clonedFrom != null && clonedTo != null) {
-                        NodeEdge clonedEdge = NodeEdge.builder()
-                                .fromNode(clonedFrom)
-                                .toNode(clonedTo)
-                                .branchName(templateEdge.getBranchName())
-                                .minScore(templateEdge.getMinScore())
-                                .maxScore(templateEdge.getMaxScore())
-                                .build();
-                        clonedEdges.add(clonedEdge);
-                    }
-                }
-                nodeEdgeRepository.saveAll(clonedEdges);
-            }
-        } else {
-            classroomPath = classroomPaths.get(0);
-        }
-
-        List<LearningNodeResponse> nodes = learningNodeRepository
-                .findByClassroomLearningPathClassroomPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(classroomPath.getClassroomPathId())
-                .stream()
-                .map(this::mapToLearningNodeResponse)
-                .toList();
-
-        List<Long> nodeIds = nodes.stream().map(LearningNodeResponse::getNodeId).toList();
-        List<NodeEdgeResponse> edges = new ArrayList<>();
-        if (!nodeIds.isEmpty()) {
-            edges = nodeEdgeRepository.findByFromNodeNodeIdIn(nodeIds)
-                    .stream()
-                    .map(this::mapToEdgeResponse)
-                    .toList();
-        }
-
-        return LearningPathGraphResponse.builder()
-                .pathId(classroomPath.getClassroomPathId())
-                .pathName(classroomPath.getPathName())
-                .description(classroomPath.getDescription())
-                .nodes(nodes)
-                .edges(edges)
                 .build();
     }
 }

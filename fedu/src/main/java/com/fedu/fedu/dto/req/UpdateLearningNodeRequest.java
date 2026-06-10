@@ -16,9 +16,5 @@ public class UpdateLearningNodeRequest {
     private String description;
     @NotNull(message = "nodeType must not be null")
     private NodeType nodeType;
-    private String branchName;
-    @NotNull(message = "displayOrder must not be null")
-    private Integer displayOrder;
     private NodeStatus status;
-    private Boolean isRequired;
 }

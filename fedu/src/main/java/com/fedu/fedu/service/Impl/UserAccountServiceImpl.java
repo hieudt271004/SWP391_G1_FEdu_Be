@@ -5,13 +5,11 @@ import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.req.UserProfileRequest;
 import com.fedu.fedu.dto.res.UserResponse;
-import com.fedu.fedu.entity.LoginHistory;
 import com.fedu.fedu.entity.Role;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.entity.UserRole;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
-import com.fedu.fedu.repository.LoginHistoryRepository;
 import com.fedu.fedu.repository.RoleRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.repository.UserRoleRepository;
@@ -19,13 +17,11 @@ import com.fedu.fedu.service.UserAccountService;
 import com.fedu.fedu.utils.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,7 +35,6 @@ public class UserAccountServiceImpl implements UserAccountService {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
-    private final LoginHistoryRepository loginHistoryRepository;
 
     @Override
     public UserAccount getByEmail(String email) {
@@ -50,23 +45,9 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void changeUserStatus(String username, UserStatus status) {
         UserAccount userAccount = userAccountRepository.findByEmail(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found"));
         userAccount.setStatus(status);
         userAccountRepository.save(userAccount);
-    }
-
-    @Scheduled(cron = "0 0 0 * * *")
-    public void updateExpirationAccount() {
-        List<UserAccount> users = userAccountRepository.findAllByStatus(UserStatus.ACTIVE);
-        for (UserAccount userAccount : users) {
-            if (userAccount.getLoginHistory() != null) {
-                LocalDateTime lastLogin = userAccount.getLoginHistory().getLastLogin();
-                if (lastLogin != null && lastLogin.plusDays(14).isBefore(LocalDateTime.now())) {
-                    userAccount.setStatus(UserStatus.INACTIVE);
-                    userAccountRepository.save(userAccount);
-                }
-            }
-        }
     }
 
     @Override
@@ -77,42 +58,25 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
-               .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+               .orElseThrow(() -> new RuntimeException("User not found"));
         userAccountRepository.delete(userAccount);
     }
 
     @Override
     public void registerUser(UserAccount userAccount) {
-        LoginHistory loginHistory = new LoginHistory();
-        loginHistory.setUserAccount(userAccount);
-        loginHistory.setLastLogin(LocalDateTime.now());
-        loginHistoryRepository.save(loginHistory);
+        // LoginHistory removed - no longer tracking last login separately
     }
 
     @Override
     public void updateLastLogin(SignInRequest request) {
-        String email = request.getEmail();
-        UserAccount account = userAccountRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        LoginHistory loginHistory = loginHistoryRepository.findByUserAccount(account)
-                .orElseGet(() -> {
-                    LoginHistory newHistory = new LoginHistory();
-                    newHistory.setUserAccount(account);
-                    return newHistory;
-                });
-
-        loginHistory.setLastLogin(LocalDateTime.now());
-        loginHistoryRepository.save(loginHistory);
+        // LoginHistory removed - last login tracking has been removed
     }
 
     @Override
     public void createUser(UserCreateRequest userCreateDTO) {
         UserAccount userAccount = createUserAccount(userCreateDTO);
-        //saveNewLoginHistory(userAccount);
         userAccountRepository.save(userAccount);
         assignUserRole(userAccount, userCreateDTO.getUserRole());
-
     }
 
     private UserAccount createUserAccount(UserCreateRequest userCreateDTO) {
@@ -134,14 +98,6 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .avatarUrl(userCreateDTO.getAvatarUrl())
                 .isDeleted(false)
                 .build();
-    }
-
-    private void saveNewLoginHistory(UserAccount userAccount) {
-        LoginHistory loginHistory = new LoginHistory();
-        loginHistory.setUserAccount(userAccount);
-        loginHistory.setLastLogin(LocalDateTime.now());
-        loginHistoryRepository.save(loginHistory);
-        userAccount.setLoginHistory(loginHistory);
     }
 
     private void assignUserRole(UserAccount userAccount, com.fedu.fedu.utils.enums.UserRole userRole) {
@@ -168,7 +124,7 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Override
     public void save(RegisterRequest request) {
-        // chekc duplicate user
+        // Check duplicate user
         if (userAccountRepository.existsByEmail(request.getEmail())) {
             throw new InvalidDataException("Email already exists");
         }
@@ -187,7 +143,6 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .orElseThrow(() -> new RuntimeException("Default role STUDENT not found"));
 
         assignRoleToUser(userAccount, defaultRole);
-        saveLoginHistory(userAccount);
     }
 
     private void assignRoleToUser(UserAccount userAccount, Role role) {
@@ -197,10 +152,6 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .build();
         userRoleRepository.save(userRole);
         userAccount.setUserRoles(Collections.singletonList(userRole));
-    }
-
-    private void saveLoginHistory(UserAccount userAccount) {
-        registerUser(userAccount);
     }
 
     @Override

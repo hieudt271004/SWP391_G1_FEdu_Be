@@ -11,16 +11,12 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateLearningNodeRequest {
+    @NotNull(message = "learningPathId must not be null")
     private Long learningPathId;
-    private Long classroomPathId;
     @NotBlank(message = "title must not be blank")
     private String title;
     private String description;
     @NotNull(message = "nodeType must not be null")
     private NodeType nodeType;
-    private String branchName;
-    @NotNull(message = "displayOrder must not be null")
-    private Integer displayOrder;
     private NodeStatus status;
-    private Boolean isRequired;
 }

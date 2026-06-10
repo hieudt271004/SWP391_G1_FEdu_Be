@@ -3,7 +3,6 @@ package com.fedu.fedu.entity;
 import com.fedu.fedu.utils.enums.SubmissionStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -51,6 +50,13 @@ public class Submission extends AbstractEntity<Long> {
 
     @Column(name = "feedback", columnDefinition = "TEXT")
     private String feedback;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "graded_by")
+    private UserAccount gradedBy;
+
+    @Column(name = "graded_at")
+    private LocalDateTime gradedAt;
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
