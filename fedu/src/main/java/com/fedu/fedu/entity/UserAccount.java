@@ -59,12 +59,6 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     )
     private List<UserRole> userRoles;
 
-    @OneToOne(
-            mappedBy = "userAccount",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private LoginHistory loginHistory;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "gender")
