@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "user_account")
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class UserAccount extends AbstractEntity<Long> implements UserDetails {
 
     @Id
@@ -31,6 +32,7 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     private String email;
 
     @Column(name = "password", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String password;
 
     @Column(name = "last_name", nullable = false)

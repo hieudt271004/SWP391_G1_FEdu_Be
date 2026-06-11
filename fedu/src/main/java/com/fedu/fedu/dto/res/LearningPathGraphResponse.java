@@ -20,6 +20,4 @@ public class LearningPathGraphResponse {
     private String description;
 
     private List<LearningNodeResponse> nodes;
-
-    private List<NodeEdgeResponse> edges;
 }

@@ -18,7 +18,6 @@ public class Role extends AbstractEntity<Long> {
     @Column(name = "role_id")
     private long roleId;
 
-
     @Enumerated(EnumType.STRING)
     @Column(name = "role_name")
     private UserRole roleName;

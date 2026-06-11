@@ -12,10 +12,10 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "classroom_sub_mentor", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"classroom_subject_id", "sub_mentor_id"})
+@Table(name = "classroom_subject_students", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"classroom_subject_id", "student_id"})
 })
-public class ClassroomSubMentor extends AbstractEntity<Long> {
+public class ClassroomSubjectStudent extends AbstractEntity<Long> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,10 +26,10 @@ public class ClassroomSubMentor extends AbstractEntity<Long> {
     private ClassroomSubject classroomSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sub_mentor_id", nullable = false)
-    private UserAccount subMentor;
+    @JoinColumn(name = "student_id", nullable = false)
+    private UserAccount student;
 
-    @Column(name = "assigned_at", nullable = false, updatable = false)
+    @Column(name = "joined_at", nullable = false, updatable = false)
     @CreationTimestamp
-    private LocalDateTime assignedAt;
+    private LocalDateTime joinedAt;
 }

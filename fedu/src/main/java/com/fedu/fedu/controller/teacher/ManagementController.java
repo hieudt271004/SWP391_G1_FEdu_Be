@@ -1,11 +1,8 @@
 package com.fedu.fedu.controller.teacher;
 
-import com.fedu.fedu.dto.req.CreateNodeEdgeRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.service.ClassroomService;
 import com.fedu.fedu.service.LearningPathService;
-import com.fedu.fedu.service.NodeEdgeService;
-import com.fedu.fedu.service.SubjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -27,16 +24,19 @@ public class ManagementController {
 
     private final ClassroomService classroomService;
     private final LearningPathService learningPathService;
-    private final NodeEdgeService nodeEdgeService;
-    private final SubjectService subjectService;
 
     @Operation(summary = "Get classrooms by lecturer ID",
             description = "Retrieve the list of classrooms assigned to a specific lecturer")
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/classrooms/{lecturerId}")
     public ResponseData<List<ClassroomResponse>> getClassroomsByLecturerId(@PathVariable Long lecturerId) {
-        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved classrooms successfully",
-                classroomService.getClassroomsByLecturerId(lecturerId));
+        try {
+            List<ClassroomResponse> classrooms = classroomService.getClassroomsByLecturerId(lecturerId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved classrooms successfully", classrooms);
+        } catch (Exception e) {
+            log.error("Failed to get classrooms for lecturer {}: {}", lecturerId, e.getMessage(), e);
+            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error: " + e.getMessage());
+        }
     }
 
     @Operation(summary = "Get subjects by lecturer ID",
@@ -44,9 +44,13 @@ public class ManagementController {
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/subjects/{lecturerId}")
     public ResponseData<List<SubjectResponse>> getSubjectsByLecturerId(@PathVariable Long lecturerId) {
-        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved subjects successfully",
-                classroomService.getSubjectsByLecturerId(lecturerId));
-
+        try {
+            List<SubjectResponse> subjects = classroomService.getSubjectsByLecturerId(lecturerId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved subjects successfully", subjects);
+        } catch (Exception e) {
+            log.error("Failed to get subjects for lecturer {}: {}", lecturerId, e.getMessage(), e);
+            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error: " + e.getMessage());
+        }
     }
 
     @Operation(summary = "Get learning paths by subject ID",
@@ -54,32 +58,12 @@ public class ManagementController {
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/learning-paths/{subjectId}")
     public ResponseData<List<LearningPathResponse>> getLearningPathsBySubjectId(@PathVariable Long subjectId) {
-        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved learning paths successfully",
-                learningPathService.getLearningPathsBySubjectId(subjectId));
+        try {
+            List<LearningPathResponse> learningPaths = learningPathService.getLearningPathsBySubjectId(subjectId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved learning paths successfully", learningPaths);
+        } catch (Exception e) {
+            log.error("Failed to get learning paths for subject {}: {}", subjectId, e.getMessage(), e);
+            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error: " + e.getMessage());
+        }
     }
-
-//    @Operation(summary = "Create node edge")
-//    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-//    @PostMapping("/node-edges")
-//    public ResponseData<NodeEdgeResponse> createEdge(@RequestBody CreateNodeEdgeRequest request) {
-//        try {
-//            return new ResponseData<>(HttpStatus.CREATED.value(), "Edge created successfully", nodeEdgeService.createEdge(request));
-//        } catch (Exception e) {
-//            log.error("Create edge failed", e);
-//            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-//        }
-//    }
-//
-//    @Operation(summary = "Delete edge")
-//    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-//    @DeleteMapping("/node-edges/{edgeId}")
-//    public ResponseData<Void> deleteEdge(@PathVariable Long edgeId) {
-//        try {
-//            nodeEdgeService.deleteEdge(edgeId);
-//            return new ResponseData<>(HttpStatus.OK.value(), "Edge deleted successfully");
-//        } catch (Exception e) {
-//            log.error("Delete edge failed", e);
-//            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage());
-//        }
-//    }
 }

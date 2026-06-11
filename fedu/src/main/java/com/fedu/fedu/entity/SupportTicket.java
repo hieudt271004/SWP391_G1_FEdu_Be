@@ -20,8 +20,8 @@ public class SupportTicket extends AbstractEntity<Long> {
     private Long ticketId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id", nullable = false)
-    private Classroom classroom;
+    @JoinColumn(name = "classroom_subject_id", nullable = false)
+    private ClassroomSubject classroomSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)

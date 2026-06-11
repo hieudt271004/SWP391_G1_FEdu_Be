@@ -22,15 +22,12 @@ import java.util.List;
 import static com.fedu.fedu.utils.enums.TokenType.*;
 
 import com.fedu.fedu.dto.req.GoogleLoginRequest;
-import com.fedu.fedu.entity.LoginHistory;
 import com.fedu.fedu.entity.UserRole;
-import com.fedu.fedu.repository.LoginHistoryRepository;
 import com.fedu.fedu.repository.RoleRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.repository.UserRoleRepository;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.UUID;
 import com.fedu.fedu.utils.enums.UserStatus;
@@ -51,7 +48,6 @@ public class AuthenticationService {
     private final UserAccountRepository userAccountRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
-    private final LoginHistoryRepository loginHistoryRepository;
 
     public TokenResponse accessToken(SignInRequest signInRequest) {
 
@@ -277,12 +273,6 @@ public class AuthenticationService {
                 .build();
         userRoleRepository.save(userRole);
         userAccount.setUserRoles(Collections.singletonList(userRole));
-
-        LoginHistory loginHistory = new LoginHistory();
-        loginHistory.setUserAccount(userAccount);
-        loginHistory.setLastLogin(LocalDateTime.now());
-        loginHistoryRepository.save(loginHistory);
-        userAccount.setLoginHistory(loginHistory);
 
         return userAccount;
     }

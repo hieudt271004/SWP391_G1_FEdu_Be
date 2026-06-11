@@ -48,6 +48,13 @@ public class Submission extends AbstractEntity<Long> {
     @Column(name = "feedback", columnDefinition = "TEXT")
     private String feedback;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "graded_by")
+    private UserAccount gradedBy;
+
+    @Column(name = "graded_at")
+    private LocalDateTime gradedAt;
+
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 
