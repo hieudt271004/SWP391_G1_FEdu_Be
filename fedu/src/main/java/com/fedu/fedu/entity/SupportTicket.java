@@ -4,9 +4,6 @@ import com.fedu.fedu.utils.enums.TicketLevel;
 import com.fedu.fedu.utils.enums.TicketStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcType;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
@@ -41,13 +38,11 @@ public class SupportTicket extends AbstractEntity<Long> {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "ticket_status", columnDefinition = "e_ticket_status")
+    @Column(name = "ticket_status")
     private TicketStatus status = TicketStatus.OPEN;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "ticket_level", columnDefinition = "e_ticket_level")
+    @Column(name = "ticket_level")
     private TicketLevel supportLevel = TicketLevel.SUB_MENTOR;
 
     @Column(name = "is_deleted")
