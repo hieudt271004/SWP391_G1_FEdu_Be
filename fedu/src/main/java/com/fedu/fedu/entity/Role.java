@@ -1,22 +1,25 @@
 package com.fedu.fedu.entity;
 
+import com.fedu.fedu.utils.enums.UserRole;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 @Getter
 @Setter
 @Entity
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Table(name = "roles")
-public class Role {
+public class Role extends AbstractEntity<Long> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "role_id")
     private long roleId;
 
-    @Column(name = "role_name", nullable = false, unique = true)
-    private String roleName;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role_name")
+    private UserRole roleName;
 
 }

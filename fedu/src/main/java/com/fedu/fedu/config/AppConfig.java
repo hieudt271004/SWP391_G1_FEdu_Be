@@ -1,15 +1,15 @@
 package com.fedu.fedu.config;
 
-import com.fedu.fedu.config.PreFilter;
 import com.fedu.fedu.service.*;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
@@ -20,16 +20,18 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.security.authentication.AuthenticationProvider;
 
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 
 @Configuration
-//@RequiredArgsConstructor
+@org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 public class AppConfig {
 
     private final PreFilter preFilter;
     private final UserAccountService userService;
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
+    private String[] allowedOrigins;
 
     public AppConfig(@Lazy PreFilter preFilter,
                      @Lazy UserAccountService userService) {
@@ -37,16 +39,28 @@ public class AppConfig {
         this.userService = userService;
     }
 
-    private static final String[] WHITE_LIST = {"/auth/**", "/user/**"};
-
+    private static final String[] WHITE_LIST = {
+            "/auth/login",
+            "/auth/register",
+            "/auth/google-login",
+            "/auth/forgot-password",
+            "/auth/reset-password",
+            "/auth/change-password",
+            "/auth/refresh-token"
+    };
 
     @Bean
     public SecurityFilterChain configure(@NonNull HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(authorizeRequests ->
                         authorizeRequests
                                 .requestMatchers(WHITE_LIST).permitAll()
-                                .requestMatchers("/auth/add").permitAll()
+                                .requestMatchers("/admin/**").hasRole("ADMIN")
+                                .requestMatchers("/teacher/**").hasRole("TEACHER")
+                                .requestMatchers("/teacher-manage/**").hasRole("TEACHER")
+                                .requestMatchers("/student/sub-mentor/**").hasRole("SUB_MENTOR")
+                                .requestMatchers("/student/**").hasRole("STUDENT")
                                 .anyRequest().authenticated()
                 )
                 .sessionManagement(manager ->
@@ -71,11 +85,9 @@ public class AppConfig {
 
     @Bean
     public AuthenticationProvider provider() {
-        DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider(userService.userDetailService());
-
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userService.userDetailService());
         provider.setPasswordEncoder(getPasswordEncoder());
-
         return provider;
     }
 
@@ -90,9 +102,10 @@ public class AppConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:5177")
+                        .allowedOrigins(allowedOrigins)
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH")
                         .allowedHeaders("*")
+                        .exposedHeaders("x-refresh-token")
                         .allowCredentials(true);
             }
         };
