@@ -59,7 +59,6 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     )
     private List<UserRole> userRoles;
 
-
     @Enumerated(EnumType.STRING)
     @Column(name = "gender")
     private Gender gender;
