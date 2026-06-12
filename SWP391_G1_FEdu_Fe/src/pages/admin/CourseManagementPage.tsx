@@ -2,7 +2,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Eye, ChevronLeft, ChevronRight, List, Grid, ChevronRight as ChevronRightIcon, ArrowUpDown, Loader2, AlertCircle } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
+import { classroomService } from "../../services/classroom.service";
 import type { Subject } from "../../types/subject";
+import type { ClassroomResponse } from "../../types/classroom";
+import { CourseEditModal } from "./CourseEditModal";
 
 // Map Subject (BE) → AdminCourse (display)
 interface AdminCourse {
@@ -18,23 +21,34 @@ interface AdminCourse {
   activeClasses: number;
 }
 
-function subjectToAdminCourse(s: Subject): AdminCourse {
+function subjectToAdminCourse(s: Subject, classroomsOfSubject: ClassroomResponse[] = []): AdminCourse {
   const initials = s.subjectCode?.slice(0, 2).toUpperCase() || "SC";
+  const studentCount = classroomsOfSubject.reduce((sum, c) => sum + c.studentCount, 0);
+  const activeClassesCount = classroomsOfSubject.length;
   return {
     id: s.subjectId,
     title: s.subjectName,
     code: s.subjectCode,
     instructor: s.createdBy ? `${s.createdBy.firstName} ${s.createdBy.lastName}` : "—",
-    status: "published",      // Subject luôn coi là published
+    status: (s.status === "published" || s.status === "draft") ? s.status : (activeClassesCount > 0 ? "published" : "draft"),
     thumbnail: initials,
-    students: 0,
+    students: studentCount,
     category: "Khóa học",
     description: s.description || "",
-    activeClasses: 0,
+    activeClasses: activeClassesCount,
   };
 }
 
 type ViewMode = "list" | "grid";
+type SortField = "title" | "code" | "instructor" | "students" | "status";
+type SortOrder = "asc" | "desc";
+
+const sortMap: Record<string, SortField> = {
+  "KHÓA HỌC": "title",
+  "GIẢNG VIÊN": "instructor",
+  "HỌC VIÊN": "students",
+  "TRẠNG THÁI": "status"
+};
 
 export function CourseManagementPage() {
   const navigate = useNavigate();
@@ -47,14 +61,29 @@ export function CourseManagementPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [sortField, setSortField] = useState<SortField>("title");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<AdminCourse | null>(null);
 
   const fetchSubjects = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await subjectService.getAll();
-      setCourses(data.map(subjectToAdminCourse));
+      const [subjectsData, classroomsData] = await Promise.all([
+        subjectService.getAll(),
+        classroomService.getAll(),
+      ]);
+
+      const classroomsBySubject = classroomsData.reduce((acc, classroom) => {
+        if (!acc[classroom.subjectId]) {
+          acc[classroom.subjectId] = [];
+        }
+        acc[classroom.subjectId].push(classroom);
+        return acc;
+      }, {} as Record<number, ClassroomResponse[]>);
+
+      setCourses(subjectsData.map(s => subjectToAdminCourse(s, classroomsBySubject[s.subjectId] || [])));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Không tải được danh sách khóa học");
     } finally {
@@ -66,7 +95,8 @@ export function CourseManagementPage() {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.dropdown-container')) {
         setOpenDropdown(null);
       }
     }
@@ -74,8 +104,20 @@ export function CourseManagementPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
   const handleDelete = async (id: number) => {
-    if (!confirm("Xác nhận xóa khóa học này?")) return;
+    const course = courses.find(c => c.id === id);
+    if (!course) return;
+
+    let confirmMsg = "Xác nhận xóa khóa học này?";
+    if (course.activeClasses > 0) {
+      confirmMsg = `CẢNH BÁO: Khóa học này hiện đang có ${course.activeClasses} lớp học đang hoạt động và ${course.students} học viên! Việc xóa khóa học có thể làm ảnh hưởng hoặc mất mát dữ liệu lớp học liên quan.\n\nBạn có chắc chắn VẪN MUỐN XÓA khóa học này không?`;
+    }
+
+    if (!confirm(confirmMsg)) return;
     try {
       await subjectService.delete(id);
       setCourses(prev => prev.filter(c => c.id !== id));
@@ -96,8 +138,32 @@ export function CourseManagementPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const sortedCourses = [...filteredCourses].sort((a, b) => {
+    const aValue = a[sortField];
+    const bValue = b[sortField];
+
+    if (typeof aValue === "string" && typeof bValue === "string") {
+      return sortOrder === "asc"
+        ? aValue.localeCompare(bValue, "vi")
+        : bValue.localeCompare(aValue, "vi");
+    }
+    // Number columns (students, activeClasses, id)
+    return sortOrder === "asc"
+      ? (aValue as number) - (bValue as number)
+      : (bValue as number) - (aValue as number);
+  });
+
   const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
-  const paginatedCourses = filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedCourses = sortedCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -171,13 +237,31 @@ export function CourseManagementPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ backgroundColor: "#334155", borderBottom: "1px solid #475569" }}>
-                  {["KHÓA HỌC", "GIẢNG VIÊN", "HỌC VIÊN", "TRẠNG THÁI", "HÀNH ĐỘNG"].map((h) => (
-                    <th key={h} className="text-left px-6 py-4">
-                      <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "white", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                        {h} {h !== "HÀNH ĐỘNG" && <ArrowUpDown className="w-3.5 h-3.5 inline ml-1" />}
-                      </span>
-                    </th>
-                  ))}
+                  {["KHÓA HỌC", "GIẢNG VIÊN", "HỌC VIÊN", "TRẠNG THÁI", "HÀNH ĐỘNG"].map((h) => {
+                    const field = sortMap[h];
+                    const isSorted = field === sortField;
+                    return (
+                      <th 
+                        key={h} 
+                        className={`text-left px-6 py-4 ${field ? "cursor-pointer select-none hover:bg-slate-700 transition-colors" : ""}`}
+                        onClick={() => field && handleSort(field)}
+                      >
+                        <span className="flex items-center gap-1" style={{ fontSize: "0.8125rem", fontWeight: 600, color: "white", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          {h} 
+                          {field && (
+                            <ArrowUpDown 
+                              className="w-3.5 h-3.5 inline" 
+                              style={{ 
+                                color: isSorted ? "#c7d2fe" : "#94a3b8",
+                                transform: isSorted && sortOrder === "desc" ? "rotate(180deg)" : "none",
+                                transition: "transform 0.2s"
+                              }} 
+                            />
+                          )}
+                        </span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -207,7 +291,7 @@ export function CourseManagementPage() {
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-1">
                         <button onClick={() => navigate(`/admin/courses/${course.id}`)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Xem"><Eye className="w-4 h-4" style={{ color: "#6b7280" }} /></button>
-                        <button onClick={() => navigate(`/admin/courses/${course.id}/edit`)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Chỉnh sửa"><Edit2 className="w-4 h-4" style={{ color: "#6b7280" }} /></button>
+                        <button onClick={() => { setSelectedCourse(course); setEditModalOpen(true); }} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Chỉnh sửa"><Edit2 className="w-4 h-4" style={{ color: "#6b7280" }} /></button>
                         <button onClick={() => handleDelete(course.id)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Xóa"><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                       </div>
                     </td>
@@ -244,13 +328,13 @@ export function CourseManagementPage() {
               <div className="w-full h-36 flex items-center justify-center rounded-t-2xl" style={{ backgroundColor: "#5b21b6" }}>
                 <span className="text-white" style={{ fontSize: "2.5rem", fontWeight: 700 }}>{course.thumbnail}</span>
               </div>
-              <div className="absolute top-4 right-4" ref={dropdownRef}>
+              <div className="dropdown-container absolute top-4 right-4">
                 <button onClick={() => setOpenDropdown(openDropdown === course.id ? null : course.id)} className="p-1.5 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
                   <MoreVertical className="w-4 h-4" style={{ color: "white" }} />
                 </button>
                 {openDropdown === course.id && (
                   <div className="absolute right-0 top-full mt-2 w-40 rounded-lg shadow-lg overflow-hidden z-10" style={{ backgroundColor: "#2d3748", border: "1px solid #4a5568" }}>
-                    <button onClick={() => { navigate(`/admin/courses/${course.id}/edit`); setOpenDropdown(null); }} className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-gray-700 transition-colors" style={{ backgroundColor: "transparent", border: "none", color: "white", fontSize: "0.875rem", cursor: "pointer" }}>
+                    <button onClick={() => { setSelectedCourse(course); setEditModalOpen(true); setOpenDropdown(null); }} className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-gray-700 transition-colors" style={{ backgroundColor: "transparent", border: "none", color: "white", fontSize: "0.875rem", cursor: "pointer" }}>
                       <Edit2 className="w-4 h-4" /> Chỉnh sửa
                     </button>
                     <button onClick={() => { handleDelete(course.id); setOpenDropdown(null); }} className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-gray-700 transition-colors" style={{ backgroundColor: "transparent", border: "none", color: "#fc8181", fontSize: "0.875rem", cursor: "pointer" }}>
@@ -294,6 +378,13 @@ export function CourseManagementPage() {
           ))}
         </div>
       )}
+
+      <CourseEditModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        course={selectedCourse}
+        onSuccess={fetchSubjects}
+      />
     </div>
   );
 }

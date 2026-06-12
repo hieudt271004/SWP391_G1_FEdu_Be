@@ -12,6 +12,7 @@ export interface ClassroomResponse {
   lecturerFirstName?: string;
   lecturerLastName?: string;
   studentCount: number;
+  status?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -22,6 +23,7 @@ export interface ClassroomRequest {
   semester?: string;
   description?: string;
   lecturerId?: number;
+  status?: string;
 }
 
 export interface AssignTeacherRequest {

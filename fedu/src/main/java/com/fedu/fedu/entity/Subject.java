@@ -34,4 +34,8 @@ public class Subject extends AbstractEntity<Long> {
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
+
+    @Builder.Default
+    @Column(name = "status", nullable = false, length = 50)
+    private String status = "draft";
 }

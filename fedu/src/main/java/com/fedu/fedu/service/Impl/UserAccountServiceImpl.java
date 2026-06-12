@@ -4,10 +4,12 @@ import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.req.UserProfileRequest;
+import com.fedu.fedu.dto.req.UserUpdateRequest;
 import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.entity.Role;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.entity.UserRole;
+import org.springframework.transaction.annotation.Transactional;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.RoleRepository;
@@ -229,5 +231,53 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .status(userAccount.getStatus())
                 .roles(roles)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void updateUser(long userId, UserUpdateRequest request) {
+        log.info("---------- updateUser for userId: {} ----------", userId);
+        
+        UserAccount userAccount = getById(userId);
+        
+        // Update profile fields
+        userAccount.setFirstName(request.getFirstName());
+        userAccount.setLastName(request.getLastName());
+        userAccount.setPhone(request.getPhone());
+        userAccount.setGender(request.getGender());
+        userAccount.setBod(request.getBod());
+        
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
+            userAccount.setAvatarUrl(request.getAvatarUrl());
+        }
+        
+        // Update status
+        if (request.getStatus() != null) {
+            userAccount.setStatus(request.getStatus());
+        }
+        
+        // Update role if provided
+        if (request.getUserRole() != null) {
+            Role role = roleRepository.findByRoleName(request.getUserRole())
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + request.getUserRole()));
+            
+            // Delete existing roles
+            if (userAccount.getUserRoles() != null) {
+                userRoleRepository.deleteAll(userAccount.getUserRoles());
+            }
+            
+            // Assign new role
+            UserRole userRole = UserRole.builder()
+                    .role(role)
+                    .userAccount(userAccount)
+                    .build();
+            userRoleRepository.save(userRole);
+            
+            List<UserRole> newRoles = new java.util.ArrayList<>();
+            newRoles.add(userRole);
+            userAccount.setUserRoles(newRoles);
+        }
+        
+        userAccountRepository.save(userAccount);
     }
 }

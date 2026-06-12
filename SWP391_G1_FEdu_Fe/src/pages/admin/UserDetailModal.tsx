@@ -78,10 +78,11 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === "add") {
-      try {
-        setSubmitting(true);
-        setError(null);
+    try {
+      setSubmitting(true);
+      setError(null);
+      
+      if (mode === "add") {
         await adminService.createUser({
           email: formData.email,
           password: formData.password,
@@ -92,16 +93,47 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
           status: formData.status as "ACTIVE" | "INACTIVE" | "NONE",
           userRole: formData.role,
         });
-        onSuccess?.();
-        onClose();
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Tạo thất bại");
-      } finally {
-        setSubmitting(false);
+      } else {
+        if (!user || !user.id) {
+          throw new Error("Không tìm thấy thông tin người dùng cần cập nhật");
+        }
+
+        // Map gender to BE enum value (MALE, FEMALE, OTHER)
+        const mappedGender = user.gender === "Male" 
+          ? "MALE" 
+          : user.gender === "Female" 
+          ? "FEMALE" 
+          : "OTHER";
+
+        // Map date of birth from "yyyy-MM-dd" to "dd/MM/yyyy"
+        let mappedBod: string | undefined = undefined;
+        if (user.dateOfBirth && user.dateOfBirth !== "—") {
+          const parts = user.dateOfBirth.split("-");
+          if (parts.length === 3) {
+            mappedBod = `${parts[2]}/${parts[1]}/${parts[0]}`;
+          } else {
+            mappedBod = user.dateOfBirth;
+          }
+        }
+
+        await adminService.updateUser(user.id, {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone,
+          gender: mappedGender,
+          bod: mappedBod,
+          avatarUrl: formData.avatarUrl,
+          status: formData.status as "ACTIVE" | "INACTIVE" | "NONE",
+          userRole: formData.role,
+        });
       }
-    } else {
-      // Handle Edit mode submission here when available
+      
+      onSuccess?.();
       onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Thao tác thất bại");
+    } finally {
+      setSubmitting(false);
     }
   };
 

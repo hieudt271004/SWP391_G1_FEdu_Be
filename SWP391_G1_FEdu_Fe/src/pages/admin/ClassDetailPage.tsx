@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, CheckCircle2, Circle, Plus, X, Search,
   UserPlus, Loader2, AlertCircle, Trash2, BookOpen, Mail,
 } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
+import { adminService } from "../../services/admin.service";
 import type { ClassroomResponse } from "../../types/classroom";
 import type { StudentInClass } from "../../types/student";
+import type { AdminUserResponse } from "../../services/admin.service";
 
 const mockModuleProgress = [
   { id: "1", title: "Module 1: Introduction", status: "completed" as const },
@@ -16,21 +18,35 @@ const mockModuleProgress = [
   { id: "5", title: "Module 5: Testing", status: "not-started" as const },
 ];
 
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "active": return { label: "Đang hoạt động", bg: "#d1fae5", color: "#065f46" };
+    case "inactive": return { label: "Chưa bắt đầu", bg: "#fef3c7", color: "#92400e" };
+    case "completed": return { label: "Đã hoàn thành", bg: "#e0e7ff", color: "#3730a3" };
+    default: return { label: "Chưa bắt đầu", bg: "#fef3c7", color: "#92400e" };
+  }
+};
+
 export function ClassDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const classroomId = Number(id);
 
   const [classroom, setClassroom] = useState<ClassroomResponse | null>(null);
   const [students, setStudents] = useState<StudentInClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addEmail, setAddEmail] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
+
+  const [systemStudents, setSystemStudents] = useState<AdminUserResponse[]>([]);
+  const [fetchingStudents, setFetchingStudents] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!classroomId) return;
@@ -51,6 +67,35 @@ export function ClassDetailPage() {
   }, [classroomId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (searchParams.get("addStudent") === "true") {
+      setShowAddModal(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("addStudent");
+      navigate({ search: newParams.toString() }, { replace: true });
+    }
+  }, [searchParams, navigate]);
+
+  useEffect(() => {
+    if (showAddModal) {
+      const fetchSystemStudents = async () => {
+        try {
+          setFetchingStudents(true);
+          const users = await adminService.getAllUsers();
+          const activeStudents = users.filter(
+            (u) => u.roles?.includes("STUDENT") && u.status === "ACTIVE"
+          );
+          setSystemStudents(activeStudents);
+        } catch (e: unknown) {
+          console.error("Lỗi khi tải danh sách học sinh:", e);
+        } finally {
+          setFetchingStudents(false);
+        }
+      };
+      fetchSystemStudents();
+    }
+  }, [showAddModal]);
 
   const toggleModule = (moduleId: string) => {
     setExpandedModules((prev) =>
@@ -84,6 +129,42 @@ export function ClassDetailPage() {
     }
   };
 
+  const handleUpdateStatus = async (newStatus: string) => {
+    if (!classroom) return;
+    const actionText = newStatus === "active" ? "bắt đầu" : "kết thúc";
+    if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không?`)) return;
+
+    try {
+      setUpdatingStatus(true);
+      await classroomService.update(classroomId, {
+        subjectId: classroom.subjectId,
+        className: classroom.className,
+        semester: classroom.semester || "",
+        description: classroom.description || "",
+        lecturerId: classroom.lecturerId,
+        status: newStatus,
+      });
+      // Refresh data
+      const updatedClassroom = await classroomService.getById(classroomId);
+      setClassroom(updatedClassroom);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Cập nhật trạng thái thất bại");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const filteredSuggestions = systemStudents.filter((s) => {
+    const isAlreadyInClass = students.some((st) => st.email === s.email);
+    if (isAlreadyInClass) return false;
+
+    const query = addEmail.toLowerCase().trim();
+    if (!query) return true;
+
+    const fullName = `${s.firstName || ""} ${s.lastName || ""}`.toLowerCase();
+    return s.email.toLowerCase().includes(query) || fullName.includes(query);
+  });
+
   if (loading) return (
     <div className="flex items-center justify-center py-20">
       <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
@@ -107,9 +188,22 @@ export function ClassDetailPage() {
             <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
           </button>
           <div>
-            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
-              {classroom?.className} — {classroom?.subjectName || classroom?.subjectCode}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
+                {classroom?.className} — {classroom?.subjectName || classroom?.subjectCode}
+              </h1>
+              {classroom?.status && (() => {
+                const badge = getStatusBadge(classroom.status);
+                return (
+                  <span
+                    className="px-2.5 py-1 rounded-full text-xs font-semibold animate-pulse"
+                    style={{ backgroundColor: badge.bg, color: badge.color, animationDuration: "3s" }}
+                  >
+                    {badge.label}
+                  </span>
+                );
+              })()}
+            </div>
             <p style={{ fontSize: "0.875rem", color: "#6b7280", marginTop: "0.25rem" }}>
               Giảng viên: {classroom?.lecturerFirstName
                 ? `${classroom.lecturerFirstName} ${classroom.lecturerLastName}`
@@ -119,6 +213,28 @@ export function ClassDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {classroom?.status === "inactive" && (
+            <button
+              onClick={() => handleUpdateStatus("active")}
+              disabled={updatingStatus}
+              className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
+              style={{ backgroundColor: "#059669", border: "none", cursor: updatingStatus ? "not-allowed" : "pointer" }}
+            >
+              {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />}
+              Bắt đầu lớp học
+            </button>
+          )}
+          {classroom?.status === "active" && (
+            <button
+              onClick={() => handleUpdateStatus("completed")}
+              disabled={updatingStatus}
+              className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
+              style={{ backgroundColor: "#4338ca", border: "none", cursor: updatingStatus ? "not-allowed" : "pointer" }}
+            >
+              {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />}
+              Kết thúc lớp học
+            </button>
+          )}
           <div className="px-4 py-2 rounded-lg" style={{ backgroundColor: "#eef2ff", fontSize: "0.875rem", color: "#4338ca", fontWeight: 600 }}>
             {students.length} học sinh
           </div>
@@ -308,21 +424,65 @@ export function ClassDetailPage() {
               )}
               <div>
                 <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                  Email học sinh
+                  Tìm kiếm hoặc Email học sinh
                 </label>
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg" style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb" }}>
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg mb-3" style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb" }}>
                   <Search className="w-4 h-4 shrink-0" style={{ color: "#9ca3af" }} />
                   <input
                     type="email"
                     value={addEmail}
                     onChange={(e) => setAddEmail(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleAddStudent()}
-                    placeholder="example@email.com"
+                    placeholder="Nhập email hoặc tên học sinh..."
                     className="flex-1 bg-transparent outline-none text-sm"
                     style={{ color: "#111827" }}
                     autoFocus
                   />
                 </div>
+
+                <label style={{ display: "block", fontSize: "0.8125rem", fontWeight: 600, color: "#6b7280", marginBottom: "0.375rem" }}>
+                  Gợi ý học sinh từ hệ thống
+                </label>
+                {fetchingStudents ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#4338ca" }} />
+                    <span className="text-xs text-gray-500 ml-2">Đang tải danh sách học sinh...</span>
+                  </div>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100" style={{ backgroundColor: "#fafafa" }}>
+                    {filteredSuggestions.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-gray-500">
+                        Không tìm thấy học sinh phù hợp (hoặc đã ở trong lớp)
+                      </div>
+                    ) : (
+                      filteredSuggestions.map((s) => {
+                        const initials = ((s.firstName?.[0] || "") + (s.lastName?.[0] || "")).toUpperCase() || "??";
+                        const isSelected = addEmail === s.email;
+                        return (
+                          <button
+                            key={s.userId}
+                            type="button"
+                            onClick={() => setAddEmail(s.email)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-100 transition-colors"
+                            style={{ backgroundColor: isSelected ? "#eef2ff" : "transparent" }}
+                          >
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold" style={{ background: isSelected ? "linear-gradient(135deg, #4338ca, #7c3aed)" : "linear-gradient(135deg, #9ca3af, #4b5563)" }}>
+                              {initials}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold text-gray-900 truncate">
+                                {s.firstName} {s.lastName}
+                              </div>
+                              <div className="text-xs text-gray-500 truncate">
+                                {s.email}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4" style={{ borderTop: "1px solid #e5e7eb" }}>

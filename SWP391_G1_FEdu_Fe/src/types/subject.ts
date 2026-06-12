@@ -14,10 +14,12 @@ export interface Subject {
   } | null;
   createdAt?: string;
   updatedAt?: string;
+  status?: string;
 }
 
 export interface SubjectRequest {
   subjectCode: string;
   subjectName: string;
   description?: string;
+  status?: string;
 }

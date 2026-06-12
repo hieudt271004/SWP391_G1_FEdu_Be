@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Home, BookOpen, Users, BarChart3, Settings, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
+import logo from '../../assets/logo.png';
 
 export function TeacherLayout() {
   const navigate = useNavigate();
@@ -22,16 +23,14 @@ export function TeacherLayout() {
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
         {/* Logo */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-600 to-violet-600">
-              <GraduationCap className="w-6 h-6 text-white" />
-            </div>
+            <img src={logo} alt="FEdu Logo" className="w-10 h-10 rounded-lg object-cover" />
             <div>
-              <div className="text-lg font-bold text-gray-900">
-                F<span className="text-indigo-600">Edu</span>
+              <div className="text-sm font-bold text-gray-900 leading-tight">
+                F<span className="text-indigo-600">Edu</span> Learning
               </div>
-              <div className="text-xs text-gray-500">Teacher Portal</div>
+              <div className="text-[10px] text-gray-500">Teacher Portal</div>
             </div>
           </div>
         </div>

@@ -22,4 +22,6 @@ public class ClassroomRequest {
     // lecturerId is taken from the authenticated user (TEACHER role)
     // but can be overridden by ADMIN
     private Long lecturerId;
+
+    private String status;
 }

@@ -1,4 +1,4 @@
-import { BookOpen } from "lucide-react";
+import logo from "../../../assets/logo.png";
 export function LeftPanel() {
   return (
     <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
@@ -10,9 +10,7 @@ export function LeftPanel() {
       <div className="absolute inset-0 bg-slate-950/55" />
       <div className="absolute inset-0 flex flex-col justify-between p-12">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
-            <BookOpen className="w-5 h-5 text-blue-600" />
-          </div>
+          <img src={logo} alt="FEdu Logo" className="w-10 h-10 rounded-lg object-cover shadow-lg" />
           <span className="text-white font-bold tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" style={{ fontSize: "1.25rem" }}>
             FEdu Learning
           </span>
