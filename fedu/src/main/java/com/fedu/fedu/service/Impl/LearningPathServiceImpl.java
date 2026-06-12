@@ -6,6 +6,7 @@ import com.fedu.fedu.dto.req.UpdateLearningNodeRequest;
 import com.fedu.fedu.dto.req.UpdateLearningPathRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
+import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
 import com.fedu.fedu.utils.enums.NodeStatus;
@@ -38,7 +39,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public LearningPathResponse createLearningPath(CreateLearningPathRequest request) {
         Subject subject = subjectRepository.findById(request.getSubjectId())
-                .orElseThrow(() -> new RuntimeException("Subject not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
 
         LearningPath learningPath = LearningPath.builder()
                 .subject(subject)
@@ -55,7 +56,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public LearningPathResponse updateLearningPath(Long pathId, UpdateLearningPathRequest request) {
         LearningPath learningPath = learningPathRepository.findById(pathId)
-                .orElseThrow(() -> new RuntimeException("Learning path not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
         learningPath.setPathName(request.getPathName());
         learningPath.setDescription(request.getDescription());
@@ -67,7 +68,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public void deleteLearningPath(Long pathId) {
         LearningPath learningPath = learningPathRepository.findById(pathId)
-                .orElseThrow(() -> new RuntimeException("Learning path not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
         learningPath.setIsDeleted(true);
         learningPathRepository.save(learningPath);
     }
@@ -76,7 +77,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional(readOnly = true)
     public LearningPathResponse getLearningPathById(Long pathId) {
         LearningPath learningPath = learningPathRepository.findById(pathId)
-                .orElseThrow(() -> new RuntimeException("Learning path not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
         return mapToResponse(learningPath);
     }
 
@@ -88,10 +89,10 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public LearningPathResponse cloneLearningPath(Long classroomId, Long pathId) {
         Classroom classroom = classroomRepository.findById(classroomId)
-                .orElseThrow(() -> new RuntimeException("Classroom not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom not found"));
 
         LearningPath templatePath = learningPathRepository.findById(pathId)
-                .orElseThrow(() -> new RuntimeException("Learning path not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
         // Tạo bản clone LearningPath cho lớp học
         LearningPath classroomPath = LearningPath.builder()
@@ -137,7 +138,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public LearningNodeResponse createLearningNode(CreateLearningNodeRequest request) {
         LearningPath learningPath = learningPathRepository.findById(request.getLearningPathId())
-                .orElseThrow(() -> new RuntimeException("Learning path not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
         LearningNode learningNode = LearningNode.builder()
                 .learningPath(learningPath)
@@ -156,7 +157,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public LearningNodeResponse updateLearningNode(Long nodeId, UpdateLearningNodeRequest request) {
         LearningNode node = learningNodeRepository.findById(nodeId)
-                .orElseThrow(() -> new RuntimeException("Node not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
 
         node.setTitle(request.getTitle());
         node.setDescription(request.getDescription());
@@ -170,7 +171,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public void deleteLearningNode(Long nodeId) {
         LearningNode node = learningNodeRepository.findById(nodeId)
-                .orElseThrow(() -> new RuntimeException("Node not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
         node.setIsDeleted(true);
         learningNodeRepository.save(node);
     }
@@ -179,7 +180,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional(readOnly = true)
     public LearningNodeResponse getLearningNodeById(Long nodeId) {
         LearningNode node = learningNodeRepository.findById(nodeId)
-                .orElseThrow(() -> new RuntimeException("Node not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
         return mapToLearningNodeResponse(node);
     }
 
@@ -224,7 +225,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional(readOnly = true)
     public LearningPathGraphResponse getLearningPathGraph(Long pathId) {
         LearningPath learningPath = learningPathRepository.findById(pathId)
-                .orElseThrow(() -> new RuntimeException("Learning path not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
         List<LearningNodeResponse> nodes = learningNodeRepository
                 .findByLearningPathPathIdAndIsDeletedFalse(pathId)

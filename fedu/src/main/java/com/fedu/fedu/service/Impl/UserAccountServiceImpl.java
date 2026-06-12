@@ -45,7 +45,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void changeUserStatus(String username, UserStatus status) {
         UserAccount userAccount = userAccountRepository.findByEmail(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         userAccount.setStatus(status);
         userAccountRepository.save(userAccount);
     }
@@ -58,7 +58,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
-               .orElseThrow(() -> new RuntimeException("User not found"));
+               .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         userAccountRepository.delete(userAccount);
     }
 
@@ -106,7 +106,7 @@ public class UserAccountServiceImpl implements UserAccountService {
                 (userRole != null) ? userRole : com.fedu.fedu.utils.enums.UserRole.USER;
 
         Role role = roleRepository.findByRoleName(targetRole)
-                .orElseThrow(() -> new RuntimeException("Role not found: " + targetRole));
+                .orElseThrow(() -> new IllegalStateException("Role not found: " + targetRole));
 
         UserRole userRoles = UserRole.builder()
                 .role(role)
@@ -140,7 +140,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         userAccountRepository.save(userAccount);
 
         Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.STUDENT)
-                .orElseThrow(() -> new RuntimeException("Default role STUDENT not found"));
+                .orElseThrow(() -> new IllegalStateException("Default role STUDENT not found"));
 
         assignRoleToUser(userAccount, defaultRole);
     }
