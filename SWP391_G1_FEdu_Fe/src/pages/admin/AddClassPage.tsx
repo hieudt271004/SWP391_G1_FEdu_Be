@@ -11,6 +11,7 @@ interface ClassForm {
   lecturerId: number;
   semester: string;
   description: string;
+  status?: string;
 }
 
 export function AddClassPage() {
@@ -27,6 +28,7 @@ export function AddClassPage() {
     lecturerId: 0,
     semester: "",
     description: "",
+    status: "inactive",
   });
   const [subjects, setSubjects] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<AdminUserResponse[]>([]);
@@ -53,6 +55,7 @@ export function AddClassPage() {
             lecturerId: data.lecturerId || 0,
             semester: data.semester || "",
             description: data.description || "",
+            status: data.status || "inactive",
           });
           setSubjects(subs.filter((s: any) => s.status === "published" || s.subjectId === data.subjectId));
         } else {
@@ -209,6 +212,27 @@ export function AddClassPage() {
                 ))}
               </select>
             </div>
+
+            {/* Trạng thái lớp học (Chỉ hiển thị ở chế độ Edit) */}
+            {isEdit && (
+              <div>
+                <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
+                  Trạng thái lớp học
+                </label>
+                <select
+                  value={form.status || "inactive"}
+                  onChange={(e) => handleChange("status", e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl outline-none transition-all cursor-pointer"
+                  style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
+                  onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
+                >
+                  <option value="inactive">Chưa bắt đầu</option>
+                  <option value="active">Đang hoạt động</option>
+                  <option value="completed">Đã hoàn thành</option>
+                </select>
+              </div>
+            )}
 
             {/* Mô tả */}
             <div className="md:col-span-2">

@@ -16,6 +16,15 @@ const mockModuleProgress = [
   { id: "5", title: "Module 5: Testing", status: "not-started" as const },
 ];
 
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "active": return { label: "Đang hoạt động", bg: "#d1fae5", color: "#065f46" };
+    case "inactive": return { label: "Chưa bắt đầu", bg: "#fef3c7", color: "#92400e" };
+    case "completed": return { label: "Đã hoàn thành", bg: "#e0e7ff", color: "#3730a3" };
+    default: return { label: "Chưa bắt đầu", bg: "#fef3c7", color: "#92400e" };
+  }
+};
+
 export function ClassDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -26,6 +35,7 @@ export function ClassDetailPage() {
   const [students, setStudents] = useState<StudentInClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -94,6 +104,31 @@ export function ClassDetailPage() {
     }
   };
 
+  const handleUpdateStatus = async (newStatus: string) => {
+    if (!classroom) return;
+    const actionText = newStatus === "active" ? "bắt đầu" : "kết thúc";
+    if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không?`)) return;
+
+    try {
+      setUpdatingStatus(true);
+      await classroomService.update(classroomId, {
+        subjectId: classroom.subjectId,
+        className: classroom.className,
+        semester: classroom.semester || "",
+        description: classroom.description || "",
+        lecturerId: classroom.lecturerId,
+        status: newStatus,
+      });
+      // Refresh data
+      const updatedClassroom = await classroomService.getById(classroomId);
+      setClassroom(updatedClassroom);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Cập nhật trạng thái thất bại");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center py-20">
       <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
@@ -117,9 +152,22 @@ export function ClassDetailPage() {
             <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
           </button>
           <div>
-            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
-              {classroom?.className} — {classroom?.subjectName || classroom?.subjectCode}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
+                {classroom?.className} — {classroom?.subjectName || classroom?.subjectCode}
+              </h1>
+              {classroom?.status && (() => {
+                const badge = getStatusBadge(classroom.status);
+                return (
+                  <span
+                    className="px-2.5 py-1 rounded-full text-xs font-semibold animate-pulse"
+                    style={{ backgroundColor: badge.bg, color: badge.color, animationDuration: "3s" }}
+                  >
+                    {badge.label}
+                  </span>
+                );
+              })()}
+            </div>
             <p style={{ fontSize: "0.875rem", color: "#6b7280", marginTop: "0.25rem" }}>
               Giảng viên: {classroom?.lecturerFirstName
                 ? `${classroom.lecturerFirstName} ${classroom.lecturerLastName}`
@@ -129,6 +177,28 @@ export function ClassDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {classroom?.status === "inactive" && (
+            <button
+              onClick={() => handleUpdateStatus("active")}
+              disabled={updatingStatus}
+              className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
+              style={{ backgroundColor: "#059669", border: "none", cursor: updatingStatus ? "not-allowed" : "pointer" }}
+            >
+              {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />}
+              Bắt đầu lớp học
+            </button>
+          )}
+          {classroom?.status === "active" && (
+            <button
+              onClick={() => handleUpdateStatus("completed")}
+              disabled={updatingStatus}
+              className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
+              style={{ backgroundColor: "#4338ca", border: "none", cursor: updatingStatus ? "not-allowed" : "pointer" }}
+            >
+              {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />}
+              Kết thúc lớp học
+            </button>
+          )}
           <div className="px-4 py-2 rounded-lg" style={{ backgroundColor: "#eef2ff", fontSize: "0.875rem", color: "#4338ca", fontWeight: 600 }}>
             {students.length} học sinh
           </div>

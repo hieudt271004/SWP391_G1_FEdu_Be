@@ -33,6 +33,10 @@ public class Classroom extends AbstractEntity<Long> {
     @JoinColumn(name = "lecturer_id", nullable = false)
     private UserAccount lecturer;
 
+    @Builder.Default
+    @Column(name = "status", nullable = false, length = 50)
+    private String status = "inactive";
+
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

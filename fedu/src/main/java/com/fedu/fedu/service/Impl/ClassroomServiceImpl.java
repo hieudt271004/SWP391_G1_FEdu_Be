@@ -53,6 +53,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .description(request.getDescription())
                 .subject(subject)
                 .lecturer(lecturer)
+                .status(request.getStatus() != null ? request.getStatus() : "inactive")
                 .isDeleted(false)
                 .build();
         Classroom saved = classroomRepository.save(classroom);
@@ -80,6 +81,10 @@ public class ClassroomServiceImpl implements ClassroomService {
         classroom.setClassName(request.getClassName().trim());
         classroom.setSemester(request.getSemester());
         classroom.setDescription(request.getDescription());
+
+        if (request.getStatus() != null) {
+            classroom.setStatus(request.getStatus());
+        }
 
         // Cập nhật subject và lecturer trong ClassroomSubject và Classroom nếu cần
         if (request.getSubjectId() != null || request.getLecturerId() != null) {
@@ -224,6 +229,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .semester(classroom.getSemester())
                 .description(classroom.getDescription())
                 .studentCount(studentCount)
+                .status(classroom.getStatus())
                 .createdAt(classroom.getCreatedAt())
                 .updatedAt(classroom.getUpdatedAt());
 

@@ -25,7 +25,7 @@ function classroomToRecord(c: ClassroomResponse): ClassRecord {
       ? `${c.lecturerFirstName} ${c.lecturerLastName}`
       : (c.lecturerName || "—"),
     students: c.studentCount,
-    status: c.studentCount > 0 ? "active" : "inactive",
+    status: (c.status as ClassRecord["status"]) || (c.studentCount > 0 ? "active" : "inactive"),
     thumbnail: initials,
   };
 }
