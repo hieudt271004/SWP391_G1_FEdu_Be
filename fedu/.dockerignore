@@ -1,0 +1,13 @@
+target/
+.mvn/
+mvnw
+mvnw.cmd
+.git/
+.gitignore
+.idea/
+.env
+Dockerfile
+docker-compose*
+README.md
+*.sql
+*.log
