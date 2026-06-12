@@ -4,6 +4,7 @@ import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.req.UserProfileRequest;
+import com.fedu.fedu.dto.req.UserUpdateRequest;
 import com.fedu.fedu.dto.res.UserResponse;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.utils.enums.UserStatus;
@@ -44,4 +45,6 @@ public interface UserAccountService {
     UserResponse updateProfile(long userId, UserProfileRequest request);
     
     UserResponse getProfile(long userId);
+
+    void updateUser(long userId, UserUpdateRequest request);
 }
