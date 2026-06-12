@@ -32,6 +32,7 @@ public class ClassroomController {
     @Operation(summary = "Create new classroom",
             description = "TEACHER creates class: lecturerId is automatically themselves. ADMIN can specify lecturerId.")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     public ResponseData<ClassroomResponse> createClassroom(
             @Valid @RequestBody ClassroomRequest request,

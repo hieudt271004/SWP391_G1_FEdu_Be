@@ -28,6 +28,7 @@ public class ClassroomStudentController {
 
     @Operation(summary = "Add student to classroom by email")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     public ResponseData<StudentInClassResponse> addStudentToClassroom(
             @PathVariable Long classroomId,

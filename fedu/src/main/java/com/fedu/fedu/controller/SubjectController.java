@@ -15,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 @Slf4j
@@ -30,6 +29,7 @@ public class SubjectController {
 
     @Operation(summary = "Create new subject and save into db")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     public ResponseData<Subject> createSubject(
             @Valid @RequestBody SubjectRequest request,

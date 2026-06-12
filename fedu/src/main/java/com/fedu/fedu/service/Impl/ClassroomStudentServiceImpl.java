@@ -5,6 +5,7 @@ import com.fedu.fedu.dto.res.StudentInClassResponse;
 import com.fedu.fedu.entity.ClassroomSubject;
 import com.fedu.fedu.entity.ClassroomSubjectStudent;
 import com.fedu.fedu.entity.UserAccount;
+import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.ClassroomSubjectRepository;
 import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
@@ -46,7 +47,7 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
         classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubject.getId(), student.getUserId())
                 .ifPresent(existing -> {
-                    throw new IllegalStateException("Student already enrolled in this classroom");
+                    throw new InvalidDataException("Student already enrolled in this classroom");
                 });
 
         ClassroomSubjectStudent enrollment = ClassroomSubjectStudent.builder()
