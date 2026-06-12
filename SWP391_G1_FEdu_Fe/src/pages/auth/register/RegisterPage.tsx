@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, BookOpen, Mail, Lock, User, ArrowLeft } from "lucide-react";
 import { LeftPanel } from "../components/LeftPanel";
+import logo from "../../../assets/logo.png";
 import { emailRegex, RegField, defaultRegisterForm } from "../types";
 import { authService } from "../../../services/auth.service";
 
@@ -58,9 +59,7 @@ export function RegisterPage() {
 
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-white" />
-            </div>
+            <img src={logo} alt="FEdu Logo" className="w-8 h-8 rounded-lg object-cover" />
             <span style={{ fontSize: "1.125rem", fontWeight: 700, color: "#4338ca" }}>FEdu Learning</span>
           </div>
 

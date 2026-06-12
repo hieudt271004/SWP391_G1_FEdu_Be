@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, CheckCircle2, Circle, Plus, X, Search,
   UserPlus, Loader2, AlertCircle, Trash2, BookOpen, Mail,
@@ -19,6 +19,7 @@ const mockModuleProgress = [
 export function ClassDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const classroomId = Number(id);
 
   const [classroom, setClassroom] = useState<ClassroomResponse | null>(null);
@@ -51,6 +52,15 @@ export function ClassDetailPage() {
   }, [classroomId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (searchParams.get("addStudent") === "true") {
+      setShowAddModal(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("addStudent");
+      navigate({ search: newParams.toString() }, { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   const toggleModule = (moduleId: string) => {
     setExpandedModules((prev) =>

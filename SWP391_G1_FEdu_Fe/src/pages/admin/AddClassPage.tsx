@@ -83,10 +83,11 @@ export function AddClassPage() {
       setError(null);
       if (isEdit) {
         await classroomService.update(Number(id), form);
+        navigate("/admin/classes");
       } else {
-        await classroomService.create(form);
+        const newClass = await classroomService.create(form);
+        navigate(`/admin/classes/${newClass.classroomId}?addStudent=true`);
       }
-      navigate("/admin/classes");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
     } finally {
