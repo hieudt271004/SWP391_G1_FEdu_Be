@@ -115,7 +115,27 @@ Di chuyển vào thư mục `SWP391_G1_FEdu_Fe/` và thực hiện các lệnh s
   ```
   Frontend sẽ được phục vụ tại địa chỉ: `http://localhost:5173`
 
+### 5. Khởi chạy bằng Docker Compose (Khuyên dùng)
+
+Nếu bạn muốn chạy cả Backend và Frontend cùng lúc bằng Docker, dự án đã cung cấp sẵn cấu hình Docker Compose.
+
+1. **Chuẩn bị file cấu hình:**
+   Sao chép file mẫu `.env.example` thành `.env` ở thư mục gốc:
+   ```bash
+   cp .env.example .env
+   ```
+2. **Cập nhật thông tin cấu hình:**
+   Mở file `.env` vừa tạo và điền các thông tin của bạn (đặc biệt là `DB_PASSWORD` và `MAIL_PASSWORD`). Các khóa bảo mật JWT đã được sinh sẵn mặc định để chạy thử nghiệm.
+3. **Khởi chạy Docker Compose:**
+   Tại thư mục gốc của dự án, chạy lệnh:
+   ```bash
+   docker compose up --build -d
+   ```
+   - **Backend** sẽ được chạy tại cổng `http://localhost:8080` (Swagger UI: `http://localhost:8080/swagger-ui/index.html`).
+   - **Frontend** sẽ được chạy tại cổng `http://localhost:80`.
+
 ---
+
 
 ## 📖 Tài liệu API (API Documentation)
 

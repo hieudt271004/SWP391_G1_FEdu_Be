@@ -29,6 +29,17 @@ export interface CreateUserRequest {
   userRole: string; // "ADMIN" | "TEACHER" | "STUDENT" | "SUB_MENTOR" | "USER"
 }
 
+export interface UpdateUserRequest {
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  gender?: string;
+  bod?: string; // dd/MM/yyyy
+  avatarUrl?: string;
+  status?: UserStatus;
+  userRole?: string;
+}
+
 export const adminService = {
   // GET /admin/users
   getAllUsers: () => http.get<AdminUserResponse[]>('/admin/users'),
@@ -48,4 +59,8 @@ export const adminService = {
   // PATCH /admin/status
   updateUserStatus: (userName: string, status: UserStatus) =>
     http.patch<void>('/admin/status', { userName, status }),
+
+  // PUT /admin/users/:userId
+  updateUser: (userId: number, req: UpdateUserRequest) =>
+    http.put<void>(`/admin/users/${userId}`, req),
 };
