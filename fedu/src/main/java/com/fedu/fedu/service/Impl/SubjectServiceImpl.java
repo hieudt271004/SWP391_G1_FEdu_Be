@@ -41,6 +41,7 @@ public class SubjectServiceImpl implements SubjectService {
                 .description(request.getDescription())
                 .createdBy(creator)
                 .isDeleted(false)
+                .status(request.getStatus() != null ? request.getStatus().trim() : "draft")
                 .build();
 
         Subject saved = subjectRepository.save(subject);
@@ -64,6 +65,9 @@ public class SubjectServiceImpl implements SubjectService {
         subject.setSubjectCode(request.getSubjectCode().trim().toUpperCase());
         subject.setSubjectName(request.getSubjectName().trim());
         subject.setDescription(request.getDescription());
+        if (request.getStatus() != null) {
+            subject.setStatus(request.getStatus().trim());
+        }
 
         return subjectRepository.save(subject);
     }

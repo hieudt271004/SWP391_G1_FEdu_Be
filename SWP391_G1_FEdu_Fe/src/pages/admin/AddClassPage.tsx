@@ -42,7 +42,6 @@ export function AddClassPage() {
           subjectService.getAll(),
           adminService.getAllUsers()
         ]);
-        setSubjects(subs);
         const teachs = users.filter((u: any) => u.roles?.includes("TEACHER"));
         setTeachers(teachs);
         
@@ -55,6 +54,9 @@ export function AddClassPage() {
             semester: data.semester || "",
             description: data.description || "",
           });
+          setSubjects(subs.filter((s: any) => s.status === "published" || s.subjectId === data.subjectId));
+        } else {
+          setSubjects(subs.filter((s: any) => s.status === "published" || s.subjectId === defaultSubjectId));
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Tải dữ liệu thất bại");
