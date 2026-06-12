@@ -1,0 +1,28 @@
+
+services:
+  backend:
+    build:
+      context: ./fedu
+      dockerfile: Dockerfile
+    container_name: fedu-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=${DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - JWT_ACCESS_KEY=${JWT_ACCESS_KEY}
+      - JWT_REFRESH_KEY=${JWT_REFRESH_KEY}
+      - JWT_RESET_KEY=${JWT_RESET_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+
+  frontend:
+    build:
+      context: ./SWP391_G1_FEdu_Fe
+      dockerfile: Dockerfile
+    container_name: fedu-frontend
+    ports:
+      - "80:8080"
+    depends_on:
+      - backend
