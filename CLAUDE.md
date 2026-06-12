@@ -54,3 +54,18 @@ Java 17 / Spring Boot 3.3 REST API, stateless JWT auth, layered:
 ### DTO conventions
 
 Request DTOs in `dto/req/`, response DTOs in `dto/res/`. Controllers validate with `@Valid` and are organized by audience: `controller/admin/`, `controller/teacher/`, `controller/auth/`, plus shared root-level controllers.
+
+## Agentic Coding & Best Practices
+
+To ensure high-quality, logic-driven, and robust code modifications, always adhere to the following practices:
+
+- **Incremental Edits**: Avoid modifying entire files or replacing large sections unless necessary. Target precise lines and code blocks using standard diff-replacement tools.
+- **Verification & Testing**: After any code change, verify the changes by running Maven tests or building the project (`mvn clean package` or `mvn test` in the `fedu/` directory). Never mark a task as complete without verifying it works.
+- **Strict Error Handling**: Write defensive code. In Java, use custom exceptions like `ResourceNotFoundException` or `InvalidDataException` and rely on `@RestControllerAdvice` for global error mapping. Always ensure inputs are validated with `@Valid` or specific constraints.
+- **Database Integrity**: Since `ddl-auto` is `none`, any database schema modifications must be updated in `fedudb_script.sql`. Ensure custom JPA entities map exactly to their SQL definition. Do not use named Postgres enums.
+- **DTO Isolation**: Never expose entity models directly to controller endpoints. Always map entities to/from DTOs (using builders or mapper utilities) to preserve API-domain isolation.
+- **Environment Parity**: Always ensure any environment-specific properties (e.g. database host, mail servers, CORS origins) are configurable via environment variables in `application.yml` and `.env` for Docker/production deployment parity.
+
+## Frontend Design & Redesign System (Taste Skill)
+
+When designing, refactoring, or modifying any frontend user interfaces, the agent **MUST read and apply** the detailed visual guidelines defined in [.agent/rules/taste-skill.md](file:///Users/mac/Documents/GitHub/SWP391_G1_FEdu_Be/.agent/rules/taste-skill.md) **first** before making any edits. This ensures all UI modifications align with the premium anti-slop visual design system.
