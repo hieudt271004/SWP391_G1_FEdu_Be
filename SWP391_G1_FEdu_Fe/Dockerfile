@@ -1,22 +1,12 @@
-# ==========================================
-# Stage 1: Build static assets
-# ==========================================
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
 
 # Cache npm dependencies
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
 
-# Copy code and build
+# Copy code
 COPY . .
-RUN npm run build
-
-# ==========================================
-# Stage 2: Serve using Nginx (Unprivileged)
-# ==========================================
-FROM nginxinc/nginx-unprivileged:1.25-alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8080"]
