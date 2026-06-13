@@ -51,6 +51,9 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .className(request.getClassName().trim())
                 .semester(request.getSemester())
                 .description(request.getDescription())
+                .subject(subject)
+                .lecturer(lecturer)
+                .status(request.getStatus() != null ? request.getStatus() : "inactive")
                 .isDeleted(false)
                 .build();
         Classroom saved = classroomRepository.save(classroom);
@@ -79,20 +82,31 @@ public class ClassroomServiceImpl implements ClassroomService {
         classroom.setSemester(request.getSemester());
         classroom.setDescription(request.getDescription());
 
-        // Cập nhật subject và lecturer trong ClassroomSubject nếu cần
-        if (request.getSubjectId() != null) {
-            Subject newSubject = subjectRepository.findBySubjectIdAndIsDeletedFalse(request.getSubjectId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + request.getSubjectId()));
+        if (request.getStatus() != null) {
+            classroom.setStatus(request.getStatus());
+        }
 
+        // Cập nhật subject và lecturer trong ClassroomSubject và Classroom nếu cần
+        if (request.getSubjectId() != null || request.getLecturerId() != null) {
             ClassroomSubject cs = classroomSubjectRepository
                     .findByClassroomClassroomId(classroomId)
-                    .stream().findFirst().orElse(ClassroomSubject.builder().classroom(classroom).build());
+                    .stream().findFirst().orElse(null);
 
-            cs.setSubject(newSubject);
+            if (cs == null) {
+                cs = ClassroomSubject.builder().classroom(classroom).build();
+            }
+
+            if (request.getSubjectId() != null) {
+                Subject newSubject = subjectRepository.findBySubjectIdAndIsDeletedFalse(request.getSubjectId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + request.getSubjectId()));
+                classroom.setSubject(newSubject);
+                cs.setSubject(newSubject);
+            }
 
             if (request.getLecturerId() != null) {
                 UserAccount newLecturer = userAccountRepository.findById(request.getLecturerId())
                         .orElseThrow(() -> new ResourceNotFoundException("Lecturer not found with id: " + request.getLecturerId()));
+                classroom.setLecturer(newLecturer);
                 cs.setLecturer(newLecturer);
             }
             classroomSubjectRepository.save(cs);
@@ -215,6 +229,7 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .semester(classroom.getSemester())
                 .description(classroom.getDescription())
                 .studentCount(studentCount)
+                .status(classroom.getStatus())
                 .createdAt(classroom.getCreatedAt())
                 .updatedAt(classroom.getUpdatedAt());
 

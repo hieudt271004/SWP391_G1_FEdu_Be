@@ -17,6 +17,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MissingRequestHeaderException;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
@@ -24,10 +25,10 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /** Validation lỗi (body, param, path variable) */
     @ExceptionHandler({
             MethodArgumentNotValidException.class,
             MissingServletRequestParameterException.class,
+            MissingRequestHeaderException.class,
             ConstraintViolationException.class
     })
     @ApiResponses(@ApiResponse(responseCode = "400", description = "Bad Request",

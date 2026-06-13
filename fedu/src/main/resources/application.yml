@@ -6,9 +6,9 @@ spring:
     name: fedu
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/fedu_db
-    username: sa
-    password: 123456
+    url: jdbc:postgresql://ep-square-rain-aonmzhf3-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&prepareThreshold=0
+    username: neondb_owner
+    password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -16,12 +16,13 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
 
   mail:
     host: smtp.gmail.com
     port: 587
     username: hieudtfptu@gmail.com
-    password: wujjktxbhemhwxas
+    password: ${MAIL_PASSWORD:}
     from: hieudtfptu@gmail.com
     properties:
       mail:
@@ -48,13 +49,12 @@ jwt:
   expiryMinute: 15
   expiryHour: 1
   expiryDay: 30
-  accessKey: c2VjcmV0QGtleS5hcGlfaGFzX2JlZW5fZGVzaWduZWRfYnlfVGF5TFE=
-  refreshKey: 9k1jJAWAKQCnCEz1pwcPNegbHoLugf9hgEnn6sz5pFc=
-  resetKey: 2OeEeG48CvIcH1K0UAXbSo/7gPj3QLJ7MnQZuscRirQ=
+  accessKey: ${JWT_ACCESS_KEY}
+  refreshKey: ${JWT_REFRESH_KEY}
+  resetKey: ${JWT_RESET_KEY}
 
 app:
   frontend-url: http://localhost:5173
   cors:
-    allowed-origins:
-      - http://localhost:5173
-      - http://localhost:3000
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost,http://127.0.0.1,http://localhost:5173,http://localhost:3000,http://localhost:5174,http://localhost:5175}
+

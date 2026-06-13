@@ -30,13 +30,8 @@ public class ManagementController {
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/classrooms/{lecturerId}")
     public ResponseData<List<ClassroomResponse>> getClassroomsByLecturerId(@PathVariable Long lecturerId) {
-        try {
-            List<ClassroomResponse> classrooms = classroomService.getClassroomsByLecturerId(lecturerId);
-            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved classrooms successfully", classrooms);
-        } catch (Exception e) {
-            log.error("Failed to get classrooms for lecturer {}: {}", lecturerId, e.getMessage(), e);
-            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error: " + e.getMessage());
-        }
+        List<ClassroomResponse> classrooms = classroomService.getClassroomsByLecturerId(lecturerId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved classrooms successfully", classrooms);
     }
 
     @Operation(summary = "Get subjects by lecturer ID",
@@ -44,13 +39,8 @@ public class ManagementController {
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/subjects/{lecturerId}")
     public ResponseData<List<SubjectResponse>> getSubjectsByLecturerId(@PathVariable Long lecturerId) {
-        try {
-            List<SubjectResponse> subjects = classroomService.getSubjectsByLecturerId(lecturerId);
-            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved subjects successfully", subjects);
-        } catch (Exception e) {
-            log.error("Failed to get subjects for lecturer {}: {}", lecturerId, e.getMessage(), e);
-            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error: " + e.getMessage());
-        }
+        List<SubjectResponse> subjects = classroomService.getSubjectsByLecturerId(lecturerId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved subjects successfully", subjects);
     }
 
     @Operation(summary = "Get learning paths by subject ID",
@@ -58,12 +48,7 @@ public class ManagementController {
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/learning-paths/{subjectId}")
     public ResponseData<List<LearningPathResponse>> getLearningPathsBySubjectId(@PathVariable Long subjectId) {
-        try {
-            List<LearningPathResponse> learningPaths = learningPathService.getLearningPathsBySubjectId(subjectId);
-            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved learning paths successfully", learningPaths);
-        } catch (Exception e) {
-            log.error("Failed to get learning paths for subject {}: {}", subjectId, e.getMessage(), e);
-            return new ResponseError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected error: " + e.getMessage());
-        }
+        List<LearningPathResponse> learningPaths = learningPathService.getLearningPathsBySubjectId(subjectId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved learning paths successfully", learningPaths);
     }
 }
