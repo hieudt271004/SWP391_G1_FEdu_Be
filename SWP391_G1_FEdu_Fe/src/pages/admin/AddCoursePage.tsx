@@ -34,7 +34,7 @@ export function AddCoursePage() {
             description: data.description || "",
           });
         } catch (err: unknown) {
-          setError(err instanceof Error ? err.message : "Tải thông tin khóa học thất bại");
+          setError(err instanceof Error ? err.message : "Tải thông tin môn học thất bại");
         } finally {
           setLoading(false);
         }
@@ -51,7 +51,7 @@ export function AddCoursePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.subjectCode.trim() || !form.subjectName.trim()) {
-      setError("Mã khóa học và tên khóa học là bắt buộc.");
+      setError("Mã môn học và tên môn học là bắt buộc.");
       return;
     }
     try {
@@ -85,11 +85,11 @@ export function AddCoursePage() {
         </button>
         <div>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827", marginBottom: "0.25rem" }}>
-            {isEdit ? "Chỉnh sửa khóa học" : "Thêm khóa học mới"}
+            {isEdit ? "Chỉnh sửa môn học" : "Thêm môn học mới"}
           </h1>
           <div className="flex items-center gap-2" style={{ fontSize: "0.875rem", color: "#6b7280" }}>
             <button type="button" onClick={() => navigate("/admin/courses")} style={{ background: "none", border: "none", color: "#4338ca", cursor: "pointer", fontWeight: 600 }}>
-              Quản lý Khóa học
+              Quản lý môn học
             </button>
             <ChevronRight className="w-3 h-3" />
             <span style={{ color: "#4338ca", fontWeight: 600 }}>{isEdit ? "Chỉnh sửa" : "Thêm mới"}</span>
@@ -106,10 +106,10 @@ export function AddCoursePage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Mã khóa học */}
+            {/* Mã môn học */}
             <div>
               <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Mã khóa học <span style={{ color: "#ef4444" }}>*</span>
+                Mã môn học <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <input
                 type="text"
@@ -124,10 +124,10 @@ export function AddCoursePage() {
               />
             </div>
 
-            {/* Tên khóa học */}
+            {/* Tên môn học */}
             <div>
               <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Tên khóa học <span style={{ color: "#ef4444" }}>*</span>
+                Tên môn học <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <input
                 type="text"
@@ -150,7 +150,7 @@ export function AddCoursePage() {
               <textarea
                 value={form.description}
                 onChange={(e) => handleChange("description", e.target.value)}
-                placeholder="Mô tả ngắn về nội dung và mục tiêu của khóa học..."
+                placeholder="Mô tả ngắn về nội dung và mục tiêu của môn học..."
                 rows={4}
                 className="w-full px-4 py-3 rounded-xl outline-none transition-all resize-none"
                 style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
@@ -170,7 +170,7 @@ export function AddCoursePage() {
             style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: submitting ? "not-allowed" : "pointer", fontSize: "0.9375rem", fontWeight: 600 }}
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {submitting ? "Đang xử lý..." : isEdit ? "Lưu thay đổi" : "Tạo khóa học"}
+            {submitting ? "Đang xử lý..." : isEdit ? "Lưu thay đổi" : "Tạo môn học"}
           </button>
           <button
             type="button"

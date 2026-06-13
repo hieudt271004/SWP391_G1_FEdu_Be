@@ -10,7 +10,7 @@ const PRIVACY_SECTIONS = [
   {
     title: "2. Cách chúng tôi sử dụng thông tin",
     content:
-      "Thông tin của bạn được sử dụng để: cung cấp và cải thiện dịch vụ, cá nhân hoá trải nghiệm học tập, gửi thông báo quan trọng về tài khoản và khóa học, phân tích xu hướng sử dụng để phát triển tính năng mới.",
+      "Thông tin của bạn được sử dụng để: cung cấp và cải thiện dịch vụ, cá nhân hoá trải nghiệm học tập, gửi thông báo quan trọng về tài khoản và môn học, phân tích xu hướng sử dụng để phát triển tính năng mới.",
   },
   {
     title: "3. Chia sẻ thông tin",

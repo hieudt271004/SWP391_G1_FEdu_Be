@@ -43,7 +43,7 @@ export function CourseEditModal({ isOpen, onClose, course, onSuccess }: CourseEd
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.subjectCode.trim() || !formData.subjectName.trim()) {
-      setError("Mã khóa học và tên khóa học là bắt buộc.");
+      setError("Mã môn học và tên môn học là bắt buộc.");
       return;
     }
     
@@ -59,7 +59,7 @@ export function CourseEditModal({ isOpen, onClose, course, onSuccess }: CourseEd
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Cập nhật khóa học thất bại.");
+      setError(err instanceof Error ? err.message : "Cập nhật môn học thất bại.");
     } finally {
       setSubmitting(false);
     }
@@ -70,7 +70,7 @@ export function CourseEditModal({ isOpen, onClose, course, onSuccess }: CourseEd
       <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-xl" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-950">Chỉnh sửa khóa học</h3>
+          <h3 className="text-lg font-bold text-gray-950">Chỉnh sửa môn học</h3>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-50 transition-colors text-gray-500">
             <X className="w-5 h-5" />
           </button>
@@ -85,7 +85,7 @@ export function CourseEditModal({ isOpen, onClose, course, onSuccess }: CourseEd
           )}
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mã khóa học *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mã môn học *</label>
             <input
               type="text"
               value={formData.subjectCode}
@@ -97,7 +97,7 @@ export function CourseEditModal({ isOpen, onClose, course, onSuccess }: CourseEd
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tên khóa học *</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tên môn học *</label>
             <input
               type="text"
               value={formData.subjectName}
@@ -113,14 +113,14 @@ export function CourseEditModal({ isOpen, onClose, course, onSuccess }: CourseEd
             <textarea
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Mô tả ngắn về nội dung khóa học..."
+              placeholder="Mô tả ngắn về nội dung môn học..."
               rows={3}
               className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-indigo-600 transition-colors text-gray-900 text-sm resize-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trạng thái khóa học</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trạng thái môn học</label>
             <select
               value={formData.status}
               onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}

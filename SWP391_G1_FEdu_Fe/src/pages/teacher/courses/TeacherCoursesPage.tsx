@@ -29,8 +29,8 @@ export function TeacherCoursesPage() {
         const subjects = await teacherService.getSubjectsByTeacher(user.userId);
         setSubjects(subjects ?? []);
       } catch (err: any) {
-        console.error('Lỗi khi tải danh sách khóa học:', err);
-        setError(err.response?.data?.message || 'Không thể tải danh sách khóa học');
+        console.error('Lỗi khi tải danh sách môn học:', err);
+        setError(err.response?.data?.message || 'Không thể tải danh sách môn học');
       } finally {
         setLoading(false);
       }
@@ -70,14 +70,14 @@ export function TeacherCoursesPage() {
           <BookOpen className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Khóa học của tôi</h1>
-          <p className="text-sm text-gray-500">Danh sách các khóa học bạn được phân công quản lý</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Môn học của tôi</h1>
+          <p className="text-sm text-gray-500">Danh sách các môn học bạn được phân công quản lý</p>
         </div>
       </div>
 
       {subjects.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border border-gray-150 shadow-sm">
-          <p className="text-gray-500">Bạn chưa được phân công khóa học nào</p>
+          <p className="text-gray-500">Bạn chưa được phân công môn học nào</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -89,7 +89,7 @@ export function TeacherCoursesPage() {
               </CardHeader>
               <CardContent className="flex-1">
                 <p className="text-sm text-gray-500 line-clamp-3">
-                  {subject.description || 'Không có mô tả khóa học.'}
+                  {subject.description || 'Không có mô tả môn học.'}
                 </p>
               </CardContent>
               <CardFooter className="pt-4 border-t border-gray-50">

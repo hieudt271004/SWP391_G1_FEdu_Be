@@ -256,14 +256,14 @@ export function ClassDetailPage() {
           <div className="flex items-center gap-2 mb-3">
             <BookOpen className="w-5 h-5" style={{ color: "#4338ca" }} />
             <h2 style={{ fontSize: "0.875rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase" }}>
-              Khóa học
+              Môn học
             </h2>
           </div>
           <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827", marginBottom: "0.5rem" }}>
             {classroom?.subjectName || "Đang tải..."}
           </h3>
           <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-            Mã khóa học: <span style={{ fontWeight: 600, color: "#111827" }}>{classroom?.subjectCode || "—"}</span>
+            Mã môn học: <span style={{ fontWeight: 600, color: "#111827" }}>{classroom?.subjectCode || "—"}</span>
           </p>
         </div>
 

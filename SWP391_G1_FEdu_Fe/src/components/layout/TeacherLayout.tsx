@@ -10,10 +10,10 @@ export function TeacherLayout() {
   const { user, logout } = useAuth();
 
   const menuItems = [
-    { icon: Home, label: 'Dashboard', path: '/teacher/dashboard' },
-    { icon: BookOpen, label: 'Courses', path: '/teacher/courses' },
-    { icon: GraduationCap, label: 'Classes', path: '/teacher/classes' },
-    { icon: Settings, label: 'Settings', path: '/teacher/profile' },
+    { icon: Home, label: 'Tổng quan', path: '/teacher/dashboard' },
+    { icon: BookOpen, label: 'Môn học', path: '/teacher/courses' },
+    { icon: GraduationCap, label: 'Lớp học', path: '/teacher/classes' },
+    { icon: Settings, label: 'Cài đặt', path: '/teacher/profile' },
   ];
 
   const isActive = (path: string) => location.pathname.startsWith(path);
@@ -67,7 +67,7 @@ export function TeacherLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-900 truncate">
-                {getFullName(user) || 'Teacher'}
+                {getFullName(user) || 'Giáo viên'}
               </div>
               <div className="text-xs text-gray-500 truncate">{user?.email}</div>
             </div>
