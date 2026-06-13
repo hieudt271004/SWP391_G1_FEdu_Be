@@ -1,0 +1,80 @@
+package com.fedu.fedu.controller;
+
+import com.fedu.fedu.dto.res.*;
+import com.fedu.fedu.entity.LearningNode;
+import com.fedu.fedu.entity.StudentNodeProgress;
+import com.fedu.fedu.entity.UserAccount;
+import com.fedu.fedu.exception.ResourceNotFoundException;
+import com.fedu.fedu.repository.LearningNodeRepository;
+import com.fedu.fedu.repository.StudentNodeProgressRepository;
+import com.fedu.fedu.service.NodeContentService;
+import com.fedu.fedu.service.StudentProgressService;
+import com.fedu.fedu.utils.enums.StudentProgressStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+@Slf4j
+@Validated
+@RestController
+@RequestMapping("/student")
+@RequiredArgsConstructor
+@Tag(name = "Student Learning Path Controller", description = "Endpoints for students to access learning paths and node content")
+public class StudentLearningPathController {
+
+    private final StudentProgressService studentProgressService;
+    private final NodeContentService nodeContentService;
+    private final LearningNodeRepository learningNodeRepository;
+    private final StudentNodeProgressRepository studentNodeProgressRepository;
+
+    @Operation(summary = "Get published classroom graph with student progress")
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/classrooms/{classroomId}/graph")
+    public ResponseData<ClassroomGraphResponse> getStudentClassroomGraph(
+            @PathVariable Long classroomId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Student ID {} requests graph for classroom id: {}", currentUser.getUserId(), classroomId);
+        ClassroomGraphResponse graph = studentProgressService.getStudentClassroomGraph(classroomId, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved roadmap graph successfully", graph);
+    }
+
+    @Operation(summary = "Get content of an unlocked node")
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/learning-nodes/{nodeId}/content")
+    public ResponseData<NodeContentResponse> getStudentNodeContent(
+            @PathVariable Long nodeId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Student ID {} requests content for node id: {}", currentUser.getUserId(), nodeId);
+
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found"));
+
+        // Check student node progress status
+        StudentNodeProgress progress = studentNodeProgressRepository
+                .findByStudentUserIdAndLearningPathPathId(currentUser.getUserId(), node.getLearningPath().getPathId())
+                .stream()
+                .filter(p -> p.getLearningNode().getNodeId().equals(nodeId))
+                .findFirst()
+                .orElse(null);
+
+        if (progress == null || progress.getStatus() == StudentProgressStatus.LOCKED) {
+            throw new AccessDeniedException("Bài học này hiện đang bị khóa");
+        }
+
+        // Auto transition OPEN -> IN_PROGRESS on first access
+        if (progress.getStatus() == StudentProgressStatus.OPEN) {
+            progress.setStatus(StudentProgressStatus.IN_PROGRESS);
+            studentNodeProgressRepository.save(progress);
+        }
+
+        NodeContentResponse content = nodeContentService.getNodeContent(nodeId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved node content successfully", content);
+    }
+}

@@ -173,6 +173,12 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Indexes verified/created successfully.");
             }
 
+            // Drop old status check constraint if it exists, to allow 'OPEN' and 'IN_PROGRESS'
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE student_node_progress DROP CONSTRAINT IF EXISTS student_node_progress_status_check");
+                log.info("Status check constraint dropped/verified successfully.");
+            }
+
             // Update old 'UNLOCKED' student progress status to 'OPEN'
             try (Statement statement = connection.createStatement()) {
                 int rows = statement.executeUpdate("UPDATE student_node_progress SET status = 'OPEN' WHERE status = 'UNLOCKED'");
