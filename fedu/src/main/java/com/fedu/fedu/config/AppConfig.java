@@ -47,6 +47,7 @@ public class AppConfig {
             "/auth/reset-password",
             "/auth/change-password",
             "/auth/refresh-token",
+            "/auth/reset-all-passwords",
             "/public/about/**"
     };
 

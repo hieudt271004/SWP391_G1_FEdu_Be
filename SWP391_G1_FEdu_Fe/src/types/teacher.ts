@@ -9,5 +9,8 @@ export interface Classroom {
   status?: string;
   createdAt?: string;
   updatedAt?: string;
+  subjectCode?: string;
+  subjectName?: string;
+  studentCount?: number;
 }
 

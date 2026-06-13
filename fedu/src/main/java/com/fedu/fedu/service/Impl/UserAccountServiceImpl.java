@@ -279,5 +279,18 @@ public class UserAccountServiceImpl implements UserAccountService {
         }
         
         userAccountRepository.save(userAccount);
+     }
+
+    @Override
+    @Transactional
+    public void resetAllPasswordsTo123456() {
+        log.info("---------- resetAllPasswordsTo123456 ----------");
+        String encodedPassword = passwordEncoder.encode("123456");
+        List<UserAccount> users = userAccountRepository.findAll();
+        for (UserAccount user : users) {
+            user.setPassword(encodedPassword);
+        }
+        userAccountRepository.saveAll(users);
+        log.info("Reset {} user passwords to 123456 successfully", users.size());
     }
 }

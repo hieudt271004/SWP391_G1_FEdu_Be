@@ -47,4 +47,6 @@ public interface UserAccountService {
     UserResponse getProfile(long userId);
 
     void updateUser(long userId, UserUpdateRequest request);
+
+    void resetAllPasswordsTo123456();
 }

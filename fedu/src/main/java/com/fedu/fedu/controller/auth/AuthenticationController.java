@@ -93,4 +93,10 @@ public class AuthenticationController {
         String response = authenticationService.changePassword(request);
         return new ResponseData<>(HttpStatus.OK.value(), "Password changed successfully", response);
     }
+
+    @PostMapping("/reset-all-passwords")
+    public ResponseData<Void> resetAllPasswords() {
+        userAccountService.resetAllPasswordsTo123456();
+        return new ResponseData<>(HttpStatus.OK.value(), "All passwords reset to 123456 successfully");
+    }
 }
