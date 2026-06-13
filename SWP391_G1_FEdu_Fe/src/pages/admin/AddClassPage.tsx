@@ -78,7 +78,7 @@ export function AddClassPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.className.trim() || !form.subjectId || !form.lecturerId) {
-      setError("Tên lớp học, Khóa học và Giảng viên là bắt buộc.");
+      setError("Tên lớp học, Môn học và Giảng viên là bắt buộc.");
       return;
     }
     try {
@@ -169,10 +169,10 @@ export function AddClassPage() {
               />
             </div>
 
-            {/* Khóa học */}
+            {/* Môn học */}
             <div>
               <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Thuộc khóa học <span style={{ color: "#ef4444" }}>*</span>
+                Thuộc môn học <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <select
                 value={form.subjectId}
@@ -183,7 +183,7 @@ export function AddClassPage() {
                 onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
                 onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
               >
-                <option value={0} disabled>-- Chọn khóa học --</option>
+                <option value={0} disabled>-- Chọn môn học --</option>
                 {subjects.map(s => (
                   <option key={s.subjectId} value={s.subjectId}>{s.subjectCode} - {s.subjectName}</option>
                 ))}

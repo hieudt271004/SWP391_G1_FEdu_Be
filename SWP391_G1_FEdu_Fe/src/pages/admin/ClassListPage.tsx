@@ -170,7 +170,7 @@ export function ClassListPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ backgroundColor: "#334155", borderBottom: "1px solid #475569" }}>
-                  {["TÊN LỚP", "THUỘC KHÓA HỌC", "GIẢNG VIÊN", "HỌC VIÊN", "TRẠNG THÁI", "HÀNH ĐỘNG"].map((h) => (
+                  {["TÊN LỚP", "THUỘC MÔN HỌC", "GIẢNG VIÊN", "HỌC VIÊN", "TRẠNG THÁI", "HÀNH ĐỘNG"].map((h) => (
                     <th key={h} className="text-left px-6 py-4">
                       <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "white", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                         {h} {h !== "HÀNH ĐỘNG" && <ArrowUpDown className="w-3.5 h-3.5 inline ml-1" />}

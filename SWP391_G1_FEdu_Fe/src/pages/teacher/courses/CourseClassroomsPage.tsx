@@ -30,7 +30,7 @@ export function CourseClassroomsPage() {
         setError(null);
 
         const subjectData = await teacherService.getSubjectById(Number(subjectId));   // bỏ khối if lồng
-        if (!subjectData) throw new Error('khóa học không tồn tại hoặc dữ liệu không hợp lệ');
+        if (!subjectData) throw new Error('môn học không tồn tại hoặc dữ liệu không hợp lệ');
         setSubject(subjectData);
         const rawClassrooms = await teacherService.getClassroomsBySubject(Number(subjectId));
         const mapped = (rawClassrooms ?? []).map((c) => ({
@@ -60,8 +60,8 @@ export function CourseClassroomsPage() {
           setLearningPaths([]);
         }
       } catch (err: any) {
-        console.error('Lỗi khi tải chi tiết khóa học:', err);
-        setError(err.response?.data?.message || err.message || 'Không thể tải chi tiết khóa học');
+        console.error('Lỗi khi tải chi tiết môn học:', err);
+        setError(err.response?.data?.message || err.message || 'Không thể tải chi tiết môn học');
       } finally {
         setLoading(false);
       }
@@ -78,7 +78,7 @@ export function CourseClassroomsPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-2">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-        <span className="text-sm text-gray-500">Đang tải thông tin chi tiết khóa học...</span>
+        <span className="text-sm text-gray-500">Đang tải thông tin chi tiết môn học...</span>
       </div>
     );
   }
@@ -87,9 +87,9 @@ export function CourseClassroomsPage() {
     return (
       <div className="text-center py-12">
         <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-2" />
-        <p className="text-red-600 mb-4">{error || 'Không tìm thấy khóa học'}</p>
+        <p className="text-red-600 mb-4">{error || 'Không tìm thấy môn học'}</p>
         <Button onClick={() => navigate('/teacher/courses')}>
-          Quay lại danh sách khóa học
+          Quay lại danh sách môn học
         </Button>
       </div>
     );
@@ -109,18 +109,18 @@ export function CourseClassroomsPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{subject.subjectCode} - {subject.subjectName}</h1>
-          <p className="text-sm text-gray-500">Chi tiết khóa học và lộ trình giảng dạy</p>
+          <p className="text-sm text-gray-500">Chi tiết môn học và lộ trình giảng dạy</p>
         </div>
       </div>
 
       {/* Description */}
       <Card className="bg-white border border-gray-200">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Mô tả khóa học</CardTitle>
+          <CardTitle className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Mô tả môn học</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-gray-700 leading-relaxed text-sm">
-            {subject.description || 'Không có mô tả chi tiết cho khóa học này.'}
+            {subject.description || 'Không có mô tả chi tiết cho môn học này.'}
           </p>
         </CardContent>
       </Card>
@@ -135,7 +135,7 @@ export function CourseClassroomsPage() {
 
           {learningPaths.length === 0 ? (
             <div className="text-center py-10 bg-white rounded-xl border border-gray-200 text-gray-500 text-sm">
-              Chưa có lộ trình học tập nào được thiết lập cho khóa học này.
+              Chưa có lộ trình học tập nào được thiết lập cho môn học này.
             </div>
           ) : (
             <div className="space-y-4">
@@ -175,7 +175,7 @@ export function CourseClassroomsPage() {
 
           {myClassrooms.length === 0 ? (
             <div className="text-center py-10 bg-white rounded-xl border border-gray-200 text-gray-500 text-sm">
-              Bạn chưa phụ trách lớp học nào cho khóa học này.
+              Bạn chưa phụ trách lớp học nào cho môn học này.
             </div>
           ) : (
             <div className="space-y-4">
