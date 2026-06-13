@@ -46,7 +46,8 @@ public class AppConfig {
             "/auth/forgot-password",
             "/auth/reset-password",
             "/auth/change-password",
-            "/auth/refresh-token"
+            "/auth/refresh-token",
+            "/public/about/**"
     };
 
     @Bean

@@ -65,6 +65,7 @@ To ensure high-quality, logic-driven, and robust code modifications, always adhe
 - **Database Integrity**: Since `ddl-auto` is `none`, any database schema modifications must be updated in `fedudb_script.sql`. Ensure custom JPA entities map exactly to their SQL definition. Do not use named Postgres enums.
 - **DTO Isolation**: Never expose entity models directly to controller endpoints. Always map entities to/from DTOs (using builders or mapper utilities) to preserve API-domain isolation.
 - **Environment Parity**: Always ensure any environment-specific properties (e.g. database host, mail servers, CORS origins) are configurable via environment variables in `application.yml` and `.env` for Docker/production deployment parity.
+- **Docker Deployment Parity**: Every time a code modification is completed, automatically update and restart the services inside the Docker environment to keep them synchronized. For backend changes, run `docker compose build backend` followed by `docker compose up -d backend`. For frontend changes, since the host folder is mounted as a volume, restart the service using `docker compose restart frontend` to reload Vite Dev Server cleanly.
 
 ## Frontend Design & Redesign System (Taste Skill)
 

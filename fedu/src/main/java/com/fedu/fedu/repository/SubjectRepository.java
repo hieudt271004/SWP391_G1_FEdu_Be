@@ -18,6 +18,8 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
     @Query("SELECT s FROM Subject s WHERE s.isDeleted = false ORDER BY s.createdAt DESC")
     List<Subject> findAllActive();
 
+    long countByIsDeletedFalse();
+
     @Query("SELECT s FROM Subject s WHERE s.isDeleted = false AND s.createdBy.userId = :teacherId ORDER BY s.createdAt DESC")
     List<Subject> findAllByTeacher(long teacherId);
 }

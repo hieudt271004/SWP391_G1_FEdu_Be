@@ -1,37 +1,65 @@
-﻿import { Users, BookOpen, GraduationCap, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, BookOpen, GraduationCap, Sparkles } from "lucide-react";
+import { http } from "../../../services/http";
 
-const STATS = [
-  {
-    icon: Users,
-    value: "500+",
-    label: "Sinh viên",
-    bg: "bg-blue-50",
-    color: "text-blue-700",
-  },
-  {
-    icon: BookOpen,
-    value: "20+",
-    label: "Môn học",
-    bg: "bg-blue-50",
-    color: "text-blue-700",
-  },
-  {
-    icon: GraduationCap,
-    value: "30+",
-    label: "Lớp học hiện hành",
-    bg: "bg-blue-50",
-    color: "text-blue-700",
-  },
-  {
-    icon: Sparkles,
-    value: "95%",
-    label: "Đánh giá tích cực",
-    bg: "bg-amber-50",
-    color: "text-amber-600",
-  },
-];
+interface StatsData {
+  totalStudents: number;
+  totalTeachers: number;
+  totalClassrooms: number;
+  totalSubjects: number;
+}
 
 export function StatsSection() {
+  const [stats, setStats] = useState<StatsData>({
+    totalStudents: 500,
+    totalSubjects: 20,
+    totalClassrooms: 30,
+    totalTeachers: 10,
+  });
+
+  useEffect(() => {
+    http.get<StatsData>("/public/about/stats")
+      .then((data) => {
+        if (data) {
+          setStats(data);
+        }
+      })
+      .catch((err) => {
+        console.error("Lỗi lấy dữ liệu thống kê từ DB, sử dụng dữ liệu mặc định:", err);
+      });
+  }, []);
+
+  const statsItems = [
+    {
+      icon: Users,
+      value: stats.totalStudents > 0 ? `${stats.totalStudents}+` : "0",
+      label: "Sinh viên",
+      bg: "bg-blue-50",
+      color: "text-blue-700",
+    },
+    {
+      icon: BookOpen,
+      value: stats.totalSubjects > 0 ? `${stats.totalSubjects}` : "0",
+      label: "Môn học",
+      bg: "bg-blue-50",
+      color: "text-blue-700",
+    },
+    {
+      icon: GraduationCap,
+      value: stats.totalClassrooms > 0 ? `${stats.totalClassrooms}` : "0",
+      label: "Lớp học hiện hành",
+      bg: "bg-blue-50",
+      color: "text-blue-700",
+    },
+    {
+      icon: Sparkles,
+      value: "95%",
+      label: "Đánh giá tích cực",
+      bg: "bg-amber-50",
+      color: "text-amber-600",
+    },
+  ];
+
   return (
     <section className="bg-slate-50 py-20">
       <div className="max-w-6xl mx-auto px-6">
@@ -45,7 +73,7 @@ export function StatsSection() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-          {STATS.map((stat) => {
+          {statsItems.map((stat) => {
             const Icon = stat.icon;
             return (
               <div

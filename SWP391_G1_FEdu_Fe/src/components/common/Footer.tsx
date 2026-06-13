@@ -1,4 +1,5 @@
 import { BookOpen } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -25,10 +26,10 @@ export function Footer() {
               Điều hướng
             </div>
             <div className="grid gap-2 text-sm text-slate-300">
-              <a href="#about" className="hover:text-white transition-colors">Về FEdu</a>
-              <a href="#features" className="hover:text-white transition-colors">Tính năng</a>
-              <a href="#contact" className="hover:text-white transition-colors">Liên hệ</a>
-              <a href="/terms" className="hover:text-white transition-colors">Điều khoản</a>
+              <Link to="/about" className="hover:text-white transition-colors">Về FEdu</Link>
+              <Link to="/features" className="hover:text-white transition-colors">Tính năng</Link>
+              <Link to="/contact" className="hover:text-white transition-colors">Liên hệ</Link>
+              <Link to="/terms" className="hover:text-white transition-colors">Điều khoản</Link>
             </div>
           </div>
           <div>

@@ -1,13 +1,13 @@
 import { BookOpen, Menu, X } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { UserMenu } from "./UserMenu";
 
 const NAV_LINKS = [
-  { label: "Về FEdu", href: "#about" },
-  { label: "Tính năng", href: "#features" },
-  { label: "Liên hệ", href: "#contact" },
+  { label: "Về FEdu", to: "/about" },
+  { label: "Tính năng", to: "/features" },
+  { label: "Liên hệ", to: "/contact" },
 ];
 
 export function Navbar() {
@@ -32,13 +32,19 @@ export function Navbar() {
         </button>
         <nav className="hidden md:flex items-center gap-3">
           {NAV_LINKS.map((link) => (
-            <a
+            <NavLink
               key={link.label}
-              href={link.href}
-              className="px-4 py-2 rounded-2xl text-base font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+              to={link.to}
+              className={({ isActive }) =>
+                `px-4 py-2 rounded-2xl text-base font-medium transition-colors ${
+                  isActive
+                    ? "text-blue-600 bg-blue-50 font-semibold"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`
+              }
             >
               {link.label}
-            </a>
+            </NavLink>
           ))}
         </nav>
         <div className="hidden md:flex items-center gap-3">
@@ -72,14 +78,20 @@ export function Navbar() {
       {mobileOpen && (
         <div className="md:hidden px-6 pb-4 space-y-3 border-t border-slate-200 bg-white">
           {NAV_LINKS.map((link) => (
-            <a
+            <NavLink
               key={link.label}
-              href={link.href}
+              to={link.to}
               onClick={() => setMobileOpen(false)}
-              className="block w-full text-left px-4 py-2.5 rounded-lg text-gray-700 text-[15px] hover:bg-gray-100"
+              className={({ isActive }) =>
+                `block w-full text-left px-4 py-2.5 rounded-lg text-[15px] transition-colors ${
+                  isActive
+                    ? "text-blue-600 bg-blue-50 font-semibold"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`
+              }
             >
               {link.label}
-            </a>
+            </NavLink>
           ))}
           <div className="pt-2 flex flex-col gap-2">
             {isAuthenticated ? (
