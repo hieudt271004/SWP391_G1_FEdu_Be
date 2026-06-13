@@ -352,11 +352,24 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .map(this::mapToLearningNodeResponse)
                 .collect(Collectors.toList());
 
+        List<NodeEdgeResponse> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(pathId)
+                .stream()
+                .map(e -> NodeEdgeResponse.builder()
+                        .edgeId(e.getEdgeId())
+                        .fromNodeId(e.getFromNode().getNodeId())
+                        .toNodeId(e.getToNode().getNodeId())
+                        .branchName(e.getBranchName())
+                        .minScore(e.getMinScore())
+                        .maxScore(e.getMaxScore())
+                        .build())
+                .collect(Collectors.toList());
+
         return LearningPathGraphResponse.builder()
                 .pathId(learningPath.getPathId())
                 .pathName(learningPath.getPathName())
                 .description(learningPath.getDescription())
                 .nodes(nodes)
+                .edges(edges)
                 .build();
     }
 
