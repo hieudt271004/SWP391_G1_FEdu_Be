@@ -17,6 +17,9 @@ public class LearningNodeResponse {
     private String description;
     private NodeType nodeType;
     private NodeStatus status;
+    private Integer displayOrder;
+    private Boolean isRequired;
+    private String branchName;
     private Boolean isDeleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

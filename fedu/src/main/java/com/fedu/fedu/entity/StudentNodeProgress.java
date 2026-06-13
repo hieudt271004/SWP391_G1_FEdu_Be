@@ -9,9 +9,9 @@ import java.time.LocalDateTime;
 /**
  * Lưu trữ tiến trình học tập và lộ trình (routing) của từng học sinh.
  *
- * - learningPath: lộ trình học cụ thể (phân biệt cùng 1 node nhưng ở 2 lớp khác nhau)
+ * - status:       tiến độ học của node đó (LOCKED / OPEN / IN_PROGRESS / COMPLETED)
  * - orderIndex:   thứ tự bài học trong lộ trình – dùng để route (điều hướng)
- * - status:       tiến độ học của node đó (LOCKED / UNLOCKED / COMPLETED)
+ * - status:       tiến độ học của node đó (LOCKED / OPEN / IN_PROGRESS / COMPLETED)
  *
  * UniqueConstraint (student_id, node_id, path_id):
  *   Đảm bảo 1 học sinh chỉ có 1 bản ghi progress cho mỗi (node, path).
@@ -58,7 +58,7 @@ public class StudentNodeProgress extends AbstractEntity<Long> {
 
     /**
      * Trạng thái học của node:
-     * LOCKED – chưa mở, UNLOCKED – đang mở/có thể học, COMPLETED – đã hoàn thành.
+     * LOCKED – chưa mở, OPEN – đang mở/có thể học, IN_PROGRESS – đang học, COMPLETED – đã hoàn thành.
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

@@ -139,4 +139,36 @@ public class LearningPathManagementController {
             return new ResponseData<>(HttpStatus.OK.value(), "Learning path graph retrieved successfully",
                     learningPathService.getLearningPathGraph(pathId));
         }
+
+        @Operation(summary = "Get classroom graph")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/classrooms/{classroomId}/graph")
+        public ResponseData<ClassroomGraphResponse> getClassroomGraph(@PathVariable Long classroomId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Classroom graph retrieved successfully",
+                    learningPathService.getClassroomGraph(classroomId));
+        }
+
+        @Operation(summary = "Publish classroom learning path")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PostMapping("/classrooms/{classroomId}/learning-paths/{pathId}/publish")
+        public ResponseData<PublishResultResponse> publishClassroomPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình đã được publish thành công",
+                    learningPathService.publishClassroomPath(classroomId, pathId));
+        }
+
+        @Operation(summary = "Unpublish classroom learning path")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PostMapping("/classrooms/{classroomId}/learning-paths/{pathId}/unpublish")
+        public ResponseData<Void> unpublishClassroomPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
+            learningPathService.unpublishClassroomPath(classroomId, pathId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình đã được unpublish thành công");
+        }
+
+        @Operation(summary = "Delete draft learning path")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @DeleteMapping("/classrooms/{classroomId}/learning-paths/{pathId}")
+        public ResponseData<Void> deleteDraftPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
+            learningPathService.deleteDraftPath(classroomId, pathId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình nháp đã được xóa thành công");
+        }
 }

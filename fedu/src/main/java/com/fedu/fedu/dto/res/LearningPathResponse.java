@@ -20,6 +20,8 @@ public class LearningPathResponse {
     // Gộp từ ClassroomLearningPathResponse
     private Long classroomId;
     private Long originalPathId;
+    private LocalDateTime publishedAt;
+    private Long publishedById;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -47,4 +47,14 @@ public interface LearningPathService {
     // ── Graph View ────────────────────────────────────────────────────────────
 
     LearningPathGraphResponse getLearningPathGraph(Long pathId);
+
+    ClassroomGraphResponse getClassroomGraph(Long classroomId);
+
+    PublishResultResponse publishClassroomPath(Long classroomId, Long pathId);
+
+    void unpublishClassroomPath(Long classroomId, Long pathId);
+
+    void deleteDraftPath(Long classroomId, Long pathId);
+
+    void backfillProgressForStudent(Long classroomId, Long studentId);
 }

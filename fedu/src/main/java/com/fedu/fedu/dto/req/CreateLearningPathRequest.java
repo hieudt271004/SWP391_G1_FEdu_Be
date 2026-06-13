@@ -14,4 +14,5 @@ public class CreateLearningPathRequest {
     @NotBlank(message = "pathName must not be blank")
     private String pathName;
     private String description;
+    private Long classroomId;
 }

@@ -1,0 +1,238 @@
+package com.fedu.fedu.service.Impl;
+
+import com.fedu.fedu.dto.req.CreateNodeMaterialRequest;
+import com.fedu.fedu.dto.req.CreateNodeTestRequest;
+import com.fedu.fedu.dto.res.*;
+import com.fedu.fedu.entity.*;
+import com.fedu.fedu.exception.ResourceNotFoundException;
+import com.fedu.fedu.repository.*;
+import com.fedu.fedu.service.NodeContentService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class NodeContentServiceImpl implements NodeContentService {
+
+    private final LearningNodeRepository learningNodeRepository;
+    private final NodeMaterialRepository nodeMaterialRepository;
+    private final VideoRepository videoRepository;
+    private final FileEntityRepository fileEntityRepository;
+    private final TestRepository testRepository;
+
+    private static final String UPLOAD_DIR = "uploads";
+
+    @Override
+    @Transactional(readOnly = true)
+    public NodeContentResponse getNodeContent(Long nodeId) {
+        learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+
+        List<NodeMaterial> materials = nodeMaterialRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
+        List<Test> tests = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
+
+        List<NodeMaterialResponse> materialResponses = materials.stream()
+                .map(this::mapToMaterialResponse)
+                .collect(Collectors.toList());
+
+        List<NodeTestResponse> testResponses = tests.stream()
+                .map(this::mapToTestResponse)
+                .collect(Collectors.toList());
+
+        return NodeContentResponse.builder()
+                .materials(materialResponses)
+                .tests(testResponses)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public NodeMaterialResponse addMaterial(Long nodeId, CreateNodeMaterialRequest request, MultipartFile file) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+
+        // Create NodeMaterial
+        NodeMaterial material = NodeMaterial.builder()
+                .learningNode(node)
+                .title(request.getTitle())
+                .required(request.getRequired() != null ? request.getRequired() : true)
+                .isDeleted(false)
+                .build();
+
+        nodeMaterialRepository.save(material);
+
+        // Handle physical file upload if provided
+        if (file != null && !file.isEmpty()) {
+            try {
+                Path uploadPath = Paths.get(UPLOAD_DIR);
+                if (!Files.exists(uploadPath)) {
+                    Files.createDirectories(uploadPath);
+                }
+
+                String cleanFileName = System.currentTimeMillis() + "_" + file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
+                Path filePath = uploadPath.resolve(cleanFileName);
+                Files.write(filePath, file.getBytes());
+
+                log.info("Saved file locally to: {}", filePath.toAbsolutePath());
+
+                FileEntity fileEntity = FileEntity.builder()
+                        .nodeMaterial(material)
+                        .fileUrl("/uploads/" + cleanFileName)
+                        .fileName(file.getOriginalFilename())
+                        .fileType(file.getContentType())
+                        .description(request.getFileDescription())
+                        .isDeleted(false)
+                        .build();
+
+                fileEntityRepository.save(fileEntity);
+                material.getFiles().add(fileEntity);
+
+            } catch (IOException e) {
+                log.error("Failed to upload file", e);
+                throw new RuntimeException("Could not store file. Error: " + e.getMessage());
+            }
+        } else if (request.getFileUrl() != null && !request.getFileUrl().trim().isEmpty()) {
+            // Support external file URL links
+            FileEntity fileEntity = FileEntity.builder()
+                    .nodeMaterial(material)
+                    .fileUrl(request.getFileUrl())
+                    .fileName(request.getFileName() != null ? request.getFileName() : "Tài liệu học tập")
+                    .fileType(request.getFileType() != null ? request.getFileType() : "Unknown")
+                    .description(request.getFileDescription())
+                    .isDeleted(false)
+                    .build();
+
+            fileEntityRepository.save(fileEntity);
+            material.getFiles().add(fileEntity);
+        }
+
+        // Handle video link if provided
+        if (request.getVideoUrl() != null && !request.getVideoUrl().trim().isEmpty()) {
+            Video video = Video.builder()
+                    .nodeMaterial(material)
+                    .videoUrl(request.getVideoUrl())
+                    .title(request.getVideoTitle() != null ? request.getVideoTitle() : request.getTitle())
+                    .durationSeconds(request.getVideoDuration())
+                    .description(request.getVideoDescription())
+                    .isDeleted(false)
+                    .build();
+
+            videoRepository.save(video);
+            material.getVideos().add(video);
+        }
+
+        return mapToMaterialResponse(material);
+    }
+
+    @Override
+    @Transactional
+    public void deleteMaterial(Long materialId) {
+        NodeMaterial material = nodeMaterialRepository.findById(materialId)
+                .orElseThrow(() -> new ResourceNotFoundException("Material not found with id: " + materialId));
+
+        material.setIsDeleted(true);
+        nodeMaterialRepository.save(material);
+
+        // Soft-delete associated video components
+        List<Video> videos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(materialId);
+        for (Video v : videos) {
+            v.setIsDeleted(true);
+            videoRepository.save(v);
+        }
+
+        // Soft-delete associated file components
+        List<FileEntity> files = fileEntityRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(materialId);
+        for (FileEntity f : files) {
+            f.setIsDeleted(true);
+            fileEntityRepository.save(f);
+        }
+    }
+
+    @Override
+    @Transactional
+    public NodeTestResponse addTest(Long nodeId, CreateNodeTestRequest request) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+
+        Test test = Test.builder()
+                .learningNode(node)
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .durationMinutes(request.getDurationMinutes())
+                .passingPercentage(request.getPassingPercentage())
+                .isDeleted(false)
+                .build();
+
+        testRepository.save(test);
+        return mapToTestResponse(test);
+    }
+
+    @Override
+    @Transactional
+    public void deleteTest(Long testId) {
+        Test test = testRepository.findById(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+
+        test.setIsDeleted(true);
+        testRepository.save(test);
+    }
+
+    // Mapping Helpers
+    private NodeMaterialResponse mapToMaterialResponse(NodeMaterial m) {
+        VideoResponse videoRes = null;
+        List<Video> videos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(m.getMaterialId());
+        if (!videos.isEmpty()) {
+            Video v = videos.get(0);
+            videoRes = VideoResponse.builder()
+                    .videoId(v.getVideoId())
+                    .videoUrl(v.getVideoUrl())
+                    .title(v.getTitle())
+                    .durationSeconds(v.getDurationSeconds())
+                    .description(v.getDescription())
+                    .build();
+        }
+
+        FileResponse fileRes = null;
+        List<FileEntity> files = fileEntityRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(m.getMaterialId());
+        if (!files.isEmpty()) {
+            FileEntity f = files.get(0);
+            fileRes = FileResponse.builder()
+                    .fileId(f.getFileId())
+                    .fileUrl(f.getFileUrl())
+                    .fileName(f.getFileName())
+                    .fileType(f.getFileType())
+                    .description(f.getDescription())
+                    .build();
+        }
+
+        return NodeMaterialResponse.builder()
+                .materialId(m.getMaterialId())
+                .title(m.getTitle())
+                .required(m.getRequired())
+                .orderIndex(m.getOrderIndex())
+                .video(videoRes)
+                .file(fileRes)
+                .build();
+    }
+
+    private NodeTestResponse mapToTestResponse(Test t) {
+        return NodeTestResponse.builder()
+                .testId(t.getTestId())
+                .title(t.getTitle())
+                .description(t.getDescription())
+                .durationMinutes(t.getDurationMinutes())
+                .passingPercentage(t.getPassingPercentage())
+                .build();
+    }
+}

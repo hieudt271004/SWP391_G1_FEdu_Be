@@ -37,6 +37,17 @@ public class LearningNode extends AbstractEntity<Long> {
     @Column(name = "node_status")
     private NodeStatus status;
 
+    @Builder.Default
+    @Column(name = "display_order", nullable = false)
+    private Integer displayOrder = 0;
+
+    @Builder.Default
+    @Column(name = "is_required", nullable = false)
+    private Boolean isRequired = true;
+
+    @Column(name = "branch_name")
+    private String branchName;
+
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }
