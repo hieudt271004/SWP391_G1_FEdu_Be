@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Edit2, Trash2, Users, Loader2,
   AlertCircle, BookOpen, GraduationCap, X, ChevronDown,
   ChevronRight, Map, GitFork, AlertTriangle, Settings, CheckCircle,
-  HelpCircle, Circle, Video as VideoIcon, FileText
+  HelpCircle, Circle, Video as VideoIcon, FileText, ArrowUp, ArrowDown
 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
@@ -225,7 +225,6 @@ export function CourseDetailPage() {
     }
     try {
       await learningPathService.updateAdminTemplate(selectedTemplateId, {
-        subjectId,
         pathName: editTplName,
         description: editTplDesc,
       });
@@ -482,6 +481,80 @@ export function CourseDetailPage() {
       await fetchNodeContent(nodeId);
     } catch (err: any) {
       toast.error(err.message || "Xóa bài kiểm tra thất bại");
+    }
+  };
+
+  const getSortedTimelineItems = (nodeId: number) => {
+    const content = nodeContents[nodeId];
+    if (!content) return [];
+    const materials = (content.materials || []).map((m) => ({
+      key: `material-${m.materialId}`,
+      id: m.materialId,
+      type: "MATERIAL" as const,
+      title: m.title,
+      orderIndex: m.orderIndex ?? 9999,
+      data: m,
+    }));
+    const tests = (content.tests || []).map((t) => ({
+      key: `test-${t.testId}`,
+      id: t.testId,
+      type: "TEST" as const,
+      title: t.title,
+      orderIndex: t.orderIndex ?? 9999,
+      data: t,
+    }));
+    return [...materials, ...tests].sort((a, b) => a.orderIndex - b.orderIndex);
+  };
+
+  const handleReorderContent = async (
+    nodeId: number,
+    itemId: number,
+    type: "MATERIAL" | "TEST",
+    direction: "up" | "down"
+  ) => {
+    const items = getSortedTimelineItems(nodeId);
+    const index = items.findIndex((item) => item.id === itemId && item.type === type);
+    if (index === -1) return;
+
+    if (direction === "up" && index === 0) return;
+    if (direction === "down" && index === items.length - 1) return;
+
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    const newItems = [...items];
+    const temp = newItems[index];
+    newItems[index] = newItems[targetIndex];
+    newItems[targetIndex] = temp;
+
+    const requests = newItems.map((item, idx) => ({
+      id: item.id,
+      type: item.type,
+      orderIndex: idx + 1,
+    }));
+
+    try {
+      // Optimistic update
+      const updatedMaterials = (nodeContents[nodeId]?.materials || []).map((m) => {
+        const req = requests.find((r) => r.id === m.materialId && r.type === "MATERIAL");
+        return req ? { ...m, orderIndex: req.orderIndex } : m;
+      });
+      const updatedTests = (nodeContents[nodeId]?.tests || []).map((t) => {
+        const req = requests.find((r) => r.id === t.testId && r.type === "TEST");
+        return req ? { ...t, orderIndex: req.orderIndex } : t;
+      });
+      setNodeContents((prev) => ({
+        ...prev,
+        [nodeId]: {
+          materials: updatedMaterials,
+          tests: updatedTests,
+        },
+      }));
+
+      await learningPathService.reorderAdminNodeContent(nodeId, requests);
+      toast.success("Cập nhật thứ tự thành công");
+      await fetchNodeContent(nodeId);
+    } catch (err: any) {
+      toast.error(err.message || "Cập nhật thứ tự thất bại");
+      await fetchNodeContent(nodeId);
     }
   };
 
@@ -769,13 +842,13 @@ export function CourseDetailPage() {
 
                             {/* Materials and Tests details card */}
                             <div className="border border-gray-200 rounded-lg p-3 bg-white space-y-3">
-                              {/* Materials Header & List */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-bold text-gray-750 flex items-center gap-1.5">
-                                    <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-                                    Tài liệu học tập
-                                  </span>
+                              {/* Unified Header */}
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-gray-750 flex items-center gap-1.5">
+                                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                                  Nội dung & Bài kiểm tra
+                                </span>
+                                <div className="flex items-center gap-1.5">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -786,68 +859,7 @@ export function CourseDetailPage() {
                                   >
                                     + Thêm tài liệu
                                   </button>
-                                </div>
-
-                                {loadingContents[node.nodeId] ? (
-                                  <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    Đang tải tài liệu...
-                                  </div>
-                                ) : !nodeContents[node.nodeId]?.materials || nodeContents[node.nodeId].materials.length === 0 ? (
-                                  <div className="text-xs text-gray-400 italic py-1">Chưa có tài liệu.</div>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    {nodeContents[node.nodeId].materials.map((m) => (
-                                      <div key={m.materialId} className="flex items-start justify-between p-2 bg-gray-50 rounded border border-gray-150 text-xs">
-                                        <div className="space-y-1 flex-1 pr-4">
-                                          <div className="font-semibold text-gray-800 flex items-center gap-1">
-                                            {m.title}
-                                            {m.required && (
-                                              <span className="text-[9px] px-1 bg-red-50 text-red-500 rounded font-bold border border-red-100">Bắt buộc</span>
-                                            )}
-                                          </div>
-                                          {m.video && (
-                                            <div className="text-gray-500 flex items-center gap-1 flex-wrap">
-                                              <span className="px-1 py-0.2 bg-teal-50 text-teal-700 border border-teal-100 rounded text-[9px] font-semibold flex items-center gap-0.5"><VideoIcon className="w-2.5 h-2.5" /> Video</span>
-                                              <a href={m.video.videoUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline truncate max-w-[200px]" title={m.video.videoUrl}>
-                                                {m.video.videoUrl}
-                                              </a>
-                                            </div>
-                                          )}
-                                          {m.file && (
-                                            <div className="text-gray-500 flex items-center gap-1 flex-wrap">
-                                              <span className="px-1 py-0.2 bg-orange-50 text-orange-700 border border-orange-100 rounded text-[9px] font-semibold flex items-center gap-0.5"><FileText className="w-2.5 h-2.5" /> File</span>
-                                              <a href={m.file.fileUrl.startsWith("/") ? `http://localhost:8080${m.file.fileUrl}` : m.file.fileUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline truncate max-w-[200px]" title={m.file.fileName}>
-                                                {m.file.fileName || "Tải tài liệu"}
-                                              </a>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteMaterial(m.materialId, node.nodeId);
-                                          }}
-                                          className="p-1 rounded text-red-500 hover:bg-red-50 hover:text-red-750 shrink-0 transition-colors"
-                                          title="Xóa tài liệu"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              <hr className="border-gray-100" />
-
-                              {/* Tests Header & List */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-bold text-gray-750 flex items-center gap-1.5">
-                                    <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                                    Bài kiểm tra
-                                  </span>
+                                  <span className="text-gray-300 text-[10px]">|</span>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -859,42 +871,165 @@ export function CourseDetailPage() {
                                     + Thêm bài kiểm tra
                                   </button>
                                 </div>
+                              </div>
 
-                                {loadingContents[node.nodeId] ? (
-                                  <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    Đang tải bài kiểm tra...
-                                  </div>
-                                ) : !nodeContents[node.nodeId]?.tests || nodeContents[node.nodeId].tests.length === 0 ? (
-                                  <div className="text-xs text-gray-400 italic py-1">Chưa có bài kiểm tra.</div>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    {nodeContents[node.nodeId].tests.map((t) => (
-                                      <div key={t.testId} className="flex items-start justify-between p-2 bg-gray-50 rounded border border-gray-150 text-xs">
-                                        <div className="space-y-1 flex-1 pr-4">
-                                          <div className="font-semibold text-gray-800">{t.title}</div>
-                                          <div className="text-[10px] text-gray-505">
-                                            Thời gian làm bài: <span className="font-semibold text-gray-700">{t.durationMinutes || "—"} phút</span>
-                                            {t.passingPercentage !== undefined && (
-                                              <span className="ml-3">Điểm chuẩn: <span className="font-semibold text-gray-700">{t.passingPercentage}%</span></span>
+                              {loadingContents[node.nodeId] ? (
+                                <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  Đang tải nội dung...
+                                </div>
+                              ) : (() => {
+                                const sortedItems = getSortedTimelineItems(node.nodeId);
+                                if (sortedItems.length === 0) {
+                                  return (
+                                    <div className="text-xs text-gray-400 italic py-2 text-center bg-gray-50 rounded border border-dashed border-gray-200">
+                                      Chưa có tài liệu hoặc bài kiểm tra.
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div className="space-y-2">
+                                    {sortedItems.map((item, index) => {
+                                      const isMaterial = item.type === "MATERIAL";
+                                      const m = isMaterial ? item.data : null;
+                                      const t = !isMaterial ? item.data : null;
+
+                                      return (
+                                        <div
+                                          key={item.key}
+                                          className="flex items-start gap-2 p-2 bg-gray-50 rounded border border-gray-150 text-xs hover:border-indigo-200 transition-colors"
+                                        >
+                                          {/* Reorder Buttons Column */}
+                                          <div className="flex flex-col gap-0.5 shrink-0 pt-0.5">
+                                            <button
+                                              disabled={index === 0}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleReorderContent(node.nodeId, item.id, item.type, "up");
+                                              }}
+                                              className={`p-0.5 rounded transition-colors ${
+                                                index === 0
+                                                  ? "text-gray-350 cursor-not-allowed opacity-50"
+                                                  : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                                              }`}
+                                              title="Di chuyển lên"
+                                            >
+                                              <ArrowUp className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              disabled={index === sortedItems.length - 1}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleReorderContent(node.nodeId, item.id, item.type, "down");
+                                              }}
+                                              className={`p-0.5 rounded transition-colors ${
+                                                index === sortedItems.length - 1
+                                                  ? "text-gray-350 cursor-not-allowed opacity-50"
+                                                  : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                                              }`}
+                                              title="Di chuyển xuống"
+                                            >
+                                              <ArrowDown className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+
+                                          {/* Main Content Info */}
+                                          <div className="space-y-1 flex-1 pr-1 min-w-0">
+                                            <div className="font-semibold text-gray-800 flex items-center gap-1.5 flex-wrap">
+                                              {isMaterial ? (
+                                                <>
+                                                  <BookOpen className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                                  <span className="truncate">{item.title}</span>
+                                                  {m?.required && (
+                                                    <span className="text-[9px] px-1 bg-red-50 text-red-500 rounded font-bold border border-red-100 shrink-0">
+                                                      Bắt buộc
+                                                    </span>
+                                                  )}
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <GraduationCap className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                                                  <span className="truncate">{item.title}</span>
+                                                </>
+                                              )}
+                                            </div>
+
+                                            {/* Sub-details depending on subtype */}
+                                            {isMaterial && m?.video && (
+                                              <div className="text-gray-500 flex items-center gap-1.5 flex-wrap text-[11px]">
+                                                <span className="px-1 py-0.2 bg-teal-50 text-teal-700 border border-teal-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
+                                                  <VideoIcon className="w-2.5 h-2.5" /> Video
+                                                </span>
+                                                <a
+                                                  href={m.video.videoUrl}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  className="text-indigo-600 hover:underline truncate max-w-[200px]"
+                                                  title={m.video.videoUrl}
+                                                >
+                                                  {m.video.videoUrl}
+                                                </a>
+                                              </div>
+                                            )}
+                                            {isMaterial && m?.file && (
+                                              <div className="text-gray-500 flex items-center gap-1.5 flex-wrap text-[11px]">
+                                                <span className="px-1 py-0.2 bg-orange-50 text-orange-700 border border-orange-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
+                                                  <FileText className="w-2.5 h-2.5" /> File
+                                                </span>
+                                                <a
+                                                  href={
+                                                    m.file.fileUrl.startsWith("/")
+                                                      ? `http://localhost:8080${m.file.fileUrl}`
+                                                      : m.file.fileUrl
+                                                  }
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  className="text-indigo-600 hover:underline truncate max-w-[200px]"
+                                                  title={m.file.fileName}
+                                                >
+                                                  {m.file.fileName || "Tải tài liệu"}
+                                                </a>
+                                              </div>
+                                            )}
+                                            {!isMaterial && t && (
+                                              <div className="text-[10px] text-gray-500">
+                                                Thời gian làm bài:{" "}
+                                                <span className="font-semibold text-gray-700">
+                                                  {t.durationMinutes || "—"} phút
+                                                </span>
+                                                {t.passingPercentage !== undefined && (
+                                                  <span className="ml-3">
+                                                    Điểm chuẩn:{" "}
+                                                    <span className="font-semibold text-gray-700">
+                                                      {t.passingPercentage}%
+                                                    </span>
+                                                  </span>
+                                                )}
+                                              </div>
                                             )}
                                           </div>
+
+                                          {/* Actions (Delete) */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (isMaterial) {
+                                                handleDeleteMaterial(item.id, node.nodeId);
+                                              } else {
+                                                handleDeleteTest(item.id, node.nodeId);
+                                              }
+                                            }}
+                                            className="p-1 rounded text-red-500 hover:bg-red-50 hover:text-red-750 shrink-0 transition-colors self-center"
+                                            title={isMaterial ? "Xóa tài liệu" : "Xóa bài kiểm tra"}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
                                         </div>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteTest(t.testId, node.nodeId);
-                                          }}
-                                          className="p-1 rounded text-red-500 hover:bg-red-50 hover:text-red-750 shrink-0 transition-colors"
-                                          title="Xóa bài kiểm tra"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
-                                )}
-                              </div>
+                                );
+                              })()}
                             </div>
 
                             {/* Actions bar */}

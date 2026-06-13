@@ -109,6 +109,7 @@ export interface NodeMaterialResponse {
     fileType?: string;
     description?: string;
   };
+  orderIndex: number;
 }
 
 export interface NodeTestResponse {
@@ -117,6 +118,7 @@ export interface NodeTestResponse {
   description?: string;
   durationMinutes?: number;
   passingPercentage?: number;
+  orderIndex: number;
 }
 
 export interface NodeContentResponse {
@@ -129,6 +131,12 @@ export interface CreateNodeTestRequest {
   description?: string;
   durationMinutes?: number;
   passingPercentage?: number;
+}
+
+export interface ReorderContentRequest {
+  id: number;
+  type: 'MATERIAL' | 'TEST';
+  orderIndex: number;
 }
 
 
@@ -182,11 +190,15 @@ export const learningPathService = {
   getAdminNodeContent: (nodeId: number) =>
     http.get<NodeContentResponse>(`/admin/learning-nodes/${nodeId}/content`),
   addAdminNodeMaterial: (nodeId: number, formData: FormData) =>
-    http.post<NodeMaterialResponse>(`/admin/learning-nodes/${nodeId}/materials`, formData),
+    http.post<NodeMaterialResponse>(`/admin/learning-nodes/${nodeId}/materials`, formData, {
+      'Content-Type': 'multipart/form-data',
+    }),
   deleteAdminNodeMaterial: (materialId: number) =>
     http.delete<void>(`/admin/materials/${materialId}`),
   addAdminNodeTest: (nodeId: number, request: CreateNodeTestRequest) =>
     http.post<NodeTestResponse>(`/admin/learning-nodes/${nodeId}/tests`, request),
   deleteAdminNodeTest: (testId: number) =>
     http.delete<void>(`/admin/tests/${testId}`),
+  reorderAdminNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
+    http.post<void>(`/admin/learning-nodes/${nodeId}/reorder-content`, requests),
 };

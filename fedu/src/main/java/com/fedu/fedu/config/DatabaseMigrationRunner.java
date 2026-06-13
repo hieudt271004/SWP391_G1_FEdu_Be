@@ -98,6 +98,23 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
+            // Check if order_index column exists in tests table
+            boolean hasOrderIndexInTests = false;
+            try (ResultSet resultSet = metaData.getColumns(null, null, "tests", "order_index")) {
+                if (resultSet.next()) {
+                    hasOrderIndexInTests = true;
+                }
+            }
+            if (!hasOrderIndexInTests) {
+                log.info("Column 'order_index' does not exist in 'tests' table. Running migration...");
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("ALTER TABLE tests ADD COLUMN order_index INT NULL");
+                    log.info("Migration successful: added 'order_index' column to 'tests' table.");
+                }
+            } else {
+                log.info("Column 'order_index' already exists in 'tests' table.");
+            }
+
             // Check if node_edges table exists
             boolean hasNodeEdgesTable = false;
             try (ResultSet resultSet = metaData.getTables(null, null, "node_edges", null)) {

@@ -14,4 +14,5 @@ public class NodeTestResponse {
     private String description;
     private Integer durationMinutes;
     private BigDecimal passingPercentage;
+    private Integer orderIndex;
 }

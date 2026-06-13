@@ -36,6 +36,9 @@ public class Test extends AbstractEntity<Long> {
     @Column(name = "passing_percentage", precision = 5, scale = 2)
     private BigDecimal passingPercentage;
 
+    @Column(name = "order_index")
+    private Integer orderIndex;
+
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

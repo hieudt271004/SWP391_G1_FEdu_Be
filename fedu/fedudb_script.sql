@@ -236,6 +236,7 @@ CREATE TABLE IF NOT EXISTS tests (
                                      description        TEXT,
                                      duration_minutes   INT,
                                      passing_percentage DECIMAL(5,2),
+                                     order_index        INT,
                                      is_deleted         BOOLEAN DEFAULT FALSE,
                                      created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP

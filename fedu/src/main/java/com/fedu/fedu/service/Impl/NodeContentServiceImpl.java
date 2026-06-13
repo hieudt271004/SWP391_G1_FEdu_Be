@@ -2,6 +2,7 @@ package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.req.CreateNodeMaterialRequest;
 import com.fedu.fedu.dto.req.CreateNodeTestRequest;
+import com.fedu.fedu.dto.req.ReorderContentRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
 import com.fedu.fedu.exception.ResourceNotFoundException;
@@ -34,13 +35,50 @@ public class NodeContentServiceImpl implements NodeContentService {
     private static final String UPLOAD_DIR = "uploads";
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public NodeContentResponse getNodeContent(Long nodeId) {
         learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
 
         List<NodeMaterial> materials = nodeMaterialRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
         List<Test> tests = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
+
+        // Check if any orderIndex is null and initialize them sequentially
+        boolean hasNullIndex = false;
+        for (NodeMaterial m : materials) {
+            if (m.getOrderIndex() == null) {
+                hasNullIndex = true;
+                break;
+            }
+        }
+        if (!hasNullIndex) {
+            for (Test t : tests) {
+                if (t.getOrderIndex() == null) {
+                    hasNullIndex = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasNullIndex) {
+            int nextIndex = 1;
+            for (NodeMaterial m : materials) {
+                if (m.getOrderIndex() == null) {
+                    m.setOrderIndex(nextIndex++);
+                    nodeMaterialRepository.save(m);
+                } else {
+                    nextIndex = Math.max(nextIndex, m.getOrderIndex() + 1);
+                }
+            }
+            for (Test t : tests) {
+                if (t.getOrderIndex() == null) {
+                    t.setOrderIndex(nextIndex++);
+                    testRepository.save(t);
+                } else {
+                    nextIndex = Math.max(nextIndex, t.getOrderIndex() + 1);
+                }
+            }
+        }
 
         List<NodeMaterialResponse> materialResponses = materials.stream()
                 .map(this::mapToMaterialResponse)
@@ -67,6 +105,7 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .learningNode(node)
                 .title(request.getTitle())
                 .required(request.getRequired() != null ? request.getRequired() : true)
+                .orderIndex(getNextOrderIndex(nodeId))
                 .isDeleted(false)
                 .build();
 
@@ -171,6 +210,7 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .description(request.getDescription())
                 .durationMinutes(request.getDurationMinutes())
                 .passingPercentage(request.getPassingPercentage())
+                .orderIndex(getNextOrderIndex(nodeId))
                 .isDeleted(false)
                 .build();
 
@@ -233,6 +273,46 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .description(t.getDescription())
                 .durationMinutes(t.getDurationMinutes())
                 .passingPercentage(t.getPassingPercentage())
+                .orderIndex(t.getOrderIndex())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void reorderContent(Long nodeId, List<ReorderContentRequest> requests) {
+        learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+
+        for (ReorderContentRequest req : requests) {
+            if ("MATERIAL".equalsIgnoreCase(req.getType())) {
+                NodeMaterial material = nodeMaterialRepository.findById(req.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Material not found with id: " + req.getId()));
+                material.setOrderIndex(req.getOrderIndex());
+                nodeMaterialRepository.save(material);
+            } else if ("TEST".equalsIgnoreCase(req.getType())) {
+                Test test = testRepository.findById(req.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + req.getId()));
+                test.setOrderIndex(req.getOrderIndex());
+                testRepository.save(test);
+            }
+        }
+    }
+
+    private int getNextOrderIndex(Long nodeId) {
+        List<NodeMaterial> materials = nodeMaterialRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
+        List<Test> tests = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
+
+        int max = 0;
+        for (NodeMaterial m : materials) {
+            if (m.getOrderIndex() != null && m.getOrderIndex() > max) {
+                max = m.getOrderIndex();
+            }
+        }
+        for (Test t : tests) {
+            if (t.getOrderIndex() != null && t.getOrderIndex() > max) {
+                max = t.getOrderIndex();
+            }
+        }
+        return max + 1;
     }
 }

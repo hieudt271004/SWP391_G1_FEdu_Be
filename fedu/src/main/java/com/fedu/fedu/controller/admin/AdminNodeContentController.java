@@ -2,7 +2,9 @@ package com.fedu.fedu.controller.admin;
 
 import com.fedu.fedu.dto.req.CreateNodeMaterialRequest;
 import com.fedu.fedu.dto.req.CreateNodeTestRequest;
+import com.fedu.fedu.dto.req.ReorderContentRequest;
 import com.fedu.fedu.dto.res.*;
+import java.util.List;
 import com.fedu.fedu.service.NodeContentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -76,5 +78,16 @@ public class AdminNodeContentController {
         log.info("Admin deleting test ID: {}", testId);
         nodeContentService.deleteTest(testId);
         return new ResponseData<>(HttpStatus.OK.value(), "Test deleted successfully");
+    }
+
+    @Operation(summary = "Reorder materials and tests inside a learning node")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PostMapping("/learning-nodes/{nodeId}/reorder-content")
+    public ResponseData<Void> reorderContent(
+            @PathVariable Long nodeId,
+            @Valid @RequestBody List<ReorderContentRequest> requests) {
+        log.info("Admin reordering content for node ID: {}, items count: {}", nodeId, requests.size());
+        nodeContentService.reorderContent(nodeId, requests);
+        return new ResponseData<>(HttpStatus.OK.value(), "Content reordered successfully");
     }
 }
