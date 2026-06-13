@@ -88,6 +88,7 @@ public class AuthenticationController {
         return new ResponseData<>(HttpStatus.OK.value(), authenticationService.resetPassword(secretKey));
     }
 
+    @Operation(summary = "Validate reset password token")
     @PostMapping("/change-password")
     public ResponseData<String> changePassword(@RequestBody @Valid ResetPasswordDTO request) {
         String response = authenticationService.changePassword(request);
