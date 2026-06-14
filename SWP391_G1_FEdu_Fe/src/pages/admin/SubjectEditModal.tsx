@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
 
-interface CourseEditModalProps {
+interface SubjectEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   course: {
@@ -15,7 +15,7 @@ interface CourseEditModalProps {
   onSuccess: () => void;
 }
 
-export function CourseEditModal({ isOpen, onClose, course, onSuccess }: CourseEditModalProps) {
+export function SubjectEditModal({ isOpen, onClose, course, onSuccess }: SubjectEditModalProps) {
   const [formData, setFormData] = useState({
     subjectCode: "",
     subjectName: "",

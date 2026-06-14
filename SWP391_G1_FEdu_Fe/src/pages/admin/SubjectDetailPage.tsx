@@ -14,7 +14,7 @@ import type { ClassroomResponse } from "../../types/classroom";
 import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse } from "../../services/learningPath.service";
 import { toast } from "sonner";
 
-export function CourseDetailPage() {
+export function SubjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const subjectId = Number(id);
@@ -49,8 +49,8 @@ export function CourseDetailPage() {
   const [isAddTestOpen, setIsAddTestOpen] = useState(false);
 
   // Form states - Template
-  const [newTplName, setNewTplName] = useState("");
   const [newTplDesc, setNewTplDesc] = useState("");
+  const [newTplLevel, setNewTplLevel] = useState<"BASIC" | "ADVANCED">("BASIC");
   const [editTplName, setEditTplName] = useState("");
   const [editTplDesc, setEditTplDesc] = useState("");
 
@@ -196,20 +196,17 @@ export function CourseDetailPage() {
   // Template CRUD actions
   const handleCreateTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTplName.trim()) {
-      toast.error("Vui lòng nhập tên lộ trình");
-      return;
-    }
     try {
       const created = await learningPathService.createAdminTemplate({
         subjectId,
-        pathName: newTplName,
+        pathName: newTplLevel === "ADVANCED" ? "Lộ trình nâng cao" : "Lộ trình cơ bản",
         description: newTplDesc,
+        level: newTplLevel,
       });
       toast.success("Tạo lộ trình mẫu thành công");
       setIsCreateTemplateOpen(false);
-      setNewTplName("");
       setNewTplDesc("");
+      setNewTplLevel("BASIC");
       setSelectedTemplateId(created.pathId);
       await fetchTemplates();
     } catch (err: any) {
@@ -219,10 +216,7 @@ export function CourseDetailPage() {
 
   const handleEditTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplateId || !editTplName.trim()) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
-      return;
-    }
+    if (!selectedTemplateId) return;
     try {
       await learningPathService.updateAdminTemplate(selectedTemplateId, {
         pathName: editTplName,
@@ -613,7 +607,7 @@ export function CourseDetailPage() {
       {/* Header */}
       <div className="flex items-center gap-4 flex-wrap">
         <button
-          onClick={() => navigate("/admin/courses")}
+          onClick={() => navigate("/admin/subjects")}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
@@ -685,7 +679,7 @@ export function CourseDetailPage() {
                     }
                   }}
                   className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  title="Sửa tên lộ trình"
+                  title="Sửa mô tả lộ trình"
                 >
                   <Edit2 className="w-4 h-4 text-gray-500" />
                 </button>
@@ -1196,15 +1190,15 @@ export function CourseDetailPage() {
             </div>
             <form onSubmit={handleCreateTemplateSubmit} className="p-4 space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Tên lộ trình *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: Lộ trình cơ bản, Lộ trình nâng cao..."
+                <label className="text-sm font-semibold text-gray-700">Loại lộ trình *</label>
+                <select
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={newTplName}
-                  onChange={(e) => setNewTplName(e.target.value)}
-                />
+                  value={newTplLevel}
+                  onChange={(e) => setNewTplLevel(e.target.value as "BASIC" | "ADVANCED")}
+                >
+                  <option value="BASIC">Lộ trình cơ bản</option>
+                  <option value="ADVANCED">Lộ trình nâng cao</option>
+                </select>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Mô tả ngắn</label>
@@ -1248,16 +1242,8 @@ export function CourseDetailPage() {
               </button>
             </div>
             <form onSubmit={handleEditTemplateSubmit} className="p-4 space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Tên lộ trình *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Nhập tên lộ trình..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={editTplName}
-                  onChange={(e) => setEditTplName(e.target.value)}
-                />
+              <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-150 text-sm text-gray-600">
+                Lộ trình: <span className="font-semibold text-gray-800">{editTplName}</span>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Mô tả ngắn</label>

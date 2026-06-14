@@ -20,7 +20,7 @@ import java.util.List;
 @Slf4j
 @Validated
 @RestController
-@RequestMapping("/classrooms/{classroomId}/students")
+@RequestMapping("/classroom-subjects/{classroomSubjectId}/students")
 @RequiredArgsConstructor
 @Tag(name = "Classroom Student Controller", description = "Classroom Student Roster Management")
 public class ClassroomStudentController {

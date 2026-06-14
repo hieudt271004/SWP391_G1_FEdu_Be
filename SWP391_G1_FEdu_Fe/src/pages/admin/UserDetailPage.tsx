@@ -77,8 +77,8 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
           const studentClasses = await classroomService.getByStudent(userDetail.id);
           setCourses(studentClasses.map(c => ({
             id: String(c.classroomId),
-            code: c.subjectCode,
-            title: `${c.subjectName} (${c.className})`,
+            code: c.subjectCode || "",
+            title: c.className,
             status: "Đang học",
             progress: 0,
           })));
@@ -86,8 +86,8 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
           const teacherClasses = await classroomService.getByTeacher(userDetail.id);
           setCourses(teacherClasses.map(c => ({
             id: String(c.classroomId),
-            code: c.subjectCode,
-            title: `${c.subjectName} (${c.className})`,
+            code: c.subjectCode || "",
+            title: c.className,
             status: "Đang dạy",
             students: c.studentCount
           })));
@@ -216,7 +216,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
                   key={course.id}
                   className="p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
                   style={{ border: "1px solid #e5e7eb" }}
-                  onClick={() => navigate(`/admin/courses/${course.id}`)}
+                  onClick={() => navigate(`/admin/subjects/${course.id}`)}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">

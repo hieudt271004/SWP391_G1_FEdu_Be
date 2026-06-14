@@ -5,7 +5,7 @@ import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
-import { CourseEditModal } from "./CourseEditModal";
+import { SubjectEditModal } from "./SubjectEditModal";
 
 // Map Subject (BE) → AdminCourse (display)
 interface AdminCourse {
@@ -50,7 +50,7 @@ const sortMap: Record<string, SortField> = {
   "TRẠNG THÁI": "status"
 };
 
-export function CourseManagementPage() {
+export function SubjectManagementPage() {
   const navigate = useNavigate();
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,20 +70,12 @@ export function CourseManagementPage() {
     try {
       setLoading(true);
       setError(null);
-      const [subjectsData, classroomsData] = await Promise.all([
-        subjectService.getAll(),
-        classroomService.getAll(),
-      ]);
-
-      const classroomsBySubject = classroomsData.reduce((acc, classroom) => {
-        if (!acc[classroom.subjectId]) {
-          acc[classroom.subjectId] = [];
-        }
-        acc[classroom.subjectId].push(classroom);
-        return acc;
-      }, {} as Record<number, ClassroomResponse[]>);
-
-      setCourses(subjectsData.map(s => subjectToAdminCourse(s, classroomsBySubject[s.subjectId] || [])));
+      const subjectsData = await subjectService.getAll();
+      // 1 lớp có thể nhiều môn → lấy lớp của từng môn qua API classroom-subject
+      const classesPerSubject = await Promise.all(
+        subjectsData.map((s) => classroomService.getBySubject(s.subjectId).catch(() => [] as ClassroomResponse[]))
+      );
+      setCourses(subjectsData.map((s, i) => subjectToAdminCourse(s, classesPerSubject[i])));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Không tải được danh sách môn học");
     } finally {
@@ -198,7 +190,7 @@ export function CourseManagementPage() {
             </button>
           ))}
         </div>
-        <button onClick={() => navigate('/admin/courses/add')} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontSize: "0.875rem", fontWeight: 600 }}>
+        <button onClick={() => navigate('/admin/subjects/add')} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontSize: "0.875rem", fontWeight: 600 }}>
           <Plus className="w-4 h-4" /> Thêm mới
         </button>
       </div>
@@ -290,7 +282,7 @@ export function CourseManagementPage() {
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => navigate(`/admin/courses/${course.id}`)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Xem"><Eye className="w-4 h-4" style={{ color: "#6b7280" }} /></button>
+                        <button onClick={() => navigate(`/admin/subjects/${course.id}`)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Xem"><Eye className="w-4 h-4" style={{ color: "#6b7280" }} /></button>
                         <button onClick={() => { setSelectedCourse(course); setEditModalOpen(true); }} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Chỉnh sửa"><Edit2 className="w-4 h-4" style={{ color: "#6b7280" }} /></button>
                         <button onClick={() => handleDelete(course.id)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Xóa"><Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} /></button>
                       </div>
@@ -370,7 +362,7 @@ export function CourseManagementPage() {
                     {course.status === "published" ? "Xuất bản" : "Nháp"}
                   </span>
                 </div>
-                <button onClick={() => navigate(`/admin/courses/${course.id}`)} className="w-full py-2.5 rounded-xl transition-colors hover:bg-indigo-50" style={{ border: "1px solid #5b21b6", backgroundColor: "white", fontSize: "0.9375rem", color: "#5b21b6", fontWeight: 600, cursor: "pointer" }}>
+                <button onClick={() => navigate(`/admin/subjects/${course.id}`)} className="w-full py-2.5 rounded-xl transition-colors hover:bg-indigo-50" style={{ border: "1px solid #5b21b6", backgroundColor: "white", fontSize: "0.9375rem", color: "#5b21b6", fontWeight: 600, cursor: "pointer" }}>
                   Xem chi tiết
                 </button>
               </div>
@@ -379,7 +371,7 @@ export function CourseManagementPage() {
         </div>
       )}
 
-      <CourseEditModal
+      <SubjectEditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         course={selectedCourse}
