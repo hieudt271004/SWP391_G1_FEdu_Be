@@ -3,29 +3,26 @@ export interface ClassroomResponse {
   className: string;
   semester?: string;
   description?: string;
-  subjectId: number;
-  subjectCode: string;
-  subjectName: string;
+  subjectCount?: number;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+
+  // ⚠️ Deprecated — mô hình cũ "1 lớp = 1 môn". BE không còn trả các field này
+  // (môn/giảng viên giờ thuộc ClassroomSubject). Giữ optional để migrate dần.
+  subjectId?: number;
+  subjectCode?: string;
+  subjectName?: string;
   lecturerId?: number;
   lecturerName?: string;
   lecturerEmail?: string;
   lecturerFirstName?: string;
   lecturerLastName?: string;
-  studentCount: number;
-  status?: string;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 export interface ClassroomRequest {
-  subjectId: number;
   className: string;
   semester?: string;
   description?: string;
-  lecturerId?: number;
   status?: string;
-}
-
-export interface AssignTeacherRequest {
-  teacherId: number;
 }

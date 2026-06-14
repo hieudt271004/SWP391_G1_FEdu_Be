@@ -1,9 +1,12 @@
 import { http } from './http';
 
+export type LearningPathLevel = 'BASIC' | 'ADVANCED';
+
 export interface CreateLearningPathRequest {
   subjectId: number;
   pathName: string;
   description?: string;
+  level: LearningPathLevel;
 }
 
 export interface LearningPathResponse {
@@ -12,6 +15,8 @@ export interface LearningPathResponse {
   pathName: string;
   description: string;
   createdById: number;
+  classroomSubjectId?: number | null;
+  level?: LearningPathLevel | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,7 +67,7 @@ export interface PublishResultResponse {
 }
 
 export interface ClassroomGraphResponse {
-  classroomId: number;
+  classroomSubjectId: number;
   state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED';
   pathId: number | null;
   publishedAt: string | null;
@@ -147,16 +152,16 @@ export const learningPathService = {
     http.post<LearningPathResponse>('/teacher-manage/learning-paths', request),
   getLearningPathGraph: (pathId: number) =>
     http.get<LearningPathGraphResponse>(`/teacher-manage/learning-paths/${pathId}/graph`),
-  getClassroomGraph: (classroomId: number) =>
-    http.get<ClassroomGraphResponse>(`/teacher-manage/classrooms/${classroomId}/graph`),
-  cloneFromTemplate: (classroomId: number, templatePathId: number) =>
-    http.post<LearningPathResponse>(`/teacher-manage/classrooms/${classroomId}/clone-learning-path/${templatePathId}`),
-  publishClassroomPath: (classroomId: number, pathId: number) =>
-    http.post<PublishResultResponse>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}/publish`),
-  unpublishClassroomPath: (classroomId: number, pathId: number) =>
-    http.post<void>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}/unpublish`),
-  deleteDraftPath: (classroomId: number, pathId: number) =>
-    http.delete<void>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}`),
+  getClassroomGraph: (classroomSubjectId: number) =>
+    http.get<ClassroomGraphResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/graph`),
+  cloneFromTemplate: (classroomSubjectId: number, templatePathId: number) =>
+    http.post<LearningPathResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path/${templatePathId}`),
+  publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
+    http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
+  unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>
+    http.post<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/unpublish`),
+  deleteDraftPath: (classroomSubjectId: number, pathId: number) =>
+    http.delete<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}`),
   createLearningNode: (request: CreateLearningNodeRequest) =>
     http.post<LearningNodeResponse>('/teacher-manage/learning-nodes', request),
   deleteLearningNode: (nodeId: number) =>

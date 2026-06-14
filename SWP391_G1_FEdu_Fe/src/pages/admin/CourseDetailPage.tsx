@@ -51,6 +51,7 @@ export function CourseDetailPage() {
   // Form states - Template
   const [newTplName, setNewTplName] = useState("");
   const [newTplDesc, setNewTplDesc] = useState("");
+  const [newTplLevel, setNewTplLevel] = useState<"BASIC" | "ADVANCED">("BASIC");
   const [editTplName, setEditTplName] = useState("");
   const [editTplDesc, setEditTplDesc] = useState("");
 
@@ -205,11 +206,13 @@ export function CourseDetailPage() {
         subjectId,
         pathName: newTplName,
         description: newTplDesc,
+        level: newTplLevel,
       });
       toast.success("Tạo lộ trình mẫu thành công");
       setIsCreateTemplateOpen(false);
       setNewTplName("");
       setNewTplDesc("");
+      setNewTplLevel("BASIC");
       setSelectedTemplateId(created.pathId);
       await fetchTemplates();
     } catch (err: any) {
@@ -1205,6 +1208,17 @@ export function CourseDetailPage() {
                   value={newTplName}
                   onChange={(e) => setNewTplName(e.target.value)}
                 />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Loại lộ trình *</label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={newTplLevel}
+                  onChange={(e) => setNewTplLevel(e.target.value as "BASIC" | "ADVANCED")}
+                >
+                  <option value="BASIC">Cơ bản (BASIC)</option>
+                  <option value="ADVANCED">Nâng cao (ADVANCED)</option>
+                </select>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Mô tả ngắn</label>

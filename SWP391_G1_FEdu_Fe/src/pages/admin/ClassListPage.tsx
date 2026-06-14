@@ -9,21 +9,17 @@ interface ClassRecord {
   id: number;
   className: string;
   courseName: string;
-  instructor: string;
   students: number;
   status: "active" | "inactive" | "completed";
   thumbnail: string;
 }
 
 function classroomToRecord(c: ClassroomResponse): ClassRecord {
-  const initials = (c.subjectCode || c.subjectName || "CL").slice(0, 2).toUpperCase();
+  const initials = (c.className || "CL").slice(0, 2).toUpperCase();
   return {
     id: c.classroomId,
     className: c.className,
-    courseName: c.subjectName || c.subjectCode || "—",
-    instructor: c.lecturerFirstName
-      ? `${c.lecturerFirstName} ${c.lecturerLastName}`
-      : (c.lecturerName || "—"),
+    courseName: `${c.subjectCount ?? 0} môn học`,
     students: c.studentCount,
     status: (c.status as ClassRecord["status"]) || (c.studentCount > 0 ? "active" : "inactive"),
     thumbnail: initials,
@@ -81,7 +77,7 @@ export function ClassListPage() {
   };
 
   const filteredClasses = classes.filter((c) => {
-    const matchSearch = searchQuery === "" || c.className.toLowerCase().includes(searchQuery.toLowerCase()) || c.courseName.toLowerCase().includes(searchQuery.toLowerCase()) || c.instructor.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchSearch = searchQuery === "" || c.className.toLowerCase().includes(searchQuery.toLowerCase()) || c.courseName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchStatus = statusFilter === "all" || c.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -170,7 +166,7 @@ export function ClassListPage() {
             <table className="w-full">
               <thead>
                 <tr style={{ backgroundColor: "#334155", borderBottom: "1px solid #475569" }}>
-                  {["TÊN LỚP", "THUỘC KHÓA HỌC", "GIẢNG VIÊN", "HỌC VIÊN", "TRẠNG THÁI", "HÀNH ĐỘNG"].map((h) => (
+                  {["TÊN LỚP", "SỐ MÔN", "HỌC VIÊN", "TRẠNG THÁI", "HÀNH ĐỘNG"].map((h) => (
                     <th key={h} className="text-left px-6 py-4">
                       <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "white", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                         {h} {h !== "HÀNH ĐỘNG" && <ArrowUpDown className="w-3.5 h-3.5 inline ml-1" />}
@@ -193,7 +189,6 @@ export function ClassListPage() {
                         </div>
                       </td>
                       <td className="px-6 py-5"><span style={{ fontSize: "0.9375rem", color: "#6b7280" }}>{c.courseName}</span></td>
-                      <td className="px-6 py-5"><span style={{ fontSize: "0.9375rem", color: "#6b7280" }}>{c.instructor}</span></td>
                       <td className="px-6 py-5"><span style={{ fontSize: "0.9375rem", color: "#6b7280" }}>{c.students > 0 ? `${c.students} học viên` : "—"}</span></td>
                       <td className="px-6 py-5">
                         <span className="px-3 py-1.5 rounded-md" style={{ backgroundColor: statusInfo.bg, color: statusInfo.color, fontSize: "0.8125rem", fontWeight: 600 }}>{statusInfo.label}</span>
@@ -262,14 +257,6 @@ export function ClassListPage() {
                     <p style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "0.75rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.courseName}</p>
                     
                     <div className="flex flex-col gap-2 mb-4">
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-4 h-4 shrink-0" style={{ color: "#6b7280" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        <span style={{ fontSize: "0.875rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {c.instructor}
-                        </span>
-                      </div>
                       <div className="flex items-center gap-1.5">
                         <svg className="w-4 h-4 shrink-0" style={{ color: "#6b7280" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />

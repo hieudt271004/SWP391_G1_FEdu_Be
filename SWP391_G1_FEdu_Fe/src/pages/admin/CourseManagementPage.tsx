@@ -70,20 +70,12 @@ export function CourseManagementPage() {
     try {
       setLoading(true);
       setError(null);
-      const [subjectsData, classroomsData] = await Promise.all([
-        subjectService.getAll(),
-        classroomService.getAll(),
-      ]);
-
-      const classroomsBySubject = classroomsData.reduce((acc, classroom) => {
-        if (!acc[classroom.subjectId]) {
-          acc[classroom.subjectId] = [];
-        }
-        acc[classroom.subjectId].push(classroom);
-        return acc;
-      }, {} as Record<number, ClassroomResponse[]>);
-
-      setCourses(subjectsData.map(s => subjectToAdminCourse(s, classroomsBySubject[s.subjectId] || [])));
+      const subjectsData = await subjectService.getAll();
+      // 1 lớp có thể nhiều môn → lấy lớp của từng môn qua API classroom-subject
+      const classesPerSubject = await Promise.all(
+        subjectsData.map((s) => classroomService.getBySubject(s.subjectId).catch(() => [] as ClassroomResponse[]))
+      );
+      setCourses(subjectsData.map((s, i) => subjectToAdminCourse(s, classesPerSubject[i])));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Không tải được danh sách khóa học");
     } finally {
