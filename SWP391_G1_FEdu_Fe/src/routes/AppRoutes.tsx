@@ -30,6 +30,7 @@ import { AddCoursePage } from '../pages/admin/AddCoursePage';
 import { CourseDetailPage } from '../pages/admin/CourseDetailPage';
 import { ClassListPage } from '../pages/admin/ClassListPage';
 import { ClassDetailPage } from '../pages/admin/ClassDetailPage';
+import { ClassroomSubjectDetailPage } from '../pages/admin/ClassroomSubjectDetailPage';
 import { AddClassPage } from '../pages/admin/AddClassPage';
 
 // Teacher pages
@@ -139,6 +140,7 @@ export function AppRoutes() {
                 <Route path="/admin/classes" element={<ClassListPage />} />
                 <Route path="/admin/classes/add" element={<AddClassPage />} />
                 <Route path="/admin/classes/:id/edit" element={<AddClassPage />} />
+                <Route path="/admin/classes/:classroomId/subjects/:csId" element={<ClassroomSubjectDetailPage />} />
                 <Route path="/admin/classes/:id" element={<ClassDetailPage />} />
             </Route>
             {/* ─────────────────────────────────────────────────────── */}
