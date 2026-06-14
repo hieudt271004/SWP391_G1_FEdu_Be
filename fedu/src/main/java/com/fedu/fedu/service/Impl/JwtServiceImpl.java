@@ -27,6 +27,9 @@ import static com.fedu.fedu.utils.enums.TokenType.*;
 @RequiredArgsConstructor
 public class JwtServiceImpl implements JwtService {
 
+    @Value("${jwt.expiryMinute}")
+    private long expiryMinute;
+
     @Value("${jwt.expiryHour}")
     private long expiryHour;
 
@@ -101,7 +104,7 @@ public class JwtServiceImpl implements JwtService {
                 .setClaims(claims)
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60))
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * expiryMinute))
                 .signWith(getKey(RESET_TOKEN), SignatureAlgorithm.HS256)
                 .compact();
     }
