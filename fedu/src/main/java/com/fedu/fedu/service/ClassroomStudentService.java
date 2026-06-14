@@ -7,9 +7,7 @@ import java.util.List;
 
 public interface ClassroomStudentService {
 
-    StudentInClassResponse addStudentToClassroom(Long classroomId, AddStudentRequest request);
-
-    void removeStudentFromClassroom(Long classroomId, long studentId);
-
-    List<StudentInClassResponse> getStudentsInClassroom(Long classroomId);
+    StudentInClassResponse addStudentToClassroomSubject(Long classroomSubjectId, AddStudentRequest request);
+    void removeStudentFromClassroomSubject(Long classroomSubjectId, long studentId);
+    List<StudentInClassResponse> getStudentsInClassroomSubject(Long classroomSubjectId);
 }

@@ -20,10 +20,10 @@ public class ClassroomEnrollmentServiceImpl implements ClassroomEnrollmentServic
 
     @Override
     @Transactional
-    public StudentInClassResponse enrollStudent(Long classroomId, AddStudentRequest request) {
-        log.info("Enrolling student '{}' to classroom: {}", request.getEmail(), classroomId);
-        StudentInClassResponse studentResponse = classroomStudentService.addStudentToClassroom(classroomId, request);
-        learningPathService.backfillProgressForStudent(classroomId, studentResponse.getUserId());
+    public StudentInClassResponse enrollStudent(Long classroomSubjectId, AddStudentRequest request) {
+        StudentInClassResponse studentResponse =
+                classroomStudentService.addStudentToClassroomSubject(classroomSubjectId, request);
+        learningPathService.backfillProgressForStudent(classroomSubjectId, studentResponse.getUserId());
         return studentResponse;
     }
 }

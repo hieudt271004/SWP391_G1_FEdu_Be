@@ -36,12 +36,12 @@ public class StudentLearningPathController {
 
     @Operation(summary = "Get published classroom graph with student progress")
     @PreAuthorize("hasRole('STUDENT')")
-    @GetMapping("/classrooms/{classroomId}/graph")
+    @GetMapping("/classroom-subjects/{classroomSubjectId}/graph")
     public ResponseData<ClassroomGraphResponse> getStudentClassroomGraph(
-            @PathVariable Long classroomId,
+            @PathVariable Long classroomSubjectId,
             @AuthenticationPrincipal UserAccount currentUser) {
-        log.info("Student ID {} requests graph for classroom id: {}", currentUser.getUserId(), classroomId);
-        ClassroomGraphResponse graph = studentProgressService.getStudentClassroomGraph(classroomId, currentUser.getUserId());
+        log.info("Student ID {} requests graph for classroom-subject id: {}", currentUser.getUserId(), classroomSubjectId);
+        ClassroomGraphResponse graph = studentProgressService.getStudentClassroomGraph(classroomSubjectId, currentUser.getUserId());
         return new ResponseData<>(HttpStatus.OK.value(), "Retrieved roadmap graph successfully", graph);
     }
 

@@ -30,66 +30,47 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
 
     @Override
     @Transactional
-    public StudentInClassResponse addStudentToClassroom(Long classroomId, AddStudentRequest request) {
-        log.info("Adding student '{}' to classroomId: {}", request.getEmail(), classroomId);
+    public StudentInClassResponse addStudentToClassroomSubject(Long classroomSubjectId, AddStudentRequest request) {
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found with id: " + classroomSubjectId));
 
-        // Tìm ClassroomSubject đầu tiên của classroom (hoặc mở rộng sau nếu cần subjectId)
-        ClassroomSubject classroomSubject = classroomSubjectRepository
-                .findByClassroomClassroomId(classroomId)
-                .stream().findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("No subject found for classroom id: " + classroomId));
-
-        // Tìm student theo email
         UserAccount student = userAccountRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
 
-        // Kiểm tra đã enroll chưa
+        // chỉ nhận đúng role STUDENT
+        boolean isStudent = student.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.STUDENT);
+        if (!isStudent) {
+            throw new InvalidDataException("Tài khoản này không phải học sinh");
+        }
+
         classroomSubjectStudentRepository
-                .findByClassroomSubject_IdAndStudent_UserId(classroomSubject.getId(), student.getUserId())
-                .ifPresent(existing -> {
-                    throw new InvalidDataException("Student already enrolled in this classroom");
-                });
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, student.getUserId())
+                .ifPresent(e -> { throw new InvalidDataException("Sinh viên đã có trong lớp-môn này"); });
 
         ClassroomSubjectStudent enrollment = ClassroomSubjectStudent.builder()
-                .classroomSubject(classroomSubject)
+                .classroomSubject(cs)
                 .student(student)
                 .build();
-
-        ClassroomSubjectStudent saved = classroomSubjectStudentRepository.save(enrollment);
-        log.info("Student id: {} enrolled in classroom id: {}", student.getUserId(), classroomId);
-
-        return toResponse(saved);
+        return toResponse(classroomSubjectStudentRepository.save(enrollment));
     }
 
     @Override
     @Transactional
-    public void removeStudentFromClassroom(Long classroomId, long studentId) {
-        log.info("Removing student id: {} from classroomId: {}", studentId, classroomId);
-
-        ClassroomSubject classroomSubject = classroomSubjectRepository
-                .findByClassroomClassroomId(classroomId)
-                .stream().findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("No subject found for classroom id: " + classroomId));
-
+    public void removeStudentFromClassroomSubject(Long classroomSubjectId, long studentId) {
         ClassroomSubjectStudent enrollment = classroomSubjectStudentRepository
-                .findByClassroomSubject_IdAndStudent_UserId(classroomSubject.getId(), studentId)
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Student id " + studentId + " not enrolled in classroom id " + classroomId));
-
+                        "Sinh viên " + studentId + " không có trong lớp-môn " + classroomSubjectId));
         classroomSubjectStudentRepository.delete(enrollment);
-        log.info("Student id: {} removed from classroom id: {}", studentId, classroomId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<StudentInClassResponse> getStudentsInClassroom(Long classroomId) {
-        return classroomSubjectStudentRepository
-                .findAllByClassroomId(classroomId)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+    public List<StudentInClassResponse> getStudentsInClassroomSubject(Long classroomSubjectId) {
+        return classroomSubjectStudentRepository.findAllByClassroomSubjectId(classroomSubjectId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
     }
-
     // ─── Mapper ──────────────────────────────────────────────────────────────
 
     private StudentInClassResponse toResponse(ClassroomSubjectStudent enrollment) {

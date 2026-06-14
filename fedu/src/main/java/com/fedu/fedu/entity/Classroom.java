@@ -16,10 +16,6 @@ public class Classroom extends AbstractEntity<Long> {
     @Column(name = "classroom_id")
     private Long classroomId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subject_id")
-    private Subject subject;
-
     @Column(name = "class_name", nullable = false)
     private String className;
 
@@ -28,11 +24,7 @@ public class Classroom extends AbstractEntity<Long> {
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lecturer_id")
-    private UserAccount lecturer;
-
+    
     @Builder.Default
     @Column(name = "status", nullable = false, length = 50)
     private String status = "inactive";

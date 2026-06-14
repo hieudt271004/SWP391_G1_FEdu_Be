@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClassroomGraphResponse {
-    private Long classroomId;
+    private Long classroomSubjectId;
     private String state;
     private Long pathId;
     private LocalDateTime publishedAt;
