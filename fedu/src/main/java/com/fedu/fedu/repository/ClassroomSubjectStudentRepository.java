@@ -21,4 +21,7 @@ public interface ClassroomSubjectStudentRepository extends JpaRepository<Classro
 
     @Query("SELECT cs FROM ClassroomSubjectStudent cs WHERE cs.student.userId = :studentId")
     List<ClassroomSubjectStudent> findAllByStudentId(long studentId);
+
+    @Query("SELECT DISTINCT cs.student FROM ClassroomSubjectStudent cs WHERE cs.classroomSubject.classroom.classroomId = :classroomId")
+    List<com.fedu.fedu.entity.UserAccount> findDistinctStudentsByClassroomId(@org.springframework.data.repository.query.Param("classroomId") Long classroomId);
 }

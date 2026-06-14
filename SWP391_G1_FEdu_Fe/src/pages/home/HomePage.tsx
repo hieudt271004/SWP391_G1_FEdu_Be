@@ -1,7 +1,5 @@
 import { HeroSection } from "./components/HeroSection";
 import { StatsSection } from "./components/StatsSection";
-import { AboutSection } from "./components/AboutSection";
-import { FeaturesSection } from "./components/FeaturesSection";
 import { CTASection } from "./components/CTASection";
 
 export function HomePage() {
@@ -9,8 +7,6 @@ export function HomePage() {
     <>
       <HeroSection />
       <StatsSection />
-      <AboutSection />
-      <FeaturesSection />
       <CTASection />
     </>
   );

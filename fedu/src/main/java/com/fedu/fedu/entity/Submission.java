@@ -55,6 +55,7 @@ public class Submission extends AbstractEntity<Long> {
     @Column(name = "graded_at")
     private LocalDateTime gradedAt;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 

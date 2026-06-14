@@ -37,6 +37,7 @@ public class Classroom extends AbstractEntity<Long> {
     @Column(name = "status", nullable = false, length = 50)
     private String status = "inactive";
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

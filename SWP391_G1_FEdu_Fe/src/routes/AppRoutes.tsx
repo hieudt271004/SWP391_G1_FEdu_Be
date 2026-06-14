@@ -8,6 +8,9 @@ import { SubMentorLayout } from '../components/layout/SubMentorLayout';
 import { RoleRoute } from './RoleRoute';
 
 import { HomePage } from '../pages/home/HomePage';
+import { AboutPage } from '../pages/about/AboutPage';
+import { FeaturesPage } from '../pages/features/FeaturesPage';
+import { ContactPage } from '../pages/contact/ContactPage';
 import { LoginPage } from '../pages/auth/login/LoginPage';
 import { RegisterPage } from '../pages/auth/register/RegisterPage';
 import { ForgotPassword } from '../pages/auth/forgot/ForgotPassword';
@@ -51,6 +54,9 @@ export function AppRoutes() {
         <Routes>
             <Route element={<PublicLayout />}>
                 <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/features" element={<FeaturesPage />} />
+                <Route path="/contact" element={<ContactPage />} />
             </Route>
 
             <Route element={<AuthLayout />}>

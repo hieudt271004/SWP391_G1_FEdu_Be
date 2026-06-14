@@ -11,12 +11,24 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateLearningNodeRequest {
-    @NotNull(message = "learningPathId must not be null")
     private Long learningPathId;
+    private Long classroomPathId;
+    
     @NotBlank(message = "title must not be blank")
     private String title;
+    
     private String description;
+    
     @NotNull(message = "nodeType must not be null")
     private NodeType nodeType;
+    
     private NodeStatus status;
+
+    @jakarta.validation.constraints.Min(value = 0, message = "displayOrder must be greater than or equal to 0")
+    private Integer displayOrder;
+
+    private Boolean isRequired;
+
+    @jakarta.validation.constraints.Size(max = 100, message = "branchName must not exceed 100 characters")
+    private String branchName;
 }

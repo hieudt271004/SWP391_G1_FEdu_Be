@@ -1,5 +1,6 @@
 package com.fedu.fedu.service;
 
+import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.entity.Token;
@@ -21,25 +22,18 @@ public class TokenService {
                 .orElseThrow(() -> new ResourceNotFoundException("Not found token"));
     }
 
-    // lưu token cho user
-    public long save(Token token) {
-        Optional<Token> optional = tokenRepository.findByUserAccount_Email(token.getUserAccount().getEmail());
-        // chưa có token
-        if (optional.isEmpty()) {
-            tokenRepository.save(token);
-            return token.getId();
-        }
-        // nếu user đã có token
-        else {
-            Token t = optional.get();
-            t.setAccessToken(token.getAccessToken());
-            t.setRefreshToken(token.getRefreshToken());
-            if (token.getResetToken() != null) {
-                t.setResetToken(token.getResetToken());
-            }
-            tokenRepository.save(t);
-            return t.getId();
-        }
+    public void saveLoginTokens(UserAccount user, String accessToken, String refreshToken) {
+        Token t = tokenRepository.findByUserAccount_Email(user.getEmail())
+                .orElseGet(() -> Token.builder().userAccount(user).build());
+        t.setAccessToken(accessToken);
+        t.setRefreshToken(refreshToken);
+        tokenRepository.save(t);
+    }
+    public void saveResetToken(UserAccount user, String resetToken) {
+        Token t = tokenRepository.findByUserAccount_Email(user.getEmail())
+                .orElseGet(() -> Token.builder().userAccount(user).build());
+        t.setResetToken(resetToken);
+        tokenRepository.save(t);
     }
 
     // xóa cứng token bằng email
@@ -63,5 +57,11 @@ public class TokenService {
             throw new InvalidDataException("Token not exists");
         }
         return true;
+    }
+
+    public boolean isAccessTokenActive(String email, String accessToken) {
+        return tokenRepository.findByUserAccount_Email(email)
+                .map(t -> accessToken.equals(t.getAccessToken()))
+                .orElse(false);
     }
 }

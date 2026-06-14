@@ -1,4 +1,4 @@
-﻿import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
 export function HeroSection() {
@@ -43,12 +43,12 @@ export function HeroSection() {
                 Bắt đầu ngay
                 <ArrowRight className="w-4 h-4" />
               </button>
-              <a
-                href="#about"
+              <button
+                onClick={() => navigate("/about")}
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/80 px-8 py-4 text-sm font-medium text-slate-100 transition hover:border-cyan-300 hover:text-white"
               >
                 Tìm hiểu thêm
-              </a>
+              </button>
             </div>
           </div>
 

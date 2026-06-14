@@ -1,6 +1,7 @@
 package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.req.SubjectRequest;
+import com.fedu.fedu.dto.res.SubjectResponse;
 import com.fedu.fedu.entity.Subject;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.exception.InvalidDataException;
@@ -25,7 +26,7 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional
-    public Subject createSubject(SubjectRequest request, long createdByUserId) {
+    public SubjectResponse createSubject(SubjectRequest request, long createdByUserId) {
         log.info("Creating subject: {}", request.getSubjectCode());
 
         if (subjectRepository.existsBySubjectCode(request.getSubjectCode())) {
@@ -45,13 +46,12 @@ public class SubjectServiceImpl implements SubjectService {
                 .build();
 
         Subject saved = subjectRepository.save(subject);
-        log.info("Subject created with id: {}", saved.getSubjectId());
-        return saved;
+        return SubjectResponse.from(saved);
     }
 
     @Override
     @Transactional
-    public Subject updateSubject(Long subjectId, SubjectRequest request) {
+    public SubjectResponse updateSubject(Long subjectId, SubjectRequest request) {
         log.info("Updating subject id: {}", subjectId);
 
         Subject subject = subjectRepository.findBySubjectIdAndIsDeletedFalse(subjectId)
@@ -69,7 +69,7 @@ public class SubjectServiceImpl implements SubjectService {
             subject.setStatus(request.getStatus().trim());
         }
 
-        return subjectRepository.save(subject);
+        return SubjectResponse.from(subjectRepository.save(subject));
     }
 
     @Override
@@ -86,20 +86,22 @@ public class SubjectServiceImpl implements SubjectService {
 
     @Override
     @Transactional(readOnly = true)
-    public Subject getSubjectById(Long subjectId) {
-        return subjectRepository.findBySubjectIdAndIsDeletedFalse(subjectId)
+    public SubjectResponse getSubjectById(Long subjectId) {
+        Subject subject = subjectRepository.findBySubjectIdAndIsDeletedFalse(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + subjectId));
+        return SubjectResponse.from(subject);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Subject> getAllSubjects() {
-        return subjectRepository.findAllActive();
+    public List<SubjectResponse> getAllSubjects() {
+        return subjectRepository.findAllActive().stream()
+                .map(SubjectResponse::from).toList();
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<Subject> getSubjectsByTeacher(long teacherId) {
-        return subjectRepository.findAllByTeacher(teacherId);
+    @Override @Transactional(readOnly = true)
+    public List<SubjectResponse> getSubjectsByTeacher(long teacherId) {
+        return subjectRepository.findAllByTeacher(teacherId).stream()
+                .map(SubjectResponse::from).toList();
     }
 }

@@ -56,6 +56,14 @@ public class LearningPath extends AbstractEntity<Long> {
     @JoinColumn(name = "original_path_id")
     private LearningPath originalPath;
 
+    @Column(name = "published_at")
+    private java.time.LocalDateTime publishedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "published_by")
+    private UserAccount publishedBy;
+
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

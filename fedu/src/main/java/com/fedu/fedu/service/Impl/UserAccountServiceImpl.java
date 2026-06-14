@@ -53,11 +53,6 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
-    public void verifyAccount(String email) {
-        // Method logic
-    }
-
-    @Override
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -65,16 +60,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
-    public void registerUser(UserAccount userAccount) {
-        // LoginHistory removed - no longer tracking last login separately
-    }
-
-    @Override
-    public void updateLastLogin(SignInRequest request) {
-        // LoginHistory removed - last login tracking has been removed
-    }
-
-    @Override
+    @Transactional
     public void createUser(UserCreateRequest userCreateDTO) {
         UserAccount userAccount = createUserAccount(userCreateDTO);
         userAccountRepository.save(userAccount);
@@ -125,6 +111,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
+    @Transactional
     public void save(RegisterRequest request) {
         // Check duplicate user
         if (userAccountRepository.existsByEmail(request.getEmail())) {
@@ -169,7 +156,10 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Override
     public List<String> getAllRoleByEmail(long userId) {
-        return userAccountRepository.findAllRoleByUserId(userId);
+        return userAccountRepository.findAllRoleByUserId(userId)
+                .stream()
+                .map(Enum::name)
+                .toList();
     }
     
     @Override
@@ -279,5 +269,18 @@ public class UserAccountServiceImpl implements UserAccountService {
         }
         
         userAccountRepository.save(userAccount);
+     }
+
+    @Override
+    @Transactional
+    public void resetAllPasswordsTo123456() {
+        log.info("---------- resetAllPasswordsTo123456 ----------");
+        String encodedPassword = passwordEncoder.encode("123456");
+        List<UserAccount> users = userAccountRepository.findAll();
+        for (UserAccount user : users) {
+            user.setPassword(encodedPassword);
+        }
+        userAccountRepository.saveAll(users);
+        log.info("Reset {} user passwords to 123456 successfully", users.size());
     }
 }

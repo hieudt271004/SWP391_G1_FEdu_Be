@@ -49,32 +49,15 @@ public class AuthenticationService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
 
-    public TokenResponse accessToken(SignInRequest signInRequest) {
-
-        log.info("----------accessToken ----------");
-        UserAccount user = userService.getByEmail(signInRequest.getEmail());
-        if (!user.isEnabled()) {
-            throw new InvalidDataException("User not active");
-        }
-        //update last login
-        userService.updateLastLogin(signInRequest);
-
-        List<String> roles = userService.getAllRoleByEmail(user.getUserId());
-        List<SimpleGrantedAuthority> authorities = roles.stream().map(SimpleGrantedAuthority::new).toList();
-
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(signInRequest.getEmail(), signInRequest.getPassword(), authorities));
-
+    public TokenResponse accessToken(SignInRequest req) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword()));
+        UserAccount user = userService.getByEmail(req.getEmail());
         String accessToken = jwtService.generateToken(user);
-
         String refreshToken = jwtService.generateRefreshToken(user);
-
-        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
-
+        tokenService.saveLoginTokens(user, accessToken, refreshToken);
         return TokenResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .userId(user.getUserId())
-                .build();
+                .accessToken(accessToken).refreshToken(refreshToken).userId(user.getUserId()).build();
     }
 
     public TokenResponse refreshToken(HttpServletRequest request) {
@@ -92,7 +75,7 @@ public class AuthenticationService {
 
         String accessToken = jwtService.generateToken(user);
 
-        tokenService.save(Token.builder().userAccount(user).accessToken(accessToken).refreshToken(refreshToken).build());
+        tokenService.saveLoginTokens(user, accessToken, refreshToken);
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -126,7 +109,7 @@ public class AuthenticationService {
 
         String resetToken = jwtService.generateResetToken(user);
 
-        tokenService.save(Token.builder().userAccount(user).resetToken(resetToken).build());
+        tokenService.saveResetToken(user, resetToken);
 
         try {
             mailService.sendConfirmLink(email, resetToken);
@@ -137,19 +120,12 @@ public class AuthenticationService {
     }
 
     public String resetPassword(String secretKey) {
-        log.info("---------- Reset Password ----------");
-
-        var user = validateToken(secretKey);
-        if (user == null) {
-            throw new IllegalArgumentException("Invalid or expired secret key");
+        UserAccount user = validateToken(secretKey);
+        Token tokenEntity = tokenService.getByEmail(user.getEmail());
+        if (tokenEntity.getResetToken() == null || !tokenEntity.getResetToken().equals(secretKey)) {
+            throw new InvalidDataException("Reset token không hợp lệ hoặc đã được sử dụng");
         }
-        var token = tokenService.getByEmail(user.getUsername());
-        if (token == null) {
-            throw new IllegalStateException("No token found for user");
-        }
-
-        log.info("Password reset initiated for user: {}", user.getUsername());
-        return "Password reset successful";
+        return "Reset token hợp lệ";
     }
 
     public String changePassword(ResetPasswordDTO request) {
@@ -193,6 +169,7 @@ public class AuthenticationService {
         return user;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public TokenResponse googleLogin(GoogleLoginRequest request) {
         log.info("---------- googleLogin ----------");
 
@@ -230,11 +207,7 @@ public class AuthenticationService {
         String accessToken = jwtService.generateToken(user);
         String refreshToken = jwtService.generateRefreshToken(user);
 
-        tokenService.save(Token.builder()
-                .userAccount(user)
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .build());
+        tokenService.saveLoginTokens(user, accessToken, refreshToken);
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
@@ -265,7 +238,7 @@ public class AuthenticationService {
         userAccount = userAccountRepository.save(userAccount);
 
         Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.STUDENT)
-                .orElseThrow(() -> new RuntimeException("Default role STUDENT not found"));
+                .orElseThrow(() -> new IllegalStateException("Default role STUDENT not found"));
 
         UserRole userRole = UserRole.builder()
                 .userAccount(userAccount)

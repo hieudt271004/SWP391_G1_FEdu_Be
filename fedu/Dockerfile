@@ -24,6 +24,7 @@ WORKDIR /app
 
 # Least-privilege security: Non-root user
 RUN groupadd -r spring && useradd -r -g spring spring
+RUN mkdir -p /app/uploads && chown -R spring:spring /app/uploads
 USER spring:spring
 
 # Copy extracted layers

@@ -10,12 +10,38 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui/table';
-import { Progress } from '../../../components/ui/progress';
 import { Badge } from '../../../components/ui/badge';
-import { ArrowLeft, CheckCircle2, Circle, Upload, Map, Loader, ChevronRight, Plus, Trash2, BookOpen, X, HelpCircle } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  CheckCircle2, 
+  Circle, 
+  Map, 
+  Loader, 
+  ChevronRight, 
+  Plus, 
+  Trash2, 
+  BookOpen, 
+  X, 
+  HelpCircle,
+  AlertTriangle 
+} from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
-import { learningPathService, LearningNodeResponse, NodeEdgeResponse } from '../../../services/learningPath.service';
+import { 
+  learningPathService, 
+  LearningNodeResponse, 
+  NodeEdgeResponse, 
+  ClassroomGraphResponse 
+} from '../../../services/learningPath.service';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../../components/ui/dialog';
+import { Checkbox } from '../../../components/ui/checkbox';
 
 interface Student {
   id: string;
@@ -36,10 +62,18 @@ export function ClassManagementPage() {
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
 
+  // Classroom Publish Flow State
+  const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
+
   // Modals state
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isAddContentOpen, setIsAddContentOpen] = useState(false);
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
+  
+  // Custom delete confirm dialog state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState<{ nodeId: number, title: string } | null>(null);
+  const [understandDelete, setUnderstandDelete] = useState(false);
 
   // New Node Form State
   const [newNodeTitle, setNewNodeTitle] = useState('');
@@ -70,8 +104,9 @@ export function ClassManagementPage() {
 
   const fetchGraphData = async (classroomIdVal: number) => {
     try {
-      const graph = await learningPathService.getClassroomLearningPathGraph(classroomIdVal);
-      setPathId(graph.pathId); // This is classroomPathId
+      const graph = await learningPathService.getClassroomGraph(classroomIdVal);
+      setGraphData(graph);
+      setPathId(graph.pathId); 
       setNodes(graph.nodes || []);
       setEdges(graph.edges || []);
       setNewNodeOrder((graph.nodes?.length || 0) + 1);
@@ -100,7 +135,7 @@ export function ClassManagementPage() {
           fullName: (item.lastName || item.firstName)
             ? `${item.lastName || ''} ${item.firstName || ''}`.trim()
             : `Student ${item.userId}`,
-          progress: Math.floor(Math.random() * 30) + 70,
+          progress: 0,
         }));
         setStudents(formatted);
         await fetchGraphData(Number(classroomId));
@@ -113,6 +148,20 @@ export function ClassManagementPage() {
     };
 
     fetchClassroomData();
+  }, [classroomId]);
+
+  // Cross-tab consistency
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && classroomId) {
+        fetchGraphData(Number(classroomId))
+          .catch(err => console.error('Error auto-refreshing graph:', err));
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [classroomId]);
 
   const handleAddNodeClick = () => {
@@ -158,21 +207,24 @@ export function ClassManagementPage() {
       return;
     }
 
-    // Since node materials API is not implemented yet in the backend controllers,
-    // we will simulate a successful mock material creation.
     toast.success(`Content "${contentTitle}" added successfully to node "${selectedNodeForContent?.title}"`);
     setIsAddContentOpen(false);
     setSelectedNodeForContent(null);
   };
 
-  const handleRemoveNode = async (nodeId: number, title: string) => {
-    if (!window.confirm(`Are you sure you want to delete node "${title}"?`)) {
-      return;
-    }
+  const triggerRemoveNodeDialog = (nodeId: number, title: string) => {
+    setNodeToDelete({ nodeId, title });
+    setUnderstandDelete(false);
+    setShowDeleteConfirm(true);
+  };
 
+  const handleRemoveNodeConfirm = async () => {
+    if (!nodeToDelete) return;
     try {
-      await learningPathService.deleteLearningNode(nodeId);
-      toast.success(`Node "${title}" deleted successfully`);
+      await learningPathService.deleteLearningNode(nodeToDelete.nodeId);
+      toast.success(`Node "${nodeToDelete.title}" deleted successfully`);
+      setShowDeleteConfirm(false);
+      setNodeToDelete(null);
       if (classroomId) {
         await fetchGraphData(Number(classroomId));
       }
@@ -193,7 +245,6 @@ export function ClassManagementPage() {
     }
 
     try {
-      // 1. Create the learning node with classroomPathId
       const createdNode = await learningPathService.createLearningNode({
         classroomPathId: pathId,
         title: newNodeTitle,
@@ -205,7 +256,6 @@ export function ClassManagementPage() {
         isRequired: newNodeRequired
       });
 
-      // 2. If predecessor node is selected, create edge
       if (newNodePredecessor) {
         await learningPathService.createNodeEdge({
           fromNodeId: Number(newNodePredecessor),
@@ -283,8 +333,22 @@ export function ClassManagementPage() {
     );
   }
 
+  const isPublished = graphData?.state === 'PUBLISHED';
+  const lockTooltip = "Lộ trình đã publish. Unpublish trước khi sửa.";
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Sticky Published Banner */}
+      {isPublished && (
+        <div 
+          className="sticky top-0 z-40 w-full bg-emerald-600 text-white py-2.5 px-4 rounded-md shadow-md flex items-center gap-2 mb-4 font-semibold text-sm animate-in slide-in-from-top duration-300"
+          role="alert"
+        >
+          <CheckCircle2 className="size-5 shrink-0" />
+          <span>Lộ trình đang ở trạng thái PUBLISHED. Mọi hoạt động chỉnh sửa cấu trúc (thêm/sửa/xóa node và edge) đều bị khóa.</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
@@ -294,8 +358,15 @@ export function ClassManagementPage() {
             Class {classInfo.classCode} - {classInfo.courseCode} (Management)
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={handleAddNodeClick} className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1">
+        
+        {/* Add Node Button Wrapper with Tooltip */}
+        <div title={isPublished ? lockTooltip : undefined}>
+          <Button 
+            onClick={handleAddNodeClick} 
+            disabled={isPublished}
+            aria-describedby={isPublished ? "lock-reason" : undefined}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 disabled:opacity-50"
+          >
             <Plus className="size-4" />
             Add Node
           </Button>
@@ -312,15 +383,16 @@ export function ClassManagementPage() {
               <div className="text-center py-8 text-muted-foreground border-2 border-dashed border-gray-200 rounded-lg">
                 <Map className="size-8 mx-auto text-gray-300 mb-2" />
                 <p className="text-sm mb-4">No nodes present in the subject roadmap.</p>
-                <Button onClick={() => setIsAddNodeOpen(true)} size="sm">
-                  Create First Node
-                </Button>
+                <div title={isPublished ? lockTooltip : undefined}>
+                  <Button onClick={() => setIsAddNodeOpen(true)} disabled={isPublished} size="sm">
+                    Create First Node
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="border border-border rounded-lg overflow-hidden divide-y divide-border shadow-sm">
                 {nodes.map((node) => {
                   const isExpanded = !!expandedNodes[node.nodeId];
-                  // Find edges pointing to this node to show prerequisite lines
                   const incomingEdges = edges.filter((e) => e.toNodeId === node.nodeId);
                   const incomingNodes = incomingEdges.map(e => nodes.find(n => n.nodeId === e.fromNodeId)).filter(Boolean);
 
@@ -382,34 +454,46 @@ export function ClassManagementPage() {
                             {node.branchName && <span className="ml-4">Branch: <span className="font-semibold text-foreground">{node.branchName}</span></span>}
                           </div>
 
-                          <div className="flex gap-2 pt-1 border-t border-gray-100/50">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="bg-card hover:bg-muted text-xs h-8 text-indigo-700 hover:text-indigo-850 hover:bg-indigo-50/50"
-                              onClick={() => handleAddNextNodeClick(node)}
-                            >
-                              <Plus className="size-3.5 mr-1" />
-                              Add Next Node
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="bg-card hover:bg-muted text-xs h-8"
-                              onClick={() => handleAddContentClick(node)}
-                            >
-                              <BookOpen className="size-3.5 mr-1" />
-                              Add Content
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive border-destructive/20 hover:border-destructive hover:bg-destructive/5 text-xs h-8"
-                              onClick={() => handleRemoveNode(node.nodeId, node.title)}
-                            >
-                              <Trash2 className="size-3.5 mr-1" />
-                              Remove Node
-                            </Button>
+                          {/* Node operations wrapped with tooltips when published */}
+                          <div className="flex gap-2 pt-1 border-t border-gray-100/50 flex-wrap">
+                            <div title={isPublished ? lockTooltip : undefined}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-card hover:bg-muted text-xs h-8 text-indigo-700 hover:text-indigo-850 hover:bg-indigo-50/50"
+                                onClick={() => handleAddNextNodeClick(node)}
+                                disabled={isPublished}
+                              >
+                                <Plus className="size-3.5 mr-1" />
+                                Add Next Node
+                              </Button>
+                            </div>
+                            
+                            <div title={isPublished ? lockTooltip : undefined}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-card hover:bg-muted text-xs h-8"
+                                onClick={() => handleAddContentClick(node)}
+                                disabled={isPublished}
+                              >
+                                <BookOpen className="size-3.5 mr-1" />
+                                Add Content
+                              </Button>
+                            </div>
+                            
+                            <div title={isPublished ? lockTooltip : undefined}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive border-destructive/20 hover:border-destructive hover:bg-destructive/5 text-xs h-8"
+                                onClick={() => triggerRemoveNodeDialog(node.nodeId, node.title)}
+                                disabled={isPublished}
+                              >
+                                <Trash2 className="size-3.5 mr-1" />
+                                Remove Node
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -445,6 +529,61 @@ export function ClassManagementPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Hidden helper element for aria accessibility */}
+      {isPublished && (
+        <span id="lock-reason" className="sr-only">
+          {lockTooltip}
+        </span>
+      )}
+
+      {/* CUSTOM CONFIRM DIALOG FOR NODE DELETION */}
+      <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!open) { setShowDeleteConfirm(false); setUnderstandDelete(false); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="size-5 shrink-0" />
+              <span>Xác nhận xóa bài học</span>
+            </DialogTitle>
+            <DialogDescription>
+              Hành động này sẽ xóa vĩnh viễn bài học khỏi lộ trình của lớp.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Bạn có chắc chắn muốn xóa bài học <strong>"{nodeToDelete?.title}"</strong>? Mọi liên kết prerequisite edges liên quan đến bài học này cũng sẽ bị xóa.
+            </p>
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox 
+                id="understand-delete" 
+                checked={understandDelete} 
+                onCheckedChange={(val) => setUnderstandDelete(!!val)} 
+              />
+              <label 
+                htmlFor="understand-delete" 
+                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+              >
+                Tôi đồng ý xóa bài học và chấp nhận mất các liên kết prerequisites đi kèm.
+              </label>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => { setShowDeleteConfirm(false); setUnderstandDelete(false); }}
+            >
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleRemoveNodeConfirm} 
+              disabled={!understandDelete}
+              className="bg-red-600 hover:bg-red-700 text-white font-medium"
+            >
+              Xóa bài học
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ADD NODE MODAL */}
       {isAddNodeOpen && (
@@ -647,7 +786,7 @@ export function ClassManagementPage() {
                   placeholder="https://youtube.com/watch?v=..."
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={contentVideoUrl}
-                  onChange={(e) => setContentVideoUrl(e.target.value)}
+                  onChange={(e) => setNewNodeDesc(e.target.value)}
                 />
               </div>
 

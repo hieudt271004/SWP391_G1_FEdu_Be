@@ -2,7 +2,6 @@ package com.fedu.fedu.service;
 
 import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
-import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.req.UserProfileRequest;
 import com.fedu.fedu.dto.req.UserUpdateRequest;
 import com.fedu.fedu.dto.res.UserResponse;
@@ -28,15 +27,9 @@ public interface UserAccountService {
 
     void changeUserStatus(String username, UserStatus status);
 
-    void verifyAccount(String email);
-
     void save(UserAccount userAccount);
 
     void save(RegisterRequest request);
-
-    void registerUser(UserAccount userAccount);
-
-    void updateLastLogin(SignInRequest request);
 
     void createUser(UserCreateRequest userCreateDTO);
 
@@ -47,4 +40,6 @@ public interface UserAccountService {
     UserResponse getProfile(long userId);
 
     void updateUser(long userId, UserUpdateRequest request);
+
+    void resetAllPasswordsTo123456();
 }

@@ -32,6 +32,7 @@ public class Subject extends AbstractEntity<Long> {
     @JoinColumn(name = "created_by")
     private UserAccount createdBy;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 

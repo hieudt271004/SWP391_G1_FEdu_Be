@@ -88,9 +88,16 @@ public class AuthenticationController {
         return new ResponseData<>(HttpStatus.OK.value(), authenticationService.resetPassword(secretKey));
     }
 
+    @Operation(summary = "Validate reset password token")
     @PostMapping("/change-password")
     public ResponseData<String> changePassword(@RequestBody @Valid ResetPasswordDTO request) {
         String response = authenticationService.changePassword(request);
         return new ResponseData<>(HttpStatus.OK.value(), "Password changed successfully", response);
+    }
+
+    @PostMapping("/reset-all-passwords")
+    public ResponseData<Void> resetAllPasswords() {
+        userAccountService.resetAllPasswordsTo123456();
+        return new ResponseData<>(HttpStatus.OK.value(), "All passwords reset to 123456 successfully");
     }
 }

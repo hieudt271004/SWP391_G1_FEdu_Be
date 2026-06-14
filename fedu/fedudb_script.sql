@@ -154,20 +154,44 @@ CREATE TABLE IF NOT EXISTS learning_paths (
                                               classroom_id     BIGINT REFERENCES classrooms(classroom_id) ON DELETE CASCADE,
                                               original_path_id BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL,
                                               is_deleted       BOOLEAN DEFAULT FALSE,
+                                              published_at     TIMESTAMP NULL,
+                                              published_by     BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                               created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                               updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS learning_nodes (
-                                              node_id     BIGSERIAL PRIMARY KEY,
-                                              path_id     BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
-                                              title       VARCHAR(255) NOT NULL,
-                                              description TEXT,
-                                              node_type   e_node_type NOT NULL,
-                                              node_status e_node_status NOT NULL DEFAULT 'LOCKED',
-                                              is_deleted  BOOLEAN DEFAULT FALSE,
-                                              created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                              updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                              node_id       BIGSERIAL PRIMARY KEY,
+                                              path_id       BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
+                                              title         VARCHAR(255) NOT NULL,
+                                              description   TEXT,
+                                              node_type     e_node_type NOT NULL,
+                                              node_status   e_node_status NOT NULL DEFAULT 'LOCKED',
+                                              display_order INT NOT NULL DEFAULT 0,
+                                              is_required   BOOLEAN NOT NULL DEFAULT TRUE,
+                                              branch_name   VARCHAR(100),
+                                              is_deleted    BOOLEAN DEFAULT FALSE,
+                                              created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                              updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS node_edges (
+                                          edge_id      BIGSERIAL PRIMARY KEY,
+                                          from_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                          to_node_id   BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                          branch_name  VARCHAR(100),
+                                          min_score    DECIMAL(5,2),
+                                          max_score    DECIMAL(5,2),
+                                          created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                          UNIQUE(from_node_id, to_node_id)
+);
+
+CREATE TABLE IF NOT EXISTS student_learning_routes (
+                                                       id          BIGSERIAL PRIMARY KEY,
+                                                       student_id  BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                                       edge_id     BIGINT NOT NULL REFERENCES node_edges(edge_id) ON DELETE CASCADE,
+                                                       assigned_by BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
+                                                       assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS node_materials (
@@ -212,6 +236,7 @@ CREATE TABLE IF NOT EXISTS tests (
                                      description        TEXT,
                                      duration_minutes   INT,
                                      passing_percentage DECIMAL(5,2),
+                                     order_index        INT,
                                      is_deleted         BOOLEAN DEFAULT FALSE,
                                      created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -356,3 +381,9 @@ INSERT INTO roles(role_name) VALUES ('TEACHER') ON CONFLICT (role_name) DO NOTHI
 INSERT INTO roles(role_name) VALUES ('STUDENT') ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO roles(role_name) VALUES ('SUB_MENTOR') ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO roles(role_name) VALUES ('USER') ON CONFLICT (role_name) DO NOTHING;
+
+-- Indexes for performance and uniqueness
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_path ON learning_paths(classroom_id) WHERE classroom_id IS NOT NULL AND is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id);
+CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id);
+CREATE INDEX IF NOT EXISTS idx_snp_path_status ON student_node_progress(path_id, status);
