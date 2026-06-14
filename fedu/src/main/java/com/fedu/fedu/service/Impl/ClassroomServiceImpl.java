@@ -158,6 +158,8 @@ public class ClassroomServiceImpl implements ClassroomService {
     public List<ClassroomResponse> getClassroomsByLecturerId(Long lecturerId) {
         return classroomSubjectRepository.findByLecturerId(lecturerId)
                 .stream()
+                .filter(cs -> cs.getClassroom() != null && Boolean.FALSE.equals(cs.getClassroom().getIsDeleted())
+                        && cs.getSubject() != null && Boolean.FALSE.equals(cs.getSubject().getIsDeleted()))
                 .map(cs -> toResponse(cs.getClassroom()))
                 .collect(Collectors.toList());
     }
@@ -176,6 +178,8 @@ public class ClassroomServiceImpl implements ClassroomService {
     public List<ClassroomResponse> getClassroomsByTeacher(long teacherId) {
         return classroomSubjectRepository.findByLecturerId(teacherId)
                 .stream()
+                .filter(cs -> cs.getClassroom() != null && Boolean.FALSE.equals(cs.getClassroom().getIsDeleted())
+                        && cs.getSubject() != null && Boolean.FALSE.equals(cs.getSubject().getIsDeleted()))
                 .map(cs -> toResponse(cs.getClassroom()))
                 .collect(Collectors.toList());
     }
@@ -205,6 +209,8 @@ public class ClassroomServiceImpl implements ClassroomService {
     public List<SubjectResponse> getSubjectsByLecturerId(Long lecturerId) {
         return classroomSubjectRepository.findByLecturerId(lecturerId)
                 .stream()
+                .filter(cs -> cs.getClassroom() != null && Boolean.FALSE.equals(cs.getClassroom().getIsDeleted())
+                        && cs.getSubject() != null && Boolean.FALSE.equals(cs.getSubject().getIsDeleted()))
                 .map(cs -> SubjectResponse.from(cs.getSubject()))
                 .distinct()
                 .collect(Collectors.toList());

@@ -57,4 +57,8 @@ public interface LearningPathService {
     void deleteDraftPath(Long classroomId, Long pathId);
 
     void backfillProgressForStudent(Long classroomId, Long studentId);
+
+    LearningPathResponse publishTemplate(Long pathId);
+
+    LearningPathResponse unpublishTemplate(Long pathId);
 }

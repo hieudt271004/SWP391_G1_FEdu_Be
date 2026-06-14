@@ -249,6 +249,26 @@ export function CourseDetailPage() {
     }
   };
 
+  const handlePublishTemplate = async (pathId: number) => {
+    try {
+      await learningPathService.publishAdminTemplate(pathId);
+      toast.success("Đã xuất bản lộ trình mẫu");
+      await fetchTemplates();
+    } catch (err: any) {
+      toast.error(err.message || "Xuất bản lộ trình mẫu thất bại");
+    }
+  };
+
+  const handleUnpublishTemplate = async (pathId: number) => {
+    try {
+      await learningPathService.unpublishAdminTemplate(pathId);
+      toast.success("Đã hủy xuất bản lộ trình mẫu");
+      await fetchTemplates();
+    } catch (err: any) {
+      toast.error(err.message || "Hủy xuất bản lộ trình mẫu thất bại");
+    }
+  };
+
   // Node CRUD actions
   const handleAddNodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -663,39 +683,81 @@ export function CourseDetailPage() {
             </div>
 
             {templates.length > 0 ? (
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedTemplateId || ""}
-                  onChange={(e) => handleSelectTemplate(Number(e.target.value))}
-                  className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                  {templates.map((t) => (
-                    <option key={t.pathId} value={t.pathId}>
-                      {t.pathName}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => {
-                    const currentTpl = templates.find((t) => t.pathId === selectedTemplateId);
-                    if (currentTpl) {
-                      setEditTplName(currentTpl.pathName);
-                      setEditTplDesc(currentTpl.description || "");
-                      setIsEditTemplateOpen(true);
-                    }
-                  }}
-                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  title="Sửa tên lộ trình"
-                >
-                  <Edit2 className="w-4 h-4 text-gray-500" />
-                </button>
-                <button
-                  onClick={() => setIsDeleteTplConfirmOpen(true)}
-                  className="p-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                  title="Xóa lộ trình mẫu"
-                >
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </button>
+              <div className="flex flex-col gap-2 w-full">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedTemplateId || ""}
+                    onChange={(e) => handleSelectTemplate(Number(e.target.value))}
+                    className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    {templates.map((t) => (
+                      <option key={t.pathId} value={t.pathId}>
+                        {t.pathName} {t.publishedAt ? " (Đã xuất bản)" : " (Bản nháp)"}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      const currentTpl = templates.find((t) => t.pathId === selectedTemplateId);
+                      if (currentTpl) {
+                        setEditTplName(currentTpl.pathName);
+                        setEditTplDesc(currentTpl.description || "");
+                        setIsEditTemplateOpen(true);
+                      }
+                    }}
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    title="Sửa tên lộ trình"
+                  >
+                    <Edit2 className="w-4 h-4 text-gray-500" />
+                  </button>
+                  <button
+                    onClick={() => setIsDeleteTplConfirmOpen(true)}
+                    className="p-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                    title="Xóa lộ trình mẫu"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
+
+                {/* Publish / Unpublish actions */}
+                {(() => {
+                  const currentTpl = templates.find((t) => t.pathId === selectedTemplateId);
+                  if (!currentTpl) return null;
+                  const isTplPublished = !!currentTpl.publishedAt;
+                  return (
+                    <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/50 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-500 dark:text-gray-400">Trạng thái lộ trình:</span>
+                        {isTplPublished ? (
+                          <span className="px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400 font-bold border border-green-200 dark:border-green-900/30">
+                            ĐÃ XUẤT BẢN
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-450 font-bold border border-amber-200 dark:border-amber-900/30">
+                            BẢN NHÁP
+                          </span>
+                        )}
+                      </div>
+                      {isTplPublished ? (
+                        <button
+                          type="button"
+                          onClick={() => handleUnpublishTemplate(currentTpl.pathId)}
+                          className="px-2.5 py-1 text-xs font-semibold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50 border border-red-200 dark:border-red-900/30 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Hủy xuất bản
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handlePublishTemplate(currentTpl.pathId)}
+                          className="px-2.5 py-1 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/50 border border-green-200 dark:border-green-900/30 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Xuất bản mẫu
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="text-center py-8 text-sm text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">

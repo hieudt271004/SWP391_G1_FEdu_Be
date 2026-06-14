@@ -12,7 +12,14 @@ import com.fedu.fedu.service.NodeEdgeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fedu.fedu.entity.UserAccount;
+import com.fedu.fedu.entity.LearningPath;
+import com.fedu.fedu.entity.StudentNodeProgress;
+import com.fedu.fedu.utils.enums.StudentProgressStatus;
+import com.fedu.fedu.repository.StudentNodeProgressRepository;
+import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,7 +28,8 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
 
     private final NodeEdgeRepository nodeEdgeRepository;
     private final LearningNodeRepository learningNodeRepository;
-
+    private final StudentNodeProgressRepository studentNodeProgressRepository;
+    private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     @Override
     @Transactional
     public NodeEdgeResponse createEdge(CreateNodeEdgeRequest request) {
@@ -44,6 +52,34 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
                 .build();
 
         nodeEdgeRepository.save(edge);
+        nodeEdgeRepository.flush();
+
+        // If the path is published, update student progress
+        LearningPath path = toNode.getLearningPath();
+        if (path.getClassroom() != null && path.getPublishedAt() != null) {
+            List<UserAccount> students = classroomSubjectStudentRepository.findDistinctStudentsByClassroomId(path.getClassroom().getClassroomId());
+            for (UserAccount student : students) {
+                StudentNodeProgress fromProgress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(student.getUserId(), path.getPathId())
+                        .stream()
+                        .filter(p -> p.getLearningNode().getNodeId().equals(fromNode.getNodeId()))
+                        .findFirst()
+                        .orElse(null);
+                
+                StudentNodeProgress toProgress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(student.getUserId(), path.getPathId())
+                        .stream()
+                        .filter(p -> p.getLearningNode().getNodeId().equals(toNode.getNodeId()))
+                        .findFirst()
+                        .orElse(null);
+                
+                if (toProgress != null) {
+                    if (fromProgress == null || fromProgress.getStatus() != StudentProgressStatus.COMPLETED) {
+                        toProgress.setStatus(StudentProgressStatus.LOCKED);
+                        toProgress.setUnlockedAt(null);
+                        studentNodeProgressRepository.save(toProgress);
+                    }
+                }
+            }
+        }
 
         return mapToEdgeResponse(edge);
     }
@@ -53,7 +89,50 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
     public void deleteEdge(Long edgeId) {
         NodeEdge edge = nodeEdgeRepository.findById(edgeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Edge not found"));
+        
+        LearningNode fromNode = edge.getFromNode();
+        LearningNode toNode = edge.getToNode();
+        LearningPath path = toNode.getLearningPath();
+        
         nodeEdgeRepository.delete(edge);
+        nodeEdgeRepository.flush();
+        
+        if (path.getClassroom() != null && path.getPublishedAt() != null) {
+            List<UserAccount> students = classroomSubjectStudentRepository.findDistinctStudentsByClassroomId(path.getClassroom().getClassroomId());
+            for (UserAccount student : students) {
+                boolean prerequisitesMet = checkIncomingPrerequisites(student.getUserId(), toNode, path.getPathId());
+                if (prerequisitesMet) {
+                    StudentNodeProgress toProgress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(student.getUserId(), path.getPathId())
+                            .stream()
+                            .filter(p -> p.getLearningNode().getNodeId().equals(toNode.getNodeId()))
+                            .findFirst()
+                            .orElse(null);
+                    if (toProgress != null && toProgress.getStatus() == StudentProgressStatus.LOCKED) {
+                        toProgress.setStatus(StudentProgressStatus.OPEN);
+                        toProgress.setUnlockedAt(java.time.LocalDateTime.now());
+                        studentNodeProgressRepository.save(toProgress);
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean checkIncomingPrerequisites(Long studentId, LearningNode targetNode, Long pathId) {
+        List<NodeEdge> incomingEdges = nodeEdgeRepository.findByToNodeNodeId(targetNode.getNodeId());
+        List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, pathId);
+        Map<Long, StudentProgressStatus> progressMap = progressList.stream()
+                .collect(Collectors.toMap(
+                        p -> p.getLearningNode().getNodeId(),
+                        StudentNodeProgress::getStatus
+                ));
+
+        for (NodeEdge edge : incomingEdges) {
+            StudentProgressStatus status = progressMap.get(edge.getFromNode().getNodeId());
+            if (status != StudentProgressStatus.COMPLETED) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

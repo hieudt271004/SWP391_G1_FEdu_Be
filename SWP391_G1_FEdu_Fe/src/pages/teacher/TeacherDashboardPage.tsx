@@ -232,20 +232,11 @@ export function TeacherDashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0 pb-4 text-slate-500 dark:text-slate-400 text-xs space-y-3">
-                  <p className="font-medium">Môn học ID: <span className="font-bold text-slate-700 dark:text-slate-300">{cls.subjectId}</span></p>
-                  <div className="space-y-1 pt-1">
-                    <div className="flex items-center justify-between text-xs font-medium">
-                      <span className="text-slate-400 dark:text-slate-500">Tiến độ lớp học</span>
-                      <span className="font-bold text-indigo-650 dark:text-indigo-400">80%</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full" style={{ width: '80%' }} />
-                    </div>
-                  </div>
+                  <p className="font-medium">Môn học: <span className="font-bold text-slate-700 dark:text-slate-300">{cls.subjectName}</span></p>
                 </CardContent>
                 <CardFooter className="pt-3 pb-3 border-t border-slate-100/30 dark:border-slate-800/30">
                   <Button
-                    className="w-full bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-indigo-650 hover:to-purple-650 hover:text-white hover:shadow-lg hover:shadow-indigo-500/20 border-0 transition-all font-semibold rounded-xl py-2.5 hover:scale-[1.02] active:scale-[0.98] shadow-none"
+                    className="w-full bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600 hover:text-white hover:shadow-lg hover:shadow-indigo-500/20 border-0 transition-all font-semibold rounded-xl py-2.5 hover:scale-[1.02] active:scale-[0.98] shadow-none"
                     onClick={() => navigate(`/teacher/classrooms/${cls.classroomId}`)}
                   >
                     Vào lớp học

@@ -32,6 +32,12 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final StudentNodeProgressRepository studentNodeProgressRepository;
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final UserAccountRepository userAccountRepository;
+    private final NodeMaterialRepository nodeMaterialRepository;
+    private final VideoRepository videoRepository;
+    private final FileEntityRepository fileEntityRepository;
+    private final TestRepository testRepository;
+    private final TestQuestionRepository testQuestionRepository;
+    private final TestAnswerRepository testAnswerRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -110,6 +116,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         LearningPath templatePath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
+        if (templatePath.getClassroom() != null || templatePath.getPublishedAt() == null) {
+            throw new InvalidDataException("Chỉ có thể clone lộ trình mẫu đã được admin xuất bản.");
+        }
+
         List<LearningNode> templateNodes = learningNodeRepository
                 .findByLearningPathPathIdAndIsDeletedFalse(pathId);
         List<NodeEdge> templateEdges = nodeEdgeRepository
@@ -143,7 +153,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .title(templateNode.getTitle())
                     .description(templateNode.getDescription())
                     .nodeType(templateNode.getNodeType())
-                    .status(NodeStatus.LOCKED)
+                    .status(templateNode.getStatus() != null ? templateNode.getStatus() : NodeStatus.LOCKED)
                     .displayOrder(templateNode.getDisplayOrder() != null ? templateNode.getDisplayOrder() : 0)
                     .isRequired(templateNode.getIsRequired() != null ? templateNode.getIsRequired() : true)
                     .branchName(templateNode.getBranchName())
@@ -151,6 +161,86 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .build();
             learningNodeRepository.save(clonedNode);
             templateNodeIdToCloned.put(templateNode.getNodeId(), clonedNode);
+
+            // Clone materials of this node
+            List<NodeMaterial> templateMaterials = nodeMaterialRepository.findByLearningNodeNodeIdAndIsDeletedFalse(templateNode.getNodeId());
+            for (NodeMaterial templateMaterial : templateMaterials) {
+                NodeMaterial clonedMaterial = NodeMaterial.builder()
+                        .learningNode(clonedNode)
+                        .title(templateMaterial.getTitle())
+                        .required(templateMaterial.getRequired() != null ? templateMaterial.getRequired() : true)
+                        .orderIndex(templateMaterial.getOrderIndex())
+                        .isDeleted(false)
+                        .files(new ArrayList<>())
+                        .videos(new ArrayList<>())
+                        .build();
+                nodeMaterialRepository.save(clonedMaterial);
+
+                // Clone files associated with the material
+                List<FileEntity> templateFiles = fileEntityRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(templateMaterial.getMaterialId());
+                for (FileEntity templateFile : templateFiles) {
+                    FileEntity clonedFile = FileEntity.builder()
+                            .nodeMaterial(clonedMaterial)
+                            .fileUrl(templateFile.getFileUrl())
+                            .fileName(templateFile.getFileName())
+                            .fileType(templateFile.getFileType())
+                            .description(templateFile.getDescription())
+                            .isDeleted(false)
+                            .build();
+                    fileEntityRepository.save(clonedFile);
+                }
+
+                // Clone videos associated with the material
+                List<Video> templateVideos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(templateMaterial.getMaterialId());
+                for (Video templateVideo : templateVideos) {
+                    Video clonedVideo = Video.builder()
+                            .nodeMaterial(clonedMaterial)
+                            .videoUrl(templateVideo.getVideoUrl())
+                            .title(templateVideo.getTitle())
+                            .durationSeconds(templateVideo.getDurationSeconds())
+                            .description(templateVideo.getDescription())
+                            .isDeleted(false)
+                            .build();
+                    videoRepository.save(clonedVideo);
+                }
+            }
+            // Clone tests of this node
+            List<Test> templateTests = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(templateNode.getNodeId());
+            for (Test templateTest : templateTests) {
+                Test clonedTest = Test.builder()
+                        .learningNode(clonedNode)
+                        .title(templateTest.getTitle())
+                        .description(templateTest.getDescription())
+                        .durationMinutes(templateTest.getDurationMinutes())
+                        .passingPercentage(templateTest.getPassingPercentage())
+                        .orderIndex(templateTest.getOrderIndex())
+                        .isDeleted(false)
+                        .build();
+                testRepository.save(clonedTest);
+
+                // Clone questions of this test
+                List<TestQuestion> templateQuestions = testQuestionRepository.findByTestTestId(templateTest.getTestId());
+                for (TestQuestion templateQuestion : templateQuestions) {
+                    TestQuestion clonedQuestion = TestQuestion.builder()
+                            .test(clonedTest)
+                            .questionContent(templateQuestion.getQuestionContent())
+                            .questionType(templateQuestion.getQuestionType())
+                            .score(templateQuestion.getScore())
+                            .build();
+                    testQuestionRepository.save(clonedQuestion);
+
+                    // Clone answers of this question
+                    List<TestAnswer> templateAnswers = testAnswerRepository.findByQuestionQuestionId(templateQuestion.getQuestionId());
+                    for (TestAnswer templateAnswer : templateAnswers) {
+                        TestAnswer clonedAnswer = TestAnswer.builder()
+                                .question(clonedQuestion)
+                                .answerContent(templateAnswer.getAnswerContent())
+                                .isCorrect(templateAnswer.getIsCorrect())
+                                .build();
+                        testAnswerRepository.save(clonedAnswer);
+                    }
+                }
+            }
         }
 
         // 4. Clone các edge từ template sang path của lớp học
@@ -240,8 +330,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     @Override
-    @Transactional
-    public LearningNodeResponse createLearningNode(CreateLearningNodeRequest request) {
+    @Transactional    public LearningNodeResponse createLearningNode(CreateLearningNodeRequest request) {
         Long pathId = request.getLearningPathId() != null ? request.getLearningPathId() : request.getClassroomPathId();
         if (pathId == null) {
             throw new InvalidDataException("Path ID must not be null");
@@ -262,10 +351,29 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .build();
 
         learningNodeRepository.save(learningNode);
-        return mapToLearningNodeResponse(learningNode);
-    }
 
-    @Override
+        // Seed student progress if this is a published classroom path
+        if (learningPath.getClassroom() != null && learningPath.getPublishedAt() != null) {
+            List<UserAccount> students = classroomSubjectStudentRepository.findDistinctStudentsByClassroomId(learningPath.getClassroom().getClassroomId());
+            List<StudentNodeProgress> progressList = new ArrayList<>();
+            for (UserAccount student : students) {
+                StudentNodeProgress snp = StudentNodeProgress.builder()
+                        .student(student)
+                        .learningNode(learningNode)
+                        .learningPath(learningPath)
+                        .orderIndex(learningNode.getDisplayOrder() != null ? learningNode.getDisplayOrder() : 0)
+                        .status(StudentProgressStatus.OPEN)
+                        .unlockedAt(java.time.LocalDateTime.now())
+                        .build();
+                progressList.add(snp);
+            }
+            if (!progressList.isEmpty()) {
+                studentNodeProgressRepository.saveAll(progressList);
+            }
+        }
+
+        return mapToLearningNodeResponse(learningNode);
+    }    @Override
     @Transactional
     public LearningNodeResponse updateLearningNode(Long nodeId, UpdateLearningNodeRequest request) {
         LearningNode node = learningNodeRepository.findById(nodeId)
@@ -282,7 +390,6 @@ public class LearningPathServiceImpl implements LearningPathService {
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
     }
-
     @Override
     @Transactional
     public void deleteLearningNode(Long nodeId) {
@@ -290,9 +397,17 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
         node.setIsDeleted(true);
         learningNodeRepository.save(node);
-    }
 
-    @Override
+        // Delete all edges connected to this node
+        List<NodeEdge> edgesFrom = nodeEdgeRepository.findByFromNodeNodeId(nodeId);
+        nodeEdgeRepository.deleteAll(edgesFrom);
+
+        List<NodeEdge> edgesTo = nodeEdgeRepository.findByToNodeNodeId(nodeId);
+        nodeEdgeRepository.deleteAll(edgesTo);
+
+        // Clean up progress records
+        studentNodeProgressRepository.deleteByLearningNodeNodeId(nodeId);
+    }    @Override
     @Transactional(readOnly = true)
     public LearningNodeResponse getLearningNodeById(Long nodeId) {
         LearningNode node = learningNodeRepository.findById(nodeId)
@@ -413,6 +528,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     classroom.getSubject().getSubjectId());
             
             List<AvailableTemplateResponse> availableTemplates = templates.stream()
+                    .filter(t -> t.getPublishedAt() != null)
                     .map(t -> {
                         List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(t.getPathId());
                         return AvailableTemplateResponse.builder()
@@ -645,5 +761,38 @@ public class LearningPathServiceImpl implements LearningPathService {
         } catch (Exception e) {
             // Context not set, e.g. in some testing scenarios, allow
         }
+    }
+
+    @Override
+    @Transactional
+    public LearningPathResponse publishTemplate(Long pathId) {
+        LearningPath path = learningPathRepository.findById(pathId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path template not found"));
+        if (path.getClassroom() != null) {
+            throw new IllegalArgumentException("Không thể xuất bản lộ trình lớp học dưới dạng template.");
+        }
+        path.setPublishedAt(java.time.LocalDateTime.now());
+        try {
+            String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+            UserAccount currentUser = userAccountRepository.findByEmail(email).orElse(null);
+            path.setPublishedBy(currentUser);
+        } catch (Exception e) {
+        }
+        learningPathRepository.save(path);
+        return mapToResponse(path);
+    }
+
+    @Override
+    @Transactional
+    public LearningPathResponse unpublishTemplate(Long pathId) {
+        LearningPath path = learningPathRepository.findById(pathId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path template not found"));
+        if (path.getClassroom() != null) {
+            throw new IllegalArgumentException("Không thể hủy xuất bản lộ trình lớp học dưới dạng template.");
+        }
+        path.setPublishedAt(null);
+        path.setPublishedBy(null);
+        learningPathRepository.save(path);
+        return mapToResponse(path);
     }
 }

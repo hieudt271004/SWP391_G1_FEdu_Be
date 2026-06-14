@@ -38,7 +38,6 @@ import { TeacherCoursesPage } from '../pages/teacher/courses/TeacherCoursesPage'
 import { CourseClassroomsPage } from '../pages/teacher/courses/CourseClassroomsPage';
 import { TeacherClassesPage } from '../pages/teacher/classes/TeacherClassesPage';
 import { ClassOverviewPage } from '../pages/teacher/classes/ClassOverviewPage';
-import { ClassManagementPage } from '../pages/teacher/classes/ClassManagementPage';
 import { StudentDetailsPage } from '../pages/teacher/students/StudentDetailsPage';
 
 // Common pages
@@ -94,7 +93,7 @@ export function AppRoutes() {
                 <Route path="/teacher/courses/:subjectId" element={<CourseClassroomsPage />} />
                 <Route path="/teacher/classes" element={<TeacherClassesPage />} />
                 <Route path="/teacher/classrooms/:classroomId" element={<ClassOverviewPage />} />
-                <Route path="/teacher/classrooms/:classroomId/manage" element={<ClassManagementPage />} />
+                <Route path="/teacher/classrooms/:classroomId/manage" element={<ClassOverviewPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
             </Route>

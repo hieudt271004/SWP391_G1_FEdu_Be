@@ -14,6 +14,7 @@ export interface LearningPathResponse {
   createdById: number;
   createdAt: string;
   updatedAt: string;
+  publishedAt?: string | null;
 }
 
 export interface LearningNodeResponse {
@@ -159,6 +160,8 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}`),
   createLearningNode: (request: CreateLearningNodeRequest) =>
     http.post<LearningNodeResponse>('/teacher-manage/learning-nodes', request),
+  updateLearningNode: (nodeId: number, request: Partial<CreateLearningNodeRequest>) =>
+    http.put<LearningNodeResponse>(`/teacher-manage/learning-nodes/${nodeId}`, request),
   deleteLearningNode: (nodeId: number) =>
     http.delete<void>(`/teacher-manage/learning-nodes/${nodeId}`),
   createNodeEdge: (request: CreateNodeEdgeRequest) =>
@@ -201,4 +204,25 @@ export const learningPathService = {
     http.delete<void>(`/admin/tests/${testId}`),
   reorderAdminNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/admin/learning-nodes/${nodeId}/reorder-content`, requests),
+  publishAdminTemplate: (pathId: number) =>
+    http.post<LearningPathResponse>(`/admin/learning-paths/${pathId}/publish`),
+  unpublishAdminTemplate: (pathId: number) =>
+    http.post<LearningPathResponse>(`/admin/learning-paths/${pathId}/unpublish`),
+
+  getTeacherNodeContent: (nodeId: number) =>
+    http.get<NodeContentResponse>(`/teacher-manage/learning-nodes/${nodeId}/content`),
+  addTeacherNodeMaterial: (nodeId: number, formData: FormData) =>
+    http.post<NodeMaterialResponse>(`/teacher-manage/learning-nodes/${nodeId}/materials`, formData, {
+      'Content-Type': 'multipart/form-data',
+    }),
+  deleteTeacherNodeMaterial: (materialId: number) =>
+    http.delete<void>(`/teacher-manage/materials/${materialId}`),
+  addTeacherNodeTest: (nodeId: number, request: CreateNodeTestRequest) =>
+    http.post<NodeTestResponse>(`/teacher-manage/learning-nodes/${nodeId}/tests`, request),
+  deleteTeacherNodeTest: (testId: number) =>
+    http.delete<void>(`/teacher-manage/tests/${testId}`),
+  reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
+    http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
+  deleteTeacherEdge: (edgeId: number) =>
+    http.delete<void>(`/teacher-manage/node-edges/${edgeId}`),
 };

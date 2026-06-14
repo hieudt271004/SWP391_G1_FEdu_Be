@@ -121,4 +121,22 @@ public class AdminLearningPathController {
         nodeEdgeService.deleteEdge(edgeId);
         return new ResponseData<>(HttpStatus.OK.value(), "Node edge deleted successfully");
     }
+
+    @Operation(summary = "Publish template")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PostMapping("/learning-paths/{pathId}/publish")
+    public ResponseData<LearningPathResponse> publishTemplate(@PathVariable Long pathId) {
+        log.info("Admin publishing template ID: {}", pathId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Template published successfully",
+                learningPathService.publishTemplate(pathId));
+    }
+
+    @Operation(summary = "Unpublish template")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PostMapping("/learning-paths/{pathId}/unpublish")
+    public ResponseData<LearningPathResponse> unpublishTemplate(@PathVariable Long pathId) {
+        log.info("Admin unpublishing template ID: {}", pathId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Template unpublished successfully",
+                learningPathService.unpublishTemplate(pathId));
+    }
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Loader2, GraduationCap, AlertCircle, Search, Users, ArrowRight,
-  BookOpen, Clock, Calendar, CheckCircle2, Circle
+  Loader2, GraduationCap, AlertCircle, Users, ArrowRight,
+  BookOpen, Clock, Calendar, CheckCircle2
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { Classroom } from '../../../types/teacher';
@@ -42,8 +42,7 @@ export function TeacherClassesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'inactive' | 'active' | 'completed'>('all');
+
 
   useEffect(() => {
     const fetchClassrooms = async () => {
@@ -117,20 +116,7 @@ export function TeacherClassesPage() {
   const activeClassesCount = classrooms.filter((c) => c.status === 'active').length;
   const completedClassesCount = classrooms.filter((c) => c.status === 'completed').length;
 
-  // Filter classrooms by Search Query and Status Tabs
-  const filteredClassrooms = classrooms.filter((c) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      c.classroomName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.subjectCode && c.subjectCode.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (c.subjectName && c.subjectName.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesStatus =
-      statusFilter === 'all' ||
-      c.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
 
   return (
     <div className="space-y-6">
@@ -178,55 +164,17 @@ export function TeacherClassesPage() {
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="rounded-2xl p-4 bg-white border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Search Input */}
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Tìm lớp học hoặc môn học..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 outline-none focus:border-indigo-500 transition-colors bg-slate-50/50 text-slate-700"
-          />
-        </div>
 
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-100 w-full sm:w-auto">
-          {(
-            [
-              { key: 'all', label: 'Tất cả' },
-              { key: 'inactive', label: 'Chưa bắt đầu' },
-              { key: 'active', label: 'Đang hoạt động' },
-              { key: 'completed', label: 'Đã hoàn thành' },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setStatusFilter(tab.key)}
-              className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                statusFilter === tab.key
-                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Classrooms Grid */}
-      {filteredClassrooms.length === 0 ? (
+      {classrooms.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-3">
           <GraduationCap className="w-12 h-12 text-slate-300 mx-auto" />
           <p className="text-slate-500 text-sm font-medium">Không tìm thấy lớp học nào phù hợp</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClassrooms.map((classroom) => {
-            const statusBadge = getStatusDetails(classroom.status);
+          {classrooms.map((classroom) => {
             const cardGradient = getSubjectGradient(classroom.subjectCode || '');
             const subjectInitials = (classroom.subjectCode || 'CL').slice(0, 2).toUpperCase();
 
@@ -250,13 +198,6 @@ export function TeacherClassesPage() {
                         {classroom.classroomName}
                       </h3>
                     </div>
-                    {/* Status Badge */}
-                    <span
-                      className="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide shadow-sm"
-                      style={{ backgroundColor: statusBadge.bg, color: statusBadge.color }}
-                    >
-                      {statusBadge.label}
-                    </span>
                   </div>
 
                   {/* Course Details */}
