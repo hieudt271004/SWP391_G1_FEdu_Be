@@ -57,7 +57,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
           lastName: user.name ? user.name.split(" ").slice(1).join(" ") : "",
           phone: user.phone || "",
           avatarUrl: user.avatarUrl || "",
-          role: user.role === "Giảng viên" ? "TEACHER" : user.role === "Admin" ? "ADMIN" : "STUDENT",
+          role: user.role === "Giảng viên" ? "TEACHER" : user.role === "Admin" ? "ADMIN" : user.role === "Sub-Mentor" ? "SUB_MENTOR" : "STUDENT",
           status: user.status === "inactive" ? "INACTIVE" : "ACTIVE",
         });
       } else {
@@ -253,6 +253,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
                   <option value="STUDENT">Học viên</option>
                   <option value="TEACHER">Giảng viên</option>
                   <option value="ADMIN">Admin</option>
+                  <option value="SUB_MENTOR">Sub-Mentor (Trợ giảng)</option>
                 </select>
               </div>
               <div>

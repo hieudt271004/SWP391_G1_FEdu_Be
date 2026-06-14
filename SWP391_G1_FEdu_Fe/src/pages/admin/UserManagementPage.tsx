@@ -28,16 +28,28 @@ function beUserToAdminUser(u: AdminUserResponse): AdminUser {
   const fname = u.firstName || "";
   const lname = u.lastName || "";
   const initials = ((fname[0] || "") + (lname[0] || "")).toUpperCase() || "??";
-  const roleLabel = u.roles?.includes("TEACHER")
-    ? "Giảng viên"
-    : u.roles?.includes("STUDENT")
-    ? "Học viên"
-    : u.roles?.[0] || "USER";
-  const roleKey: UserRole = u.roles?.includes("TEACHER") 
+  
+  let roleLabel = "USER";
+  if (u.roles?.includes("ADMIN")) {
+    roleLabel = "Admin";
+  } else if (u.roles?.includes("SUB_MENTOR")) {
+    roleLabel = "Sub-Mentor";
+  } else if (u.roles?.includes("TEACHER")) {
+    roleLabel = "Giảng viên";
+  } else if (u.roles?.includes("STUDENT")) {
+    roleLabel = "Học viên";
+  }
+
+  const roleKey: UserRole = u.roles?.includes("ADMIN")
+    ? "ADMIN"
+    : u.roles?.includes("SUB_MENTOR")
+    ? "SUB_MENTOR"
+    : u.roles?.includes("TEACHER") 
     ? "TEACHER"
     : u.roles?.includes("STUDENT") 
     ? "STUDENT"
     : ((u.roles?.[0] as UserRole) || "USER");
+
   return {
     id: u.userId,
     name: `${fname} ${lname}`.trim(),
@@ -248,7 +260,11 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     <td className="px-6 py-4"><span style={{ fontSize: "0.875rem", color: "#6b7280" }}>{user.email}</span></td>
                     <td className="px-6 py-4"><span style={{ fontSize: "0.875rem", color: "#6b7280" }}>{user.joinedDate}</span></td>
                     <td className="px-6 py-4">
-                      <span className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: user.role === "Giảng viên" ? "#fdf2f8" : "#eef2ff", color: user.role === "Giảng viên" ? "#db2777" : "#4338ca", fontWeight: 600 }}>{user.role}</span>
+                      <span className="px-2.5 py-1 rounded-full text-xs" style={{
+                        backgroundColor: user.role === "Giảng viên" ? "#fdf2f8" : user.role === "Học viên" ? "#eef2ff" : user.role === "Admin" ? "#ecfdf5" : "#fff7ed",
+                        color: user.role === "Giảng viên" ? "#db2777" : user.role === "Học viên" ? "#4338ca" : user.role === "Admin" ? "#059669" : "#ea580c",
+                        fontWeight: 600
+                      }}>{user.role}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: user.status === "active" ? "#ecfdf5" : "#fef2f2", color: user.status === "active" ? "#059669" : "#dc2626", fontWeight: 600, cursor: "pointer" }} onClick={() => handleToggleStatus(user)}>

@@ -1,4 +1,4 @@
-import { ArrowLeft, Mail, Phone, MapPin, BookOpen, GraduationCap, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, BookOpen, GraduationCap, Loader2, AlertCircle, ShieldAlert } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { adminService, AdminUserResponse } from "../../services/admin.service";
@@ -20,7 +20,7 @@ interface AdminUserDetail {
   phone: string;
   gender: "Male" | "Female" | "Other";
   dateOfBirth: string;
-  role: "Học viên" | "Giảng viên";
+  role: "Học viên" | "Giảng viên" | "Admin" | "Sub-Mentor" | "USER";
   status: "active" | "inactive";
   avatar: string;
 }
@@ -33,11 +33,17 @@ function mapBeUserToAdminDetail(u: AdminUserResponse): AdminUserDetail {
   const fname = u.firstName || "";
   const lname = u.lastName || "";
   const initials = ((fname[0] || "") + (lname[0] || "")).toUpperCase() || "??";
-  const roleLabel = u.roles?.includes("TEACHER")
-    ? "Giảng viên"
-    : u.roles?.includes("STUDENT")
-    ? "Học viên"
-    : u.roles?.[0] || "USER";
+  
+  let roleLabel = "USER";
+  if (u.roles?.includes("ADMIN")) {
+    roleLabel = "Admin";
+  } else if (u.roles?.includes("SUB_MENTOR")) {
+    roleLabel = "Sub-Mentor";
+  } else if (u.roles?.includes("TEACHER")) {
+    roleLabel = "Giảng viên";
+  } else if (u.roles?.includes("STUDENT")) {
+    roleLabel = "Học viên";
+  }
 
   return {
     id: u.userId,
@@ -82,7 +88,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
             status: "Đang học",
             progress: 0,
           })));
-        } else {
+        } else if (userDetail.role === "Giảng viên") {
           const teacherClasses = await classroomService.getByTeacher(userDetail.id);
           setCourses(teacherClasses.map(c => ({
             id: String(c.classroomId),
@@ -91,6 +97,8 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
             status: "Đang dạy",
             students: c.studentCount
           })));
+        } else {
+          setCourses([]);
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Không thể tải thông tin người dùng");
@@ -122,6 +130,9 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
   );
 
   const isStudent = user.role === "Học viên";
+  const isTeacher = user.role === "Giảng viên";
+  const isAdmin = user.role === "Admin";
+  const isSubMentor = user.role === "Sub-Mentor";
 
   return (
     <div className="space-y-6">
@@ -131,7 +142,15 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
           <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
         </button>
         <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
-          {isStudent ? "Thông tin Học viên" : "Thông tin Giảng viên"}
+          {isStudent
+            ? "Thông tin Học viên"
+            : isTeacher
+            ? "Thông tin Giảng viên"
+            : isAdmin
+            ? "Thông tin Quản trị viên"
+            : isSubMentor
+            ? "Thông tin Trợ giảng (Sub-Mentor)"
+            : "Thông tin Người dùng"}
         </h1>
       </div>
 
@@ -171,7 +190,11 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
               </div>
               <div className="flex items-center justify-between">
                 <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>Vai trò</span>
-                <span className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: isStudent ? "#ecfdf5" : "#fdf2f8", color: isStudent ? "#059669" : "#db2777", fontWeight: 600 }}>{user.role}</span>
+                <span className="px-2.5 py-1 rounded-full text-xs" style={{
+                  backgroundColor: isStudent ? "#ecfdf5" : isTeacher ? "#fdf2f8" : isAdmin ? "#eef2ff" : "#fff7ed",
+                  color: isStudent ? "#059669" : isTeacher ? "#db2777" : isAdmin ? "#4338ca" : "#ea580c",
+                  fontWeight: 600
+                }}>{user.role}</span>
               </div>
             </div>
             <div className="border-t my-4" style={{ borderColor: "#e5e7eb" }} />
@@ -205,55 +228,85 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
         <div className="lg:col-span-2">
           <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div className="flex items-center gap-2 mb-6">
-              {isStudent ? <BookOpen className="w-5 h-5" style={{ color: "#4338ca" }} /> : <GraduationCap className="w-5 h-5" style={{ color: "#4338ca" }} />}
+              {isStudent ? (
+                <BookOpen className="w-5 h-5" style={{ color: "#4338ca" }} />
+              ) : (
+                <GraduationCap className="w-5 h-5" style={{ color: "#4338ca" }} />
+              )}
               <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>
-                {isStudent ? "Môn học đã/đang học" : "Lớp học đang giảng dạy"}
+                {isStudent
+                  ? "Môn học đã/đang học"
+                  : isTeacher
+                  ? "Lớp học đang giảng dạy"
+                  : isSubMentor
+                  ? "Lớp học đang hỗ trợ giảng dạy"
+                  : "Danh sách lớp học liên quan"}
               </h3>
             </div>
-            <div className="space-y-4">
-              {courses.map((course) => (
-                <div
-                  key={course.id}
-                  className="p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
-                  style={{ border: "1px solid #e5e7eb" }}
-                  onClick={() => navigate(`/admin/courses/${course.id}`)}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="px-2.5 py-0.5 rounded text-xs" style={{ backgroundColor: "#eef2ff", color: "#4338ca", fontWeight: 700 }}>{course.code}</span>
-                        <span className="px-2.5 py-0.5 rounded-full text-xs" style={{
-                          backgroundColor: course.status === "Đã hoàn thành" ? "#ecfdf5" : course.status === "Đang học" ? "#fef3c7" : "#eef2ff",
-                          color: course.status === "Đã hoàn thành" ? "#059669" : course.status === "Đang học" ? "#d97706" : "#4338ca",
-                          fontWeight: 600,
-                        }}>{course.status}</span>
-                      </div>
-                      <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>{course.title}</h4>
-                    </div>
+
+            {isAdmin ? (
+              <div className="text-center py-12 border border-dashed rounded-xl" style={{ borderColor: "#e5e7eb" }}>
+                <ShieldAlert className="w-10 h-10 mx-auto mb-3" style={{ color: "#6b7280" }} />
+                <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                  Tài khoản Quản trị viên hệ thống không tham gia giảng dạy hoặc học tập trực tiếp.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {courses.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed rounded-xl" style={{ borderColor: "#e5e7eb" }}>
+                    <BookOpen className="w-10 h-10 mx-auto mb-3" style={{ color: "#6b7280" }} />
+                    <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                      Chưa tham gia lớp học nào.
+                    </p>
                   </div>
-                  {isStudent && course.progress !== undefined && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span style={{ fontSize: "0.8125rem", color: "#6b7280" }}>Tiến độ học tập</span>
-                        <span style={{ fontSize: "0.8125rem", color: "#111827", fontWeight: 600 }}>{course.progress}%</span>
+                ) : (
+                  courses.map((course) => (
+                    <div
+                      key={course.id}
+                      className="p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
+                      style={{ border: "1px solid #e5e7eb" }}
+                      onClick={() => navigate(`/admin/courses/${course.id}`)}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2.5 py-0.5 rounded text-xs" style={{ backgroundColor: "#eef2ff", color: "#4338ca", fontWeight: 700 }}>{course.code}</span>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs" style={{
+                              backgroundColor: course.status === "Đã hoàn thành" ? "#ecfdf5" : course.status === "Đang học" ? "#fef3c7" : "#eef2ff",
+                              color: course.status === "Đã hoàn thành" ? "#059669" : course.status === "Đang học" ? "#d97706" : "#4338ca",
+                              fontWeight: 600,
+                            }}>{course.status}</span>
+                          </div>
+                          <h4 style={{ fontSize: "1rem", fontWeight: 600, color: "#111827" }}>{course.title}</h4>
+                        </div>
                       </div>
-                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#e5e7eb" }}>
-                        <div className="h-full rounded-full transition-all" style={{ width: `${course.progress}%`, background: "linear-gradient(135deg, #4338ca, #7c3aed)" }} />
-                      </div>
+                      {isStudent && course.progress !== undefined && (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span style={{ fontSize: "0.8125rem", color: "#6b7280" }}>Tiến độ học tập</span>
+                            <span style={{ fontSize: "0.8125rem", color: "#111827", fontWeight: 600 }}>{course.progress}%</span>
+                          </div>
+                          <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#e5e7eb" }}>
+                            <div className="h-full rounded-full transition-all" style={{ width: `${course.progress}%`, background: "linear-gradient(135deg, #4338ca, #7c3aed)" }} />
+                          </div>
+                        </div>
+                      )}
+                      {!isStudent && course.students !== undefined && (
+                        <div className="flex items-center gap-2">
+                          <GraduationCap className="w-4 h-4" style={{ color: "#6b7280" }} />
+                          <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>{course.students} học viên</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {!isStudent && course.students !== undefined && (
-                    <div className="flex items-center gap-2">
-                      <GraduationCap className="w-4 h-4" style={{ color: "#6b7280" }} />
-                      <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>{course.students} học viên</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
