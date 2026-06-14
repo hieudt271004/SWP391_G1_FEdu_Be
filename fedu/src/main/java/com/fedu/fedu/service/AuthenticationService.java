@@ -169,6 +169,7 @@ public class AuthenticationService {
         return user;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public TokenResponse googleLogin(GoogleLoginRequest request) {
         log.info("---------- googleLogin ----------");
 

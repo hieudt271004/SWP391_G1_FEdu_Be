@@ -63,6 +63,7 @@ public class LearningPath extends AbstractEntity<Long> {
     @JoinColumn(name = "published_by")
     private UserAccount publishedBy;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

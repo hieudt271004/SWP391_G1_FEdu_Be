@@ -205,12 +205,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     public List<SubjectResponse> getSubjectsByLecturerId(Long lecturerId) {
         return classroomSubjectRepository.findByLecturerId(lecturerId)
                 .stream()
-                .map(cs -> SubjectResponse.builder()
-                        .subjectId(cs.getSubject().getSubjectId())
-                        .subjectCode(cs.getSubject().getSubjectCode())
-                        .subjectName(cs.getSubject().getSubjectName())
-                        .description(cs.getSubject().getDescription())
-                        .build())
+                .map(cs -> SubjectResponse.from(cs.getSubject()))
                 .distinct()
                 .collect(Collectors.toList());
     }
