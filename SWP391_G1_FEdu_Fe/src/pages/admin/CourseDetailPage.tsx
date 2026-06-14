@@ -9,6 +9,7 @@ import {
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
 import { learningPathService } from "../../services/learningPath.service";
+import { adminService } from "../../services/admin.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
 import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse } from "../../services/learningPath.service";
@@ -47,6 +48,20 @@ export function CourseDetailPage() {
   const [showNodeDeleteConfirm, setShowNodeDeleteConfirm] = useState(false);
   const [isAddMaterialOpen, setIsAddMaterialOpen] = useState(false);
   const [isAddTestOpen, setIsAddTestOpen] = useState(false);
+  
+  // Add Classroom Modal states
+  const [isAddClassroomModalOpen, setIsAddClassroomModalOpen] = useState(false);
+  const [availableClassrooms, setAvailableClassrooms] = useState<ClassroomResponse[]>([]);
+  const [loadingClassrooms, setLoadingClassrooms] = useState(false);
+  const [selectedClassroomId, setSelectedClassroomId] = useState<number | null>(null);
+  const [addClassroomTab, setAddClassroomTab] = useState<'select' | 'create'>('select');
+  const [teachers, setTeachers] = useState<any[]>([]);
+
+  // Form states - Create Class inside Modal
+  const [newClassName, setNewClassName] = useState("");
+  const [newClassSemester, setNewClassSemester] = useState("");
+  const [newClassDescription, setNewClassDescription] = useState("");
+  const [newClassLecturerId, setNewClassLecturerId] = useState<number>(0);
 
   // Form states - Template
   const [newTplName, setNewTplName] = useState("");
@@ -164,6 +179,97 @@ export function CourseDetailPage() {
       setLoading(false);
     }
   }, [subjectId, fetchTemplates]);
+
+  const handleOpenAddClassroom = async () => {
+    setIsAddClassroomModalOpen(true);
+    setAddClassroomTab('select');
+    setLoadingClassrooms(true);
+    setSelectedClassroomId(null);
+    setNewClassName("");
+    setNewClassSemester("");
+    setNewClassDescription("");
+    setNewClassLecturerId(0);
+    try {
+      const [allClasses, users] = await Promise.all([
+        classroomService.getAll(),
+        adminService.getAllUsers()
+      ]);
+      
+      const currentClassIds = new Set(classrooms.map(c => c.classroomId));
+      const available = allClasses.filter(c => !currentClassIds.has(c.classroomId));
+      setAvailableClassrooms(available);
+      
+      const teachs = users.filter((u: any) => u.roles?.includes("TEACHER"));
+      setTeachers(teachs);
+      if (teachs.length > 0) {
+        setNewClassLecturerId(teachs[0].userId);
+      }
+    } catch (e) {
+      console.error("Failed to load classrooms/teachers", e);
+      toast.error("Không tải được danh sách lớp học hoặc giảng viên");
+    } finally {
+      setLoadingClassrooms(false);
+    }
+  };
+
+  const handleSelectClassroomSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClassroomId) {
+      toast.error("Vui lòng chọn một lớp học");
+      return;
+    }
+    const targetClass = availableClassrooms.find(c => c.classroomId === selectedClassroomId);
+    if (!targetClass) return;
+
+    try {
+      setLoadingClassrooms(true);
+      await classroomService.update(selectedClassroomId, {
+        subjectId: subjectId,
+        className: targetClass.className,
+        semester: targetClass.semester || "",
+        description: targetClass.description || "",
+        lecturerId: targetClass.lecturerId || 0,
+        status: targetClass.status || "inactive"
+      });
+      toast.success("Thêm lớp vào môn học thành công!");
+      setIsAddClassroomModalOpen(false);
+      // Refresh list
+      const classes = await classroomService.getBySubject(subjectId);
+      setClassrooms(classes);
+    } catch (err: any) {
+      toast.error(err.message || "Thao tác thất bại");
+    } finally {
+      setLoadingClassrooms(false);
+    }
+  };
+
+  const handleCreateClassroomSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClassName.trim() || !newClassLecturerId) {
+      toast.error("Tên lớp học và Giảng viên là bắt buộc.");
+      return;
+    }
+    try {
+      setLoadingClassrooms(true);
+      await classroomService.create({
+        className: newClassName,
+        subjectId: subjectId,
+        lecturerId: newClassLecturerId,
+        semester: newClassSemester,
+        description: newClassDescription,
+        status: "inactive"
+      });
+      toast.success("Tạo lớp học mới thành công!");
+      setIsAddClassroomModalOpen(false);
+      // Refresh list
+      const classes = await classroomService.getBySubject(subjectId);
+      setClassrooms(classes);
+    } catch (err: any) {
+      toast.error(err.message || "Tạo lớp học thất bại");
+    } finally {
+      setLoadingClassrooms(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -1079,14 +1185,7 @@ export function CourseDetailPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => navigate("/admin/classes")}
-                  className="px-3 py-2 rounded-lg text-sm transition-colors hover:bg-indigo-50"
-                  style={{ border: "1px solid #c7d2fe", color: "#4338ca", fontWeight: 600, cursor: "pointer", backgroundColor: "white" }}
-                >
-                  Xem tất cả
-                </button>
-                <button
-                  onClick={() => navigate(`/admin/classes/add?subjectId=${subjectId}`)}
+                  onClick={handleOpenAddClassroom}
                   className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-white transition-opacity hover:opacity-90"
                   style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontWeight: 600 }}
                 >
@@ -1100,11 +1199,11 @@ export function CourseDetailPage() {
                 <GraduationCap className="w-12 h-12" style={{ color: "#d1d5db" }} />
                 <p style={{ color: "#9ca3af", fontSize: "0.875rem" }}>Chưa có lớp học nào</p>
                 <button
-                  onClick={() => navigate(`/admin/classes/add?subjectId=${subjectId}`)}
+                  onClick={handleOpenAddClassroom}
                   className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm text-white"
                   style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontWeight: 600 }}
                 >
-                  <Plus className="w-4 h-4" /> Tạo lớp học
+                  <Plus className="w-4 h-4" /> Thêm lớp vào môn học
                 </button>
               </div>
             ) : (
@@ -1945,6 +2044,178 @@ export function CourseDetailPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD CLASSROOM TO SUBJECT MODAL */}
+      {isAddClassroomModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-150">
+              <h2 className="text-lg font-bold text-gray-900">Thêm lớp học vào môn học</h2>
+              <button onClick={() => setIsAddClassroomModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-gray-100">
+              <button
+                type="button"
+                onClick={() => setAddClassroomTab('select')}
+                className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-all ${
+                  addClassroomTab === 'select'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Chọn lớp có sẵn
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddClassroomTab('create')}
+                className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-all ${
+                  addClassroomTab === 'create'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Tạo lớp mới
+              </button>
+            </div>
+
+            {loadingClassrooms ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                <span className="text-sm text-gray-500">Đang xử lý...</span>
+              </div>
+            ) : addClassroomTab === 'select' ? (
+              /* TAB SELECT */
+              availableClassrooms.length === 0 ? (
+                <div className="p-8 text-center space-y-4">
+                  <GraduationCap className="w-12 h-12 mx-auto text-gray-300" />
+                  <p className="text-sm text-gray-500">Không tìm thấy lớp học nào trống (chưa học môn này).</p>
+                  <button
+                    type="button"
+                    onClick={() => setAddClassroomTab('create')}
+                    className="px-4 py-2 text-sm font-semibold text-white rounded-lg"
+                    style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
+                  >
+                    Tạo lớp mới ngay
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSelectClassroomSubmit} className="p-5 space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700">Chọn lớp học *</label>
+                    <select
+                      required
+                      value={selectedClassroomId || ""}
+                      onChange={(e) => setSelectedClassroomId(Number(e.target.value))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value="">-- Chọn lớp học --</option>
+                      {availableClassrooms.map((c) => (
+                        <option key={c.classroomId} value={c.classroomId}>
+                          {c.className} {c.semester ? `(${c.semester})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddClassroomModalOpen(false)}
+                      className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!selectedClassroomId}
+                      className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
+                    >
+                      Thêm vào môn học
+                    </button>
+                  </div>
+                </form>
+              )
+            ) : (
+              /* TAB CREATE */
+              <form onSubmit={handleCreateClassroomSubmit} className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700">Tên lớp học *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: SE1702, IA1801..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={newClassName}
+                    onChange={(e) => setNewClassName(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700">Học kỳ (Semester)</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Summer 2026, Spring 2026..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={newClassSemester}
+                    onChange={(e) => setNewClassSemester(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700">Mô tả lớp học</label>
+                  <textarea
+                    placeholder="Nhập mô tả lớp học..."
+                    rows={2}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={newClassDescription}
+                    onChange={(e) => setNewClassDescription(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-gray-700">Giảng viên phụ trách *</label>
+                  <select
+                    required
+                    value={newClassLecturerId || ""}
+                    onChange={(e) => setNewClassLecturerId(Number(e.target.value))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value="">-- Chọn giảng viên --</option>
+                    {teachers.map((t) => (
+                      <option key={t.userId} value={t.userId}>
+                        {t.firstName} {t.lastName} ({t.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddClassroomModalOpen(false)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                    style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
+                  >
+                    Tạo lớp học
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
