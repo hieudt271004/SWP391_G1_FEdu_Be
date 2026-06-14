@@ -258,7 +258,7 @@ export function DashboardPage() {
         {/* KPI 3: Total Courses */}
         <div className="bg-white border border-slate-100 hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100/40 p-6 rounded-2xl transition-all duration-300 group flex flex-col justify-between h-full">
           <div className="flex items-start justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Số Khóa học</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Số Môn học</span>
             <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center transition-transform group-hover:scale-105 duration-300">
               <BookOpen className="w-5 h-5 text-indigo-600" />
             </div>
@@ -409,7 +409,7 @@ export function DashboardPage() {
           </button>
 
           <button
-            onClick={() => navigate("/admin/courses")}
+            onClick={() => navigate("/admin/subjects")}
             className="flex items-center justify-between p-4 rounded-xl bg-white border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/5 hover:shadow-sm active:scale-[0.98] active:translate-y-[0.5px] transition-all duration-200 group text-left cursor-pointer"
           >
             <div className="flex items-center gap-3">
@@ -417,7 +417,7 @@ export function DashboardPage() {
                 <BookOpen className="w-5 h-5" />
               </div>
               <div className="space-y-0.5">
-                <h4 className="text-sm font-bold text-slate-800">Tạo Khóa học</h4>
+                <h4 className="text-sm font-bold text-slate-800">Tạo Môn học</h4>
                 <p className="text-[11px] text-slate-400">Môn học đào tạo</p>
               </div>
             </div>

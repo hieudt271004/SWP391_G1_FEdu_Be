@@ -29,7 +29,7 @@ export function AdminLayout() {
   const menuItems = [
     { icon: Home, label: "Tổng quan", path: "/admin/dashboard" },
     { icon: Users, label: "Quản lý Người dùng", path: "/admin/users" },
-    { icon: BookOpen, label: "Quản lý Khóa học", path: "/admin/courses" },
+    { icon: BookOpen, label: "Quản lý Môn học", path: "/admin/subjects" },
     { icon: GraduationCap, label: "Quản lý Lớp học", path: "/admin/classes" },
   ];
 

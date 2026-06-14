@@ -4,6 +4,7 @@ export interface ClassroomResponse {
   semester?: string;
   description?: string;
   subjectCount?: number;
+  studentCount: number;
   status?: string;
   createdAt?: string;
   updatedAt?: string;

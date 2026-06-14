@@ -216,7 +216,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
                   key={course.id}
                   className="p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
                   style={{ border: "1px solid #e5e7eb" }}
-                  onClick={() => navigate(`/admin/courses/${course.id}`)}
+                  onClick={() => navigate(`/admin/subjects/${course.id}`)}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">

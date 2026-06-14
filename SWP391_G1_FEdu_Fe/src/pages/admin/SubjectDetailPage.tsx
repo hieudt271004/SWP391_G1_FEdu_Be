@@ -14,7 +14,7 @@ import type { ClassroomResponse } from "../../types/classroom";
 import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse } from "../../services/learningPath.service";
 import { toast } from "sonner";
 
-export function CourseDetailPage() {
+export function SubjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const subjectId = Number(id);
@@ -160,7 +160,7 @@ export function CourseDetailPage() {
       setClassrooms(classes);
       await fetchTemplates();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Không tải được dữ liệu khóa học");
+      setError(e instanceof Error ? e.message : "Không tải được dữ liệu môn học");
     } finally {
       setLoading(false);
     }
@@ -591,7 +591,7 @@ export function CourseDetailPage() {
   if (loading) return (
     <div className="flex items-center justify-center py-20">
       <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
-      <span style={{ marginLeft: "0.75rem", color: "#6b7280" }}>Đang tải khóa học...</span>
+      <span style={{ marginLeft: "0.75rem", color: "#6b7280" }}>Đang tải môn học...</span>
     </div>
   );
 
@@ -616,7 +616,7 @@ export function CourseDetailPage() {
       {/* Header */}
       <div className="flex items-center gap-4 flex-wrap">
         <button
-          onClick={() => navigate("/admin/courses")}
+          onClick={() => navigate("/admin/subjects")}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
@@ -1089,7 +1089,7 @@ export function CourseDetailPage() {
                 <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "#111827", marginBottom: "0.25rem" }}>
                   {subject?.createdBy ? `${subject.createdBy.firstName} ${subject.createdBy.lastName}` : "Quản trị viên"}
                 </h3>
-                <span className="px-2 py-0.5 rounded text-xs" style={{ backgroundColor: "#eef2ff", color: "#4338ca", fontWeight: 600 }}>Người tạo khóa học</span>
+                <span className="px-2 py-0.5 rounded text-xs" style={{ backgroundColor: "#eef2ff", color: "#4338ca", fontWeight: 600 }}>Người tạo môn học</span>
               </div>
             </div>
           </div>
