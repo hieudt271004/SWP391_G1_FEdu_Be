@@ -5,6 +5,7 @@ import com.fedu.fedu.dto.req.CreateNodeTestRequest;
 import com.fedu.fedu.dto.req.ReorderContentRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
+import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.NodeContentService;
@@ -118,8 +119,8 @@ public class NodeContentServiceImpl implements NodeContentService {
                 if (!Files.exists(uploadPath)) {
                     Files.createDirectories(uploadPath);
                 }
-
-                String cleanFileName = System.currentTimeMillis() + "_" + file.getOriginalFilename().replaceAll("[^a-zA-Z0-9._-]", "_");
+                String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
+                String cleanFileName = System.currentTimeMillis() + "_" + original.replaceAll("[^a-zA-Z0-9._-]", "_");
                 Path filePath = uploadPath.resolve(cleanFileName);
                 Files.write(filePath, file.getBytes());
 
@@ -139,7 +140,7 @@ public class NodeContentServiceImpl implements NodeContentService {
 
             } catch (IOException e) {
                 log.error("Failed to upload file", e);
-                throw new RuntimeException("Could not store file. Error: " + e.getMessage());
+                throw new InvalidDataException("Could not store file. Error: " + e.getMessage());
             }
         } else if (request.getFileUrl() != null && !request.getFileUrl().trim().isEmpty()) {
             // Support external file URL links
