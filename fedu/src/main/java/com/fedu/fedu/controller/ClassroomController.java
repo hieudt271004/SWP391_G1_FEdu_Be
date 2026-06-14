@@ -32,6 +32,7 @@ public class ClassroomController {
     @Operation(summary = "Create new classroom",
             description = "TEACHER creates class: lecturerId is automatically themselves. ADMIN can specify lecturerId.")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     public ResponseData<ClassroomResponse> createClassroom(
             @Valid @RequestBody ClassroomRequest request,
@@ -77,11 +78,17 @@ public class ClassroomController {
                 classroomService.getClassroomsByTeacher(teacherId));
     }
 
-    @Operation(summary = "Get classrooms by student")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN', 'STUDENT')")
     @GetMapping("/student/{studentId}")
-    public ResponseData<List<ClassroomResponse>> getClassroomsByStudent(@PathVariable long studentId) {
-        log.info("Request get classrooms by student id: {}", studentId);
+    public ResponseData<List<ClassroomResponse>> getClassroomsByStudent(
+            @PathVariable long studentId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        boolean isStudentOnly = currentUser.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_STUDENT"))
+                && currentUser.getAuthorities().stream()
+                .noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_TEACHER"));
+        if (isStudentOnly && studentId != currentUser.getUserId()) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn chỉ được xem lớp của chính mình");
+        }
         return new ResponseData<>(HttpStatus.OK.value(), "Retrieved classroom list successfully",
                 classroomService.getClassroomsByStudent(studentId));
     }

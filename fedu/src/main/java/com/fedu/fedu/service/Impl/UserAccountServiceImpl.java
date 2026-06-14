@@ -4,14 +4,14 @@ import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.RegisterRequest;
 import com.fedu.fedu.dto.req.SignInRequest;
 import com.fedu.fedu.dto.req.UserProfileRequest;
+import com.fedu.fedu.dto.req.UserUpdateRequest;
 import com.fedu.fedu.dto.res.UserResponse;
-import com.fedu.fedu.entity.LoginHistory;
 import com.fedu.fedu.entity.Role;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.entity.UserRole;
+import org.springframework.transaction.annotation.Transactional;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
-import com.fedu.fedu.repository.LoginHistoryRepository;
 import com.fedu.fedu.repository.RoleRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.repository.UserRoleRepository;
@@ -19,13 +19,11 @@ import com.fedu.fedu.service.UserAccountService;
 import com.fedu.fedu.utils.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,7 +37,6 @@ public class UserAccountServiceImpl implements UserAccountService {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
-    private final LoginHistoryRepository loginHistoryRepository;
 
     @Override
     public UserAccount getByEmail(String email) {
@@ -50,23 +47,9 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void changeUserStatus(String username, UserStatus status) {
         UserAccount userAccount = userAccountRepository.findByEmail(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         userAccount.setStatus(status);
         userAccountRepository.save(userAccount);
-    }
-
-    @Scheduled(cron = "0 0 0 * * *")
-    public void updateExpirationAccount() {
-        List<UserAccount> users = userAccountRepository.findAllByStatus(UserStatus.ACTIVE);
-        for (UserAccount userAccount : users) {
-            if (userAccount.getLoginHistory() != null) {
-                LocalDateTime lastLogin = userAccount.getLoginHistory().getLastLogin();
-                if (lastLogin != null && lastLogin.plusDays(14).isBefore(LocalDateTime.now())) {
-                    userAccount.setStatus(UserStatus.INACTIVE);
-                    userAccountRepository.save(userAccount);
-                }
-            }
-        }
     }
 
     @Override
@@ -77,42 +60,25 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
-               .orElseThrow(() -> new RuntimeException("User not found"));
+               .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         userAccountRepository.delete(userAccount);
     }
 
     @Override
     public void registerUser(UserAccount userAccount) {
-        LoginHistory loginHistory = new LoginHistory();
-        loginHistory.setUserAccount(userAccount);
-        loginHistory.setLastLogin(LocalDateTime.now());
-        loginHistoryRepository.save(loginHistory);
+        // LoginHistory removed - no longer tracking last login separately
     }
 
     @Override
     public void updateLastLogin(SignInRequest request) {
-        String email = request.getEmail();
-        UserAccount account = userAccountRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        LoginHistory loginHistory = loginHistoryRepository.findByUserAccount(account)
-                .orElseGet(() -> {
-                    LoginHistory newHistory = new LoginHistory();
-                    newHistory.setUserAccount(account);
-                    return newHistory;
-                });
-
-        loginHistory.setLastLogin(LocalDateTime.now());
-        loginHistoryRepository.save(loginHistory);
+        // LoginHistory removed - last login tracking has been removed
     }
 
     @Override
     public void createUser(UserCreateRequest userCreateDTO) {
         UserAccount userAccount = createUserAccount(userCreateDTO);
-        //saveNewLoginHistory(userAccount);
         userAccountRepository.save(userAccount);
         assignUserRole(userAccount, userCreateDTO.getUserRole());
-
     }
 
     private UserAccount createUserAccount(UserCreateRequest userCreateDTO) {
@@ -136,21 +102,13 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .build();
     }
 
-    private void saveNewLoginHistory(UserAccount userAccount) {
-        LoginHistory loginHistory = new LoginHistory();
-        loginHistory.setUserAccount(userAccount);
-        loginHistory.setLastLogin(LocalDateTime.now());
-        loginHistoryRepository.save(loginHistory);
-        userAccount.setLoginHistory(loginHistory);
-    }
-
     private void assignUserRole(UserAccount userAccount, com.fedu.fedu.utils.enums.UserRole userRole) {
         // Mặc định USER nếu input null/invalid — KHÔNG bao giờ fallback về ADMIN
         com.fedu.fedu.utils.enums.UserRole targetRole =
                 (userRole != null) ? userRole : com.fedu.fedu.utils.enums.UserRole.USER;
 
         Role role = roleRepository.findByRoleName(targetRole)
-                .orElseThrow(() -> new RuntimeException("Role not found: " + targetRole));
+                .orElseThrow(() -> new IllegalStateException("Role not found: " + targetRole));
 
         UserRole userRoles = UserRole.builder()
                 .role(role)
@@ -168,7 +126,7 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Override
     public void save(RegisterRequest request) {
-        // chekc duplicate user
+        // Check duplicate user
         if (userAccountRepository.existsByEmail(request.getEmail())) {
             throw new InvalidDataException("Email already exists");
         }
@@ -184,10 +142,9 @@ public class UserAccountServiceImpl implements UserAccountService {
         userAccountRepository.save(userAccount);
 
         Role defaultRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.STUDENT)
-                .orElseThrow(() -> new RuntimeException("Default role STUDENT not found"));
+                .orElseThrow(() -> new IllegalStateException("Default role STUDENT not found"));
 
         assignRoleToUser(userAccount, defaultRole);
-        saveLoginHistory(userAccount);
     }
 
     private void assignRoleToUser(UserAccount userAccount, Role role) {
@@ -197,10 +154,6 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .build();
         userRoleRepository.save(userRole);
         userAccount.setUserRoles(Collections.singletonList(userRole));
-    }
-
-    private void saveLoginHistory(UserAccount userAccount) {
-        registerUser(userAccount);
     }
 
     @Override
@@ -278,5 +231,66 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .status(userAccount.getStatus())
                 .roles(roles)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void updateUser(long userId, UserUpdateRequest request) {
+        log.info("---------- updateUser for userId: {} ----------", userId);
+        
+        UserAccount userAccount = getById(userId);
+        
+        // Update profile fields
+        userAccount.setFirstName(request.getFirstName());
+        userAccount.setLastName(request.getLastName());
+        userAccount.setPhone(request.getPhone());
+        userAccount.setGender(request.getGender());
+        userAccount.setBod(request.getBod());
+        
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().isBlank()) {
+            userAccount.setAvatarUrl(request.getAvatarUrl());
+        }
+        
+        // Update status
+        if (request.getStatus() != null) {
+            userAccount.setStatus(request.getStatus());
+        }
+        
+        // Update role if provided
+        if (request.getUserRole() != null) {
+            Role role = roleRepository.findByRoleName(request.getUserRole())
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + request.getUserRole()));
+            
+            // Delete existing roles
+            if (userAccount.getUserRoles() != null) {
+                userRoleRepository.deleteAll(userAccount.getUserRoles());
+            }
+            
+            // Assign new role
+            UserRole userRole = UserRole.builder()
+                    .role(role)
+                    .userAccount(userAccount)
+                    .build();
+            userRoleRepository.save(userRole);
+            
+            List<UserRole> newRoles = new java.util.ArrayList<>();
+            newRoles.add(userRole);
+            userAccount.setUserRoles(newRoles);
+        }
+        
+        userAccountRepository.save(userAccount);
+     }
+
+    @Override
+    @Transactional
+    public void resetAllPasswordsTo123456() {
+        log.info("---------- resetAllPasswordsTo123456 ----------");
+        String encodedPassword = passwordEncoder.encode("123456");
+        List<UserAccount> users = userAccountRepository.findAll();
+        for (UserAccount user : users) {
+            user.setPassword(encodedPassword);
+        }
+        userAccountRepository.saveAll(users);
+        log.info("Reset {} user passwords to 123456 successfully", users.size());
     }
 }

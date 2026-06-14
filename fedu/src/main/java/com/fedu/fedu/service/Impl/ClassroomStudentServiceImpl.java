@@ -2,13 +2,13 @@ package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.req.AddStudentRequest;
 import com.fedu.fedu.dto.res.StudentInClassResponse;
-import com.fedu.fedu.entity.Classroom;
-import com.fedu.fedu.entity.ClassroomStudent;
+import com.fedu.fedu.entity.ClassroomSubject;
+import com.fedu.fedu.entity.ClassroomSubjectStudent;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
-import com.fedu.fedu.repository.ClassroomRepository;
-import com.fedu.fedu.repository.ClassroomStudentRepository;
+import com.fedu.fedu.repository.ClassroomSubjectRepository;
+import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.service.ClassroomStudentService;
 import lombok.RequiredArgsConstructor;
@@ -24,57 +24,67 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ClassroomStudentServiceImpl implements ClassroomStudentService {
 
-    private final ClassroomStudentRepository classroomStudentRepository;
-    private final ClassroomRepository classroomRepository;
+    private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
+    private final ClassroomSubjectRepository classroomSubjectRepository;
     private final UserAccountRepository userAccountRepository;
 
     @Override
     @Transactional
     public StudentInClassResponse addStudentToClassroom(Long classroomId, AddStudentRequest request) {
-        log.info("Adding student '{}' to classroom id: {}", request.getEmail(), classroomId);
+        log.info("Adding student '{}' to classroomId: {}", request.getEmail(), classroomId);
 
-        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
+        // Tìm ClassroomSubject đầu tiên của classroom (hoặc mở rộng sau nếu cần subjectId)
+        ClassroomSubject classroomSubject = classroomSubjectRepository
+                .findByClassroomClassroomId(classroomId)
+                .stream().findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("No subject found for classroom id: " + classroomId));
 
+        // Tìm student theo email
         UserAccount student = userAccountRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found with email: " + request.getEmail()));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
 
-        // Check if student is already enrolled in the classroom
-        if (classroomStudentRepository.existsByClassroom_ClassroomIdAndStudent_UserId(classroomId, student.getUserId())) {
-            throw new InvalidDataException("Student '" + request.getEmail() + "' is already enrolled in this classroom");
-        }
+        // Kiểm tra đã enroll chưa
+        classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubject.getId(), student.getUserId())
+                .ifPresent(existing -> {
+                    throw new InvalidDataException("Student already enrolled in this classroom");
+                });
 
-        ClassroomStudent enrollment = ClassroomStudent.builder()
-                .classroom(classroom)
+        ClassroomSubjectStudent enrollment = ClassroomSubjectStudent.builder()
+                .classroomSubject(classroomSubject)
                 .student(student)
                 .build();
 
-        ClassroomStudent saved = classroomStudentRepository.save(enrollment);
+        ClassroomSubjectStudent saved = classroomSubjectStudentRepository.save(enrollment);
         log.info("Student id: {} enrolled in classroom id: {}", student.getUserId(), classroomId);
+
         return toResponse(saved);
     }
 
     @Override
     @Transactional
     public void removeStudentFromClassroom(Long classroomId, long studentId) {
-        log.info("Removing student id: {} from classroom id: {}", studentId, classroomId);
+        log.info("Removing student id: {} from classroomId: {}", studentId, classroomId);
 
-        ClassroomStudent enrollment = classroomStudentRepository
-                .findByClassroom_ClassroomIdAndStudent_UserId(classroomId, studentId)
+        ClassroomSubject classroomSubject = classroomSubjectRepository
+                .findByClassroomClassroomId(classroomId)
+                .stream().findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("No subject found for classroom id: " + classroomId));
+
+        ClassroomSubjectStudent enrollment = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubject.getId(), studentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Student id " + studentId + " not found in classroom id " + classroomId));
+                        "Student id " + studentId + " not enrolled in classroom id " + classroomId));
 
-        classroomStudentRepository.delete(enrollment);
+        classroomSubjectStudentRepository.delete(enrollment);
+        log.info("Student id: {} removed from classroom id: {}", studentId, classroomId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<StudentInClassResponse> getStudentsInClassroom(Long classroomId) {
-        // Validate that the classroom exists and is active
-        classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
-
-        return classroomStudentRepository.findAllByClassroomId(classroomId)
+        return classroomSubjectStudentRepository
+                .findAllByClassroomId(classroomId)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -82,15 +92,15 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
 
     // ─── Mapper ──────────────────────────────────────────────────────────────
 
-    private StudentInClassResponse toResponse(ClassroomStudent cs) {
-        UserAccount student = cs.getStudent();
+    private StudentInClassResponse toResponse(ClassroomSubjectStudent enrollment) {
+        UserAccount s = enrollment.getStudent();
         return StudentInClassResponse.builder()
-                .userId(student.getUserId())
-                .email(student.getEmail())
-                .firstName(student.getFirstName())
-                .lastName(student.getLastName())
-                .avatarUrl(student.getAvatarUrl())
-                .joinedAt(cs.getJoinedAt())
+                .userId(s.getUserId())
+                .email(s.getEmail())
+                .firstName(s.getFirstName())
+                .lastName(s.getLastName())
+                .avatarUrl(s.getAvatarUrl())
+                .joinedAt(enrollment.getJoinedAt())
                 .build();
     }
 }

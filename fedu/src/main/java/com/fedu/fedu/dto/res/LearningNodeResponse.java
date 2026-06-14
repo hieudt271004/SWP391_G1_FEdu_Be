@@ -13,14 +13,14 @@ import java.time.LocalDateTime;
 public class LearningNodeResponse {
     private Long nodeId;
     private Long learningPathId;
-    private Long classroomPathId;
     private String title;
     private String description;
     private NodeType nodeType;
-    private String branchName;
-    private Integer displayOrder;
     private NodeStatus status;
+    private String studentStatus;
+    private Integer displayOrder;
     private Boolean isRequired;
+    private String branchName;
     private Boolean isDeleted;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

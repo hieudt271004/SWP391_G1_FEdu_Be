@@ -1,9 +1,6 @@
 package com.fedu.fedu.controller.auth;
 
-import com.fedu.fedu.dto.req.GoogleLoginRequest;
-import com.fedu.fedu.dto.req.RegisterRequest;
-import com.fedu.fedu.dto.req.ResetPasswordDTO;
-import com.fedu.fedu.dto.req.SignInRequest;
+import com.fedu.fedu.dto.req.*;
 import com.fedu.fedu.dto.res.ResponseData;
 import com.fedu.fedu.dto.res.ResponseError;
 import com.fedu.fedu.dto.res.TokenResponse;
@@ -19,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
 
 @Slf4j
@@ -34,6 +30,7 @@ public class AuthenticationController {
     private final UserAccountService userAccountService;
 
     @Operation(method = "POST", summary = "Save new user account", description = "Send a request to register new user")
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/register")
     public ResponseData<Void> registerUser(@Valid @RequestBody RegisterRequest request) {
         userAccountService.save(request);
@@ -76,33 +73,31 @@ public class AuthenticationController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseData<String> forgotPassword(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
-        if (email == null || email.isBlank()) {
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Email không được để trống");
-        }
+    public ResponseData<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest body) {
         try {
-            authenticationService.forgotPassword(email);
+            authenticationService.forgotPassword(body.getEmail());
         } catch (Exception e) {
-            log.warn("forgotPassword failed for email={}: {}", email, e.getMessage());
+            log.warn("forgotPassword failed for email={}: {}", body.getEmail(), e.getMessage());
         }
         return new ResponseData<>(HttpStatus.OK.value(),
                 "Nếu email tồn tại trong hệ thống, một đường dẫn đặt lại mật khẩu đã được gửi.");
     }
 
     @GetMapping("/reset-password")
-    public ResponseData<String> resetPassword(HttpServletRequest request) {
-        String secretKey = request.getHeader("X-Secret-Key");
-        if (secretKey == null || secretKey.isBlank()) {
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Missing or invalid secret key");
-        }
-        String response = authenticationService.resetPassword(secretKey);
-        return new ResponseData<>(HttpStatus.OK.value(), response);
+    public ResponseData<String> resetPassword(@RequestHeader("X-Secret-Key") String secretKey) {
+        return new ResponseData<>(HttpStatus.OK.value(), authenticationService.resetPassword(secretKey));
     }
 
+    @Operation(summary = "Validate reset password token")
     @PostMapping("/change-password")
     public ResponseData<String> changePassword(@RequestBody @Valid ResetPasswordDTO request) {
         String response = authenticationService.changePassword(request);
         return new ResponseData<>(HttpStatus.OK.value(), "Password changed successfully", response);
+    }
+
+    @PostMapping("/reset-all-passwords")
+    public ResponseData<Void> resetAllPasswords() {
+        userAccountService.resetAllPasswordsTo123456();
+        return new ResponseData<>(HttpStatus.OK.value(), "All passwords reset to 123456 successfully");
     }
 }

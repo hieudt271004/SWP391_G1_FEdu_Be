@@ -25,15 +25,17 @@ import java.util.List;
 public class ClassroomStudentController {
 
     private final ClassroomStudentService classroomStudentService;
+    private final com.fedu.fedu.service.ClassroomEnrollmentService classroomEnrollmentService;
 
     @Operation(summary = "Add student to classroom by email")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     public ResponseData<StudentInClassResponse> addStudentToClassroom(
             @PathVariable Long classroomId,
             @Valid @RequestBody AddStudentRequest request) {
         log.info("Request add student '{}' to classroom id: {}", request.getEmail(), classroomId);
-        StudentInClassResponse response = classroomStudentService.addStudentToClassroom(classroomId, request);
+        StudentInClassResponse response = classroomEnrollmentService.enrollStudent(classroomId, request);
         return new ResponseData<>(HttpStatus.CREATED.value(), "Student added to classroom successfully", response);
     }
 

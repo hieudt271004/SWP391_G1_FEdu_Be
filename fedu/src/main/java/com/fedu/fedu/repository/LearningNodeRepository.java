@@ -11,15 +11,10 @@ import java.util.List;
 @Repository
 public interface LearningNodeRepository extends JpaRepository<LearningNode, Long> {
 
-    // node gốc
-    List<LearningNode> findByLearningPathPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(Long pathId);
+    // Lấy tất cả nodes của một learning path (template hoặc classroom path)
+    List<LearningNode> findByLearningPathPathIdAndIsDeletedFalse(Long pathId);
 
-    // node clone
-    List<LearningNode>
-    findByClassroomLearningPathClassroomPathIdAndIsDeletedFalseOrderByDisplayOrderAsc(
-            Long classroomPathId
-    );
-
+    // Lấy tất cả nodes của các learning paths thuộc một môn học (template paths)
     @Query("""
             SELECT n
             FROM LearningNode n
@@ -27,18 +22,20 @@ public interface LearningNodeRepository extends JpaRepository<LearningNode, Long
             WHERE p.subject.subjectId = :subjectId
             AND n.isDeleted = false
             AND p.isDeleted = false
-            ORDER BY p.pathId ASC, n.displayOrder ASC
+            AND p.classroom IS NULL
+            ORDER BY p.pathId ASC
             """)
     List<LearningNode> findAllTemplateNodesBySubjectId(@Param("subjectId") Long subjectId);
 
+    // Lấy tất cả nodes của các learning paths thuộc một lớp học
     @Query("""
             SELECT n
             FROM LearningNode n
-            JOIN n.classroomLearningPath cp
-            WHERE cp.classroom.classroomId = :classroomId
+            JOIN n.learningPath p
+            WHERE p.classroom.classroomId = :classroomId
             AND n.isDeleted = false
-            AND cp.isDeleted = false
-            ORDER BY cp.classroomPathId ASC, n.displayOrder ASC
+            AND p.isDeleted = false
+            ORDER BY p.pathId ASC
             """)
     List<LearningNode> findAllClassroomNodesByClassroomId(@Param("classroomId") Long classroomId);
 }

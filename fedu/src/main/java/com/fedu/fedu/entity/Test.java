@@ -32,8 +32,12 @@ public class Test extends AbstractEntity<Long> {
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
-    @Column(name = "passing_score", precision = 5, scale = 2)
-    private BigDecimal passingScore;
+    /** Điểm đậu tính theo %. Ví dụ: 50.00 = 50% */
+    @Column(name = "passing_percentage", precision = 5, scale = 2)
+    private BigDecimal passingPercentage;
+
+    @Column(name = "order_index")
+    private Integer orderIndex;
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;

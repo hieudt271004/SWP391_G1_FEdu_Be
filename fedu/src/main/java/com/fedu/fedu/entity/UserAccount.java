@@ -4,8 +4,6 @@ import com.fedu.fedu.utils.enums.Gender;
 import com.fedu.fedu.utils.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -49,8 +47,8 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", columnDefinition = "e_user_status")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
     private UserStatus status;
 
     @OneToMany(
@@ -61,15 +59,8 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     )
     private List<UserRole> userRoles;
 
-    @OneToOne(
-            mappedBy = "userAccount",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private LoginHistory loginHistory;
-
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "gender", columnDefinition = "e_gender")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender")
     private Gender gender;
 
     @Column(name = "bod")

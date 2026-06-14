@@ -17,6 +17,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MissingRequestHeaderException;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
@@ -24,10 +25,10 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /** Validation lỗi (body, param, path variable) */
     @ExceptionHandler({
             MethodArgumentNotValidException.class,
             MissingServletRequestParameterException.class,
+            MissingRequestHeaderException.class,
             ConstraintViolationException.class
     })
     @ApiResponses(@ApiResponse(responseCode = "400", description = "Bad Request",
@@ -82,7 +83,13 @@ public class GlobalExceptionHandler {
                 .body(new ResponseError(HttpStatus.NOT_FOUND.value(), e.getMessage()));
     }
 
-    /** Dữ liệu xung đột (email trùng, code trùng, ...) */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ResponseData<Void>> handleIllegalArgument(IllegalArgumentException e) {
+        log.warn("Illegal argument: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ResponseError(HttpStatus.BAD_REQUEST.value(), e.getMessage()));
+    }
+
     @ExceptionHandler(InvalidDataException.class)
     @ApiResponses(@ApiResponse(responseCode = "409", description = "Conflict",
             content = @Content(mediaType = APPLICATION_JSON_VALUE, examples = @ExampleObject(
@@ -91,6 +98,17 @@ public class GlobalExceptionHandler {
         log.warn("Invalid data: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ResponseError(HttpStatus.CONFLICT.value(), e.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ResponseData<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException e) {
+        log.warn("Database integrity violation: {}", e.getMessage());
+        String msg = "Dữ liệu bị xung đột hoặc đã tồn tại.";
+        if (e.getMessage() != null && e.getMessage().contains("uniq_active_classroom_path")) {
+            msg = "Classroom đã có lộ trình. Xóa draft hoặc unpublish trước.";
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ResponseError(HttpStatus.CONFLICT.value(), msg));
     }
 
     /** Fallback */

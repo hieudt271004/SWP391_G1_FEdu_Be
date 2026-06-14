@@ -2,7 +2,6 @@ package com.fedu.fedu.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,7 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "student_test_attempts")
-public class StudentTestAttempt {
+public class StudentTestAttempt extends AbstractEntity<Long> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,6 +28,7 @@ public class StudentTestAttempt {
     @JoinColumn(name = "student_id", nullable = false)
     private UserAccount student;
 
+    /** Điểm tổng của lần thi (null khi chưa nộp/chưa chấm xong) */
     @Column(name = "score", precision = 5, scale = 2)
     private BigDecimal score;
 
@@ -37,8 +37,5 @@ public class StudentTestAttempt {
 
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    @CreationTimestamp
-    private LocalDateTime createdAt;
+    // created_at và updated_at kế thừa từ AbstractEntity
 }

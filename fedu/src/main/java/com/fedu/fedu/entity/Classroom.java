@@ -17,7 +17,7 @@ public class Classroom extends AbstractEntity<Long> {
     private Long classroomId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subject_id", nullable = false)
+    @JoinColumn(name = "subject_id")
     private Subject subject;
 
     @Column(name = "class_name", nullable = false)
@@ -30,8 +30,12 @@ public class Classroom extends AbstractEntity<Long> {
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "lecturer_id", nullable = false)
+    @JoinColumn(name = "lecturer_id")
     private UserAccount lecturer;
+
+    @Builder.Default
+    @Column(name = "status", nullable = false, length = 50)
+    private String status = "inactive";
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;

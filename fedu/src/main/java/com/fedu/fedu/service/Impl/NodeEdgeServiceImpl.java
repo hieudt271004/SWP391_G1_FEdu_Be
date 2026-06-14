@@ -4,13 +4,14 @@ import com.fedu.fedu.dto.req.CreateNodeEdgeRequest;
 import com.fedu.fedu.dto.res.NodeEdgeResponse;
 import com.fedu.fedu.entity.LearningNode;
 import com.fedu.fedu.entity.NodeEdge;
+import com.fedu.fedu.exception.ResourceNotFoundException;
+import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.repository.LearningNodeRepository;
 import com.fedu.fedu.repository.NodeEdgeRepository;
 import com.fedu.fedu.service.NodeEdgeService;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,11 +25,15 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
     @Override
     @Transactional
     public NodeEdgeResponse createEdge(CreateNodeEdgeRequest request) {
+        if (nodeEdgeRepository.existsByFromNodeNodeIdAndToNodeNodeId(request.getFromNodeId(), request.getToNodeId())) {
+            throw new InvalidDataException("Liên kết giữa hai bài học này đã tồn tại.");
+        }
+
         LearningNode fromNode = learningNodeRepository.findById(request.getFromNodeId())
-                .orElseThrow(() -> new RuntimeException("From node not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("From node not found"));
 
         LearningNode toNode = learningNodeRepository.findById(request.getToNodeId())
-                .orElseThrow(() -> new RuntimeException("To node not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("To node not found"));
 
         NodeEdge edge = NodeEdge.builder()
                 .fromNode(fromNode)
@@ -47,7 +52,7 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
     @Transactional
     public void deleteEdge(Long edgeId) {
         NodeEdge edge = nodeEdgeRepository.findById(edgeId)
-                .orElseThrow(() -> new RuntimeException("Edge not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Edge not found"));
         nodeEdgeRepository.delete(edge);
     }
 

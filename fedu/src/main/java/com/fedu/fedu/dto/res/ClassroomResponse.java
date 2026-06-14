@@ -28,6 +28,7 @@ public class ClassroomResponse {
     private String lecturerEmail;
 
     private int studentCount;
+    private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String lecturerFirstName;

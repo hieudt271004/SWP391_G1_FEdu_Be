@@ -13,17 +13,17 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "classroom_sub_mentor", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"classroom_id", "sub_mentor_id"})
+        @UniqueConstraint(columnNames = {"classroom_subject_id", "sub_mentor_id"})
 })
-public class ClassroomSubMentor {
+public class ClassroomSubMentor extends AbstractEntity<Long> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id", nullable = false)
-    private Classroom classroom;
+    @JoinColumn(name = "classroom_subject_id", nullable = false)
+    private ClassroomSubject classroomSubject;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sub_mentor_id", nullable = false)

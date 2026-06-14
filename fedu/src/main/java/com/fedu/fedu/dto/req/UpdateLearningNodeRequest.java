@@ -16,9 +16,13 @@ public class UpdateLearningNodeRequest {
     private String description;
     @NotNull(message = "nodeType must not be null")
     private NodeType nodeType;
-    private String branchName;
-    @NotNull(message = "displayOrder must not be null")
-    private Integer displayOrder;
     private NodeStatus status;
+
+    @jakarta.validation.constraints.Min(value = 0, message = "displayOrder must be greater than or equal to 0")
+    private Integer displayOrder;
+
     private Boolean isRequired;
+
+    @jakarta.validation.constraints.Size(max = 100, message = "branchName must not exceed 100 characters")
+    private String branchName;
 }

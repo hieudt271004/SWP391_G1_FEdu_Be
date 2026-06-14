@@ -3,6 +3,9 @@ package com.fedu.fedu.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 @Entity
@@ -24,11 +27,28 @@ public class NodeMaterial extends AbstractEntity<Long> {
     @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name = "file_url", columnDefinition = "TEXT")
-    private String fileUrl;
+    /**
+     * Danh sách các video thuộc tài liệu học tập này.
+     */
+    @OneToMany(mappedBy = "nodeMaterial", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Video> videos = new ArrayList<>();
 
-    @Column(name = "video_url", columnDefinition = "TEXT")
-    private String videoUrl;
+    /**
+     * Danh sách các file tài liệu thuộc bài học này.
+     */
+    @OneToMany(mappedBy = "nodeMaterial", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<FileEntity> files = new ArrayList<>();
+
+    /**
+     * Đánh dấu tài liệu này có bắt buộc học không.
+     */
+    @Column(name = "required")
+    private Boolean required = true;
+
+    @Column(name = "order_index")
+    private Integer orderIndex;
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;

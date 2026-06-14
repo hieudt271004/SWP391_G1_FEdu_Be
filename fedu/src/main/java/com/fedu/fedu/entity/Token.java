@@ -3,6 +3,8 @@ package com.fedu.fedu.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Setter
 @Getter
 @Entity
@@ -28,5 +30,11 @@ public class Token extends AbstractEntity<Long> {
 
     @Column(name = "reset_token", columnDefinition = "TEXT")
     private String resetToken;
+
+    @Column(name = "expired_at")
+    private LocalDateTime expiredAt;
+
+    @Column(name = "is_revoked")
+    private Boolean isRevoked = false;
 
 }
