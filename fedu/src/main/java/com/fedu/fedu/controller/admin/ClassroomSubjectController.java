@@ -1,0 +1,66 @@
+package com.fedu.fedu.controller.admin;
+
+import com.fedu.fedu.dto.req.AddClassroomSubjectRequest;
+import com.fedu.fedu.dto.req.ChangeLecturerRequest;
+import com.fedu.fedu.dto.res.ClassroomSubjectResponse;
+import com.fedu.fedu.dto.res.ResponseData;
+import com.fedu.fedu.service.ClassroomSubjectService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@Slf4j
+@Validated
+@RestController
+@RequestMapping("/classrooms")
+@RequiredArgsConstructor
+@Tag(name = "Classroom Subject Controller", description = "Admin gán môn + giảng viên cho lớp (lớp-môn)")
+public class ClassroomSubjectController {
+
+    private final ClassroomSubjectService classroomSubjectService;
+
+    @Operation(summary = "Gán 1 môn + giảng viên vào lớp")
+    @PreAuthorize("hasRole('ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/{classroomId}/subjects")
+    public ResponseData<ClassroomSubjectResponse> addSubject(
+            @PathVariable Long classroomId,
+            @Valid @RequestBody AddClassroomSubjectRequest req) {
+        return new ResponseData<>(HttpStatus.CREATED.value(), "Đã gán môn vào lớp",
+                classroomSubjectService.addSubjectToClassroom(classroomId, req));
+    }
+
+    @Operation(summary = "Danh sách các lớp-môn của 1 lớp")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/{classroomId}/subjects")
+    public ResponseData<List<ClassroomSubjectResponse>> getSubjects(@PathVariable Long classroomId) {
+        return new ResponseData<>(HttpStatus.OK.value(), "OK",
+                classroomSubjectService.getSubjectsOfClassroom(classroomId));
+    }
+
+    @Operation(summary = "Đổi giảng viên cho 1 lớp-môn")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/subjects/{classroomSubjectId}/lecturer")
+    public ResponseData<ClassroomSubjectResponse> changeLecturer(
+            @PathVariable Long classroomSubjectId,
+            @Valid @RequestBody ChangeLecturerRequest req) {
+        return new ResponseData<>(HttpStatus.OK.value(), "Đã đổi giảng viên",
+                classroomSubjectService.changeLecturer(classroomSubjectId, req.getLecturerId()));
+    }
+
+    @Operation(summary = "Gỡ 1 môn khỏi lớp")
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/subjects/{classroomSubjectId}")
+    public ResponseData<Void> removeSubject(@PathVariable Long classroomSubjectId) {
+        classroomSubjectService.removeClassroomSubject(classroomSubjectId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Đã gỡ môn khỏi lớp");
+    }
+}

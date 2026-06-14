@@ -16,21 +16,11 @@ public class ClassroomResponse {
     private String className;
     private String semester;
     private String description;
-
-    // Subject info
-    private Long subjectId;
-    private String subjectCode;
-    private String subjectName;
-
-    // Lecturer info
-    private Long lecturerId;
-    private String lecturerName;
-    private String lecturerEmail;
-
-    private int studentCount;
     private String status;
+
+    private int subjectCount;
+    private int studentCount;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private String lecturerFirstName;
-    private String lecturerLastName;
 }

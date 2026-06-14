@@ -37,10 +37,12 @@ public class SupportTicket extends AbstractEntity<Long> {
     @Column(name = "description", nullable = false, columnDefinition = "TEXT")
     private String description;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "ticket_status")
     private TicketStatus status = TicketStatus.OPEN;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "ticket_level")
     private TicketLevel supportLevel = TicketLevel.SUB_MENTOR;

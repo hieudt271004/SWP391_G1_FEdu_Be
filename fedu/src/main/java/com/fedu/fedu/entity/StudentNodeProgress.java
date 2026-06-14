@@ -60,6 +60,7 @@ public class StudentNodeProgress extends AbstractEntity<Long> {
      * Trạng thái học của node:
      * LOCKED – chưa mở, OPEN – đang mở/có thể học, IN_PROGRESS – đang học, COMPLETED – đã hoàn thành.
      */
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private StudentProgressStatus status = StudentProgressStatus.LOCKED;

@@ -2,10 +2,8 @@ package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
-import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.StudentProgressService;
-import com.fedu.fedu.utils.enums.NodeStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
@@ -20,7 +18,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class StudentProgressServiceImpl implements StudentProgressService {
 
-    private final ClassroomRepository classroomRepository;
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final LearningPathRepository learningPathRepository;
     private final LearningNodeRepository learningNodeRepository;
@@ -29,22 +26,19 @@ public class StudentProgressServiceImpl implements StudentProgressService {
 
     @Override
     @Transactional(readOnly = true)
-    public ClassroomGraphResponse getStudentClassroomGraph(Long classroomId, Long studentId) {
-        Classroom classroom = classroomRepository.findById(classroomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Classroom not found"));
-
-        // Verify student is enrolled in the classroom
-        List<UserAccount> students = classroomSubjectStudentRepository.findDistinctStudentsByClassroomId(classroomId);
-        boolean isEnrolled = students.stream().anyMatch(s -> s.getUserId() == studentId);
+    public ClassroomGraphResponse getStudentClassroomGraph(Long classroomSubjectId, Long studentId) {
+        // Verify student is enrolled in the classroom-subject
+        boolean isEnrolled = classroomSubjectStudentRepository
+                .existsByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId);
         if (!isEnrolled) {
-            throw new AccessDeniedException("Học sinh không thuộc lớp học này");
+            throw new AccessDeniedException("Học sinh không thuộc lớp-môn này");
         }
 
-        Optional<LearningPath> pathOpt = learningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(classroomId);
+        Optional<LearningPath> pathOpt = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (pathOpt.isEmpty() || pathOpt.get().getPublishedAt() == null) {
             // No path published yet
             return ClassroomGraphResponse.builder()
-                    .classroomId(classroomId)
+                    .classroomSubjectId(classroomSubjectId)
                     .state("NO_PATH")
                     .pathId(null)
                     .publishedAt(null)
@@ -100,7 +94,7 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .collect(Collectors.toList());
 
         return ClassroomGraphResponse.builder()
-                .classroomId(classroomId)
+                .classroomSubjectId(classroomSubjectId)
                 .state("PUBLISHED")
                 .pathId(path.getPathId())
                 .publishedAt(path.getPublishedAt())
