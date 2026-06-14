@@ -25,7 +25,7 @@ const TERMS_SECTIONS = [
   {
     title: "5. Thanh toán và hoàn tiền",
     content:
-      "Các khóa học có phí sẽ được thanh toán trước khi truy cập. FEdu Learning cung cấp chính sách hoàn tiền trong vòng 7 ngày kể từ ngày mua nếu bạn chưa hoàn thành hơn 20% nội dung khóa học.",
+      "Các môn học có phí sẽ được thanh toán trước khi truy cập. FEdu Learning cung cấp chính sách hoàn tiền trong vòng 7 ngày kể từ ngày mua nếu bạn chưa hoàn thành hơn 20% nội dung môn học.",
   },
   {
     title: "6. Chấm dứt dịch vụ",

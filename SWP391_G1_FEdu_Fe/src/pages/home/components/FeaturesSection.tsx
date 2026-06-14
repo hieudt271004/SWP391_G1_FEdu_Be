@@ -117,7 +117,7 @@ export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps)
     {
       icon: TrendingUp,
       title: "Theo dõi tiến độ",
-      description: "Biết chính xác bạn đang ở đâu trong khóa học và đã hoàn thành gì.",
+      description: "Biết chính xác bạn đang ở đâu trong môn học và đã hoàn thành gì.",
     },
     {
       icon: Users,

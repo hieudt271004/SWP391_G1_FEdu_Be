@@ -20,10 +20,10 @@ export function LeftPanel() {
             Học tập không giới hạn,<br />thành công không có điểm dừng
           </h2>
           <p className="text-white max-w-xl leading-relaxed drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" style={{ fontSize: "1rem" }}>
-            Hơn 10.000+ khóa học từ các chuyên gia hàng đầu đang chờ bạn khám phá.
+            Hơn 10.000+ môn học từ các chuyên gia hàng đầu đang chờ bạn khám phá.
           </p>
           <div className="flex flex-wrap gap-6 mt-8">
-            {[["10K+", "Khóa học"], ["500K+", "Học viên"], ["98%", "Hài lòng"]].map(([num, label]) => (
+            {[["10K+", "Môn học"], ["500K+", "Học viên"], ["98%", "Hài lòng"]].map(([num, label]) => (
               <div key={label}>
                 <div className="text-white font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" style={{ fontSize: "1.5rem" }}>{num}</div>
                 <div className="text-white leading-snug drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" style={{ fontSize: "0.875rem" }}>{label}</div>

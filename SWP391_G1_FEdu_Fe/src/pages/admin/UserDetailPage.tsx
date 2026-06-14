@@ -146,7 +146,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
             <div className="flex items-center justify-center gap-4 mb-4">
               <div className="text-center">
                 <div className="text-white text-2xl font-bold">{courses.length}</div>
-                <div className="text-indigo-200 text-xs">Khóa học</div>
+                <div className="text-indigo-200 text-xs">Môn học</div>
               </div>
               <div className="w-px h-10" style={{ backgroundColor: "rgba(255,255,255,0.3)" }} />
               <div className="text-center">
@@ -207,7 +207,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
             <div className="flex items-center gap-2 mb-6">
               {isStudent ? <BookOpen className="w-5 h-5" style={{ color: "#4338ca" }} /> : <GraduationCap className="w-5 h-5" style={{ color: "#4338ca" }} />}
               <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>
-                {isStudent ? "Khóa học đã/đang học" : "Lớp học đang giảng dạy"}
+                {isStudent ? "Môn học đã/đang học" : "Lớp học đang giảng dạy"}
               </h3>
             </div>
             <div className="space-y-4">
