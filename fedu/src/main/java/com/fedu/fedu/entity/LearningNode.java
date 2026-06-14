@@ -48,6 +48,7 @@ public class LearningNode extends AbstractEntity<Long> {
     @Column(name = "branch_name")
     private String branchName;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

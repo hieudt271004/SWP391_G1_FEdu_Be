@@ -215,7 +215,7 @@ public class AuthenticationService {
                 .build();
     }
 
-    private UserAccount createGoogleUser(Map<?, ?> googleUser) {
+    public UserAccount createGoogleUser(Map<?, ?> googleUser) {
         String email = (String) googleUser.get("email");
         log.info("Creating new Google user for email: {}", email);
 

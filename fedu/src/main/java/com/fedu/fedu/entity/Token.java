@@ -34,6 +34,7 @@ public class Token extends AbstractEntity<Long> {
     @Column(name = "expired_at")
     private LocalDateTime expiredAt;
 
+    @Builder.Default
     @Column(name = "is_revoked")
     private Boolean isRevoked = false;
 

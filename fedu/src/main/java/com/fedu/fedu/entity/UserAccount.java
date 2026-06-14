@@ -44,6 +44,7 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     @Column(name = "avatar_url", columnDefinition = "TEXT")
     private String avatarUrl;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 

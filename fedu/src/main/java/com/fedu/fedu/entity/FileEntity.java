@@ -37,6 +37,7 @@ public class FileEntity extends AbstractEntity<Long> {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

@@ -75,6 +75,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
+    @Transactional
     public void createUser(UserCreateRequest userCreateDTO) {
         UserAccount userAccount = createUserAccount(userCreateDTO);
         userAccountRepository.save(userAccount);
@@ -125,6 +126,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
+    @Transactional
     public void save(RegisterRequest request) {
         // Check duplicate user
         if (userAccountRepository.existsByEmail(request.getEmail())) {
@@ -169,7 +171,10 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Override
     public List<String> getAllRoleByEmail(long userId) {
-        return userAccountRepository.findAllRoleByUserId(userId);
+        return userAccountRepository.findAllRoleByUserId(userId)
+                .stream()
+                .map(UserRole:name)
+                .toList();
     }
     
     @Override

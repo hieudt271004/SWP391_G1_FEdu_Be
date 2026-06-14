@@ -45,6 +45,7 @@ public class SupportTicket extends AbstractEntity<Long> {
     @Column(name = "ticket_level")
     private TicketLevel supportLevel = TicketLevel.SUB_MENTOR;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }
