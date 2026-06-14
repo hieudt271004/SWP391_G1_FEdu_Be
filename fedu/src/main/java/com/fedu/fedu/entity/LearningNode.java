@@ -50,5 +50,5 @@ public class LearningNode extends AbstractEntity<Long> {
 
     @Builder.Default
     @Column(name = "is_deleted")
-    private Boolean isDeleted = false;
+    private Boolean isDeleted = true;
 }

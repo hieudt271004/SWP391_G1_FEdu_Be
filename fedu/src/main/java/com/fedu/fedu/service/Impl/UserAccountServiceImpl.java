@@ -53,25 +53,10 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
-    public void verifyAccount(String email) {
-        // Method logic
-    }
-
-    @Override
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         userAccountRepository.delete(userAccount);
-    }
-
-    @Override
-    public void registerUser(UserAccount userAccount) {
-        // LoginHistory removed - no longer tracking last login separately
-    }
-
-    @Override
-    public void updateLastLogin(SignInRequest request) {
-        // LoginHistory removed - last login tracking has been removed
     }
 
     @Override
@@ -173,7 +158,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     public List<String> getAllRoleByEmail(long userId) {
         return userAccountRepository.findAllRoleByUserId(userId)
                 .stream()
-                .map(UserRole:name)
+                .map(Enum::name)
                 .toList();
     }
     

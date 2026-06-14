@@ -2,7 +2,7 @@ package com.fedu.fedu.controller;
 
 import com.fedu.fedu.dto.req.SubjectRequest;
 import com.fedu.fedu.dto.res.ResponseData;
-import com.fedu.fedu.entity.Subject;
+import com.fedu.fedu.dto.res.SubjectResponse;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.service.SubjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,7 +31,7 @@ public class SubjectController {
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    public ResponseData<Subject> createSubject(
+    public ResponseData<SubjectResponse> createSubject(
             @Valid @RequestBody SubjectRequest request,
             @AuthenticationPrincipal UserAccount currentUser) {
         log.info("Request create subject: {}", request.getSubjectCode());
@@ -42,7 +42,7 @@ public class SubjectController {
     @Operation(summary = "Get all subjects")
     @PreAuthorize("isAuthenticated()")
     @GetMapping
-    public ResponseData<List<Subject>> getAllSubjects() {
+    public ResponseData<List<SubjectResponse>> getAllSubjects() {
         log.info("Request get all subjects");
         return new ResponseData<>(HttpStatus.OK.value(), "Retrieved subject list successfully",
                 subjectService.getAllSubjects());
@@ -51,7 +51,7 @@ public class SubjectController {
     @Operation(summary = "Get subject details by ID")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/{subjectId}")
-    public ResponseData<Subject> getSubjectById(@PathVariable Long subjectId) {
+    public ResponseData<SubjectResponse> getSubjectById(@PathVariable Long subjectId) {
         log.info("Request get subject id: {}", subjectId);
         return new ResponseData<>(HttpStatus.OK.value(), "Retrieved subject details successfully",
                 subjectService.getSubjectById(subjectId));
@@ -60,7 +60,7 @@ public class SubjectController {
     @Operation(summary = "Get subjects by teacher ID")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     @GetMapping("/teacher/{teacherId}")
-    public ResponseData<List<Subject>> getSubjectsByTeacher(@PathVariable long teacherId) {
+    public ResponseData<List<SubjectResponse>> getSubjectsByTeacher(@PathVariable long teacherId) {
         log.info("Request get subjects by teacher id: {}", teacherId);
         return new ResponseData<>(HttpStatus.OK.value(), "Retrieved subject list successfully",
                 subjectService.getSubjectsByTeacher(teacherId));
@@ -69,7 +69,7 @@ public class SubjectController {
     @Operation(summary = "Update subject")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     @PutMapping("/{subjectId}")
-    public ResponseData<Subject> updateSubject(
+    public ResponseData<SubjectResponse> updateSubject(
             @PathVariable Long subjectId,
             @Valid @RequestBody SubjectRequest request) {
         log.info("Request update subject id: {}", subjectId);

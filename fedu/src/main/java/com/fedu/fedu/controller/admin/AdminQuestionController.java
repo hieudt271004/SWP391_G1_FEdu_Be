@@ -27,7 +27,7 @@ public class AdminQuestionController {
     private final QuestionManagementService questionManagementService;
 
     @Operation(summary = "Get list of questions in a test")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/tests/{testId}/questions")
     public ResponseData<List<QuestionResponse>> getQuestions(@PathVariable Long testId) {
         log.info("Request get questions for test id: {}", testId);
@@ -36,7 +36,7 @@ public class AdminQuestionController {
     }
 
     @Operation(summary = "Add new question to a test")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/tests/{testId}/questions")
     public ResponseData<QuestionResponse> addQuestion(
@@ -48,7 +48,7 @@ public class AdminQuestionController {
     }
 
     @Operation(summary = "Update question and answers")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/test-questions/{questionId}")
     public ResponseData<QuestionResponse> updateQuestion(
             @PathVariable Long questionId,
@@ -59,7 +59,7 @@ public class AdminQuestionController {
     }
 
     @Operation(summary = "Delete question")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/test-questions/{questionId}")
     public ResponseData<Void> deleteQuestion(@PathVariable Long questionId) {
         log.info("Request delete question id: {}", questionId);

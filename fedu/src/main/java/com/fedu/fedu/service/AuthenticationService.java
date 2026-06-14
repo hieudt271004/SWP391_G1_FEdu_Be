@@ -169,6 +169,7 @@ public class AuthenticationService {
         return user;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public TokenResponse googleLogin(GoogleLoginRequest request) {
         log.info("---------- googleLogin ----------");
 
@@ -215,7 +216,7 @@ public class AuthenticationService {
                 .build();
     }
 
-    public UserAccount createGoogleUser(Map<?, ?> googleUser) {
+    private UserAccount createGoogleUser(Map<?, ?> googleUser) {
         String email = (String) googleUser.get("email");
         log.info("Creating new Google user for email: {}", email);
 
