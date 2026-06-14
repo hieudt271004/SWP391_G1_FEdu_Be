@@ -49,7 +49,6 @@ export function SubjectDetailPage() {
   const [isAddTestOpen, setIsAddTestOpen] = useState(false);
 
   // Form states - Template
-  const [newTplName, setNewTplName] = useState("");
   const [newTplDesc, setNewTplDesc] = useState("");
   const [newTplLevel, setNewTplLevel] = useState<"BASIC" | "ADVANCED">("BASIC");
   const [editTplName, setEditTplName] = useState("");
@@ -197,20 +196,15 @@ export function SubjectDetailPage() {
   // Template CRUD actions
   const handleCreateTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTplName.trim()) {
-      toast.error("Vui lòng nhập tên lộ trình");
-      return;
-    }
     try {
       const created = await learningPathService.createAdminTemplate({
         subjectId,
-        pathName: newTplName,
+        pathName: newTplLevel === "ADVANCED" ? "Lộ trình nâng cao" : "Lộ trình cơ bản",
         description: newTplDesc,
         level: newTplLevel,
       });
       toast.success("Tạo lộ trình mẫu thành công");
       setIsCreateTemplateOpen(false);
-      setNewTplName("");
       setNewTplDesc("");
       setNewTplLevel("BASIC");
       setSelectedTemplateId(created.pathId);
@@ -222,10 +216,7 @@ export function SubjectDetailPage() {
 
   const handleEditTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplateId || !editTplName.trim()) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
-      return;
-    }
+    if (!selectedTemplateId) return;
     try {
       await learningPathService.updateAdminTemplate(selectedTemplateId, {
         pathName: editTplName,
@@ -688,7 +679,7 @@ export function SubjectDetailPage() {
                     }
                   }}
                   className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  title="Sửa tên lộ trình"
+                  title="Sửa mô tả lộ trình"
                 >
                   <Edit2 className="w-4 h-4 text-gray-500" />
                 </button>
@@ -1199,25 +1190,14 @@ export function SubjectDetailPage() {
             </div>
             <form onSubmit={handleCreateTemplateSubmit} className="p-4 space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Tên lộ trình *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: Lộ trình cơ bản, Lộ trình nâng cao..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={newTplName}
-                  onChange={(e) => setNewTplName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Loại lộ trình *</label>
                 <select
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newTplLevel}
                   onChange={(e) => setNewTplLevel(e.target.value as "BASIC" | "ADVANCED")}
                 >
-                  <option value="BASIC">Cơ bản (BASIC)</option>
-                  <option value="ADVANCED">Nâng cao (ADVANCED)</option>
+                  <option value="BASIC">Lộ trình cơ bản</option>
+                  <option value="ADVANCED">Lộ trình nâng cao</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -1262,16 +1242,8 @@ export function SubjectDetailPage() {
               </button>
             </div>
             <form onSubmit={handleEditTemplateSubmit} className="p-4 space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Tên lộ trình *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Nhập tên lộ trình..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={editTplName}
-                  onChange={(e) => setEditTplName(e.target.value)}
-                />
+              <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-150 text-sm text-gray-600">
+                Lộ trình: <span className="font-semibold text-gray-800">{editTplName}</span>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Mô tả ngắn</label>
