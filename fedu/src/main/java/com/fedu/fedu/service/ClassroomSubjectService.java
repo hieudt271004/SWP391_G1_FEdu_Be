@@ -9,6 +9,7 @@ public interface ClassroomSubjectService {
     List<ClassroomSubjectResponse> getSubjectsOfClassroom(Long classroomId);
     List<ClassroomSubjectResponse> getClassroomsBySubject(Long subjectId);
     List<ClassroomSubjectResponse> getClassroomSubjectsByStudent(long studentId);
+    List<ClassroomSubjectResponse> getClassroomSubjectsByLecturer(long lecturerId);
     ClassroomSubjectResponse changeLecturer(Long classroomSubjectId, Long lecturerId);
     void removeClassroomSubject(Long classroomSubjectId);
 }

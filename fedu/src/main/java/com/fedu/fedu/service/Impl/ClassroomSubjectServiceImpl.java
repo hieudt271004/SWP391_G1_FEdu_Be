@@ -82,6 +82,13 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ClassroomSubjectResponse> getClassroomSubjectsByLecturer(long lecturerId) {
+        return classroomSubjectRepository.findByLecturerId(lecturerId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public ClassroomSubjectResponse changeLecturer(Long classroomSubjectId, Long lecturerId) {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)

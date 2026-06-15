@@ -65,6 +65,14 @@ public class ClassroomSubjectController {
                 classroomSubjectService.getClassroomSubjectsByStudent(studentId));
     }
 
+    @Operation(summary = "Danh sách lớp-môn mà 1 giảng viên đang dạy (theo lecturerId)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/subjects/by-lecturer/{lecturerId}")
+    public ResponseData<List<ClassroomSubjectResponse>> getClassroomSubjectsByLecturer(@PathVariable Long lecturerId) {
+        return new ResponseData<>(HttpStatus.OK.value(), "OK",
+                classroomSubjectService.getClassroomSubjectsByLecturer(lecturerId));
+    }
+
     @Operation(summary = "Xem lộ trình (graph) của 1 lớp-môn — read-only cho admin")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/subjects/{classroomSubjectId}/graph")
