@@ -160,12 +160,13 @@ export function AddClassPage() {
                 <select
                   value={form.status || "inactive"}
                   onChange={(e) => handleChange("status", e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl outline-none transition-all cursor-pointer"
+                  disabled={form.status === "inactive"}
+                  className="w-full px-4 py-3 rounded-xl outline-none transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
                   onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
                   onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
                 >
-                  <option value="inactive">Chưa bắt đầu</option>
+                  <option value="inactive">Chưa bắt đầu (Giảng viên sẽ kích hoạt)</option>
                   <option value="active">Đang hoạt động</option>
                   <option value="completed">Đã hoàn thành</option>
                 </select>

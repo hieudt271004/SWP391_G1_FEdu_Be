@@ -94,8 +94,8 @@ export function AppRoutes() {
                 <Route path="/teacher/courses" element={<TeacherCoursesPage />} />
                 <Route path="/teacher/courses/:subjectId" element={<CourseClassroomsPage />} />
                 <Route path="/teacher/classes" element={<TeacherClassesPage />} />
-                <Route path="/teacher/classrooms/:classroomId" element={<ClassOverviewPage />} />
-                <Route path="/teacher/classrooms/:classroomId/manage" element={<ClassManagementPage />} />
+                <Route path="/teacher/classroom-subjects/:classroomSubjectId" element={<ClassOverviewPage />} />
+                <Route path="/teacher/classroom-subjects/:classroomSubjectId/manage" element={<ClassManagementPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
             </Route>

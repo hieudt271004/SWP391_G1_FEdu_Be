@@ -2,12 +2,16 @@ package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.req.ClassroomRequest;
 import com.fedu.fedu.dto.res.ClassroomResponse;
+import com.fedu.fedu.dto.res.ClassroomSubjectResponse;
 import com.fedu.fedu.dto.res.SubjectResponse;
 import com.fedu.fedu.entity.Classroom;
+import com.fedu.fedu.entity.ClassroomSubject;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.ClassroomRepository;
 import com.fedu.fedu.repository.ClassroomSubjectRepository;
 import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
+import com.fedu.fedu.repository.UserAccountRepository;
+import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.service.ClassroomService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +29,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final ClassroomRepository classroomRepository;
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final ClassroomSubjectRepository classroomSubjectRepository;
+    private final UserAccountRepository userAccountRepository;
 
     @Override
     @Transactional
@@ -48,8 +53,8 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Transactional
     public ClassroomResponse updateClassroom(Long classroomId, ClassroomRequest request) {
         log.info("Updating classroom id: {}", classroomId);
-
-        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
+        assertTeacherOwnsClassroom(classroomId);
+        Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
 
         classroom.setClassName(request.getClassName().trim());
@@ -59,18 +64,15 @@ public class ClassroomServiceImpl implements ClassroomService {
             classroom.setStatus(request.getStatus());
         }
 
-        Classroom updated = classroomRepository.save(classroom);
-        return toResponse(updated);
+        return toResponse(classroomRepository.save(classroom));
     }
 
     @Override
     @Transactional
     public void deleteClassroom(Long classroomId) {
-        log.info("Soft-deleting classroom id: {}", classroomId);
-
-        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
+        log.info("Deleting classroom id: {}", classroomId);
+        Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
-
         classroom.setIsDeleted(true);
         classroomRepository.save(classroom);
     }
@@ -78,7 +80,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public ClassroomResponse getClassroomById(Long classroomId) {
-        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
+        Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
         return toResponse(classroom);
     }
@@ -86,8 +88,8 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassroomResponse> getAllClassrooms() {
-        return classroomRepository.findAllActive()
-                .stream()
+        return classroomRepository.findAll().stream()
+                .filter(c -> !c.getIsDeleted())
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -102,11 +104,20 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     @Override
-    public List<ClassroomResponse> getClassroomsByLecturerId(Long lecturerId) {
+    @Transactional(readOnly = true)
+    public List<ClassroomSubjectResponse> getClassroomsByLecturerId(Long lecturerId) {
         return classroomSubjectRepository.findByLecturerId(lecturerId)
                 .stream()
-                .map(cs -> toResponse(cs.getClassroom()))
+                .map(this::toClassroomSubjectResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClassroomSubjectResponse getClassroomSubjectById(Long classroomSubjectId) {
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found with id: " + classroomSubjectId));
+        return toClassroomSubjectResponse(cs);
     }
 
     @Override
@@ -127,6 +138,8 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
     public List<SubjectResponse> getSubjectsByLecturerId(Long lecturerId) {
         return classroomSubjectRepository.findByLecturerId(lecturerId)
                 .stream()
@@ -154,5 +167,54 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .createdAt(classroom.getCreatedAt())
                 .updatedAt(classroom.getUpdatedAt())
                 .build();
+    }
+
+    private ClassroomSubjectResponse toClassroomSubjectResponse(ClassroomSubject cs) {
+        Classroom classroom = cs.getClassroom();
+        com.fedu.fedu.entity.Subject subject = cs.getSubject();
+        com.fedu.fedu.entity.UserAccount lecturer = cs.getLecturer();
+
+        int studentCount = classroomSubjectStudentRepository
+                .findAllByClassroomSubjectId(cs.getId()).size();
+
+        String lecturerName = "";
+        if (lecturer != null) {
+            String last = lecturer.getLastName() != null ? lecturer.getLastName() : "";
+            String first = lecturer.getFirstName() != null ? lecturer.getFirstName() : "";
+            lecturerName = (last + " " + first).trim();
+            if (lecturerName.isEmpty()) {
+                lecturerName = lecturer.getEmail();
+            }
+        }
+
+        return ClassroomSubjectResponse.builder()
+                .classroomSubjectId(cs.getId())
+                .classroomId(classroom != null ? classroom.getClassroomId() : null)
+                .className(classroom != null ? classroom.getClassName() : null)
+                .subjectId(subject != null ? subject.getSubjectId() : null)
+                .subjectCode(subject != null ? subject.getSubjectCode() : null)
+                .subjectName(subject != null ? subject.getSubjectName() : null)
+                .lecturerId(lecturer != null ? lecturer.getUserId() : null)
+                .lecturerName(lecturerName)
+                .displayName(classroom != null && subject != null 
+                        ? classroom.getClassName() + " - " + subject.getSubjectCode() 
+                        : null)
+                .studentCount(studentCount)
+                .build();
+    }
+
+    private void assertTeacherOwnsClassroom(Long classroomId) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null) return; // test/seed
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (isAdmin) return;
+
+        UserAccount actor = userAccountRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Unauthorized"));
+        if (!classroomSubjectRepository.existsByClassroomClassroomIdAndLecturerUserId(classroomId, actor.getUserId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không giảng dạy lớp học này");
+        }
     }
 }

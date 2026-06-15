@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import {
@@ -25,6 +26,7 @@ import {
   Undo2
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
+import { classroomService } from '../../../services/classroom.service';
 import { 
   learningPathService, 
   LearningNodeResponse, 
@@ -48,12 +50,20 @@ interface Student {
 
 export function ClassOverviewPage() {
   const navigate = useNavigate();
-  const { classroomId } = useParams();
+  const { classroomSubjectId } = useParams();
   const [students, setStudents] = useState<Student[]>([]);
-  const [classInfo, setClassInfo] = useState({ classCode: '', courseCode: '' });
+  const [classInfo, setClassInfo] = useState({ 
+    classCode: '', 
+    courseCode: '',
+    semester: '',
+    description: ''
+  });
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [classroomStatus, setClassroomStatus] = useState<string>('inactive');
+  const [parentClassroomId, setParentClassroomId] = useState<number | null>(null);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
   
@@ -82,20 +92,26 @@ export function ClassOverviewPage() {
   };
 
   const fetchClassroomData = async () => {
-    if (!classroomId) return;
+    if (!classroomSubjectId) return;
 
     try {
       setLoading(true);
       const [classData, studentsData, graph] = await Promise.all([
-        teacherService.getClassroomById(Number(classroomId)),
-        teacherService.getStudentsInClassroom(Number(classroomId)),
-        learningPathService.getClassroomGraph(Number(classroomId)),
+        teacherService.getClassroomSubjectById(Number(classroomSubjectId)),
+        classroomService.getStudents(Number(classroomSubjectId)),
+        learningPathService.getClassroomGraph(Number(classroomSubjectId)),
       ]);
+
+      const fullClassroom = await teacherService.getClassroomById(classData.classroomId);
       
       setClassInfo({
         classCode: classData.className,        
-        courseCode: classData.subjectCode,    
+        courseCode: classData.subjectCode,
+        semester: fullClassroom.semester || '',
+        description: fullClassroom.description || '',
       });
+      setClassroomStatus(fullClassroom.status || 'inactive');
+      setParentClassroomId(fullClassroom.classroomId);
       
       const formatted = (studentsData ?? []).map((item) => ({
         id: item.email?.split('@')[0].toUpperCase() || `ST${item.userId}`,
@@ -120,9 +136,31 @@ export function ClassOverviewPage() {
     }
   };
 
+  const handleUpdateStatus = async (newStatus: string) => {
+    if (!parentClassroomId) return;
+    const actionText = newStatus === 'active' ? 'bắt đầu' : 'kết thúc';
+    if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không? (Hành động này ảnh hưởng đến toàn bộ môn học trong lớp)`)) return;
+    
+    try {
+      setActionState(newStatus === 'active' ? 'publishing' : 'unpublishing');
+      await classroomService.update(parentClassroomId, {
+        className: classInfo.classCode,
+        semester: classInfo.semester || '',
+        description: classInfo.description || '',
+        status: newStatus,
+      });
+      setClassroomStatus(newStatus);
+      toast.success(newStatus === 'active' ? 'Lớp học đã bắt đầu thành công!' : 'Lớp học đã kết thúc!');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Cập nhật trạng thái thất bại');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
   useEffect(() => {
     fetchClassroomData();
-  }, [classroomId]);
+  }, [classroomSubjectId]);
 
   // Auto-select template if there's only one template available
   useEffect(() => {
@@ -136,8 +174,8 @@ export function ClassOverviewPage() {
   // Cross-tab consistency
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && classroomId) {
-        learningPathService.getClassroomGraph(Number(classroomId))
+      if (document.visibilityState === 'visible' && classroomSubjectId) {
+        learningPathService.getClassroomGraph(Number(classroomSubjectId))
           .then(graph => {
             setGraphData(graph);
             setNodes(graph.nodes || []);
@@ -149,16 +187,16 @@ export function ClassOverviewPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [classroomId]);
+  }, [classroomSubjectId]);
 
   const handleClone = async () => {
-    if (!classroomId || !selectedTemplateId) return;
+    if (!classroomSubjectId || !selectedTemplateId) return;
     try {
       setActionState('cloning');
-      await learningPathService.cloneFromTemplate(Number(classroomId), selectedTemplateId);
+      await learningPathService.cloneFromTemplate(Number(classroomSubjectId), selectedTemplateId);
       
       // Refetch classroom graph
-      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomId));
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setNodes(updatedGraph.nodes || []);
       if (updatedGraph.nodes && updatedGraph.nodes.length > 0) {
@@ -172,13 +210,13 @@ export function ClassOverviewPage() {
   };
 
   const handlePublish = async () => {
-    if (!classroomId || !graphData?.pathId) return;
+    if (!classroomSubjectId || !graphData?.pathId) return;
     try {
       setActionState('publishing');
-      const res = await learningPathService.publishClassroomPath(Number(classroomId), graphData.pathId);
+      const res = await learningPathService.publishClassroomPath(Number(classroomSubjectId), graphData.pathId);
       setSeededCount(res.seededStudents);
       
-      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomId));
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setNodes(updatedGraph.nodes || []);
       setShowPublishConfirm(false);
@@ -191,12 +229,12 @@ export function ClassOverviewPage() {
   };
 
   const handleUnpublish = async () => {
-    if (!classroomId || !graphData?.pathId) return;
+    if (!classroomSubjectId || !graphData?.pathId) return;
     try {
       setActionState('unpublishing');
-      await learningPathService.unpublishClassroomPath(Number(classroomId), graphData.pathId);
+      await learningPathService.unpublishClassroomPath(Number(classroomSubjectId), graphData.pathId);
       
-      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomId));
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setNodes(updatedGraph.nodes || []);
       setShowUnpublishConfirm(false);
@@ -214,14 +252,14 @@ export function ClassOverviewPage() {
   };
 
   const handleDeleteDraft = async () => {
-    if (!classroomId || !graphData?.pathId) return;
+    if (!classroomSubjectId || !graphData?.pathId) return;
     if (!window.confirm('Bạn có chắc chắn muốn xóa bản nháp này không? Lộ trình sẽ bị xóa vĩnh viễn.')) return;
     
     try {
       setActionState('deleting');
-      await learningPathService.deleteDraftPath(Number(classroomId), graphData.pathId);
+      await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
       
-      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomId));
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setNodes(updatedGraph.nodes || []);
       setSelectedTemplateId(null);
@@ -286,17 +324,48 @@ export function ClassOverviewPage() {
           <Button variant="outline" size="icon" onClick={() => navigate(-1)} disabled={isNonIdle}>
             <ArrowLeft className="size-4" />
           </Button>
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-3">
             Class {classInfo.classCode} - {classInfo.courseCode}
+            {(() => {
+              switch (classroomStatus) {
+                case 'active':
+                  return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Đang hoạt động</Badge>;
+                case 'completed':
+                  return <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200">Đã hoàn thành</Badge>;
+                default:
+                  return <Badge className="bg-amber-50 text-amber-700 border-amber-200">Chưa bắt đầu</Badge>;
+              }
+            })()}
           </h1>
         </div>
-        <Button 
-          onClick={() => navigate(`/teacher/classrooms/${classroomId}/manage`)} 
-          disabled={isNonIdle || graphData?.state === 'NO_PATH'}
-        >
-          <Settings className="size-4" />
-          Manage Class
-        </Button>
+        <div className="flex items-center gap-3">
+          {classroomStatus === 'inactive' && (
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
+              onClick={() => handleUpdateStatus('active')}
+              disabled={isNonIdle}
+            >
+              Bắt đầu lớp học
+            </Button>
+          )}
+          {classroomStatus === 'active' && (
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
+              onClick={() => handleUpdateStatus('completed')}
+              disabled={isNonIdle}
+            >
+              Kết thúc lớp học
+            </Button>
+          )}
+          <Button 
+            onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}/manage`)} 
+            disabled={isNonIdle || graphData?.state === 'NO_PATH'}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl flex items-center gap-1.5"
+          >
+            <Settings className="size-4" />
+            Chỉnh sửa Lộ trình
+          </Button>
+        </div>
       </div>
 
       {/* Hero pub/unpub state zones */}
@@ -409,8 +478,20 @@ export function ClassOverviewPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Class Roadmap</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-lg font-bold text-slate-800">Lộ trình lớp học</CardTitle>
+            {graphData?.state !== 'NO_PATH' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50/50 rounded-xl"
+                onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}/manage`)}
+                disabled={isNonIdle}
+              >
+                <Settings className="size-3.5 mr-1" />
+                Chỉnh sửa Lộ trình
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {nodes.length === 0 ? (
