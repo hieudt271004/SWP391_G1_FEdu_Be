@@ -5,6 +5,8 @@ import { Button } from '../../components/ui/button';
 import { BookOpen, GraduationCap, Loader2, AlertCircle, Users, ArrowRight, Clock, Plus, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { teacherService } from '../../services/teacher.service';
+import { classroomService } from '../../services/classroom.service';
+import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 
 export function TeacherDashboardPage() {
   const navigate = useNavigate();
@@ -12,7 +14,7 @@ export function TeacherDashboardPage() {
   const [subjectCount, setSubjectCount] = useState<number>(0);
   const [classCount, setClassCount] = useState<number>(0);
   const [studentCount, setStudentCount] = useState<number>(0);
-  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [classrooms, setClassrooms] = useState<ClassroomSubjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +41,7 @@ export function TeacherDashboardPage() {
         // Fetch student lists in parallel to calculate total unique students
         if (classroomsData && classroomsData.length > 0) {
           const studentLists = await Promise.all(
-            classroomsData.map(c => teacherService.getStudentsInClassroom(c.classroomId))
+            classroomsData.map(c => classroomService.getStudents(c.classroomSubjectId))
           );
           
           const uniqueStudentIds = new Set<number>();
@@ -215,7 +217,7 @@ export function TeacherDashboardPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {classrooms.slice(0, 3).map((cls) => (
-              <Card key={cls.classroomId} className="group backdrop-blur-md bg-white/60 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(99,102,241,0.1)] hover:border-indigo-500/20 transition-all duration-300 flex flex-col justify-between rounded-2xl">
+              <Card key={cls.classroomSubjectId} className="group backdrop-blur-md bg-white/60 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(99,102,241,0.1)] hover:border-indigo-500/20 transition-all duration-300 flex flex-col justify-between rounded-2xl">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-sm border border-emerald-100/10">
@@ -224,7 +226,7 @@ export function TeacherDashboardPage() {
                     </span>
                     <span className="text-xs text-slate-450 dark:text-slate-400 flex items-center gap-1 font-medium bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-md border border-slate-200/10">
                       <Clock className="w-3.5 h-3.5" />
-                      {cls.semester || 'Summer 2026'}
+                      {"Summer 2026"}
                     </span>
                   </div>
                   <CardTitle className="text-base font-extrabold text-slate-850 dark:text-white mt-3 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
@@ -232,7 +234,7 @@ export function TeacherDashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0 pb-4 text-slate-500 dark:text-slate-400 text-xs space-y-3">
-                  <p className="font-medium">Môn học ID: <span className="font-bold text-slate-700 dark:text-slate-300">{cls.subjectId}</span></p>
+                  <p className="font-medium">Môn học: <span className="font-bold text-slate-700 dark:text-slate-300">{cls.subjectName} ({cls.subjectCode})</span></p>
                   <div className="space-y-1 pt-1">
                     <div className="flex items-center justify-between text-xs font-medium">
                       <span className="text-slate-400 dark:text-slate-500">Tiến độ lớp học</span>
@@ -246,7 +248,7 @@ export function TeacherDashboardPage() {
                 <CardFooter className="pt-3 pb-3 border-t border-slate-100/30 dark:border-slate-800/30">
                   <Button
                     className="w-full bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-indigo-650 hover:to-purple-650 hover:text-white hover:shadow-lg hover:shadow-indigo-500/20 border-0 transition-all font-semibold rounded-xl py-2.5 hover:scale-[1.02] active:scale-[0.98] shadow-none"
-                    onClick={() => navigate(`/teacher/classrooms/${cls.classroomId}`)}
+                    onClick={() => navigate(`/teacher/classroom-subjects/${cls.classroomSubjectId}`)}
                   >
                     Vào lớp học
                   </Button>

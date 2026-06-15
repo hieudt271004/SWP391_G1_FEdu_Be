@@ -71,6 +71,8 @@ public class LearningPathIntegrationTest {
 
     private Classroom classroomA;
     private Classroom classroomB;
+    private ClassroomSubject classroomSubjectA;
+    private ClassroomSubject classroomSubjectB;
     private UserAccount teacherA;
     private UserAccount teacherB;
     private Subject subject;
@@ -111,8 +113,6 @@ public class LearningPathIntegrationTest {
         // Create classroom A owned by teacher A
         classroomA = Classroom.builder()
                 .className("Class A")
-                .lecturer(teacherA)
-                .subject(subject)
                 .status("active")
                 .isDeleted(false)
                 .build();
@@ -121,20 +121,26 @@ public class LearningPathIntegrationTest {
         // Create classroom B owned by teacher B
         classroomB = Classroom.builder()
                 .className("Class B")
-                .lecturer(teacherB)
-                .subject(subject)
                 .status("active")
                 .isDeleted(false)
                 .build();
         classroomRepository.save(classroomB);
 
         // Create classroom subject for Class A
-        ClassroomSubject classroomSubject = ClassroomSubject.builder()
+        classroomSubjectA = ClassroomSubject.builder()
                 .classroom(classroomA)
                 .subject(subject)
                 .lecturer(teacherA)
                 .build();
-        classroomSubjectRepository.save(classroomSubject);
+        classroomSubjectRepository.save(classroomSubjectA);
+
+        // Create classroom subject for Class B
+        classroomSubjectB = ClassroomSubject.builder()
+                .classroom(classroomB)
+                .subject(subject)
+                .lecturer(teacherB)
+                .build();
+        classroomSubjectRepository.save(classroomSubjectB);
 
         // Create template learning path
         templatePath = LearningPath.builder()
@@ -170,16 +176,16 @@ public class LearningPathIntegrationTest {
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testEndToEndLearningPathFlow() throws Exception {
         // 1. Clone template
-        LearningPath clonedPath = learningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(classroomA.getClassroomId())
+        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
                 .orElse(null);
         assertNull(clonedPath);
 
-        learningPathService.cloneLearningPath(classroomA.getClassroomId(), templatePath.getPathId());
+        learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
 
-        clonedPath = learningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(classroomA.getClassroomId())
+        clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
                 .orElse(null);
         assertNotNull(clonedPath);
-        assertEquals(classroomA.getClassroomId(), clonedPath.getClassroom().getClassroomId());
+        assertEquals(classroomSubjectA.getId(), clonedPath.getClassroomSubject().getId());
 
         // Create enrolled student
         UserAccount student = UserAccount.builder()
@@ -191,16 +197,14 @@ public class LearningPathIntegrationTest {
                 .build();
         userAccountRepository.save(student);
 
-        ClassroomSubject classroomSubject = classroomSubjectRepository.findByClassroomClassroomId(classroomA.getClassroomId())
-                .stream().findFirst().orElseThrow();
         ClassroomSubjectStudent enrollment = ClassroomSubjectStudent.builder()
-                .classroomSubject(classroomSubject)
+                .classroomSubject(classroomSubjectA)
                 .student(student)
                 .build();
         classroomSubjectStudentRepository.save(enrollment);
 
         // 2. Publish
-        learningPathService.publishClassroomPath(classroomA.getClassroomId(), clonedPath.getPathId());
+        learningPathService.publishClassroomPath(classroomSubjectA.getId(), clonedPath.getPathId());
 
         // Check SNP count
         long snpCount = studentNodeProgressRepository.count();
@@ -219,7 +223,7 @@ public class LearningPathIntegrationTest {
         AddStudentRequest addRequest = new AddStudentRequest();
         addRequest.setEmail("student2@fedu.edu.vn");
 
-        classroomEnrollmentService.enrollStudent(classroomA.getClassroomId(), addRequest);
+        classroomEnrollmentService.enrollStudent(classroomSubjectA.getId(), addRequest);
 
         // Check SNP backfilled only for student 2
         List<StudentNodeProgress> student2Progress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(student2.getUserId(), clonedPath.getPathId());
@@ -230,8 +234,8 @@ public class LearningPathIntegrationTest {
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testConcurrentPublishRace() throws Exception {
-        learningPathService.cloneLearningPath(classroomA.getClassroomId(), templatePath.getPathId());
-        LearningPath clonedPath = learningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(classroomA.getClassroomId()).orElseThrow();
+        learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
+        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).orElseThrow();
 
         int threadCount = 2;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -245,7 +249,7 @@ public class LearningPathIntegrationTest {
             executor.submit(() -> {
                 try {
                     latch.await();
-                    learningPathService.publishClassroomPath(classroomA.getClassroomId(), clonedPath.getPathId());
+                    learningPathService.publishClassroomPath(classroomSubjectA.getId(), clonedPath.getPathId());
                     successCount.incrementAndGet();
                 } catch (Exception e) {
                     failureCount.incrementAndGet();
@@ -267,12 +271,12 @@ public class LearningPathIntegrationTest {
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testAuthorizationForTeacherClassrooms() throws Exception {
-        // Teacher A calls GET classroom A graph -> 200
-        mockMvc.perform(get("/teacher-manage/classrooms/{classroomId}/graph", classroomA.getClassroomId()))
+        // Teacher A calls GET classroom subject A graph -> 200
+        mockMvc.perform(get("/teacher-manage/classroom-subjects/{classroomSubjectId}/graph", classroomSubjectA.getId()))
                 .andExpect(status().isOk());
 
-        // Teacher A calls GET classroom B graph -> 403 Access Denied
-        mockMvc.perform(get("/teacher-manage/classrooms/{classroomId}/graph", classroomB.getClassroomId()))
+        // Teacher A calls GET classroom subject B graph -> 403 Access Denied
+        mockMvc.perform(get("/teacher-manage/classroom-subjects/{classroomSubjectId}/graph", classroomSubjectB.getId()))
                 .andExpect(status().isForbidden());
     }
 
@@ -280,9 +284,9 @@ public class LearningPathIntegrationTest {
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testRollbackEnrollmentWhenBackfillFails() {
-        learningPathService.cloneLearningPath(classroomA.getClassroomId(), templatePath.getPathId());
-        LearningPath clonedPath = learningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(classroomA.getClassroomId()).orElseThrow();
-        learningPathService.publishClassroomPath(classroomA.getClassroomId(), clonedPath.getPathId());
+        learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
+        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).orElseThrow();
+        learningPathService.publishClassroomPath(classroomSubjectA.getId(), clonedPath.getPathId());
 
         UserAccount student = UserAccount.builder()
                 .email("studentRollback@fedu.edu.vn")
@@ -298,16 +302,14 @@ public class LearningPathIntegrationTest {
 
         // Spy on service and throw error on backfill progress call
         doThrow(new RuntimeException("Simulated backfill failure"))
-                .when(learningPathService).backfillProgressForStudent(eq(classroomA.getClassroomId()), anyLong());
+                .when(learningPathService).backfillProgressForStudent(eq(classroomSubjectA.getId()), anyLong());
 
         assertThrows(RuntimeException.class, () -> {
-            classroomEnrollmentService.enrollStudent(classroomA.getClassroomId(), request);
+            classroomEnrollmentService.enrollStudent(classroomSubjectA.getId(), request);
         });
 
         // Verify that classroom_subject_students row does not exist (rolled back)
-        ClassroomSubject classroomSubject = classroomSubjectRepository.findByClassroomClassroomId(classroomA.getClassroomId())
-                .stream().findFirst().orElseThrow();
-        boolean enrolled = classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(classroomSubject.getId(), student.getUserId()).isPresent();
+        boolean enrolled = classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(classroomSubjectA.getId(), student.getUserId()).isPresent();
         assertFalse(enrolled);
     }
 }

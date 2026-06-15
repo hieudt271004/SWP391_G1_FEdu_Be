@@ -26,6 +26,7 @@ import {
   AlertTriangle 
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
+import { classroomService } from '../../../services/classroom.service';
 import { 
   learningPathService, 
   LearningNodeResponse, 
@@ -51,7 +52,7 @@ interface Student {
 
 export function ClassManagementPage() {
   const navigate = useNavigate();
-  const { classroomId } = useParams();
+  const { classroomSubjectId } = useParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [classInfo, setClassInfo] = useState({ classCode: '', courseCode: '', subjectId: 0 });
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
@@ -102,9 +103,9 @@ export function ClassManagementPage() {
     }));
   };
 
-  const fetchGraphData = async (classroomIdVal: number) => {
+  const fetchGraphData = async (classroomSubjectIdVal: number) => {
     try {
-      const graph = await learningPathService.getClassroomGraph(classroomIdVal);
+      const graph = await learningPathService.getClassroomGraph(classroomSubjectIdVal);
       setGraphData(graph);
       setPathId(graph.pathId); 
       setNodes(graph.nodes || []);
@@ -117,13 +118,13 @@ export function ClassManagementPage() {
 
   useEffect(() => {
     const fetchClassroomData = async () => {
-      if (!classroomId) return;
+      if (!classroomSubjectId) return;
 
       try {
         setLoading(true);
         const [classData, studentsData] = await Promise.all([
-          teacherService.getClassroomById(Number(classroomId)),
-          teacherService.getStudentsInClassroom(Number(classroomId)),
+          teacherService.getClassroomSubjectById(Number(classroomSubjectId)),
+          classroomService.getStudents(Number(classroomSubjectId)),
         ]);
         setClassInfo({
           classCode: classData.className,       
@@ -138,7 +139,7 @@ export function ClassManagementPage() {
           progress: 0,
         }));
         setStudents(formatted);
-        await fetchGraphData(Number(classroomId));
+        await fetchGraphData(Number(classroomSubjectId));
       } catch (err: any) {
         console.error('Error loading classroom management:', err);
         setError(err.response?.data?.message || 'Failed to load classroom data');
@@ -148,13 +149,13 @@ export function ClassManagementPage() {
     };
 
     fetchClassroomData();
-  }, [classroomId]);
+  }, [classroomSubjectId]);
 
   // Cross-tab consistency
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && classroomId) {
-        fetchGraphData(Number(classroomId))
+      if (document.visibilityState === 'visible' && classroomSubjectId) {
+        fetchGraphData(Number(classroomSubjectId))
           .catch(err => console.error('Error auto-refreshing graph:', err));
       }
     };
@@ -162,7 +163,7 @@ export function ClassManagementPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [classroomId]);
+  }, [classroomSubjectId]);
 
   const handleAddNodeClick = () => {
     setNewNodeTitle('');
@@ -225,8 +226,8 @@ export function ClassManagementPage() {
       toast.success(`Node "${nodeToDelete.title}" deleted successfully`);
       setShowDeleteConfirm(false);
       setNodeToDelete(null);
-      if (classroomId) {
-        await fetchGraphData(Number(classroomId));
+      if (classroomSubjectId) {
+        await fetchGraphData(Number(classroomSubjectId));
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete node');
@@ -280,8 +281,8 @@ export function ClassManagementPage() {
       setEdgeMinScore('');
       setEdgeMaxScore('');
 
-      if (classroomId) {
-        await fetchGraphData(Number(classroomId));
+      if (classroomSubjectId) {
+        await fetchGraphData(Number(classroomSubjectId));
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to create node');

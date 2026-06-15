@@ -32,17 +32,17 @@ export function CourseClassroomsPage() {
         const subjectData = await teacherService.getSubjectById(Number(subjectId));   // bỏ khối if lồng
         if (!subjectData) throw new Error('môn học không tồn tại hoặc dữ liệu không hợp lệ');
         setSubject(subjectData);
-        const rawClassrooms = await teacherService.getClassroomsBySubject(Number(subjectId));
-        const mapped = (rawClassrooms ?? []).map((c) => ({
+        const rawClassrooms = await teacherService.getClassroomsByTeacher(user.userId);
+        const filtered = (rawClassrooms ?? []).filter((c) => c.subjectId === Number(subjectId));
+        const mapped = filtered.map((c) => ({
+          classroomSubjectId: c.classroomSubjectId,
           classroomId: c.classroomId,
           classroomCode: c.className,
           classroomName: c.className,
           subjectId: c.subjectId,
           teacherId: c.lecturerId ?? 0,
-          semester: c.semester ?? '',
-          year: c.createdAt ? new Date(c.createdAt).getFullYear() : new Date().getFullYear(),
-          createdAt: c.createdAt,
-          updatedAt: c.updatedAt,
+          semester: 'Summer 2026',
+          year: new Date().getFullYear(),
         }));
         setClassrooms(mapped);
 
@@ -70,8 +70,8 @@ export function CourseClassroomsPage() {
     fetchSubjectDetails();
   }, [subjectId, user]);
 
-  const handleEnterClass = (classroomId: number) => {
-    navigate(`/teacher/classrooms/${classroomId}`);
+  const handleEnterClass = (classroomSubjectId: number) => {
+    navigate(`/teacher/classroom-subjects/${classroomSubjectId}`);
   };
 
   if (loading) {
@@ -181,7 +181,7 @@ export function CourseClassroomsPage() {
             <div className="space-y-4">
               {myClassrooms.map((classroom) => {
                 return (
-                  <Card key={classroom.classroomId} className="hover:shadow-sm transition-all border-l-4 border-l-emerald-500">
+                  <Card key={classroom.classroomSubjectId || classroom.classroomId} className="hover:shadow-sm transition-all border-l-4 border-l-emerald-500">
                     <CardHeader className="pb-2">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-base font-bold text-emerald-950">{classroom.classroomName}</CardTitle>
@@ -199,7 +199,7 @@ export function CourseClassroomsPage() {
                     <CardFooter className="pt-2 border-t border-gray-50">
                       <Button
                         className="w-full text-xs font-semibold py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
-                        onClick={() => handleEnterClass(classroom.classroomId)}
+                        onClick={() => handleEnterClass(classroom.classroomSubjectId || classroom.classroomId)}
                       >
                         Vào quản lý lớp
                       </Button>

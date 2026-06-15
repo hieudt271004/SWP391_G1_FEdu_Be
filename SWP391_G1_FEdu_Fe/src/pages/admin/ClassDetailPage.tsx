@@ -198,13 +198,6 @@ export function ClassDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {classroom?.status === "inactive" && (
-            <button onClick={() => handleUpdateStatus("active")} disabled={updatingStatus}
-              className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
-              style={{ backgroundColor: "#059669", border: "none", cursor: updatingStatus ? "not-allowed" : "pointer" }}>
-              {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />} Bắt đầu lớp học
-            </button>
-          )}
           {classroom?.status === "active" && (
             <button onClick={() => handleUpdateStatus("completed")} disabled={updatingStatus}
               className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"

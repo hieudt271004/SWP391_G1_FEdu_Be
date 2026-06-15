@@ -24,4 +24,6 @@ public interface ClassroomSubjectRepository extends JpaRepository<ClassroomSubje
     List<ClassroomSubject> findByLecturerId(@Param("lecturerId") Long lecturerId);
 
     boolean existsByIdAndLecturerUserId(Long classroomSubjectId, Long lecturerId);
+
+    boolean existsByClassroomClassroomIdAndLecturerUserId(Long classroomId, Long lecturerId);
 }
