@@ -11,7 +11,7 @@ export function TeacherLayout() {
 
   const menuItems = [
     { icon: Home, label: 'Tổng quan', path: '/teacher/dashboard' },
-    { icon: BookOpen, label: 'Môn học', path: '/teacher/courses' },
+    { icon: BookOpen, label: 'Thư viện Lộ trình', path: '/teacher/courses' },
     { icon: GraduationCap, label: 'Lớp học', path: '/teacher/classes' },
     { icon: Settings, label: 'Cài đặt', path: '/teacher/profile' },
   ];

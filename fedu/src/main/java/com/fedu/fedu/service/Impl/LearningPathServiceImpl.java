@@ -132,7 +132,11 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .description(template.getDescription())
                 .isDeleted(false)
                 .build();
-        learningPathRepository.save(clonedPath);
+        try {
+            learningPathRepository.save(clonedPath);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new InvalidDataException("Lớp-môn đã có lộ trình. Xóa draft/unpublish trước.");
+        }
 
         Map<Long, LearningNode> nodeMap = new HashMap<>();
         for (LearningNode tn : templateNodes) {

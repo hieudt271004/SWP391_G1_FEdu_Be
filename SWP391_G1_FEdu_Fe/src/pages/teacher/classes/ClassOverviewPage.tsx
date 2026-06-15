@@ -360,9 +360,10 @@ export function ClassOverviewPage() {
           <Button 
             onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}/manage`)} 
             disabled={isNonIdle || graphData?.state === 'NO_PATH'}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl flex items-center gap-1.5"
           >
             <Settings className="size-4" />
-            Manage Class
+            Chỉnh sửa Lộ trình
           </Button>
         </div>
       </div>
@@ -477,8 +478,20 @@ export function ClassOverviewPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Class Roadmap</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-lg font-bold text-slate-800">Lộ trình lớp học</CardTitle>
+            {graphData?.state !== 'NO_PATH' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50/50 rounded-xl"
+                onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}/manage`)}
+                disabled={isNonIdle}
+              >
+                <Settings className="size-3.5 mr-1" />
+                Chỉnh sửa Lộ trình
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {nodes.length === 0 ? (

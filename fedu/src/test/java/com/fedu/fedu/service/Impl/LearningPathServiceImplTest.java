@@ -45,6 +45,18 @@ class LearningPathServiceImplTest {
     private ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     @Mock
     private UserAccountRepository userAccountRepository;
+    @Mock
+    private NodeMaterialRepository nodeMaterialRepository;
+    @Mock
+    private VideoRepository videoRepository;
+    @Mock
+    private FileEntityRepository fileEntityRepository;
+    @Mock
+    private TestRepository testRepository;
+    @Mock
+    private TestQuestionRepository testQuestionRepository;
+    @Mock
+    private TestAnswerRepository testAnswerRepository;
 
     @InjectMocks
     private LearningPathServiceImpl learningPathService;
