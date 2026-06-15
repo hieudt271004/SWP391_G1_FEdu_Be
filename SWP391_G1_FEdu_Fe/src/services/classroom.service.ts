@@ -39,6 +39,10 @@ export const classroomService = {
   getClassroomsBySubject: (subjectId: number) =>
     http.get<ClassroomSubjectResponse[]>(`/classrooms/subjects/by-subject/${subjectId}`),
 
+  // Danh sách lớp-môn mà 1 sinh viên đang học (theo studentId)
+  getClassroomSubjectsByStudent: (studentId: number) =>
+    http.get<ClassroomSubjectResponse[]>(`/classrooms/subjects/by-student/${studentId}`),
+
   addSubject: (classroomId: number, req: AddClassroomSubjectRequest) =>
     http.post<ClassroomSubjectResponse>(`/classrooms/${classroomId}/subjects`, req),
 
