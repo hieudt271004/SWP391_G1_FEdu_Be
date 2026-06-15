@@ -89,13 +89,16 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
             classroomSubjectId: cs.classroomSubjectId,
           })));
         } else {
-          const teacherClasses = await classroomService.getByTeacher(userDetail.id);
-          setCourses(teacherClasses.map(c => ({
-            id: String(c.classroomId),
-            code: c.subjectCode || "",
-            title: c.className,
+          // Giảng viên phụ trách các lớp-môn → lấy theo lớp-môn
+          const teacherClassSubjects = await classroomService.getClassroomSubjectsByLecturer(userDetail.id);
+          setCourses(teacherClassSubjects.map(cs => ({
+            id: String(cs.classroomSubjectId),
+            code: cs.subjectCode || "",
+            title: cs.displayName,
             status: "Đang dạy",
-            students: c.studentCount
+            students: cs.studentCount,
+            classroomId: cs.classroomId,
+            classroomSubjectId: cs.classroomSubjectId,
           })));
         }
       } catch (err: unknown) {
