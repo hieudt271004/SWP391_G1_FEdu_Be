@@ -2,9 +2,11 @@ package com.fedu.fedu.controller.admin;
 
 import com.fedu.fedu.dto.req.AddClassroomSubjectRequest;
 import com.fedu.fedu.dto.req.ChangeLecturerRequest;
+import com.fedu.fedu.dto.res.ClassroomGraphResponse;
 import com.fedu.fedu.dto.res.ClassroomSubjectResponse;
 import com.fedu.fedu.dto.res.ResponseData;
 import com.fedu.fedu.service.ClassroomSubjectService;
+import com.fedu.fedu.service.LearningPathService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -26,6 +28,7 @@ import java.util.List;
 public class ClassroomSubjectController {
 
     private final ClassroomSubjectService classroomSubjectService;
+    private final LearningPathService learningPathService;
 
     @Operation(summary = "Gán 1 môn + giảng viên vào lớp")
     @PreAuthorize("hasRole('ADMIN')")
@@ -52,6 +55,14 @@ public class ClassroomSubjectController {
     public ResponseData<List<ClassroomSubjectResponse>> getClassroomsBySubject(@PathVariable Long subjectId) {
         return new ResponseData<>(HttpStatus.OK.value(), "OK",
                 classroomSubjectService.getClassroomsBySubject(subjectId));
+    }
+
+    @Operation(summary = "Xem lộ trình (graph) của 1 lớp-môn — read-only cho admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/subjects/{classroomSubjectId}/graph")
+    public ResponseData<ClassroomGraphResponse> getClassroomGraph(@PathVariable Long classroomSubjectId) {
+        return new ResponseData<>(HttpStatus.OK.value(), "OK",
+                learningPathService.getClassroomGraph(classroomSubjectId));
     }
 
     @Operation(summary = "Đổi giảng viên cho 1 lớp-môn")
