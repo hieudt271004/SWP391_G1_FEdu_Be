@@ -62,7 +62,7 @@ export function ClassroomSubjectDetailPage() {
       const [subjects, students, classroomGraph] = await Promise.all([
         classroomService.getSubjectsOfClassroom(classroomId),
         classroomService.getStudents(csId),
-        learningPathService.getClassroomGraph(csId).catch(() => null),
+        learningPathService.getAdminClassroomGraph(csId).catch(() => null),
       ]);
       const found = subjects.find((s) => s.classroomSubjectId === csId) || null;
       if (!found) {
