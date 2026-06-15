@@ -11,6 +11,9 @@ interface Course {
   status: "Đang học" | "Đã hoàn thành" | "Đang dạy";
   progress?: number;
   students?: number;
+  // Điều hướng tới chi tiết lớp-môn (chỉ có ở nhánh học viên)
+  classroomId?: number;
+  classroomSubjectId?: number;
 }
 
 interface AdminUserDetail {
@@ -74,22 +77,28 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
 
         // Fetch courses based on role
         if (userDetail.role === "Học viên") {
-          const studentClasses = await classroomService.getByStudent(userDetail.id);
-          setCourses(studentClasses.map(c => ({
-            id: String(c.classroomId),
-            code: c.subjectCode || "",
-            title: c.className,
+          // Sinh viên enroll vào lớp-môn (không phải lớp container) → lấy theo lớp-môn
+          const studentClassSubjects = await classroomService.getClassroomSubjectsByStudent(userDetail.id);
+          setCourses(studentClassSubjects.map(cs => ({
+            id: String(cs.classroomSubjectId),
+            code: cs.subjectCode || "",
+            title: cs.displayName,
             status: "Đang học",
             progress: 0,
+            classroomId: cs.classroomId,
+            classroomSubjectId: cs.classroomSubjectId,
           })));
         } else {
-          const teacherClasses = await classroomService.getByTeacher(userDetail.id);
-          setCourses(teacherClasses.map(c => ({
-            id: String(c.classroomId),
-            code: c.subjectCode || "",
-            title: c.className,
+          // Giảng viên phụ trách các lớp-môn → lấy theo lớp-môn
+          const teacherClassSubjects = await classroomService.getClassroomSubjectsByLecturer(userDetail.id);
+          setCourses(teacherClassSubjects.map(cs => ({
+            id: String(cs.classroomSubjectId),
+            code: cs.subjectCode || "",
+            title: cs.displayName,
             status: "Đang dạy",
-            students: c.studentCount
+            students: cs.studentCount,
+            classroomId: cs.classroomId,
+            classroomSubjectId: cs.classroomSubjectId,
           })));
         }
       } catch (err: unknown) {
@@ -216,7 +225,11 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
                   key={course.id}
                   className="p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
                   style={{ border: "1px solid #e5e7eb" }}
-                  onClick={() => navigate(`/admin/subjects/${course.id}`)}
+                  onClick={() =>
+                    course.classroomSubjectId != null && course.classroomId != null
+                      ? navigate(`/admin/classes/${course.classroomId}/subjects/${course.classroomSubjectId}`)
+                      : navigate(`/admin/subjects/${course.id}`)
+                  }
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">

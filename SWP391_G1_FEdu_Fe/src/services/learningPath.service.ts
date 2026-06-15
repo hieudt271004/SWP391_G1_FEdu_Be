@@ -164,6 +164,9 @@ export const learningPathService = {
     http.get<LearningPathGraphResponse>(`/teacher-manage/learning-paths/${pathId}/graph`),
   getClassroomGraph: (classroomSubjectId: number) =>
     http.get<ClassroomGraphResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/graph`),
+  // Admin read-only: xem graph lớp-môn (endpoint riêng cho ADMIN, không đụng /teacher-manage)
+  getAdminClassroomGraph: (classroomSubjectId: number) =>
+    http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
   cloneFromTemplate: (classroomSubjectId: number, templatePathId: number) =>
     http.post<LearningPathResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path/${templatePathId}`),
   publishClassroomPath: (classroomSubjectId: number, pathId: number) =>

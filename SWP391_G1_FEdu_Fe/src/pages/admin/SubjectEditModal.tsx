@@ -20,7 +20,6 @@ export function SubjectEditModal({ isOpen, onClose, course, onSuccess }: Subject
     subjectCode: "",
     subjectName: "",
     description: "",
-    status: "draft",
   });
   
   const [submitting, setSubmitting] = useState(false);
@@ -32,7 +31,6 @@ export function SubjectEditModal({ isOpen, onClose, course, onSuccess }: Subject
         subjectCode: course.code || "",
         subjectName: course.title || "",
         description: course.description || "",
-        status: course.status || "draft",
       });
       setError(null);
     }
@@ -54,7 +52,6 @@ export function SubjectEditModal({ isOpen, onClose, course, onSuccess }: Subject
         subjectCode: formData.subjectCode.trim(),
         subjectName: formData.subjectName.trim(),
         description: formData.description.trim(),
-        status: formData.status,
       });
       onSuccess();
       onClose();
@@ -117,18 +114,6 @@ export function SubjectEditModal({ isOpen, onClose, course, onSuccess }: Subject
               rows={3}
               className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-indigo-600 transition-colors text-gray-900 text-sm resize-none"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Trạng thái môn học</label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-indigo-600 transition-colors text-gray-900 text-sm font-medium cursor-pointer"
-            >
-              <option value="draft">Bản nháp</option>
-              <option value="published">Đã xuất bản</option>
-            </select>
           </div>
 
           {/* Footer */}

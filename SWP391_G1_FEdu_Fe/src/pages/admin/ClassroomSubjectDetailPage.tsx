@@ -62,7 +62,7 @@ export function ClassroomSubjectDetailPage() {
       const [subjects, students, classroomGraph] = await Promise.all([
         classroomService.getSubjectsOfClassroom(classroomId),
         classroomService.getStudents(csId),
-        learningPathService.getClassroomGraph(csId).catch(() => null),
+        learningPathService.getAdminClassroomGraph(csId).catch(() => null),
       ]);
       const found = subjects.find((s) => s.classroomSubjectId === csId) || null;
       if (!found) {
@@ -202,20 +202,23 @@ export function ClassroomSubjectDetailPage() {
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}>
-              <span className="text-white text-sm font-bold">
-                {((cs.lecturerName?.split(" ").slice(-2).map((s) => s[0]).join("")) || "??").toUpperCase()}
-              </span>
+            <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer rounded-lg hover:bg-gray-50 -mx-1 px-1 py-1"
+              onClick={() => cs.lecturerId && navigate(`/admin/users/${cs.lecturerId}`)} title="Xem chi tiết giảng viên">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}>
+                <span className="text-white text-sm font-bold">
+                  {((cs.lecturerName?.split(" ").slice(-2).map((s) => s[0]).join("")) || "??").toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{cs.lecturerName}</div>
+                {lecturer?.email && (
+                  <div className="flex items-center gap-1.5 mt-0.5" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
+                    <Mail className="w-3.5 h-3.5" /> {lecturer.email}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{cs.lecturerName}</div>
-              {lecturer?.email && (
-                <div className="flex items-center gap-1.5 mt-0.5" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
-                  <Mail className="w-3.5 h-3.5" /> {lecturer.email}
-                </div>
-              )}
-            </div>
-            <button onClick={() => setEditingLecturer(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50" style={{ border: "1px solid #e5e7eb", color: "#4338ca", fontWeight: 600 }}>
+            <button onClick={() => setEditingLecturer(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50 shrink-0" style={{ border: "1px solid #e5e7eb", color: "#4338ca", fontWeight: 600 }}>
               <Pencil className="w-3.5 h-3.5" /> Đổi GV
             </button>
           </div>
@@ -298,7 +301,8 @@ export function ClassroomSubjectDetailPage() {
             {roster.map((student) => {
               const initials = ((student.firstName?.[0] || "") + (student.lastName?.[0] || "")).toUpperCase() || "??";
               return (
-                <div key={student.userId} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50" style={{ border: "1px solid #f3f4f6" }}>
+                <div key={student.userId} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 cursor-pointer" style={{ border: "1px solid #f3f4f6" }}
+                  onClick={() => navigate(`/admin/users/${student.userId}`)} title="Xem chi tiết học sinh">
                   <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}>
                     <span className="text-white text-xs font-bold">{initials}</span>
                   </div>
@@ -306,7 +310,7 @@ export function ClassroomSubjectDetailPage() {
                     <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#111827" }}>{student.firstName} {student.lastName}</div>
                     <div style={{ fontSize: "0.8125rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{student.email}</div>
                   </div>
-                  <button onClick={() => handleRemoveStudent(student.userId)} className="p-1.5 rounded-lg hover:bg-red-50" title="Xóa khỏi lớp-môn">
+                  <button onClick={(e) => { e.stopPropagation(); handleRemoveStudent(student.userId); }} className="p-1.5 rounded-lg hover:bg-red-50" title="Xóa khỏi lớp-môn">
                     <Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} />
                   </button>
                 </div>

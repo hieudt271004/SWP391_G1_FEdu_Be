@@ -68,6 +68,27 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ClassroomSubjectResponse> getClassroomsBySubject(Long subjectId) {
+        return classroomSubjectRepository.findBySubjectSubjectId(subjectId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassroomSubjectResponse> getClassroomSubjectsByStudent(long studentId) {
+        return classroomSubjectStudentRepository.findAllByStudentId(studentId)
+                .stream().map(css -> toResponse(css.getClassroomSubject())).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassroomSubjectResponse> getClassroomSubjectsByLecturer(long lecturerId) {
+        return classroomSubjectRepository.findByLecturerId(lecturerId)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public ClassroomSubjectResponse changeLecturer(Long classroomSubjectId, Long lecturerId) {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
