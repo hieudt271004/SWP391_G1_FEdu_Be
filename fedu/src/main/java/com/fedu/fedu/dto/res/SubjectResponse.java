@@ -23,6 +23,7 @@ public class SubjectResponse {
                 .subjectCode(s.getSubjectCode())
                 .subjectName(s.getSubjectName())
                 .description(s.getDescription())
+                .status(s.getStatus())
                 .build();
     }
 }
