@@ -3,12 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Search, UserPlus, Loader2, AlertCircle, Trash2,
   BookOpen, GraduationCap, Mail, Pencil, X, Route as RouteIcon,
-  Lock, Unlock, EyeOff, CheckCircle2, FileText,
+  Lock, CheckCircle2, FileText,
   ChevronDown, ChevronRight, Video, ClipboardCheck, ExternalLink,
 } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
 import { adminService } from "../../services/admin.service";
 import { learningPathService } from "../../services/learningPath.service";
+import { API_BASE_URL } from "../../services/api.client";
 import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
 import type { StudentInClass } from "../../types/student";
 import type { ClassroomGraphResponse, LearningNodeResponse, NodeContentResponse } from "../../services/learningPath.service";
@@ -19,14 +20,6 @@ const pathStateBadge = (state: ClassroomGraphResponse["state"]) => {
     case "PUBLISHED": return { label: "Đã xuất bản", bg: "#d1fae5", color: "#065f46" };
     case "DRAFT": return { label: "Bản nháp", bg: "#fef3c7", color: "#92400e" };
     default: return { label: "Chưa có lộ trình", bg: "#f3f4f6", color: "#6b7280" };
-  }
-};
-
-const nodeStatusBadge = (status: LearningNodeResponse["status"]) => {
-  switch (status) {
-    case "OPEN": return { label: "Mở", bg: "#d1fae5", color: "#065f46", Icon: Unlock };
-    case "HIDDEN": return { label: "Ẩn", bg: "#f3f4f6", color: "#6b7280", Icon: EyeOff };
-    default: return { label: "Khóa", bg: "#fef3c7", color: "#92400e", Icon: Lock };
   }
 };
 
@@ -205,8 +198,28 @@ export function ClassroomSubjectDetailPage() {
     </div>
   );
 
-  const sortedNodes = graph ? [...graph.nodes].sort((a, b) => a.displayOrder - b.displayOrder) : [];
+  const sortedNodes = graph ? [...graph.nodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId)) : [];
   const stBadge = graph ? pathStateBadge(graph.state) : pathStateBadge("NO_PATH");
+
+  // Node "phụ" = branchName Phụ HOẶC có cạnh fail đi vào (maxScore != null) — bền với data cũ/Unicode
+  const csEdges = graph?.edges || [];
+  const isSubNode = (n: LearningNodeResponse) =>
+    (n.branchName || "").normalize("NFC").trim().toLowerCase() === "phụ" ||
+    csEdges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
+  // Tự đánh số "Bài N" theo vị trí (node phụ = "Bài {N cha} phụ"); bỏ tiền tố "Bài N:" cũ trong title
+  const stripLessonPrefix = (t: string) => (t || "").replace(/^\s*Bài\s+\d+(\s*phụ)?\s*:?\s*/i, "").trim();
+  const nodeLabels: Record<number, string> = {};
+  let lessonCounter = 0;
+  for (const n of sortedNodes) {
+    if (isSubNode(n)) {
+      const pe = csEdges.find((e) => e.toNodeId === n.nodeId);
+      const parentLabel = pe ? nodeLabels[pe.fromNodeId] : undefined;
+      nodeLabels[n.nodeId] = parentLabel ? `${parentLabel} phụ` : `Bài ${lessonCounter} phụ`;
+    } else {
+      lessonCounter += 1;
+      nodeLabels[n.nodeId] = `Bài ${lessonCounter}`;
+    }
+  }
   const isPublished = graph?.state === "PUBLISHED";
   const totals = sortedNodes.reduce(
     (acc, n) => {
@@ -320,7 +333,6 @@ export function ClassroomSubjectDetailPage() {
         ) : (
           <div className="rounded-xl overflow-hidden divide-y divide-gray-100" style={{ border: "1px solid #f3f4f6" }}>
             {sortedNodes.map((node) => {
-              const nb = nodeStatusBadge(node.status);
               const isExpanded = expandedNodeId === node.nodeId;
               const content = nodeContent[node.nodeId];
               const cLoading = nodeContentLoading[node.nodeId];
@@ -331,20 +343,14 @@ export function ClassroomSubjectDetailPage() {
                     <span className="shrink-0" style={{ color: "#6b7280" }}>
                       {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </span>
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold" style={{ backgroundColor: "#eef2ff", color: "#4338ca" }}>
-                      {node.displayOrder}
-                    </div>
                     <div className="flex-1 min-w-0">
-                      <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{node.title}</div>
+                      <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{nodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}</div>
                       <div className="flex items-center gap-2 mt-0.5" style={{ fontSize: "0.75rem", color: "#6b7280" }}>
                         <span>{node.nodeType === "AT_HOME" ? "Tự học" : "Trên lớp"}</span>
                         {node.branchName && (<><span>·</span><span>{node.branchName}</span></>)}
                         {content && (<><span>·</span><span>{itemCount} mục</span></>)}
                       </div>
                     </div>
-                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0" style={{ backgroundColor: nb.bg, color: nb.color }}>
-                      <nb.Icon className="w-3 h-3" /> {nb.label}
-                    </span>
                   </div>
 
                   {isExpanded && (
@@ -361,7 +367,8 @@ export function ClassroomSubjectDetailPage() {
                       ) : (
                         <div className="pt-1">
                           {content.materials.map((m) => {
-                            const url = m.video?.videoUrl || m.file?.fileUrl;
+                            const rawUrl = m.video?.videoUrl || m.file?.fileUrl;
+                            const url = rawUrl && rawUrl.startsWith("/") ? `${API_BASE_URL}${rawUrl}` : rawUrl;
                             const isVideo = !!m.video;
                             const mins = m.video?.durationSeconds ? Math.max(1, Math.round(m.video.durationSeconds / 60)) : null;
                             const meta = isVideo ? `Video${mins ? ` · ${mins} phút` : ""}` : (m.file?.fileType || "Tài liệu");
