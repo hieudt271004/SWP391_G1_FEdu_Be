@@ -45,8 +45,9 @@ public class LearningNode extends AbstractEntity<Long> {
     @Column(name = "is_required", nullable = false)
     private Boolean isRequired = true;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "branch_name")
-    private String branchName;
+    private com.fedu.fedu.utils.enums.BranchType branchName;
 
     @Builder.Default
     @Column(name = "is_deleted")

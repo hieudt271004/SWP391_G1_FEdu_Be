@@ -117,12 +117,12 @@ class LearningPathServiceImplTest {
         when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
         when(learningPathRepository.findById(200L)).thenReturn(Optional.of(templatePath));
 
-        LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").displayOrder(1).isRequired(true).branchName("A").build();
-        LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(2).isRequired(false).branchName("B").build();
+        LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").displayOrder(1).isRequired(true).branchName(com.fedu.fedu.utils.enums.BranchType.MAIN).build();
+        LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(2).isRequired(false).branchName(com.fedu.fedu.utils.enums.BranchType.SUB).build();
         when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(200L))
                 .thenReturn(Arrays.asList(node1, node2));
 
-        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).branchName("A").minScore(BigDecimal.ZERO).maxScore(BigDecimal.TEN).build();
+        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).branchName(com.fedu.fedu.utils.enums.BranchType.MAIN).minScore(BigDecimal.ZERO).maxScore(BigDecimal.TEN).build();
         when(nodeEdgeRepository.findByFromNodeLearningPathPathId(200L))
                 .thenReturn(Collections.singletonList(edge));
 

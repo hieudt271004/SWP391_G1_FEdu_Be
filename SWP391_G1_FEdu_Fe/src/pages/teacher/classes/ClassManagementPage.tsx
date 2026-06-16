@@ -38,7 +38,8 @@ import {
   LearningNodeResponse, 
   NodeEdgeResponse, 
   ClassroomGraphResponse,
-  NodeContentResponse
+  NodeContentResponse,
+  BranchType
 } from '../../../services/learningPath.service';
 import { toast } from 'sonner';
 import {
@@ -90,7 +91,7 @@ export function ClassManagementPage() {
   const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
   const [newNodeOrder, setNewNodeOrder] = useState<number>(1);
   const [newNodeRequired, setNewNodeRequired] = useState(true);
-  const [newNodeBranch, setNewNodeBranch] = useState('');
+  const [newNodeBranch, setNewNodeBranch] = useState<BranchType | ''>('');
   const [newNodePredecessor, setNewNodePredecessor] = useState<string>('');
 
   // Edge score requirements state
@@ -107,7 +108,7 @@ export function ClassManagementPage() {
   const [editNodeStatus, setEditNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
   const [editNodeOrder, setEditNodeOrder] = useState<number>(1);
   const [editNodeRequired, setEditNodeRequired] = useState(true);
-  const [editNodeBranch, setEditNodeBranch] = useState('');
+  const [editNodeBranch, setEditNodeBranch] = useState<BranchType | ''>('');
   const [editingNode, setEditingNode] = useState(false);
 
   // Node content state
@@ -493,7 +494,7 @@ export function ClassManagementPage() {
         status: editNodeStatus,
         displayOrder: editNodeOrder,
         isRequired: editNodeRequired,
-        branchName: editNodeBranch.trim() || undefined,
+        branchName: editNodeBranch || undefined,
       });
 
       toast.success('Cập nhật node thành công!');
@@ -1024,13 +1025,15 @@ export function ClassManagementPage() {
 
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Branch Name (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Main, Optional"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     value={newNodeBranch}
-                    onChange={(e) => setNewNodeBranch(e.target.value)}
-                  />
+                    onChange={(e) => setNewNodeBranch(e.target.value as BranchType)}
+                  >
+                    <option value="">-- Chọn nhánh --</option>
+                    <option value="MAIN">MAIN (Nhánh chính)</option>
+                    <option value="SUB">SUB (Nhánh phụ)</option>
+                  </select>
                 </div>
               </div>
 
@@ -1457,13 +1460,15 @@ export function ClassManagementPage() {
 
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Tên nhánh (Branch Name)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. main, advanced"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-850"
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-850 font-medium"
                     value={editNodeBranch}
-                    onChange={(e) => setEditNodeBranch(e.target.value)}
-                  />
+                    onChange={(e) => setEditNodeBranch(e.target.value as BranchType)}
+                  >
+                    <option value="">-- Chọn nhánh --</option>
+                    <option value="MAIN">MAIN (Nhánh chính)</option>
+                    <option value="SUB">SUB (Nhánh phụ)</option>
+                  </select>
                 </div>
               </div>
 

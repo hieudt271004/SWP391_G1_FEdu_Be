@@ -29,6 +29,5 @@ public class CreateLearningNodeRequest {
 
     private Boolean isRequired;
 
-    @jakarta.validation.constraints.Size(max = 100, message = "branchName must not exceed 100 characters")
-    private String branchName;
+    private com.fedu.fedu.utils.enums.BranchType branchName;
 }
