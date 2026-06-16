@@ -9,6 +9,7 @@ import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.ClassroomSubjectRepository;
 import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
+import com.fedu.fedu.repository.LearningPathRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.service.ClassroomStudentService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final ClassroomSubjectRepository classroomSubjectRepository;
     private final UserAccountRepository userAccountRepository;
+    private final LearningPathRepository learningPathRepository;
 
     @Override
     @Transactional
@@ -58,6 +60,16 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
     @Override
     @Transactional
     public void removeStudentFromClassroomSubject(Long classroomSubjectId, long studentId) {
+        // Lớp đã bắt đầu (lộ trình đã PUBLISHED) thì không cho xóa SV — giữ dữ liệu, SV chỉ là không qua môn.
+        boolean published = learningPathRepository
+                .findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId)
+                .map(p -> p.getPublishedAt() != null)
+                .orElse(false);
+        if (published) {
+            throw new InvalidDataException(
+                    "Lớp đã bắt đầu (lộ trình đã xuất bản) — không thể xóa sinh viên. Dữ liệu được giữ lại, sinh viên chỉ là không qua môn.");
+        }
+
         ClassroomSubjectStudent enrollment = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
