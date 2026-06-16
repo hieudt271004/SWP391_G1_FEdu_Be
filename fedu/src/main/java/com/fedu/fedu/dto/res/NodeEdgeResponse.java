@@ -12,7 +12,7 @@ public class NodeEdgeResponse {
     private Long edgeId;
     private Long fromNodeId;
     private Long toNodeId;
-    private String branchName;
+    private com.fedu.fedu.utils.enums.BranchType branchName;
     private BigDecimal minScore;
     private BigDecimal maxScore;
 }

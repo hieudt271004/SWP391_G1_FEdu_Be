@@ -186,6 +186,18 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                     log.info("Migration successful: updated {} progress records from 'UNLOCKED' to 'OPEN'.", rows);
                 }
             }
+
+            // Normalize existing branch_name values to BranchType enum values (MAIN, SUB)
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("UPDATE learning_nodes SET branch_name = 'MAIN' WHERE LOWER(branch_name) IN ('main', 'a', 'primary')");
+                statement.execute("UPDATE learning_nodes SET branch_name = 'SUB' WHERE LOWER(branch_name) IN ('sub', 'b', 'optional', 'secondary')");
+                statement.execute("UPDATE learning_nodes SET branch_name = NULL WHERE branch_name NOT IN ('MAIN', 'SUB') AND branch_name IS NOT NULL");
+
+                statement.execute("UPDATE node_edges SET branch_name = 'MAIN' WHERE LOWER(branch_name) IN ('main', 'a', 'primary')");
+                statement.execute("UPDATE node_edges SET branch_name = 'SUB' WHERE LOWER(branch_name) IN ('sub', 'b', 'optional', 'secondary')");
+                statement.execute("UPDATE node_edges SET branch_name = NULL WHERE branch_name NOT IN ('MAIN', 'SUB') AND branch_name IS NOT NULL");
+                log.info("Branch name values normalized to 'MAIN' and 'SUB' successfully.");
+            }
         } catch (Exception e) {
             log.error("Failed to run database migration: {}", e.getMessage(), e);
         }

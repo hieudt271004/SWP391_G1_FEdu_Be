@@ -14,7 +14,7 @@ public class CreateNodeEdgeRequest {
     private Long fromNodeId;
     @NotNull(message = "toNodeId must not be null")
     private Long toNodeId;
-    private String branchName;
+    private com.fedu.fedu.utils.enums.BranchType branchName;
     private BigDecimal minScore;
     private BigDecimal maxScore;
 }

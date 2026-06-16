@@ -14,7 +14,7 @@ import type { AdminUserResponse } from "../../services/admin.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
 import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
-import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse } from "../../services/learningPath.service";
+import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse, BranchType } from "../../services/learningPath.service";
 import { toast } from "sonner";
 
 export function SubjectDetailPage() {
@@ -76,7 +76,7 @@ export function SubjectDetailPage() {
   const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
   const [newNodeOrder, setNewNodeOrder] = useState<number>(1);
   const [newNodeRequired, setNewNodeRequired] = useState(true);
-  const [newNodeBranch, setNewNodeBranch] = useState("");
+  const [newNodeBranch, setNewNodeBranch] = useState<BranchType | "">("");
   const [newNodePredecessor, setNewNodePredecessor] = useState<string>("");
 
   // Form states - Edge
@@ -84,7 +84,7 @@ export function SubjectDetailPage() {
   const [edgeMaxScore, setEdgeMaxScore] = useState("");
   const [edgeFromNodeId, setEdgeFromNodeId] = useState("");
   const [edgeToNodeId, setEdgeToNodeId] = useState("");
-  const [edgeBranch, setEdgeBranch] = useState("");
+  const [edgeBranch, setEdgeBranch] = useState<BranchType | "">("");
 
   // Form states - Node Content (Materials & Tests)
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
@@ -1489,13 +1489,15 @@ export function SubjectDetailPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Nhánh phụ, Nâng cao..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     value={newNodeBranch}
-                    onChange={(e) => setNewNodeBranch(e.target.value)}
-                  />
+                    onChange={(e) => setNewNodeBranch(e.target.value as BranchType)}
+                  >
+                    <option value="">-- Chọn nhánh --</option>
+                    <option value="MAIN">MAIN (Nhánh chính)</option>
+                    <option value="SUB">SUB (Nhánh phụ)</option>
+                  </select>
                 </div>
               </div>
 
@@ -1650,13 +1652,15 @@ export function SubjectDetailPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="Tên nhánh..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     value={nodeToEdit.branchName || ""}
-                    onChange={(e) => setNodeToEdit({ ...nodeToEdit, branchName: e.target.value })}
-                  />
+                    onChange={(e) => setNodeToEdit({ ...nodeToEdit, branchName: e.target.value as any })}
+                  >
+                    <option value="">-- Chọn nhánh --</option>
+                    <option value="MAIN">MAIN (Nhánh chính)</option>
+                    <option value="SUB">SUB (Nhánh phụ)</option>
+                  </select>
                 </div>
               </div>
 
@@ -1772,13 +1776,15 @@ export function SubjectDetailPage() {
 
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Tên nhánh liên kết (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Main, Optional..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   value={edgeBranch}
-                  onChange={(e) => setEdgeBranch(e.target.value)}
-                />
+                  onChange={(e) => setEdgeBranch(e.target.value as BranchType)}
+                >
+                  <option value="">-- Chọn nhánh --</option>
+                  <option value="MAIN">MAIN (Nhánh chính)</option>
+                  <option value="SUB">SUB (Nhánh phụ)</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
