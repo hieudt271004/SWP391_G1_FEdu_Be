@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Edit2, Trash2, Users, Loader2,
   AlertCircle, BookOpen, GraduationCap, X,
   ChevronRight, Map, GitFork, AlertTriangle, CheckCircle,
-  HelpCircle, Circle, Video as VideoIcon, FileText, ArrowUp, ArrowDown
+  Video as VideoIcon, FileText, ArrowUp, ArrowDown
 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
@@ -767,31 +767,8 @@ export function SubjectDetailPage() {
   };
 
   // UI Helpers
-  const getNodeColorClass = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return 'border-l-4 border-l-green-500 hover:bg-green-50/5';
-      case 'LOCKED':
-        return 'border-l-4 border-l-gray-300 hover:bg-gray-50 opacity-90';
-      case 'HIDDEN':
-        return 'border-l-4 border-l-yellow-500 hover:bg-yellow-50/5 opacity-70';
-      default:
-        return 'border-l-4 border-l-gray-300 hover:bg-gray-50';
-    }
-  };
-
-  const getNodeIcon = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'LOCKED':
-        return <Circle className="w-5 h-5 text-gray-400" />;
-      case 'HIDDEN':
-        return <HelpCircle className="w-5 h-5 text-yellow-500" />;
-      default:
-        return <Circle className="w-5 h-5" />;
-    }
-  };
+  // Viền xanh mép trái chỉ hiện khi MÔN đã xuất bản; bản nháp thì trung tính
+  const isSubjectPublished = subject?.status === "published";
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -1009,7 +986,7 @@ export function SubjectDetailPage() {
                       });
 
                     return (
-                      <div key={node.nodeId} className={`transition-all duration-200 ${getNodeColorClass(node.status)}`}>
+                      <div key={node.nodeId} className={`transition-all duration-200 ${isSubjectPublished ? "border-l-4 border-l-green-500 hover:bg-green-50/5" : "hover:bg-gray-50"}`}>
                         {/* Expandable node header */}
                         <div
                           onClick={() => toggleNode(node.nodeId)}
@@ -1019,7 +996,6 @@ export function SubjectDetailPage() {
                             <div className={`p-0.5 rounded transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>
                               <ChevronRight className="w-4 h-4 text-gray-400" />
                             </div>
-                            <div className="shrink-0">{getNodeIcon(node.status)}</div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className={`font-semibold text-sm ${node.status === "LOCKED" ? "text-gray-500" : "text-gray-900"}`}>
