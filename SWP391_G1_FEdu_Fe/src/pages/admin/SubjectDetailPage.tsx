@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Edit2, Trash2, Users, Loader2,
   AlertCircle, BookOpen, GraduationCap, X,
   ChevronRight, Map, GitFork, AlertTriangle, CheckCircle,
-  Video as VideoIcon, FileText, ArrowUp, ArrowDown
+  Video as VideoIcon, FileText, ArrowUp, ArrowDown, Download
 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
@@ -76,9 +76,6 @@ export function SubjectDetailPage() {
   const [newNodeType, setNewNodeType] = useState<'AT_HOME' | 'ON_CLASS'>('AT_HOME');
   const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('OPEN');
   const [newNodeRequired, setNewNodeRequired] = useState(true);
-  const [newNodeBranch, setNewNodeBranch] = useState<BranchType | "">("");
-  const [newNodePredecessor, setNewNodePredecessor] = useState<string>("");
-  const [newNodeOrder, setNewNodeOrder] = useState<number>(1);
   const [addNodeParent, setAddNodeParent] = useState<LearningNodeResponse | null>(null);
   const [branchMode, setBranchMode] = useState<'MAIN' | 'SUB'>('MAIN');
   const [addingNode, setAddingNode] = useState(false);
@@ -105,6 +102,10 @@ export function SubjectDetailPage() {
   const [materialSelectedFile, setMaterialSelectedFile] = useState<File | null>(null);
   // Xem trước tài liệu theo đúng định dạng
   const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
+  // PDF được tải dạng blob để xem trực tiếp (tránh X-Frame-Options chặn iframe cross-origin :5173 -> :8080)
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
 
   const [testTitle, setTestTitle] = useState("");
   const [testDesc, setTestDesc] = useState("");
@@ -220,6 +221,45 @@ export function SubjectDetailPage() {
       fetchGraph(selectedTemplateId);
     }
   }, [selectedTemplateId, fetchGraph]);
+
+  // Khi mở xem trước PDF: tải về dạng blob rồi nhúng bằng object URL.
+  // Iframe trỏ thẳng tới :8080 bị Spring Security chặn (X-Frame-Options: DENY),
+  // còn blob: cùng origin với trang FE nên hiển thị được.
+  useEffect(() => {
+    setPreviewBlobUrl(null);
+    setPreviewError(false);
+    if (!previewFile) return;
+
+    const t = (previewFile.type || "").toLowerCase();
+    const ext = (previewFile.url.split(/[?#]/)[0].split(".").pop() || "").toLowerCase();
+    const isPdf = t === "application/pdf" || ext === "pdf";
+    if (!isPdf) return;
+
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setPreviewLoading(true);
+    fetch(previewFile.url)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [previewFile]);
 
   const handleSelectTemplate = (id: number) => {
     setSelectedTemplateId(id);
@@ -1588,67 +1628,34 @@ export function SubjectDetailPage() {
                   <option value="ON_CLASS">Lên lớp</option>
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              {addNodeParent && (
                 <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Thứ tự hiển thị</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={newNodeOrder}
-                    onChange={(e) => setNewNodeOrder(Number(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
+                  <label className="text-sm font-semibold text-gray-700">Nhánh</label>
                   <select
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodeBranch}
-                    onChange={(e) => setNewNodeBranch(e.target.value as BranchType)}
+                    value={branchMode}
+                    onChange={(e) => setBranchMode(e.target.value as 'MAIN' | 'SUB')}
                   >
-                    <option value="">-- Chọn nhánh --</option>
-                    <option value="MAIN">MAIN (Nhánh chính)</option>
-                    <option value="SUB">SUB (Nhánh phụ)</option>
+                    <option value="MAIN">Nhánh chính</option>
+                    <option value="SUB">Nhánh phụ</option>
                   </select>
                 </div>
-              </div>
+              )}
 
-              {/* Edge Connection Section */}
-              <div className="space-y-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              {addNodeParent && branchMode === "SUB" && (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-600 uppercase">Điều kiện tiên quyết ban đầu</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodePredecessor}
-                    onChange={(e) => setNewNodePredecessor(e.target.value)}
-                  >
-                    <option value="">-- Không có điều kiện (Tự do) --</option>
-                    {nodes.map((n) => (
-                      <option key={n.nodeId} value={n.nodeId}>
-                        Sau khi hoàn thành: {n.title} (Thứ tự: {n.displayOrder})
-                      </option>
-                    ))}
-                  </select>
+                  <label className="text-sm font-semibold text-gray-700">Điểm tối thiểu để qua *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    placeholder="VD: 80"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={edgeMinScore}
+                    onChange={(e) => setEdgeMinScore(e.target.value)}
+                  />
                 </div>
-
-                {newNodePredecessor && (
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-gray-700">Điểm tối thiểu để qua *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        placeholder="VD: 80"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={edgeMinScore}
-                        onChange={(e) => setEdgeMinScore(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
 
               <div className="flex items-center gap-2 pt-2">
                 <input
@@ -1659,7 +1666,7 @@ export function SubjectDetailPage() {
                   onChange={(e) => setNewNodeRequired(e.target.checked)}
                 />
                 <label htmlFor="newNodeRequiredChk" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
-                  Mốc bắt buộc hoàn thành (Required)
+                  Mốc bắt buộc hoàn thành
                 </label>
               </div>
 
@@ -1956,18 +1963,48 @@ export function SubjectDetailPage() {
                 const is = (mime: string, exts: string[]) => t.startsWith(mime) || exts.includes(ext);
                 if (is("image/", ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"]))
                   return <img src={previewFile.url} alt={previewFile.name} style={{ maxWidth: "100%", maxHeight: "78vh" }} />;
-                if (t === "application/pdf" || ext === "pdf")
-                  return <iframe src={previewFile.url} title={previewFile.name} style={{ width: "100%", height: "78vh", border: "none" }} />;
+                if (t === "application/pdf" || ext === "pdf") {
+                  if (previewLoading)
+                    return (
+                      <div className="flex flex-col items-center gap-3 text-gray-500 py-16">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="text-sm">Đang tải tài liệu…</span>
+                      </div>
+                    );
+                  if (previewError || !previewBlobUrl)
+                    return (
+                      <div className="text-center text-sm text-gray-500 py-10">
+                        Không tải được bản xem trước.
+                        <div className="mt-2">
+                          <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-semibold">Mở trong tab mới / Tải về</a>
+                        </div>
+                      </div>
+                    );
+                  return <iframe src={previewBlobUrl} title={previewFile.name} style={{ width: "100%", height: "78vh", border: "none" }} />;
+                }
                 if (is("video/", ["mp4", "webm", "ogv", "mov"]))
                   return <video src={previewFile.url} controls style={{ maxWidth: "100%", maxHeight: "78vh" }} />;
                 if (is("audio/", ["mp3", "wav", "m4a", "ogg"]))
                   return <audio src={previewFile.url} controls />;
                 return (
-                  <div className="text-center text-sm text-gray-500 py-10">
-                    Không xem trực tiếp được định dạng này (vd Word/Excel).
-                    <div className="mt-2">
-                      <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-semibold">Tải về để xem</a>
+                  <div className="flex flex-col items-center gap-4 text-center py-12 px-6">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-indigo-500" />
                     </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 break-all">{previewFile.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">Định dạng Word/Excel/PowerPoint không xem trực tiếp trên trình duyệt được.</p>
+                    </div>
+                    <a
+                      href={previewFile.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      download={previewFile.name}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                      style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
+                    >
+                      <Download className="w-4 h-4" /> Tải về để xem
+                    </a>
                   </div>
                 );
               })()}
