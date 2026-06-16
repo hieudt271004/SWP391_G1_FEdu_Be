@@ -95,37 +95,37 @@ public class LearningPathIntegrationTest {
     @BeforeEach
     void setUp() {
         transactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        // Clear all database tables via direct SQL to avoid flush order and FK constraint issues in shared DB
-        jdbcTemplate.execute("DELETE FROM ticket_comments");
-        jdbcTemplate.execute("DELETE FROM support_tickets");
-        jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
-        jdbcTemplate.execute("DELETE FROM classroom_subject_students");
-        jdbcTemplate.execute("DELETE FROM student_selected_answers");
-        jdbcTemplate.execute("DELETE FROM student_test_responses");
-        jdbcTemplate.execute("DELETE FROM student_test_attempts");
-        jdbcTemplate.execute("DELETE FROM test_answers");
-        jdbcTemplate.execute("DELETE FROM test_questions");
-        jdbcTemplate.execute("DELETE FROM tests");
-        jdbcTemplate.execute("DELETE FROM videos");
-        jdbcTemplate.execute("DELETE FROM files");
-        jdbcTemplate.execute("DELETE FROM node_materials");
-        jdbcTemplate.execute("DELETE FROM question_answers");
-        jdbcTemplate.execute("DELETE FROM node_questions");
-        jdbcTemplate.execute("DELETE FROM node_reviews");
-        jdbcTemplate.execute("DELETE FROM submissions");
-        jdbcTemplate.execute("DELETE FROM student_learning_routes");
-        jdbcTemplate.execute("DELETE FROM student_node_progress");
-        jdbcTemplate.execute("DELETE FROM node_edges");
-        jdbcTemplate.execute("DELETE FROM learning_nodes");
-        jdbcTemplate.execute("DELETE FROM learning_paths");
-        jdbcTemplate.execute("DELETE FROM classroom_subjects");
-        jdbcTemplate.execute("DELETE FROM classrooms");
-        jdbcTemplate.execute("DELETE FROM subjects");
-        jdbcTemplate.execute("DELETE FROM tokens");
-        jdbcTemplate.execute("DELETE FROM user_role");
-        jdbcTemplate.execute("DELETE FROM user_account");
-
         transactionTemplate.execute(status -> {
+            // Clear all database tables via direct SQL to avoid flush order and FK constraint issues in shared DB
+            jdbcTemplate.execute("DELETE FROM ticket_comments");
+            jdbcTemplate.execute("DELETE FROM support_tickets");
+            jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
+            jdbcTemplate.execute("DELETE FROM classroom_subject_students");
+            jdbcTemplate.execute("DELETE FROM student_selected_answers");
+            jdbcTemplate.execute("DELETE FROM student_test_responses");
+            jdbcTemplate.execute("DELETE FROM student_test_attempts");
+            jdbcTemplate.execute("DELETE FROM test_answers");
+            jdbcTemplate.execute("DELETE FROM test_questions");
+            jdbcTemplate.execute("DELETE FROM tests");
+            jdbcTemplate.execute("DELETE FROM videos");
+            jdbcTemplate.execute("DELETE FROM files");
+            jdbcTemplate.execute("DELETE FROM node_materials");
+            jdbcTemplate.execute("DELETE FROM question_answers");
+            jdbcTemplate.execute("DELETE FROM node_questions");
+            jdbcTemplate.execute("DELETE FROM node_reviews");
+            jdbcTemplate.execute("DELETE FROM submissions");
+            jdbcTemplate.execute("DELETE FROM student_learning_routes");
+            jdbcTemplate.execute("DELETE FROM student_node_progress");
+            jdbcTemplate.execute("DELETE FROM node_edges");
+            jdbcTemplate.execute("DELETE FROM learning_nodes");
+            jdbcTemplate.execute("DELETE FROM learning_paths");
+            jdbcTemplate.execute("DELETE FROM classroom_subjects");
+            jdbcTemplate.execute("DELETE FROM classrooms");
+            jdbcTemplate.execute("DELETE FROM subjects");
+            jdbcTemplate.execute("DELETE FROM tokens");
+            jdbcTemplate.execute("DELETE FROM user_role");
+            jdbcTemplate.execute("DELETE FROM user_account");
+
             // Create teacher A
             teacherA = userAccountRepository.save(UserAccount.builder()
                     .email("teacherA@fedu.edu.vn")
