@@ -94,6 +94,7 @@ public class LearningPathIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        transactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         // Clear all database tables via direct SQL to avoid flush order and FK constraint issues in shared DB
         jdbcTemplate.execute("DELETE FROM ticket_comments");
         jdbcTemplate.execute("DELETE FROM support_tickets");
@@ -158,6 +159,7 @@ public class LearningPathIntegrationTest {
             subject = subjectRepository.save(Subject.builder()
                     .subjectCode("PRJ301")
                     .subjectName("Java Web")
+                    .status("published")
                     .isDeleted(false)
                     .build());
 

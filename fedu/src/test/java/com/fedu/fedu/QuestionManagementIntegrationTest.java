@@ -95,6 +95,7 @@ public class QuestionManagementIntegrationTest {
                 .orElseGet(() -> subjectRepository.save(Subject.builder()
                         .subjectCode("SWP391")
                         .subjectName("Software Development Project")
+                        .status("published")
                         .isDeleted(false)
                         .build()));
 

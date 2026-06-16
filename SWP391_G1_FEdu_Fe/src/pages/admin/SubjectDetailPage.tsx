@@ -1662,9 +1662,9 @@ export function SubjectDetailPage() {
                         onChange={(e) => setEdgeMinScore(e.target.value)}
                       />
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <input

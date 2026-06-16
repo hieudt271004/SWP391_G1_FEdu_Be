@@ -75,6 +75,7 @@ class LearningPathServiceImplTest {
 
         subject = new Subject();
         subject.setSubjectId(10L);
+        subject.setStatus("published");
 
         classroom = new Classroom();
         classroom.setClassroomId(100L);
