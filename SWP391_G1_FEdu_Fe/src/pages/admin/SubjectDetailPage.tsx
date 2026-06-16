@@ -290,15 +290,35 @@ export function SubjectDetailPage() {
   const isSubNode = (n: LearningNodeResponse) =>
     (n.branchName || "").normalize("NFC").trim().toLowerCase() === "phụ" ||
     edges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
-  // Tự đánh số "Bài N" theo vị trí (node phụ = "Bài {N cha} phụ"); bỏ tiền tố "Bài N:" cũ trong title
-  const stripLessonPrefix = (t: string) => (t || "").replace(/^\s*Bài\s+\d+(\s*phụ)?\s*:?\s*/i, "").trim();
+  // Node đã có cạnh rẽ nhánh phụ (mang ngưỡng điểm) đi ra hay chưa
+  const hasSubChild = (nodeId: number) => edges.some((e) => e.fromNodeId === nodeId && e.maxScore != null);
+  // Độ sâu trong nhánh phụ: 0 = node chính, 1 = node phụ #1, 2 = node phụ #2 (nghiệp vụ: tối đa 2)
+  const subDepth = (n: LearningNodeResponse, seen: Set<number> = new Set()): number => {
+    if (!isSubNode(n)) return 0;
+    if (seen.has(n.nodeId)) return 1; // chặn vòng lặp do cạnh loop-back (phụ#2 → phụ#1)
+    seen.add(n.nodeId);
+    const pe = edges.find((e) => e.toNodeId === n.nodeId);
+    const parent = pe ? nodes.find((x) => x.nodeId === pe.fromNodeId) : undefined;
+    return parent ? subDepth(parent, seen) + 1 : 1;
+  };
+  // Tự đánh số "Bài N"; node phụ = "Bài N phụ k" (k = 1, 2) — không nối đệ quy "phụ phụ"
+  const stripLessonPrefix = (t: string) => (t || "").replace(/^\s*Bài\s+\d+(\s*phụ(\s*\d+)?)?\s*:?\s*/i, "").trim();
   const nodeLabels: Record<number, string> = {};
+  const subInfo: Record<number, { base: string; idx: number }> = {};
   let lessonCounter = 0;
   for (const n of sortedNodes) {
     if (isSubNode(n)) {
       const pe = edges.find((e) => e.toNodeId === n.nodeId);
-      const parentLabel = pe ? nodeLabels[pe.fromNodeId] : undefined;
-      nodeLabels[n.nodeId] = parentLabel ? `${parentLabel} phụ` : `Bài ${lessonCounter} phụ`;
+      const parentId = pe?.fromNodeId;
+      const parentSub = parentId != null ? subInfo[parentId] : undefined;
+      const base = parentSub
+        ? parentSub.base
+        : parentId != null
+          ? nodeLabels[parentId] || `Bài ${lessonCounter}`
+          : `Bài ${lessonCounter}`;
+      const idx = parentSub ? parentSub.idx + 1 : 1;
+      subInfo[n.nodeId] = { base, idx };
+      nodeLabels[n.nodeId] = `${base} phụ ${idx}`;
     } else {
       lessonCounter += 1;
       nodeLabels[n.nodeId] = `Bài ${lessonCounter}`;
@@ -439,6 +459,8 @@ export function SubjectDetailPage() {
   const openChildAddNode = (parent: LearningNodeResponse) => {
     resetNodeForm();
     setAddNodeParent(parent);
+    // Node nối sau 1 node phụ luôn là node phụ #2 (tiếp nối nhánh phụ)
+    if (isSubNode(parent)) setBranchMode("SUB");
     setIsAddNodeOpen(true);
   };
 
@@ -460,7 +482,19 @@ export function SubjectDetailPage() {
       return;
     }
     const parent = addNodeParent;
-    const isSub = !!parent && branchMode === "SUB";
+    const parentIsSub = !!parent && isSubNode(parent);
+    // Nghiệp vụ: nhánh phụ tối đa 2 node → không cho nối thêm sau node phụ #2
+    if (parent && subDepth(parent) >= 2) {
+      toast.error("Nhánh phụ chỉ gồm tối đa 2 node");
+      return;
+    }
+    // Node nối sau node phụ luôn là node phụ tiếp theo, dù chọn nhánh nào
+    const isSub = parentIsSub || (!!parent && branchMode === "SUB");
+    // Mỗi node chính chỉ rẽ được 1 nhánh phụ
+    if (isSub && parent && !parentIsSub && hasSubChild(parent.nodeId)) {
+      toast.error("Mỗi node chỉ có 1 nhánh phụ");
+      return;
+    }
     if (isSub && !edgeMinScore) {
       toast.error("Vui lòng nhập điểm tối thiểu cho nhánh phụ");
       return;
@@ -1029,6 +1063,10 @@ export function SubjectDetailPage() {
                           maxScore: e.maxScore,
                         };
                       });
+                    // Node phụ chỉ nối thêm được tối đa tới node phụ #2; node chính luôn nối tiếp được
+                    const canAddChild = isSubNode(node)
+                      ? subDepth(node) < 2 && !hasSubChild(node.nodeId)
+                      : true;
 
                     return (
                       <div key={node.nodeId} className={`transition-all duration-200 ${isSubjectPublished ? "border-l-4 border-l-green-500 hover:bg-green-50/5" : "hover:bg-gray-50"}`}>
@@ -1294,15 +1332,17 @@ export function SubjectDetailPage() {
 
                             {/* Actions bar */}
                             <div className="flex items-center gap-2 pt-2 border-t border-gray-200/50">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openChildAddNode(node);
-                                }}
-                                className="flex items-center gap-1 px-3 py-1.5 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-xs font-semibold text-indigo-700 transition-colors"
-                              >
-                                <Plus className="w-3.5 h-3.5" /> Thêm node mới
-                              </button>
+                              {canAddChild && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openChildAddNode(node);
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-1.5 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-xs font-semibold text-indigo-700 transition-colors"
+                                >
+                                  <Plus className="w-3.5 h-3.5" /> Thêm node mới
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1631,14 +1671,25 @@ export function SubjectDetailPage() {
               {addNodeParent && (
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-gray-700">Nhánh</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={branchMode}
-                    onChange={(e) => setBranchMode(e.target.value as 'MAIN' | 'SUB')}
-                  >
-                    <option value="MAIN">Nhánh chính</option>
-                    <option value="SUB">Nhánh phụ</option>
-                  </select>
+                  {isSubNode(addNodeParent) ? (
+                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
+                      Nhánh phụ – node thứ 2
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                        value={branchMode}
+                        onChange={(e) => setBranchMode(e.target.value as 'MAIN' | 'SUB')}
+                      >
+                        <option value="MAIN">Nhánh chính</option>
+                        {!hasSubChild(addNodeParent.nodeId) && <option value="SUB">Nhánh phụ</option>}
+                      </select>
+                      {hasSubChild(addNodeParent.nodeId) && (
+                        <p className="text-xs text-gray-500">Node này đã có nhánh phụ nên chỉ thêm được nhánh chính.</p>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 
