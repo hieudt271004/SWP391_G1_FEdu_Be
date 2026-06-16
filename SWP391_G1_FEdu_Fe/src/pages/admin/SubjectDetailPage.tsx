@@ -78,6 +78,11 @@ export function SubjectDetailPage() {
   const [newNodeRequired, setNewNodeRequired] = useState(true);
   const [newNodeBranch, setNewNodeBranch] = useState<BranchType | "">("");
   const [newNodePredecessor, setNewNodePredecessor] = useState<string>("");
+  const [newNodeOrder, setNewNodeOrder] = useState<number>(1);
+  const [addNodeParent, setAddNodeParent] = useState<LearningNodeResponse | null>(null);
+  const [branchMode, setBranchMode] = useState<'MAIN' | 'SUB'>('MAIN');
+  const [addingNode, setAddingNode] = useState(false);
+  const submittingNodeRef = useRef(false);
 
   // Form states - Edge
   const [edgeMinScore, setEdgeMinScore] = useState("");
@@ -424,8 +429,8 @@ export function SubjectDetailPage() {
     submittingNodeRef.current = true;
     setAddingNode(true);
     try {
-      const mainNodes = nodes.filter((n) => (n.branchName || "Main") !== "Phụ");
-      const branchName = isSub ? "Phụ" : "Main";
+      const mainNodes = nodes.filter((n) => (n.branchName || "MAIN") !== "SUB");
+      const branchName = isSub ? "SUB" : "MAIN";
       let order: number;
 
       if (!parent) {
@@ -460,14 +465,14 @@ export function SubjectDetailPage() {
           await learningPathService.createAdminEdge({
             fromNodeId: parent.nodeId,
             toNodeId: createdNode.nodeId,
-            branchName: "Phụ",
+            branchName: "SUB",
             maxScore: Number(edgeMinScore),
           });
         } else {
           await learningPathService.createAdminEdge({
             fromNodeId: parent.nodeId,
             toNodeId: createdNode.nodeId,
-            branchName: "Main",
+            branchName: "MAIN",
           });
         }
       } else {
@@ -477,7 +482,7 @@ export function SubjectDetailPage() {
           await learningPathService.createAdminEdge({
             fromNodeId: lastMain.nodeId,
             toNodeId: createdNode.nodeId,
-            branchName: "Main",
+            branchName: "MAIN",
           });
         }
       }
