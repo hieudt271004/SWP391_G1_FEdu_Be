@@ -4,12 +4,13 @@ import {
   ArrowLeft, Plus, Edit2, Trash2, Users, Loader2,
   AlertCircle, BookOpen, GraduationCap, X,
   ChevronRight, Map, GitFork, AlertTriangle, CheckCircle,
-  HelpCircle, Circle, Video as VideoIcon, FileText, ArrowUp, ArrowDown
+  Video as VideoIcon, FileText, ArrowUp, ArrowDown
 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
 import { learningPathService } from "../../services/learningPath.service";
 import { adminService } from "../../services/admin.service";
+import { API_BASE_URL } from "../../services/api.client";
 import type { AdminUserResponse } from "../../services/admin.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
@@ -97,6 +98,8 @@ export function SubjectDetailPage() {
   const [materialFileName, setMaterialFileName] = useState("");
   const [materialFileDesc, setMaterialFileDesc] = useState("");
   const [materialSelectedFile, setMaterialSelectedFile] = useState<File | null>(null);
+  // Xem trước tài liệu theo đúng định dạng
+  const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
 
   const [testTitle, setTestTitle] = useState("");
   const [testDesc, setTestDesc] = useState("");
@@ -764,31 +767,8 @@ export function SubjectDetailPage() {
   };
 
   // UI Helpers
-  const getNodeColorClass = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return 'border-l-4 border-l-green-500 hover:bg-green-50/5';
-      case 'LOCKED':
-        return 'border-l-4 border-l-gray-300 hover:bg-gray-50 opacity-90';
-      case 'HIDDEN':
-        return 'border-l-4 border-l-yellow-500 hover:bg-yellow-50/5 opacity-70';
-      default:
-        return 'border-l-4 border-l-gray-300 hover:bg-gray-50';
-    }
-  };
-
-  const getNodeIcon = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'LOCKED':
-        return <Circle className="w-5 h-5 text-gray-400" />;
-      case 'HIDDEN':
-        return <HelpCircle className="w-5 h-5 text-yellow-500" />;
-      default:
-        return <Circle className="w-5 h-5" />;
-    }
-  };
+  // Viền xanh mép trái chỉ hiện khi MÔN đã xuất bản; bản nháp thì trung tính
+  const isSubjectPublished = subject?.status === "published";
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -1006,7 +986,7 @@ export function SubjectDetailPage() {
                       });
 
                     return (
-                      <div key={node.nodeId} className={`transition-all duration-200 ${getNodeColorClass(node.status)}`}>
+                      <div key={node.nodeId} className={`transition-all duration-200 ${isSubjectPublished ? "border-l-4 border-l-green-500 hover:bg-green-50/5" : "hover:bg-gray-50"}`}>
                         {/* Expandable node header */}
                         <div
                           onClick={() => toggleNode(node.nodeId)}
@@ -1016,7 +996,6 @@ export function SubjectDetailPage() {
                             <div className={`p-0.5 rounded transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>
                               <ChevronRight className="w-4 h-4 text-gray-400" />
                             </div>
-                            <div className="shrink-0">{getNodeIcon(node.status)}</div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className={`font-semibold text-sm ${node.status === "LOCKED" ? "text-gray-500" : "text-gray-900"}`}>
@@ -1212,19 +1191,19 @@ export function SubjectDetailPage() {
                                                 <span className="px-1 py-0.2 bg-orange-50 text-orange-700 border border-orange-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
                                                   <FileText className="w-2.5 h-2.5" /> File
                                                 </span>
-                                                <a
-                                                  href={
-                                                    m.file.fileUrl.startsWith("/")
-                                                      ? `http://localhost:8080${m.file.fileUrl}`
-                                                      : m.file.fileUrl
-                                                  }
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  className="text-indigo-600 hover:underline truncate max-w-[200px]"
-                                                  title={m.file.fileName}
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const f = m!.file!;
+                                                    const url = f.fileUrl.startsWith("/") ? `${API_BASE_URL}${f.fileUrl}` : f.fileUrl;
+                                                    setPreviewFile({ url, type: f.fileType || "", name: f.fileName || "Tài liệu" });
+                                                  }}
+                                                  className="text-indigo-600 hover:underline truncate max-w-[200px] text-left"
+                                                  title="Xem tài liệu"
                                                 >
-                                                  {m.file.fileName || "Tải tài liệu"}
-                                                </a>
+                                                  {m.file.fileName || "Tài liệu"}
+                                                </button>
                                               </div>
                                             )}
                                             {!isMaterial && t && (
@@ -1954,6 +1933,44 @@ export function SubjectDetailPage() {
       )}
 
       {/* ADD MATERIAL MODAL */}
+      {/* PREVIEW TÀI LIỆU theo đúng định dạng */}
+      {previewFile && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setPreviewFile(null)}>
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-3 border-b border-gray-150">
+              <span className="text-sm font-semibold text-gray-800 truncate pr-3">{previewFile.name}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-600 hover:underline">Mở/Tải về</a>
+                <button onClick={() => setPreviewFile(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              </div>
+            </div>
+            <div className="p-3 overflow-auto flex items-center justify-center bg-gray-50" style={{ minHeight: "300px" }}>
+              {(() => {
+                const t = (previewFile.type || "").toLowerCase();
+                const ext = (previewFile.url.split(/[?#]/)[0].split(".").pop() || "").toLowerCase();
+                const is = (mime: string, exts: string[]) => t.startsWith(mime) || exts.includes(ext);
+                if (is("image/", ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"]))
+                  return <img src={previewFile.url} alt={previewFile.name} style={{ maxWidth: "100%", maxHeight: "78vh" }} />;
+                if (t === "application/pdf" || ext === "pdf")
+                  return <iframe src={previewFile.url} title={previewFile.name} style={{ width: "100%", height: "78vh", border: "none" }} />;
+                if (is("video/", ["mp4", "webm", "ogv", "mov"]))
+                  return <video src={previewFile.url} controls style={{ maxWidth: "100%", maxHeight: "78vh" }} />;
+                if (is("audio/", ["mp3", "wav", "m4a", "ogg"]))
+                  return <audio src={previewFile.url} controls />;
+                return (
+                  <div className="text-center text-sm text-gray-500 py-10">
+                    Không xem trực tiếp được định dạng này (vd Word/Excel).
+                    <div className="mt-2">
+                      <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-semibold">Tải về để xem</a>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isAddMaterialOpen && selectedNodeForContent && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
