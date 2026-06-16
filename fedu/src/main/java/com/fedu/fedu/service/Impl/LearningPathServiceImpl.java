@@ -57,6 +57,17 @@ public class LearningPathServiceImpl implements LearningPathService {
         Subject subject = subjectRepository.findById(request.getSubjectId())
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
 
+        // Lộ trình gốc chỉ có 2 loại (cơ bản/nâng cao) và mỗi loại duy nhất 1 cái cho mỗi môn.
+        // Thay đổi riêng cho từng lớp do giáo viên xử lý ở bản clone.
+        boolean levelExists = learningPathRepository
+                .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(request.getSubjectId())
+                .stream()
+                .anyMatch(p -> p.getLevel() == request.getLevel());
+        if (levelExists) {
+            throw new InvalidDataException(
+                    "Môn học đã có lộ trình loại này rồi. Mỗi môn chỉ có tối đa 1 lộ trình cơ bản và 1 lộ trình nâng cao.");
+        }
+
         LearningPath learningPath = LearningPath.builder()
                 .subject(subject)
                 .pathName(request.getPathName())
@@ -115,6 +126,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (template.getClassroomSubject() != null
                 || !template.getSubject().getSubjectId().equals(cs.getSubject().getSubjectId())) {
             throw new InvalidDataException("Template không hợp lệ cho môn của lớp này");
+        }
+        // Chỉ cho clone khi MÔN đã được xuất bản
+        if (!"published".equalsIgnoreCase(cs.getSubject().getStatus())) {
+            throw new InvalidDataException("Môn học chưa được xuất bản — không thể clone lộ trình cho lớp.");
         }
         learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId)
                 .ifPresent(p -> { throw new InvalidDataException("Lớp-môn đã có lộ trình. Xóa draft/unpublish trước."); });

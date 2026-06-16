@@ -3,14 +3,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Search, UserPlus, Loader2, AlertCircle, Trash2,
   BookOpen, GraduationCap, Mail, Pencil, X, Route as RouteIcon,
-  Lock, Unlock, EyeOff, CheckCircle2, FileText,
+  Lock, CheckCircle2, FileText,
+  ChevronDown, ChevronRight, Video, ClipboardCheck, ExternalLink,
 } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
 import { adminService } from "../../services/admin.service";
 import { learningPathService } from "../../services/learningPath.service";
+import { API_BASE_URL } from "../../services/api.client";
 import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
 import type { StudentInClass } from "../../types/student";
-import type { ClassroomGraphResponse, LearningNodeResponse } from "../../services/learningPath.service";
+import type { ClassroomGraphResponse, LearningNodeResponse, NodeContentResponse } from "../../services/learningPath.service";
 import type { AdminUserResponse } from "../../services/admin.service";
 
 const pathStateBadge = (state: ClassroomGraphResponse["state"]) => {
@@ -18,14 +20,6 @@ const pathStateBadge = (state: ClassroomGraphResponse["state"]) => {
     case "PUBLISHED": return { label: "Đã xuất bản", bg: "#d1fae5", color: "#065f46" };
     case "DRAFT": return { label: "Bản nháp", bg: "#fef3c7", color: "#92400e" };
     default: return { label: "Chưa có lộ trình", bg: "#f3f4f6", color: "#6b7280" };
-  }
-};
-
-const nodeStatusBadge = (status: LearningNodeResponse["status"]) => {
-  switch (status) {
-    case "OPEN": return { label: "Mở", bg: "#d1fae5", color: "#065f46", Icon: Unlock };
-    case "HIDDEN": return { label: "Ẩn", bg: "#f3f4f6", color: "#6b7280", Icon: EyeOff };
-    default: return { label: "Khóa", bg: "#fef3c7", color: "#92400e", Icon: Lock };
   }
 };
 
@@ -40,6 +34,11 @@ export function ClassroomSubjectDetailPage() {
   const [graph, setGraph] = useState<ClassroomGraphResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Nội dung node (tài liệu + bài test) — admin xem read-only, fetch khi mở node
+  const [expandedNodeId, setExpandedNodeId] = useState<number | null>(null);
+  const [nodeContent, setNodeContent] = useState<Record<number, NodeContentResponse>>({});
+  const [nodeContentLoading, setNodeContentLoading] = useState<Record<number, boolean>>({});
 
   // Danh mục dùng cho modal/đổi GV
   const [teachers, setTeachers] = useState<AdminUserResponse[]>([]);
@@ -95,6 +94,40 @@ export function ClassroomSubjectDetailPage() {
     load();
   }, []);
 
+  // Coursera-style: nạp sẵn nội dung tất cả node → hiện thống kê + mở tức thì, mở sẵn node đầu
+  useEffect(() => {
+    if (!graph || graph.nodes.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        graph.nodes.map(async (n) => {
+          try { return [n.nodeId, await learningPathService.getAdminNodeContent(n.nodeId)] as const; }
+          catch { return [n.nodeId, { materials: [], tests: [] } as NodeContentResponse] as const; }
+        })
+      );
+      if (cancelled) return;
+      setNodeContent(Object.fromEntries(entries));
+      const firstId = [...graph.nodes].sort((a, b) => a.displayOrder - b.displayOrder)[0]?.nodeId ?? null;
+      setExpandedNodeId((prev) => prev ?? firstId);
+    })();
+    return () => { cancelled = true; };
+  }, [graph]);
+
+  const toggleNode = async (nodeId: number) => {
+    if (expandedNodeId === nodeId) { setExpandedNodeId(null); return; }
+    setExpandedNodeId(nodeId);
+    if (nodeContent[nodeId] || nodeContentLoading[nodeId]) return;
+    try {
+      setNodeContentLoading((p) => ({ ...p, [nodeId]: true }));
+      const content = await learningPathService.getAdminNodeContent(nodeId);
+      setNodeContent((p) => ({ ...p, [nodeId]: content }));
+    } catch (e) {
+      console.error("Lỗi tải nội dung node:", e);
+    } finally {
+      setNodeContentLoading((p) => ({ ...p, [nodeId]: false }));
+    }
+  };
+
   const lecturer = teachers.find((t) => t.userId === cs?.lecturerId);
 
   const handleChangeLecturer = async (lecturerId: number) => {
@@ -126,6 +159,10 @@ export function ClassroomSubjectDetailPage() {
   };
 
   const handleRemoveStudent = async (studentId: number) => {
+    if (graph?.state === "PUBLISHED") {
+      alert("Lớp đã bắt đầu (lộ trình đã xuất bản) — không thể xóa sinh viên. Dữ liệu được giữ lại, SV chỉ là không qua môn.");
+      return;
+    }
     if (!cs || !confirm("Xác nhận xóa học sinh khỏi lớp-môn?")) return;
     try {
       await classroomService.removeStudent(cs.classroomSubjectId, studentId);
@@ -161,8 +198,41 @@ export function ClassroomSubjectDetailPage() {
     </div>
   );
 
-  const sortedNodes = graph ? [...graph.nodes].sort((a, b) => a.displayOrder - b.displayOrder) : [];
+  const sortedNodes = graph ? [...graph.nodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId)) : [];
   const stBadge = graph ? pathStateBadge(graph.state) : pathStateBadge("NO_PATH");
+
+  // Node "phụ" = branchName Phụ HOẶC có cạnh fail đi vào (maxScore != null) — bền với data cũ/Unicode
+  const csEdges = graph?.edges || [];
+  const isSubNode = (n: LearningNodeResponse) =>
+    (n.branchName || "").normalize("NFC").trim().toLowerCase() === "phụ" ||
+    csEdges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
+  // Tự đánh số "Bài N" theo vị trí (node phụ = "Bài {N cha} phụ"); bỏ tiền tố "Bài N:" cũ trong title
+  const stripLessonPrefix = (t: string) => (t || "").replace(/^\s*Bài\s+\d+(\s*phụ)?\s*:?\s*/i, "").trim();
+  const nodeLabels: Record<number, string> = {};
+  let lessonCounter = 0;
+  for (const n of sortedNodes) {
+    if (isSubNode(n)) {
+      const pe = csEdges.find((e) => e.toNodeId === n.nodeId);
+      const parentLabel = pe ? nodeLabels[pe.fromNodeId] : undefined;
+      nodeLabels[n.nodeId] = parentLabel ? `${parentLabel} phụ` : `Bài ${lessonCounter} phụ`;
+    } else {
+      lessonCounter += 1;
+      nodeLabels[n.nodeId] = `Bài ${lessonCounter}`;
+    }
+  }
+  const isPublished = graph?.state === "PUBLISHED";
+  const totals = sortedNodes.reduce(
+    (acc, n) => {
+      const c = nodeContent[n.nodeId];
+      if (c) {
+        acc.videos += c.materials.filter((m) => m.video).length;
+        acc.docs += c.materials.filter((m) => m.file).length;
+        acc.tests += c.tests.length;
+      }
+      return acc;
+    },
+    { videos: 0, docs: 0, tests: 0 }
+  );
 
   return (
     <div className="space-y-6">
@@ -225,9 +295,9 @@ export function ClassroomSubjectDetailPage() {
         )}
       </div>
 
-      {/* Lộ trình học (read-only) */}
+      {/* Lộ trình học — giao diện kiểu Coursera, read-only cho admin */}
       <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <RouteIcon className="w-5 h-5" style={{ color: "#4338ca" }} />
             <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>Lộ trình học</h2>
@@ -237,8 +307,17 @@ export function ClassroomSubjectDetailPage() {
           </span>
         </div>
 
+        {sortedNodes.length > 0 && (
+          <div className="flex items-center flex-wrap gap-x-5 gap-y-1.5 pb-4 mb-2" style={{ fontSize: "0.8125rem", color: "#4b5563", borderBottom: "1px solid #f3f4f6" }}>
+            <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4" style={{ color: "#4338ca" }} /> {sortedNodes.length} bài học</span>
+            <span className="flex items-center gap-1.5"><Video className="w-4 h-4" style={{ color: "#7c3aed" }} /> {totals.videos} video</span>
+            <span className="flex items-center gap-1.5"><FileText className="w-4 h-4" style={{ color: "#4338ca" }} /> {totals.docs} tài liệu</span>
+            <span className="flex items-center gap-1.5"><ClipboardCheck className="w-4 h-4" style={{ color: "#d97706" }} /> {totals.tests} bài test</span>
+          </div>
+        )}
+
         {graph?.publishedAt && (
-          <p className="flex items-center gap-1.5 mb-4" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
+          <p className="flex items-center gap-1.5 mb-3" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
             <CheckCircle2 className="w-4 h-4" style={{ color: "#059669" }} />
             Xuất bản lúc {new Date(graph.publishedAt).toLocaleString("vi-VN")}
           </p>
@@ -252,27 +331,78 @@ export function ClassroomSubjectDetailPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="rounded-xl overflow-hidden divide-y divide-gray-100" style={{ border: "1px solid #f3f4f6" }}>
             {sortedNodes.map((node) => {
-              const nb = nodeStatusBadge(node.status);
+              const isExpanded = expandedNodeId === node.nodeId;
+              const content = nodeContent[node.nodeId];
+              const cLoading = nodeContentLoading[node.nodeId];
+              const itemCount = content ? content.materials.length + content.tests.length : 0;
               return (
-                <div key={node.nodeId} className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ border: "1px solid #f3f4f6" }}>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm font-bold" style={{ backgroundColor: "#eef2ff", color: "#4338ca" }}>
-                    {node.displayOrder}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{node.title}</div>
-                    <div className="flex items-center gap-2 mt-0.5" style={{ fontSize: "0.75rem", color: "#6b7280" }}>
-                      <span className="flex items-center gap-1">
-                        {node.nodeType === "AT_HOME" ? <FileText className="w-3 h-3" /> : <BookOpen className="w-3 h-3" />}
-                        {node.nodeType === "AT_HOME" ? "Tự học" : "Trên lớp"}
-                      </span>
-                      {node.branchName && (<><span>·</span><span>{node.branchName}</span></>)}
+                <div key={node.nodeId}>
+                  <div className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => toggleNode(node.nodeId)}>
+                    <span className="shrink-0" style={{ color: "#6b7280" }}>
+                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{nodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}</div>
+                      <div className="flex items-center gap-2 mt-0.5" style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                        <span>{node.nodeType === "AT_HOME" ? "Tự học" : "Trên lớp"}</span>
+                        {node.branchName && (<><span>·</span><span>{node.branchName}</span></>)}
+                        {content && (<><span>·</span><span>{itemCount} mục</span></>)}
+                      </div>
                     </div>
                   </div>
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0" style={{ backgroundColor: nb.bg, color: nb.color }}>
-                    <nb.Icon className="w-3 h-3" /> {nb.label}
-                  </span>
+
+                  {isExpanded && (
+                    <div className="pl-14 pr-4 pb-3" style={{ backgroundColor: "#fafafa" }}>
+                      {node.description && (
+                        <p className="pt-3 pb-1" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>{node.description}</p>
+                      )}
+                      {(cLoading || !content) ? (
+                        <div className="flex items-center gap-2 py-3" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Đang tải nội dung…
+                        </div>
+                      ) : itemCount === 0 ? (
+                        <p className="py-3" style={{ fontSize: "0.8125rem", color: "#9ca3af" }}>Bài học này chưa có tài liệu hoặc bài test.</p>
+                      ) : (
+                        <div className="pt-1">
+                          {content.materials.map((m) => {
+                            const rawUrl = m.video?.videoUrl || m.file?.fileUrl;
+                            const url = rawUrl && rawUrl.startsWith("/") ? `${API_BASE_URL}${rawUrl}` : rawUrl;
+                            const isVideo = !!m.video;
+                            const mins = m.video?.durationSeconds ? Math.max(1, Math.round(m.video.durationSeconds / 60)) : null;
+                            const meta = isVideo ? `Video${mins ? ` · ${mins} phút` : ""}` : (m.file?.fileType || "Tài liệu");
+                            return (
+                              <a key={`m${m.materialId}`} href={url || undefined} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-3 py-2.5 group" style={{ borderTop: "1px solid #f3f4f6" }}>
+                                <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ border: "1px solid #e5e7eb", backgroundColor: "white" }}>
+                                  {isVideo ? <Video className="w-4 h-4" style={{ color: "#7c3aed" }} /> : <FileText className="w-4 h-4" style={{ color: "#4338ca" }} />}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="group-hover:underline" style={{ fontSize: "0.875rem", fontWeight: 500, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title || m.file?.fileName || m.video?.title || "Tài liệu"}</div>
+                                  <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{meta}{m.required ? " · Bắt buộc" : ""}</div>
+                                </div>
+                                {url && <ExternalLink className="w-4 h-4 shrink-0" style={{ color: "#9ca3af" }} />}
+                              </a>
+                            );
+                          })}
+                          {content.tests.map((t) => (
+                            <div key={`t${t.testId}`} className="flex items-center gap-3 py-2.5" style={{ borderTop: "1px solid #f3f4f6" }}>
+                              <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ border: "1px solid #fde68a", backgroundColor: "white" }}>
+                                <ClipboardCheck className="w-4 h-4" style={{ color: "#d97706" }} />
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div style={{ fontSize: "0.875rem", fontWeight: 500, color: "#111827" }}>{t.title}</div>
+                                <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                                  Bài test{t.durationMinutes ? ` · ${t.durationMinutes} phút` : ""}{t.passingPercentage != null ? ` · Qua ≥ ${t.passingPercentage}%` : ""}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -310,9 +440,15 @@ export function ClassroomSubjectDetailPage() {
                     <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#111827" }}>{student.firstName} {student.lastName}</div>
                     <div style={{ fontSize: "0.8125rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{student.email}</div>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); handleRemoveStudent(student.userId); }} className="p-1.5 rounded-lg hover:bg-red-50" title="Xóa khỏi lớp-môn">
-                    <Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} />
-                  </button>
+                  {isPublished ? (
+                    <span className="p-1.5 shrink-0" title="Lớp đã bắt đầu — không thể xóa SV (giữ dữ liệu, SV chỉ là không qua môn)">
+                      <Lock className="w-4 h-4" style={{ color: "#d1d5db" }} />
+                    </span>
+                  ) : (
+                    <button onClick={(e) => { e.stopPropagation(); handleRemoveStudent(student.userId); }} className="p-1.5 rounded-lg hover:bg-red-50" title="Xóa khỏi lớp-môn">
+                      <Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} />
+                    </button>
+                  )}
                 </div>
               );
             })}
