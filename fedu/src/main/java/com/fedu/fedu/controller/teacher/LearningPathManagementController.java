@@ -75,18 +75,18 @@ public class LearningPathManagementController {
         @Operation(summary = "Clone learning path to classroom")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @ResponseStatus(HttpStatus.CREATED)
-        @PostMapping("/classrooms/{classroomId}/clone-learning-path/{pathId}")
-        public ResponseData<LearningPathResponse> cloneLearningPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
+        @PostMapping("/classroom-subjects/{classroomSubjectId}/clone-learning-path/{templatePathId}")
+        public ResponseData<LearningPathResponse> cloneLearningPath(@PathVariable Long classroomSubjectId, @PathVariable Long templatePathId) {
             return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path cloned successfully",
-                    learningPathService.cloneLearningPath(classroomId, pathId));
+                    learningPathService.cloneLearningPath(classroomSubjectId, templatePathId));
         }
 
         @Operation(summary = "Get classroom learning paths")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @GetMapping("/classrooms/{classroomId}/learning-paths")
-        public ResponseData<List<LearningPathResponse>> getClassroomLearningPaths(@PathVariable Long classroomId) {
+        @GetMapping("/classroom-subjects/{classroomSubjectId}/learning-paths")
+        public ResponseData<List<LearningPathResponse>> getClassroomLearningPaths(@PathVariable Long classroomSubjectId) {
             return new ResponseData<>(HttpStatus.OK.value(), "Classroom learning paths retrieved successfully",
-                    learningPathService.getClassroomLearningPaths(classroomId));
+                    learningPathService.getClassroomLearningPaths(classroomSubjectId));
         }
 
         @Operation(summary = "Create learning node")
@@ -132,10 +132,10 @@ public class LearningPathManagementController {
 
         @Operation(summary = "Get classroom nodes by classroom")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @GetMapping("/classrooms/{classroomId}/learning-nodes")
-        public ResponseData<List<LearningNodeResponse>> getClassroomNodesByClassroomId(@PathVariable Long classroomId) {
+        @GetMapping("/classroom-subjects/{classroomSubjectId}/learning-nodes")
+        public ResponseData<List<LearningNodeResponse>> getClassroomNodesByClassroomId(@PathVariable Long classroomSubjectId) {
             return new ResponseData<>(HttpStatus.OK.value(), "Classroom nodes retrieved successfully",
-                    learningPathService.getClassroomNodesByClassroomId(classroomId));
+                    learningPathService.getClassroomNodesByClassroomId(classroomSubjectId));
         }
 
         @Operation(summary = "Get learning path graph")
@@ -148,33 +148,33 @@ public class LearningPathManagementController {
 
         @Operation(summary = "Get classroom graph")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @GetMapping("/classrooms/{classroomId}/graph")
-        public ResponseData<ClassroomGraphResponse> getClassroomGraph(@PathVariable Long classroomId) {
+        @GetMapping("/classroom-subjects/{classroomSubjectId}/graph")
+        public ResponseData<ClassroomGraphResponse> getClassroomGraph(@PathVariable Long classroomSubjectId) {
             return new ResponseData<>(HttpStatus.OK.value(), "Classroom graph retrieved successfully",
-                    learningPathService.getClassroomGraph(classroomId));
+                    learningPathService.getClassroomGraph(classroomSubjectId));
         }
 
         @Operation(summary = "Publish classroom learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @PostMapping("/classrooms/{classroomId}/learning-paths/{pathId}/publish")
-        public ResponseData<PublishResultResponse> publishClassroomPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
+        @PostMapping("/classroom-subjects/{classroomSubjectId}/learning-paths/{pathId}/publish")
+        public ResponseData<PublishResultResponse> publishClassroomPath(@PathVariable Long classroomSubjectId, @PathVariable Long pathId) {
             return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình đã được publish thành công",
-                    learningPathService.publishClassroomPath(classroomId, pathId));
+                    learningPathService.publishClassroomPath(classroomSubjectId, pathId));
         }
 
         @Operation(summary = "Unpublish classroom learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @PostMapping("/classrooms/{classroomId}/learning-paths/{pathId}/unpublish")
-        public ResponseData<Void> unpublishClassroomPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
-            learningPathService.unpublishClassroomPath(classroomId, pathId);
+        @PostMapping("/classroom-subjects/{classroomSubjectId}/learning-paths/{pathId}/unpublish")
+        public ResponseData<Void> unpublishClassroomPath(@PathVariable Long classroomSubjectId, @PathVariable Long pathId) {
+            learningPathService.unpublishClassroomPath(classroomSubjectId, pathId);
             return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình đã được unpublish thành công");
         }
 
         @Operation(summary = "Delete draft learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @DeleteMapping("/classrooms/{classroomId}/learning-paths/{pathId}")
-        public ResponseData<Void> deleteDraftPath(@PathVariable Long classroomId, @PathVariable Long pathId) {
-            learningPathService.deleteDraftPath(classroomId, pathId);
+        @DeleteMapping("/classroom-subjects/{classroomSubjectId}/learning-paths/{pathId}")
+        public ResponseData<Void> deleteDraftPath(@PathVariable Long classroomSubjectId, @PathVariable Long pathId) {
+            learningPathService.deleteDraftPath(classroomSubjectId, pathId);
             return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình nháp đã được xóa thành công");
         }
 

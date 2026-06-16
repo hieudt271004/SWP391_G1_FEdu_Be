@@ -1,9 +1,13 @@
 import { http } from './http';
 
+export type LearningPathLevel = 'BASIC' | 'ADVANCED';
+export type BranchType = 'MAIN' | 'SUB';
+
 export interface CreateLearningPathRequest {
   subjectId: number;
   pathName: string;
   description?: string;
+  level: LearningPathLevel;
 }
 
 export interface LearningPathResponse {
@@ -12,9 +16,10 @@ export interface LearningPathResponse {
   pathName: string;
   description: string;
   createdById: number;
+  classroomSubjectId?: number | null;
+  level?: LearningPathLevel | null;
   createdAt: string;
   updatedAt: string;
-  publishedAt?: string | null;
 }
 
 export interface LearningNodeResponse {
@@ -24,7 +29,7 @@ export interface LearningNodeResponse {
   title: string;
   description: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  branchName?: string;
+  branchName?: BranchType;
   displayOrder: number;
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
   isRequired: boolean;
@@ -37,7 +42,7 @@ export interface NodeEdgeResponse {
   edgeId: number;
   fromNodeId: number;
   toNodeId: number;
-  branchName?: string;
+  branchName?: BranchType;
   minScore?: number;
   maxScore?: number;
 }
@@ -63,7 +68,7 @@ export interface PublishResultResponse {
 }
 
 export interface ClassroomGraphResponse {
-  classroomId: number;
+  classroomSubjectId: number;
   state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED';
   pathId: number | null;
   publishedAt: string | null;
@@ -78,16 +83,26 @@ export interface CreateLearningNodeRequest {
   title: string;
   description?: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  branchName?: string;
+  branchName?: BranchType;
   displayOrder: number;
   status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
   isRequired?: boolean;
 }
 
+export interface UpdateLearningNodeRequest {
+  title: string;
+  description?: string;
+  nodeType: 'AT_HOME' | 'ON_CLASS';
+  status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  displayOrder?: number;
+  isRequired?: boolean;
+  branchName?: BranchType;
+}
+
 export interface CreateNodeEdgeRequest {
   fromNodeId: number;
   toNodeId: number;
-  branchName?: string;
+  branchName?: BranchType;
   minScore?: number;
   maxScore?: number;
 }
@@ -148,19 +163,22 @@ export const learningPathService = {
     http.post<LearningPathResponse>('/teacher-manage/learning-paths', request),
   getLearningPathGraph: (pathId: number) =>
     http.get<LearningPathGraphResponse>(`/teacher-manage/learning-paths/${pathId}/graph`),
-  getClassroomGraph: (classroomId: number) =>
-    http.get<ClassroomGraphResponse>(`/teacher-manage/classrooms/${classroomId}/graph`),
-  cloneFromTemplate: (classroomId: number, templatePathId: number) =>
-    http.post<LearningPathResponse>(`/teacher-manage/classrooms/${classroomId}/clone-learning-path/${templatePathId}`),
-  publishClassroomPath: (classroomId: number, pathId: number) =>
-    http.post<PublishResultResponse>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}/publish`),
-  unpublishClassroomPath: (classroomId: number, pathId: number) =>
-    http.post<void>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}/unpublish`),
-  deleteDraftPath: (classroomId: number, pathId: number) =>
-    http.delete<void>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}`),
+  getClassroomGraph: (classroomSubjectId: number) =>
+    http.get<ClassroomGraphResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/graph`),
+  // Admin read-only: xem graph lớp-môn (endpoint riêng cho ADMIN, không đụng /teacher-manage)
+  getAdminClassroomGraph: (classroomSubjectId: number) =>
+    http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
+  cloneFromTemplate: (classroomSubjectId: number, templatePathId: number) =>
+    http.post<LearningPathResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path/${templatePathId}`),
+  publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
+    http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
+  unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>
+    http.post<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/unpublish`),
+  deleteDraftPath: (classroomSubjectId: number, pathId: number) =>
+    http.delete<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}`),
   createLearningNode: (request: CreateLearningNodeRequest) =>
     http.post<LearningNodeResponse>('/teacher-manage/learning-nodes', request),
-  updateLearningNode: (nodeId: number, request: Partial<CreateLearningNodeRequest>) =>
+  updateLearningNode: (nodeId: number, request: UpdateLearningNodeRequest) =>
     http.put<LearningNodeResponse>(`/teacher-manage/learning-nodes/${nodeId}`, request),
   deleteLearningNode: (nodeId: number) =>
     http.delete<void>(`/teacher-manage/learning-nodes/${nodeId}`),
@@ -204,11 +222,8 @@ export const learningPathService = {
     http.delete<void>(`/admin/tests/${testId}`),
   reorderAdminNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/admin/learning-nodes/${nodeId}/reorder-content`, requests),
-  publishAdminTemplate: (pathId: number) =>
-    http.post<LearningPathResponse>(`/admin/learning-paths/${pathId}/publish`),
-  unpublishAdminTemplate: (pathId: number) =>
-    http.post<LearningPathResponse>(`/admin/learning-paths/${pathId}/unpublish`),
 
+  // Teacher node content endpoints
   getTeacherNodeContent: (nodeId: number) =>
     http.get<NodeContentResponse>(`/teacher-manage/learning-nodes/${nodeId}/content`),
   addTeacherNodeMaterial: (nodeId: number, formData: FormData) =>
@@ -223,6 +238,4 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/tests/${testId}`),
   reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
-  deleteTeacherEdge: (edgeId: number) =>
-    http.delete<void>(`/teacher-manage/node-edges/${edgeId}`),
 };

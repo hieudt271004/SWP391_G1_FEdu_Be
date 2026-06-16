@@ -409,7 +409,7 @@ export function DashboardPage() {
           </button>
 
           <button
-            onClick={() => navigate("/admin/courses")}
+            onClick={() => navigate("/admin/subjects")}
             className="flex items-center justify-between p-4 rounded-xl bg-white border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/5 hover:shadow-sm active:scale-[0.98] active:translate-y-[0.5px] transition-all duration-200 group text-left cursor-pointer"
           >
             <div className="flex items-center gap-3">

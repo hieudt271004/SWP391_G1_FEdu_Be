@@ -3,6 +3,7 @@ package com.fedu.fedu.repository;
 import com.fedu.fedu.entity.ClassroomSubjectStudent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -24,4 +25,9 @@ public interface ClassroomSubjectStudentRepository extends JpaRepository<Classro
 
     @Query("SELECT DISTINCT cs.student FROM ClassroomSubjectStudent cs WHERE cs.classroomSubject.classroom.classroomId = :classroomId")
     List<com.fedu.fedu.entity.UserAccount> findDistinctStudentsByClassroomId(@org.springframework.data.repository.query.Param("classroomId") Long classroomId);
+
+    @Query("SELECT DISTINCT cs.student FROM ClassroomSubjectStudent cs WHERE cs.classroomSubject.id = :csId")
+    List<com.fedu.fedu.entity.UserAccount> findDistinctStudentsByClassroomSubjectId(@Param("csId") Long csId);
+
+    boolean existsByClassroomSubject_IdAndStudent_UserId(Long classroomSubjectId, Long studentId);
 }

@@ -17,8 +17,8 @@ public class LearningPathResponse {
     private String pathName;
     private String description;
     private Long createdById;
-    // Gộp từ ClassroomLearningPathResponse
-    private Long classroomId;
+    private Long classroomSubjectId;
+    private com.fedu.fedu.utils.enums.LearningPathLevel level;
     private Long originalPathId;
     private LocalDateTime publishedAt;
     private Long publishedById;

@@ -77,6 +77,24 @@ public class SubjectController {
                 subjectService.updateSubject(subjectId, request));
     }
 
+    @Operation(summary = "Publish subject (requires at least one template learning path)")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PatchMapping("/{subjectId}/publish")
+    public ResponseData<SubjectResponse> publishSubject(@PathVariable Long subjectId) {
+        log.info("Request publish subject id: {}", subjectId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Subject published successfully",
+                subjectService.publishSubject(subjectId));
+    }
+
+    @Operation(summary = "Unpublish subject (back to draft)")
+    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @PatchMapping("/{subjectId}/unpublish")
+    public ResponseData<SubjectResponse> unpublishSubject(@PathVariable Long subjectId) {
+        log.info("Request unpublish subject id: {}", subjectId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Subject unpublished successfully",
+                subjectService.unpublishSubject(subjectId));
+    }
+
     @Operation(summary = "Delete subject (soft delete)")
     @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
     @DeleteMapping("/{subjectId}")

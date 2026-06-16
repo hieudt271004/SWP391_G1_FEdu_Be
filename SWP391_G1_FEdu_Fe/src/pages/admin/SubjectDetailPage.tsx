@@ -1,29 +1,43 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Plus, Edit2, Trash2, Users, Loader2,
-  AlertCircle, BookOpen, GraduationCap, X, ChevronDown,
-  ChevronRight, Map, GitFork, AlertTriangle, Settings, CheckCircle,
-  HelpCircle, Circle, Video as VideoIcon, FileText, ArrowUp, ArrowDown
+  AlertCircle, BookOpen, GraduationCap, X,
+  ChevronRight, Map, GitFork, AlertTriangle, CheckCircle,
+  Video as VideoIcon, FileText, ArrowUp, ArrowDown, Download
 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
 import { learningPathService } from "../../services/learningPath.service";
+import { adminService } from "../../services/admin.service";
+import { API_BASE_URL } from "../../services/api.client";
+import type { AdminUserResponse } from "../../services/admin.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
-import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse } from "../../services/learningPath.service";
+import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
+import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse, BranchType } from "../../services/learningPath.service";
 import { toast } from "sonner";
 
-export function CourseDetailPage() {
+export function SubjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const subjectId = Number(id);
 
   // Subject and classroom data
   const [subject, setSubject] = useState<Subject | null>(null);
-  const [classrooms, setClassrooms] = useState<ClassroomResponse[]>([]);
+  const [classroomSubjects, setClassroomSubjects] = useState<ClassroomSubjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+
+  // Modal "Thêm lớp" (gán môn này vào 1 lớp active có sẵn)
+  const [showAddClass, setShowAddClass] = useState(false);
+  const [allClassrooms, setAllClassrooms] = useState<ClassroomResponse[]>([]);
+  const [teachers, setTeachers] = useState<AdminUserResponse[]>([]);
+  const [newClassId, setNewClassId] = useState(0);
+  const [newClassLecturerId, setNewClassLecturerId] = useState(0);
+  const [addClassLoading, setAddClassLoading] = useState(false);
+  const [addClassError, setAddClassError] = useState<string | null>(null);
 
   // Template states
   const [templates, setTemplates] = useState<LearningPathResponse[]>([]);
@@ -49,8 +63,8 @@ export function CourseDetailPage() {
   const [isAddTestOpen, setIsAddTestOpen] = useState(false);
 
   // Form states - Template
-  const [newTplName, setNewTplName] = useState("");
   const [newTplDesc, setNewTplDesc] = useState("");
+  const [newTplLevel, setNewTplLevel] = useState<"BASIC" | "ADVANCED">("BASIC");
   const [editTplName, setEditTplName] = useState("");
   const [editTplDesc, setEditTplDesc] = useState("");
 
@@ -60,18 +74,19 @@ export function CourseDetailPage() {
   const [newNodeTitle, setNewNodeTitle] = useState("");
   const [newNodeDesc, setNewNodeDesc] = useState("");
   const [newNodeType, setNewNodeType] = useState<'AT_HOME' | 'ON_CLASS'>('AT_HOME');
-  const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
-  const [newNodeOrder, setNewNodeOrder] = useState<number>(1);
+  const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('OPEN');
   const [newNodeRequired, setNewNodeRequired] = useState(true);
-  const [newNodeBranch, setNewNodeBranch] = useState("");
-  const [newNodePredecessor, setNewNodePredecessor] = useState<string>("");
+  const [addNodeParent, setAddNodeParent] = useState<LearningNodeResponse | null>(null);
+  const [branchMode, setBranchMode] = useState<'MAIN' | 'SUB'>('MAIN');
+  const [addingNode, setAddingNode] = useState(false);
+  const submittingNodeRef = useRef(false);
 
   // Form states - Edge
   const [edgeMinScore, setEdgeMinScore] = useState("");
   const [edgeMaxScore, setEdgeMaxScore] = useState("");
   const [edgeFromNodeId, setEdgeFromNodeId] = useState("");
   const [edgeToNodeId, setEdgeToNodeId] = useState("");
-  const [edgeBranch, setEdgeBranch] = useState("");
+  const [edgeBranch, setEdgeBranch] = useState<BranchType | "">("");
 
   // Form states - Node Content (Materials & Tests)
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
@@ -85,6 +100,12 @@ export function CourseDetailPage() {
   const [materialFileName, setMaterialFileName] = useState("");
   const [materialFileDesc, setMaterialFileDesc] = useState("");
   const [materialSelectedFile, setMaterialSelectedFile] = useState<File | null>(null);
+  // Xem trước tài liệu theo đúng định dạng
+  const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
+  // PDF được tải dạng blob để xem trực tiếp (tránh X-Frame-Options chặn iframe cross-origin :5173 -> :8080)
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
 
   const [testTitle, setTestTitle] = useState("");
   const [testDesc, setTestDesc] = useState("");
@@ -124,7 +145,15 @@ export function CourseDetailPage() {
       const graph = await learningPathService.getAdminTemplateGraph(pathId);
       setNodes(graph.nodes || []);
       setEdges(graph.edges || []);
-      setNewNodeOrder((graph.nodes?.length || 0) + 1);
+      // Nạp sẵn nội dung tất cả node để hiện thống kê kiểu Coursera
+      const allNodes = graph.nodes || [];
+      const contentEntries = await Promise.all(
+        allNodes.map(async (n) => {
+          try { return [n.nodeId, await learningPathService.getAdminNodeContent(n.nodeId)] as const; }
+          catch { return [n.nodeId, { materials: [], tests: [] } as NodeContentResponse] as const; }
+        })
+      );
+      setNodeContents(Object.fromEntries(contentEntries));
     } catch (e: any) {
       toast.error(e.message || "Không tải được cấu trúc lộ trình");
     } finally {
@@ -153,10 +182,10 @@ export function CourseDetailPage() {
       setError(null);
       const [subj, classes] = await Promise.all([
         subjectService.getById(subjectId),
-        classroomService.getBySubject(subjectId),
+        classroomService.getClassroomsBySubject(subjectId),
       ]);
       setSubject(subj);
-      setClassrooms(classes);
+      setClassroomSubjects(classes);
       await fetchTemplates();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Không tải được dữ liệu môn học");
@@ -169,6 +198,23 @@ export function CourseDetailPage() {
     fetchData();
   }, [fetchData]);
 
+  // Danh mục lớp active + giảng viên cho modal "Thêm lớp"
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const [cls, users] = await Promise.all([
+          classroomService.getAll(),
+          adminService.getAllUsers(),
+        ]);
+        setAllClassrooms(cls);
+        setTeachers(users.filter((u) => u.roles?.includes("TEACHER")));
+      } catch (e) {
+        console.error("Lỗi tải danh mục lớp/giảng viên:", e);
+      }
+    };
+    loadCatalog();
+  }, []);
+
   // Load template graph when selection changes
   useEffect(() => {
     if (selectedTemplateId) {
@@ -176,10 +222,138 @@ export function CourseDetailPage() {
     }
   }, [selectedTemplateId, fetchGraph]);
 
+  // Khi mở xem trước PDF: tải về dạng blob rồi nhúng bằng object URL.
+  // Iframe trỏ thẳng tới :8080 bị Spring Security chặn (X-Frame-Options: DENY),
+  // còn blob: cùng origin với trang FE nên hiển thị được.
+  useEffect(() => {
+    setPreviewBlobUrl(null);
+    setPreviewError(false);
+    if (!previewFile) return;
+
+    const t = (previewFile.type || "").toLowerCase();
+    const ext = (previewFile.url.split(/[?#]/)[0].split(".").pop() || "").toLowerCase();
+    const isPdf = t === "application/pdf" || ext === "pdf";
+    if (!isPdf) return;
+
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setPreviewLoading(true);
+    fetch(previewFile.url)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [previewFile]);
+
   const handleSelectTemplate = (id: number) => {
     setSelectedTemplateId(id);
     setExpandedNodes({});
     setNodeContents({});
+  };
+
+  // Lộ trình gốc chỉ có 2 loại (cơ bản/nâng cao); mỗi loại tối đa 1 cho mỗi môn
+  const existingLevels = new Set(templates.map((t) => t.level));
+  const bothLevelsExist = existingLevels.has("BASIC") && existingLevels.has("ADVANCED");
+
+  // Sắp xếp node theo thứ tự hiển thị (tie-break nodeId cho ổn định khi trùng order)
+  const sortedNodes = [...nodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
+  const nodeTotals = sortedNodes.reduce(
+    (acc, n) => {
+      const c = nodeContents[n.nodeId];
+      if (c) {
+        acc.videos += c.materials.filter((m) => m.video).length;
+        acc.docs += c.materials.filter((m) => m.file).length;
+        acc.tests += c.tests.length;
+      }
+      return acc;
+    },
+    { videos: 0, docs: 0, tests: 0 }
+  );
+
+  // Node "phụ" = có branchName Phụ HOẶC có cạnh fail đi vào (maxScore != null) — bền với data cũ/Unicode
+  const isSubNode = (n: LearningNodeResponse) =>
+    (n.branchName || "").normalize("NFC").trim().toLowerCase() === "phụ" ||
+    edges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
+  // Tự đánh số "Bài N" theo vị trí (node phụ = "Bài {N cha} phụ"); bỏ tiền tố "Bài N:" cũ trong title
+  const stripLessonPrefix = (t: string) => (t || "").replace(/^\s*Bài\s+\d+(\s*phụ)?\s*:?\s*/i, "").trim();
+  const nodeLabels: Record<number, string> = {};
+  let lessonCounter = 0;
+  for (const n of sortedNodes) {
+    if (isSubNode(n)) {
+      const pe = edges.find((e) => e.toNodeId === n.nodeId);
+      const parentLabel = pe ? nodeLabels[pe.fromNodeId] : undefined;
+      nodeLabels[n.nodeId] = parentLabel ? `${parentLabel} phụ` : `Bài ${lessonCounter} phụ`;
+    } else {
+      lessonCounter += 1;
+      nodeLabels[n.nodeId] = `Bài ${lessonCounter}`;
+    }
+  }
+
+  const handlePublish = async () => {
+    if (!subject) return;
+    try {
+      setPublishing(true);
+      const updated = await subjectService.publish(subject.subjectId);
+      setSubject((prev) => (prev ? { ...prev, status: updated.status } : prev));
+      toast.success("Đã xuất bản môn học");
+    } catch (err: any) {
+      toast.error(err.message || "Xuất bản thất bại");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!subject) return;
+    try {
+      setPublishing(true);
+      const updated = await subjectService.unpublish(subject.subjectId);
+      setSubject((prev) => (prev ? { ...prev, status: updated.status } : prev));
+      toast.success("Đã chuyển môn học về bản nháp");
+    } catch (err: any) {
+      toast.error(err.message || "Thao tác thất bại");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleAddClass = async () => {
+    if (!newClassId || !newClassLecturerId) {
+      setAddClassError("Vui lòng chọn lớp và giảng viên.");
+      return;
+    }
+    try {
+      setAddClassLoading(true);
+      setAddClassError(null);
+      const created = await classroomService.addSubject(newClassId, {
+        subjectId,
+        lecturerId: newClassLecturerId,
+      });
+      setClassroomSubjects((prev) => [...prev, created]);
+      setShowAddClass(false);
+      setNewClassId(0);
+      setNewClassLecturerId(0);
+    } catch (err: any) {
+      setAddClassError(err.message || "Thêm lớp thất bại");
+    } finally {
+      setAddClassLoading(false);
+    }
   };
 
   const toggleNode = async (id: number) => {
@@ -196,20 +370,17 @@ export function CourseDetailPage() {
   // Template CRUD actions
   const handleCreateTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTplName.trim()) {
-      toast.error("Vui lòng nhập tên lộ trình");
-      return;
-    }
     try {
       const created = await learningPathService.createAdminTemplate({
         subjectId,
-        pathName: newTplName,
+        pathName: newTplLevel === "ADVANCED" ? "Lộ trình nâng cao" : "Lộ trình cơ bản",
         description: newTplDesc,
+        level: newTplLevel,
       });
       toast.success("Tạo lộ trình mẫu thành công");
       setIsCreateTemplateOpen(false);
-      setNewTplName("");
       setNewTplDesc("");
+      setNewTplLevel("BASIC");
       setSelectedTemplateId(created.pathId);
       await fetchTemplates();
     } catch (err: any) {
@@ -219,10 +390,7 @@ export function CourseDetailPage() {
 
   const handleEditTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplateId || !editTplName.trim()) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
-      return;
-    }
+    if (!selectedTemplateId) return;
     try {
       await learningPathService.updateAdminTemplate(selectedTemplateId, {
         pathName: editTplName,
@@ -249,71 +417,126 @@ export function CourseDetailPage() {
     }
   };
 
-  const handlePublishTemplate = async (pathId: number) => {
-    try {
-      await learningPathService.publishAdminTemplate(pathId);
-      toast.success("Đã xuất bản lộ trình mẫu");
-      await fetchTemplates();
-    } catch (err: any) {
-      toast.error(err.message || "Xuất bản lộ trình mẫu thất bại");
-    }
-  };
-
-  const handleUnpublishTemplate = async (pathId: number) => {
-    try {
-      await learningPathService.unpublishAdminTemplate(pathId);
-      toast.success("Đã hủy xuất bản lộ trình mẫu");
-      await fetchTemplates();
-    } catch (err: any) {
-      toast.error(err.message || "Hủy xuất bản lộ trình mẫu thất bại");
-    }
-  };
-
   // Node CRUD actions
+  const resetNodeForm = () => {
+    setNewNodeTitle("");
+    setNewNodeDesc("");
+    setNewNodeType("AT_HOME");
+    setNewNodeStatus("OPEN");
+    setNewNodeRequired(true);
+    setEdgeMinScore("");
+    setBranchMode("MAIN");
+  };
+
+  // "Thêm bài học" ở header = thêm node vào nhánh chính (xương sống), nối tiếp ở cuối
+  const openTopLevelAddNode = () => {
+    resetNodeForm();
+    setAddNodeParent(null);
+    setIsAddNodeOpen(true);
+  };
+
+  // "Thêm node mới" trong popup 1 node = thêm node sau node đó, chọn nhánh chính/phụ
+  const openChildAddNode = (parent: LearningNodeResponse) => {
+    resetNodeForm();
+    setAddNodeParent(parent);
+    setIsAddNodeOpen(true);
+  };
+
+  // Map 1 node -> request (dùng khi cần dồn lại thứ tự khi chèn giữa)
+  const nodeToReq = (n: LearningNodeResponse, orderOverride: number) => ({
+    title: n.title,
+    description: n.description,
+    nodeType: n.nodeType,
+    branchName: n.branchName || undefined,
+    displayOrder: orderOverride,
+    status: n.status,
+    isRequired: n.isRequired,
+  });
+
   const handleAddNodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNodeTitle.trim() || !selectedTemplateId) {
       toast.error("Tên bài học không được để trống");
       return;
     }
+    const parent = addNodeParent;
+    const isSub = !!parent && branchMode === "SUB";
+    if (isSub && !edgeMinScore) {
+      toast.error("Vui lòng nhập điểm tối thiểu cho nhánh phụ");
+      return;
+    }
+    if (submittingNodeRef.current) return; // đang tạo → bỏ qua click thứ 2
+    submittingNodeRef.current = true;
+    setAddingNode(true);
     try {
+      const mainNodes = nodes.filter((n) => (n.branchName || "MAIN") !== "SUB");
+      const branchName = isSub ? "SUB" : "MAIN";
+      let order: number;
+
+      if (!parent) {
+        // nối tiếp cuối xương sống
+        order = mainNodes.reduce((m, n) => Math.max(m, n.displayOrder), 0) + 1;
+      } else {
+        // có parent (chính hoặc phụ): chèn ngay sau node cha, dồn các node sau lên +1
+        // (cao->thấp để tránh trùng thứ tự) → node mới luôn nằm ngay sau cha, không trùng order
+        order = parent.displayOrder + 1;
+        const toShift = nodes
+          .filter((n) => n.displayOrder >= order)
+          .sort((a, b) => b.displayOrder - a.displayOrder);
+        for (const n of toShift) {
+          await learningPathService.updateAdminNode(n.nodeId, nodeToReq(n, n.displayOrder + 1));
+        }
+      }
+
       const createdNode = await learningPathService.createAdminNode({
         learningPathId: selectedTemplateId,
         title: newNodeTitle,
         description: newNodeDesc,
         nodeType: newNodeType,
-        branchName: newNodeBranch || undefined,
-        displayOrder: newNodeOrder,
+        branchName,
+        displayOrder: order,
         status: newNodeStatus,
         isRequired: newNodeRequired,
       });
 
-      if (newNodePredecessor) {
-        await learningPathService.createAdminEdge({
-          fromNodeId: Number(newNodePredecessor),
-          toNodeId: createdNode.nodeId,
-          branchName: newNodeBranch || undefined,
-          minScore: edgeMinScore ? Number(edgeMinScore) : undefined,
-          maxScore: edgeMaxScore ? Number(edgeMaxScore) : undefined,
-        });
+      if (parent) {
+        if (isSub) {
+          // Nhánh phụ = đi xuống khi điểm test DƯỚI ngưỡng tối thiểu (maxScore = ngưỡng)
+          await learningPathService.createAdminEdge({
+            fromNodeId: parent.nodeId,
+            toNodeId: createdNode.nodeId,
+            branchName: "SUB",
+            maxScore: Number(edgeMinScore),
+          });
+        } else {
+          await learningPathService.createAdminEdge({
+            fromNodeId: parent.nodeId,
+            toNodeId: createdNode.nodeId,
+            branchName: "MAIN",
+          });
+        }
+      } else {
+        // top-level: nối từ node cuối của xương sống (nếu có)
+        const lastMain = [...mainNodes].sort((a, b) => b.displayOrder - a.displayOrder)[0];
+        if (lastMain) {
+          await learningPathService.createAdminEdge({
+            fromNodeId: lastMain.nodeId,
+            toNodeId: createdNode.nodeId,
+            branchName: "MAIN",
+          });
+        }
       }
 
       toast.success("Thêm bài học thành công");
       setIsAddNodeOpen(false);
-
-      // Reset form
-      setNewNodeTitle("");
-      setNewNodeDesc("");
-      setNewNodeType("AT_HOME");
-      setNewNodeStatus("LOCKED");
-      setNewNodeBranch("");
-      setNewNodePredecessor("");
-      setEdgeMinScore("");
-      setEdgeMaxScore("");
-
+      setAddNodeParent(null);
+      resetNodeForm();
       await fetchGraph(selectedTemplateId);
     } catch (err: any) {
       toast.error(err.message || "Không tạo được bài học mới");
+    } finally {
+      submittingNodeRef.current = false;
+      setAddingNode(false);
     }
   };
 
@@ -342,7 +565,17 @@ export function CourseDetailPage() {
   const handleDeleteNodeConfirm = async () => {
     if (!nodeToDelete || !selectedTemplateId) return;
     try {
+      const deleted = nodes.find((n) => n.nodeId === nodeToDelete.nodeId);
       await learningPathService.deleteAdminNode(nodeToDelete.nodeId);
+      // Dồn thứ tự: các node sau node bị xóa giảm 1 (thấp->cao để tránh trùng)
+      if (deleted) {
+        const toShift = nodes
+          .filter((n) => n.nodeId !== nodeToDelete.nodeId && n.displayOrder > deleted.displayOrder)
+          .sort((a, b) => a.displayOrder - b.displayOrder);
+        for (const n of toShift) {
+          await learningPathService.updateAdminNode(n.nodeId, nodeToReq(n, n.displayOrder - 1));
+        }
+      }
       toast.success(`Đã xóa bài học "${nodeToDelete.title}"`);
       setShowNodeDeleteConfirm(false);
       setNodeToDelete(null);
@@ -579,31 +812,8 @@ export function CourseDetailPage() {
   };
 
   // UI Helpers
-  const getNodeColorClass = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return 'border-l-4 border-l-green-500 hover:bg-green-50/5';
-      case 'LOCKED':
-        return 'border-l-4 border-l-gray-300 hover:bg-gray-50 opacity-90';
-      case 'HIDDEN':
-        return 'border-l-4 border-l-yellow-500 hover:bg-yellow-50/5 opacity-70';
-      default:
-        return 'border-l-4 border-l-gray-300 hover:bg-gray-50';
-    }
-  };
-
-  const getNodeIcon = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'LOCKED':
-        return <Circle className="w-5 h-5 text-gray-400" />;
-      case 'HIDDEN':
-        return <HelpCircle className="w-5 h-5 text-yellow-500" />;
-      default:
-        return <Circle className="w-5 h-5" />;
-    }
-  };
+  // Viền xanh mép trái chỉ hiện khi MÔN đã xuất bản; bản nháp thì trung tính
+  const isSubjectPublished = subject?.status === "published";
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -626,22 +836,36 @@ export function CourseDetailPage() {
     </div>
   );
 
-  const totalStudents = classrooms.reduce((sum, c) => sum + c.studentCount, 0);
+  const totalStudents = classroomSubjects.reduce((sum, cs) => sum + cs.studentCount, 0);
+  const enrolledClassroomIds = new Set(classroomSubjects.map((cs) => cs.classroomId));
+  const availableClassrooms = allClassrooms.filter(
+    (c) => c.status === "active" && !enrolledClassroomIds.has(c.classroomId)
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4 flex-wrap">
         <button
-          onClick={() => navigate("/admin/courses")}
+          onClick={() => navigate("/admin/subjects")}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827", marginBottom: "0.25rem" }}>
-            {subject?.subjectCode} — {subject?.subjectName}
-          </h1>
+          <div className="flex items-center gap-3 flex-wrap mb-1">
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
+              {subject?.subjectCode} — {subject?.subjectName}
+            </h1>
+            {subject?.status && (
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                style={subject.status === "published"
+                  ? { backgroundColor: "#d1fae5", color: "#065f46" }
+                  : { backgroundColor: "#fef3c7", color: "#92400e" }}>
+                {subject.status === "published" ? "Đã xuất bản" : "Bản nháp"}
+              </span>
+            )}
+          </div>
           {subject?.description && (
             <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>{subject.description}</p>
           )}
@@ -651,13 +875,26 @@ export function CourseDetailPage() {
           <div className="flex items-center gap-2 px-4 py-2 rounded-lg"
             style={{ backgroundColor: "#eef2ff", fontSize: "0.875rem", color: "#4338ca", fontWeight: 600 }}>
             <GraduationCap className="w-4 h-4" />
-            {classrooms.length} lớp học
+            {classroomSubjects.length} lớp học
           </div>
           <div className="flex items-center gap-2 px-4 py-2 rounded-lg"
             style={{ backgroundColor: "#f0fdf4", fontSize: "0.875rem", color: "#15803d", fontWeight: 600 }}>
             <Users className="w-4 h-4" />
             {totalStudents} học sinh
           </div>
+          {subject && (subject.status === "published" ? (
+            <button onClick={handleUnpublish} disabled={publishing}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+              style={{ border: "1px solid #e5e7eb", backgroundColor: "white", color: "#374151", cursor: publishing ? "not-allowed" : "pointer" }}>
+              {publishing && <Loader2 className="w-4 h-4 animate-spin" />} Gỡ xuất bản
+            </button>
+          ) : (
+            <button onClick={handlePublish} disabled={publishing}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: "#059669", border: "none", cursor: publishing ? "not-allowed" : "pointer" }}>
+              {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Xuất bản
+            </button>
+          ))}
         </div>
       </div>
 
@@ -674,8 +911,14 @@ export function CourseDetailPage() {
                 </h2>
               </div>
               <button
-                onClick={() => setIsCreateTemplateOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+                disabled={bothLevelsExist}
+                onClick={() => {
+                  const firstAvailable = (["BASIC", "ADVANCED"] as const).find((lv) => !existingLevels.has(lv));
+                  if (firstAvailable) setNewTplLevel(firstAvailable);
+                  setIsCreateTemplateOpen(true);
+                }}
+                title={bothLevelsExist ? "Đã đủ 2 lộ trình (cơ bản + nâng cao)" : "Tạo lộ trình mẫu mới"}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer" }}
               >
                 <Plus className="w-3.5 h-3.5" /> Tạo mẫu mới
@@ -683,81 +926,39 @@ export function CourseDetailPage() {
             </div>
 
             {templates.length > 0 ? (
-              <div className="flex flex-col gap-2 w-full">
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedTemplateId || ""}
-                    onChange={(e) => handleSelectTemplate(Number(e.target.value))}
-                    className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                  >
-                    {templates.map((t) => (
-                      <option key={t.pathId} value={t.pathId}>
-                        {t.pathName} {t.publishedAt ? " (Đã xuất bản)" : " (Bản nháp)"}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => {
-                      const currentTpl = templates.find((t) => t.pathId === selectedTemplateId);
-                      if (currentTpl) {
-                        setEditTplName(currentTpl.pathName);
-                        setEditTplDesc(currentTpl.description || "");
-                        setIsEditTemplateOpen(true);
-                      }
-                    }}
-                    className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    title="Sửa tên lộ trình"
-                  >
-                    <Edit2 className="w-4 h-4 text-gray-500" />
-                  </button>
-                  <button
-                    onClick={() => setIsDeleteTplConfirmOpen(true)}
-                    className="p-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                    title="Xóa lộ trình mẫu"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
-                </div>
-
-                {/* Publish / Unpublish actions */}
-                {(() => {
-                  const currentTpl = templates.find((t) => t.pathId === selectedTemplateId);
-                  if (!currentTpl) return null;
-                  const isTplPublished = !!currentTpl.publishedAt;
-                  return (
-                    <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/50 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-500 dark:text-gray-400">Trạng thái lộ trình:</span>
-                        {isTplPublished ? (
-                          <span className="px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-950/30 dark:text-green-400 font-bold border border-green-200 dark:border-green-900/30">
-                            ĐÃ XUẤT BẢN
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-450 font-bold border border-amber-200 dark:border-amber-900/30">
-                            BẢN NHÁP
-                          </span>
-                        )}
-                      </div>
-                      {isTplPublished ? (
-                        <button
-                          type="button"
-                          onClick={() => handleUnpublishTemplate(currentTpl.pathId)}
-                          className="px-2.5 py-1 text-xs font-semibold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50 border border-red-200 dark:border-red-900/30 rounded-lg transition-colors cursor-pointer"
-                        >
-                          Hủy xuất bản
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handlePublishTemplate(currentTpl.pathId)}
-                          className="px-2.5 py-1 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/50 border border-green-200 dark:border-green-900/30 rounded-lg transition-colors cursor-pointer"
-                        >
-                          Xuất bản mẫu
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedTemplateId || ""}
+                  onChange={(e) => handleSelectTemplate(Number(e.target.value))}
+                  className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  {templates.map((t) => (
+                    <option key={t.pathId} value={t.pathId}>
+                      {t.pathName}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => {
+                    const currentTpl = templates.find((t) => t.pathId === selectedTemplateId);
+                    if (currentTpl) {
+                      setEditTplName(currentTpl.pathName);
+                      setEditTplDesc(currentTpl.description || "");
+                      setIsEditTemplateOpen(true);
+                    }
+                  }}
+                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  title="Sửa mô tả lộ trình"
+                >
+                  <Edit2 className="w-4 h-4 text-gray-500" />
+                </button>
+                <button
+                  onClick={() => setIsDeleteTplConfirmOpen(true)}
+                  className="p-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                  title="Xóa lộ trình mẫu"
+                >
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </button>
               </div>
             ) : (
               <div className="text-center py-8 text-sm text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
@@ -773,7 +974,7 @@ export function CourseDetailPage() {
                 <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Thiết kế bài học & Liên kết</span>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setIsAddNodeOpen(true)}
+                    onClick={openTopLevelAddNode}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors border border-indigo-150"
                   >
                     <Plus className="w-3.5 h-3.5" /> Thêm bài học
@@ -787,6 +988,15 @@ export function CourseDetailPage() {
                   </button>
                 </div>
               </div>
+
+              {sortedNodes.length > 0 && (
+                <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 pb-1" style={{ fontSize: "0.8125rem", color: "#4b5563" }}>
+                  <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-indigo-600" /> {sortedNodes.length} bài học</span>
+                  <span className="flex items-center gap-1.5"><VideoIcon className="w-4 h-4 text-purple-600" /> {nodeTotals.videos} video</span>
+                  <span className="flex items-center gap-1.5"><FileText className="w-4 h-4 text-indigo-600" /> {nodeTotals.docs} tài liệu</span>
+                  <span className="flex items-center gap-1.5"><GraduationCap className="w-4 h-4 text-teal-600" /> {nodeTotals.tests} bài test</span>
+                </div>
+              )}
 
               {loadingGraph ? (
                 <div className="flex items-center justify-center py-10">
@@ -806,7 +1016,7 @@ export function CourseDetailPage() {
                 </div>
               ) : (
                 <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 shadow-sm">
-                  {nodes.map((node) => {
+                  {sortedNodes.map((node) => {
                     const isExpanded = !!expandedNodes[node.nodeId];
                     const incomingEdges = edges.filter((e) => e.toNodeId === node.nodeId);
                     const incomingNodesInfo = incomingEdges
@@ -821,7 +1031,7 @@ export function CourseDetailPage() {
                       });
 
                     return (
-                      <div key={node.nodeId} className={`transition-all duration-200 ${getNodeColorClass(node.status)}`}>
+                      <div key={node.nodeId} className={`transition-all duration-200 ${isSubjectPublished ? "border-l-4 border-l-green-500 hover:bg-green-50/5" : "hover:bg-gray-50"}`}>
                         {/* Expandable node header */}
                         <div
                           onClick={() => toggleNode(node.nodeId)}
@@ -831,11 +1041,10 @@ export function CourseDetailPage() {
                             <div className={`p-0.5 rounded transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>
                               <ChevronRight className="w-4 h-4 text-gray-400" />
                             </div>
-                            <div className="shrink-0">{getNodeIcon(node.status)}</div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className={`font-semibold text-sm ${node.status === "LOCKED" ? "text-gray-500" : "text-gray-900"}`}>
-                                  {node.title}
+                                  {nodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}
                                 </span>
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium">
                                   {node.nodeType === "ON_CLASS" ? "Lên lớp" : "Tự học"}
@@ -848,9 +1057,6 @@ export function CourseDetailPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider shrink-0 pl-3">
-                            Thứ tự: {node.displayOrder}
-                          </div>
                         </div>
 
                         {/* Expanded details */}
@@ -861,9 +1067,8 @@ export function CourseDetailPage() {
                             </p>
 
                             {/* Node settings summary */}
-                            <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                            <div className="text-xs text-gray-500">
                               <div>Nhánh: <span className="font-semibold text-gray-700">{node.branchName || "Main"}</span></div>
-                              <div>Trạng thái ban đầu: <span className="font-semibold text-gray-700">{node.status}</span></div>
                             </div>
 
                             {/* Prerequisites edges details */}
@@ -878,13 +1083,6 @@ export function CourseDetailPage() {
                                     <div key={info.edgeId} className="flex items-center justify-between py-1.5">
                                       <span className="text-gray-600 font-medium">
                                         Sau khi hoàn thành: <strong className="text-gray-800">{info.fromTitle}</strong>
-                                        {(info.minScore !== undefined || info.maxScore !== undefined) && (
-                                          <span className="text-[10px] text-indigo-600 ml-1">
-                                            ({info.minScore !== undefined ? `Min: ${info.minScore}` : ""}
-                                            {info.minScore !== undefined && info.maxScore !== undefined ? ", " : ""}
-                                            {info.maxScore !== undefined ? `Max: ${info.maxScore}` : ""})
-                                          </span>
-                                        )}
                                       </span>
                                       <button
                                         onClick={(e) => {
@@ -1038,19 +1236,19 @@ export function CourseDetailPage() {
                                                 <span className="px-1 py-0.2 bg-orange-50 text-orange-700 border border-orange-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
                                                   <FileText className="w-2.5 h-2.5" /> File
                                                 </span>
-                                                <a
-                                                  href={
-                                                    m.file.fileUrl.startsWith("/")
-                                                      ? `http://localhost:8080${m.file.fileUrl}`
-                                                      : m.file.fileUrl
-                                                  }
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  className="text-indigo-600 hover:underline truncate max-w-[200px]"
-                                                  title={m.file.fileName}
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const f = m!.file!;
+                                                    const url = f.fileUrl.startsWith("/") ? `${API_BASE_URL}${f.fileUrl}` : f.fileUrl;
+                                                    setPreviewFile({ url, type: f.fileType || "", name: f.fileName || "Tài liệu" });
+                                                  }}
+                                                  className="text-indigo-600 hover:underline truncate max-w-[200px] text-left"
+                                                  title="Xem tài liệu"
                                                 >
-                                                  {m.file.fileName || "Tải tài liệu"}
-                                                </a>
+                                                  {m.file.fileName || "Tài liệu"}
+                                                </button>
                                               </div>
                                             )}
                                             {!isMaterial && t && (
@@ -1099,6 +1297,15 @@ export function CourseDetailPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  openChildAddNode(node);
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-xs font-semibold text-indigo-700 transition-colors"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Thêm node mới
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setNodeToEdit(node);
                                   setIsEditNodeOpen(true);
                                 }}
@@ -1130,121 +1337,125 @@ export function CourseDetailPage() {
 
         {/* Right Column: Instructor and Classrooms list */}
         <div className="space-y-6">
-          {/* Instructor details */}
-          <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827", marginBottom: "1.5rem" }}>
-              Giảng viên phụ trách
-            </h2>
-            <div className="flex items-center gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors" style={{ border: "1px solid #e5e7eb" }}>
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
-              >
-                <span className="text-white text-lg font-bold">
-                  {((subject?.createdBy?.firstName?.[0]) || (subject?.createdBy?.lastName?.[0]) || "A").toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "#111827", marginBottom: "0.25rem" }}>
-                  {subject?.createdBy ? `${subject.createdBy.firstName} ${subject.createdBy.lastName}` : "Quản trị viên"}
-                </h3>
-                <span className="px-2 py-0.5 rounded text-xs" style={{ backgroundColor: "#eef2ff", color: "#4338ca", fontWeight: 600 }}>Người tạo môn học</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Active Classrooms */}
+          {/* Lớp đang học môn này */}
           <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <GraduationCap className="w-5 h-5" style={{ color: "#7c3aed" }} />
                 <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>
-                  Lớp học ({classrooms.length})
+                  Lớp đang học môn này ({classroomSubjects.length})
                 </h2>
               </div>
-              <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-white transition-opacity hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontWeight: 600 }}
+              >
+                <Plus className="w-4 h-4" /> Thêm lớp
+              </button>
+            </div>
+
+            {classroomSubjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <GraduationCap className="w-12 h-12" style={{ color: "#d1d5db" }} />
+                <p style={{ color: "#9ca3af", fontSize: "0.875rem" }}>Chưa có lớp nào học môn này</p>
                 <button
-                  onClick={() => navigate("/admin/classes")}
-                  className="px-3 py-2 rounded-lg text-sm transition-colors hover:bg-indigo-50"
-                  style={{ border: "1px solid #c7d2fe", color: "#4338ca", fontWeight: 600, cursor: "pointer", backgroundColor: "white" }}
-                >
-                  Xem tất cả
-                </button>
-                <button
-                  onClick={() => navigate(`/admin/classes/add?subjectId=${subjectId}`)}
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-white transition-opacity hover:opacity-90"
+                  onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }}
+                  className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm text-white"
                   style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontWeight: 600 }}
                 >
                   <Plus className="w-4 h-4" /> Thêm lớp
                 </button>
               </div>
-            </div>
-
-            {classrooms.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <GraduationCap className="w-12 h-12" style={{ color: "#d1d5db" }} />
-                <p style={{ color: "#9ca3af", fontSize: "0.875rem" }}>Chưa có lớp học nào</p>
-                <button
-                  onClick={() => navigate(`/admin/classes/add?subjectId=${subjectId}`)}
-                  className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm text-white"
-                  style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontWeight: 600 }}
-                >
-                  <Plus className="w-4 h-4" /> Tạo lớp học
-                </button>
-              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {classrooms.map((c) => {
-                  const lecturerName = c.lecturerFirstName
-                    ? `${c.lecturerFirstName} ${c.lecturerLastName}`
-                    : c.lecturerName || "—";
-                  return (
-                    <div
-                      key={c.classroomId}
-                      className="p-4 rounded-xl hover:shadow-md transition-all"
-                      style={{ border: "1px solid #e5e7eb" }}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <span style={{ fontSize: "1rem", fontWeight: 700, color: "#111827" }}>
-                          {c.className}
-                        </span>
-                        {c.semester && (
-                          <span
-                            className="px-2 py-0.5 rounded-full text-xs"
-                            style={{ backgroundColor: "#f3f4f6", color: "#6b7280", fontWeight: 500 }}
-                          >
-                            {c.semester}
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        className="text-xs mb-3 truncate"
-                        style={{ color: "#9ca3af" }}
-                        title={lecturerName}
-                      >
-                        GV: {lecturerName}
-                      </div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <Users className="w-4 h-4" style={{ color: "#6b7280" }} />
-                        <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                          {c.studentCount} học sinh
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => navigate(`/admin/classes/${c.classroomId}`)}
-                        className="w-full py-2 rounded-lg text-white text-sm transition-opacity hover:opacity-90"
-                        style={{ background: "linear-gradient(135deg, #334155, #111827)", border: "none", cursor: "pointer", fontWeight: 600 }}
-                      >
-                        Vào lớp học
-                      </button>
+                {classroomSubjects.map((cs) => (
+                  <div
+                    key={cs.classroomSubjectId}
+                    className="p-4 rounded-xl hover:shadow-md transition-all"
+                    style={{ border: "1px solid #e5e7eb" }}
+                  >
+                    <div className="mb-3">
+                      <span style={{ fontSize: "1rem", fontWeight: 700, color: "#111827" }}>
+                        {cs.className}
+                      </span>
                     </div>
-                  );
-                })}
+                    <div className="text-xs mb-3 truncate" style={{ color: "#9ca3af" }} title={cs.lecturerName}>
+                      GV: {cs.lecturerName}
+                    </div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <Users className="w-4 h-4" style={{ color: "#6b7280" }} />
+                      <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
+                        {cs.studentCount} học sinh
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/admin/classes/${cs.classroomId}/subjects/${cs.classroomSubjectId}`)}
+                      className="w-full py-2 rounded-lg text-white text-sm transition-opacity hover:opacity-90"
+                      style={{ background: "linear-gradient(135deg, #334155, #111827)", border: "none", cursor: "pointer", fontWeight: 600 }}
+                    >
+                      Vào lớp-môn
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* MODAL THÊM LỚP */}
+      {showAddClass && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowAddClass(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-150">
+              <h2 className="text-lg font-bold text-gray-900">Thêm lớp vào môn này</h2>
+              <button onClick={() => setShowAddClass(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              {addClassError && (
+                <div className="px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>{addClassError}</div>
+              )}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Lớp (đang hoạt động) *</label>
+                <select
+                  value={newClassId}
+                  onChange={(e) => setNewClassId(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value={0} disabled>-- Chọn lớp --</option>
+                  {availableClassrooms.length === 0 ? (
+                    <option value={0} disabled>(Không còn lớp đang hoạt động nào chưa học môn này)</option>
+                  ) : availableClassrooms.map((c) => (
+                    <option key={c.classroomId} value={c.classroomId}>{c.className}{c.semester ? ` · ${c.semester}` : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Giảng viên phụ trách *</label>
+                <select
+                  value={newClassLecturerId}
+                  onChange={(e) => setNewClassLecturerId(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value={0} disabled>-- Chọn giảng viên --</option>
+                  {teachers.map((t) => (
+                    <option key={t.userId} value={t.userId}>{t.firstName} {t.lastName} ({t.email})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-100">
+              <button onClick={() => setShowAddClass(false)} className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">Hủy</button>
+              <button onClick={handleAddClass} disabled={addClassLoading || !newClassId || !newClassLecturerId}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}>
+                {addClassLoading && <Loader2 className="w-4 h-4 animate-spin" />} Thêm vào môn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CREATE TEMPLATE MODAL */}
       {isCreateTemplateOpen && (
@@ -1258,15 +1469,15 @@ export function CourseDetailPage() {
             </div>
             <form onSubmit={handleCreateTemplateSubmit} className="p-4 space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Tên lộ trình *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: Lộ trình cơ bản, Lộ trình nâng cao..."
+                <label className="text-sm font-semibold text-gray-700">Loại lộ trình *</label>
+                <select
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={newTplName}
-                  onChange={(e) => setNewTplName(e.target.value)}
-                />
+                  value={newTplLevel}
+                  onChange={(e) => setNewTplLevel(e.target.value as "BASIC" | "ADVANCED")}
+                >
+                  <option value="BASIC" disabled={existingLevels.has("BASIC")}>Lộ trình cơ bản{existingLevels.has("BASIC") ? " (đã có)" : ""}</option>
+                  <option value="ADVANCED" disabled={existingLevels.has("ADVANCED")}>Lộ trình nâng cao{existingLevels.has("ADVANCED") ? " (đã có)" : ""}</option>
+                </select>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Mô tả ngắn</label>
@@ -1310,16 +1521,8 @@ export function CourseDetailPage() {
               </button>
             </div>
             <form onSubmit={handleEditTemplateSubmit} className="p-4 space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Tên lộ trình *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Nhập tên lộ trình..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={editTplName}
-                  onChange={(e) => setEditTplName(e.target.value)}
-                />
+              <div className="px-3 py-2 rounded-lg bg-gray-50 border border-gray-150 text-sm text-gray-600">
+                Lộ trình: <span className="font-semibold text-gray-800">{editTplName}</span>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Mô tả ngắn</label>
@@ -1387,8 +1590,8 @@ export function CourseDetailPage() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-4 border-b border-gray-150">
-              <h2 className="text-lg font-bold text-gray-900">Thêm bài học mới</h2>
-              <button onClick={() => setIsAddNodeOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <h2 className="text-lg font-bold text-gray-900">{addNodeParent ? `Thêm node sau: ${addNodeParent.title}` : "Thêm bài học"}</h2>
+              <button onClick={() => { setIsAddNodeOpen(false); setAddNodeParent(null); }} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1398,7 +1601,7 @@ export function CourseDetailPage() {
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: Giới thiệu môn học, Bài 1..."
+                  placeholder="Ví dụ: Bảng chữ cái Hiragana"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newNodeTitle}
                   onChange={(e) => setNewNodeTitle(e.target.value)}
@@ -1414,100 +1617,45 @@ export function CourseDetailPage() {
                   onChange={(e) => setNewNodeDesc(e.target.value)}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Loại bài học</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodeType}
-                    onChange={(e) => setNewNodeType(e.target.value as any)}
-                  >
-                    <option value="AT_HOME">Tự học (At home)</option>
-                    <option value="ON_CLASS">Lên lớp (On class)</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Trạng thái mở</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodeStatus}
-                    onChange={(e) => setNewNodeStatus(e.target.value as any)}
-                  >
-                    <option value="LOCKED">Khóa (Locked)</option>
-                    <option value="OPEN">Mở (Open)</option>
-                    <option value="HIDDEN">Ẩn (Hidden)</option>
-                  </select>
-                </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Loại bài học</label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  value={newNodeType}
+                  onChange={(e) => setNewNodeType(e.target.value as any)}
+                >
+                  <option value="AT_HOME">Tự học</option>
+                  <option value="ON_CLASS">Lên lớp</option>
+                </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              {addNodeParent && (
                 <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Thứ tự hiển thị</label>
+                  <label className="text-sm font-semibold text-gray-700">Nhánh</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    value={branchMode}
+                    onChange={(e) => setBranchMode(e.target.value as 'MAIN' | 'SUB')}
+                  >
+                    <option value="MAIN">Nhánh chính</option>
+                    <option value="SUB">Nhánh phụ</option>
+                  </select>
+                </div>
+              )}
+
+              {addNodeParent && branchMode === "SUB" && (
+                <div className="space-y-1">
+                  <label className="text-sm font-semibold text-gray-700">Điểm tối thiểu để qua *</label>
                   <input
                     type="number"
-                    required
-                    min={1}
+                    step="0.01"
+                    min={0}
+                    placeholder="VD: 80"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={newNodeOrder}
-                    onChange={(e) => setNewNodeOrder(Number(e.target.value))}
+                    value={edgeMinScore}
+                    onChange={(e) => setEdgeMinScore(e.target.value)}
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Nhánh phụ, Nâng cao..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={newNodeBranch}
-                    onChange={(e) => setNewNodeBranch(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Edge Connection Section */}
-              <div className="space-y-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-600 uppercase">Điều kiện tiên quyết ban đầu</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodePredecessor}
-                    onChange={(e) => setNewNodePredecessor(e.target.value)}
-                  >
-                    <option value="">-- Không có điều kiện (Tự do) --</option>
-                    {nodes.map((n) => (
-                      <option key={n.nodeId} value={n.nodeId}>
-                        Sau khi hoàn thành: {n.title} (Thứ tự: {n.displayOrder})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {newNodePredecessor && (
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-indigo-900">Điểm tối thiểu (Optional)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="e.g. 8.0"
-                        className="w-full border border-gray-350 bg-white rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={edgeMinScore}
-                        onChange={(e) => setEdgeMinScore(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-indigo-900">Điểm tối đa (Optional)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="e.g. 10.0"
-                        className="w-full border border-gray-350 bg-white rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={edgeMaxScore}
-                        onChange={(e) => setEdgeMaxScore(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
 
               <div className="flex items-center gap-2 pt-2">
                 <input
@@ -1518,24 +1666,25 @@ export function CourseDetailPage() {
                   onChange={(e) => setNewNodeRequired(e.target.checked)}
                 />
                 <label htmlFor="newNodeRequiredChk" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
-                  Mốc bắt buộc hoàn thành (Required)
+                  Mốc bắt buộc hoàn thành
                 </label>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={() => setIsAddNodeOpen(false)}
+                  onClick={() => { setIsAddNodeOpen(false); setAddNodeParent(null); }}
                   className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                  disabled={addingNode}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
                 >
-                  Tạo bài học
+                  {addingNode && <Loader2 className="w-4 h-4 animate-spin" />} Tạo bài học
                 </button>
               </div>
             </form>
@@ -1614,13 +1763,15 @@ export function CourseDetailPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="Tên nhánh..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     value={nodeToEdit.branchName || ""}
-                    onChange={(e) => setNodeToEdit({ ...nodeToEdit, branchName: e.target.value })}
-                  />
+                    onChange={(e) => setNodeToEdit({ ...nodeToEdit, branchName: e.target.value as any })}
+                  >
+                    <option value="">-- Chọn nhánh --</option>
+                    <option value="MAIN">MAIN (Nhánh chính)</option>
+                    <option value="SUB">SUB (Nhánh phụ)</option>
+                  </select>
                 </div>
               </div>
 
@@ -1736,13 +1887,15 @@ export function CourseDetailPage() {
 
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Tên nhánh liên kết (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Main, Optional..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   value={edgeBranch}
-                  onChange={(e) => setEdgeBranch(e.target.value)}
-                />
+                  onChange={(e) => setEdgeBranch(e.target.value as BranchType)}
+                >
+                  <option value="">-- Chọn nhánh --</option>
+                  <option value="MAIN">MAIN (Nhánh chính)</option>
+                  <option value="SUB">SUB (Nhánh phụ)</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1792,6 +1945,74 @@ export function CourseDetailPage() {
       )}
 
       {/* ADD MATERIAL MODAL */}
+      {/* PREVIEW TÀI LIỆU theo đúng định dạng */}
+      {previewFile && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setPreviewFile(null)}>
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-3 border-b border-gray-150">
+              <span className="text-sm font-semibold text-gray-800 truncate pr-3">{previewFile.name}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-600 hover:underline">Mở/Tải về</a>
+                <button onClick={() => setPreviewFile(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              </div>
+            </div>
+            <div className="p-3 overflow-auto flex items-center justify-center bg-gray-50" style={{ minHeight: "300px" }}>
+              {(() => {
+                const t = (previewFile.type || "").toLowerCase();
+                const ext = (previewFile.url.split(/[?#]/)[0].split(".").pop() || "").toLowerCase();
+                const is = (mime: string, exts: string[]) => t.startsWith(mime) || exts.includes(ext);
+                if (is("image/", ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"]))
+                  return <img src={previewFile.url} alt={previewFile.name} style={{ maxWidth: "100%", maxHeight: "78vh" }} />;
+                if (t === "application/pdf" || ext === "pdf") {
+                  if (previewLoading)
+                    return (
+                      <div className="flex flex-col items-center gap-3 text-gray-500 py-16">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="text-sm">Đang tải tài liệu…</span>
+                      </div>
+                    );
+                  if (previewError || !previewBlobUrl)
+                    return (
+                      <div className="text-center text-sm text-gray-500 py-10">
+                        Không tải được bản xem trước.
+                        <div className="mt-2">
+                          <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-semibold">Mở trong tab mới / Tải về</a>
+                        </div>
+                      </div>
+                    );
+                  return <iframe src={previewBlobUrl} title={previewFile.name} style={{ width: "100%", height: "78vh", border: "none" }} />;
+                }
+                if (is("video/", ["mp4", "webm", "ogv", "mov"]))
+                  return <video src={previewFile.url} controls style={{ maxWidth: "100%", maxHeight: "78vh" }} />;
+                if (is("audio/", ["mp3", "wav", "m4a", "ogg"]))
+                  return <audio src={previewFile.url} controls />;
+                return (
+                  <div className="flex flex-col items-center gap-4 text-center py-12 px-6">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-indigo-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 break-all">{previewFile.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">Định dạng Word/Excel/PowerPoint không xem trực tiếp trên trình duyệt được.</p>
+                    </div>
+                    <a
+                      href={previewFile.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      download={previewFile.name}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                      style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
+                    >
+                      <Download className="w-4 h-4" /> Tải về để xem
+                    </a>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isAddMaterialOpen && selectedNodeForContent && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">

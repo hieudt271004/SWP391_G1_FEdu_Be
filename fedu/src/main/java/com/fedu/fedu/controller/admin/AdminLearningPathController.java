@@ -42,8 +42,6 @@ public class AdminLearningPathController {
     @PostMapping("/learning-paths")
     public ResponseData<LearningPathResponse> createTemplate(@Valid @RequestBody CreateLearningPathRequest request) {
         log.info("Admin creating learning path template: {}", request.getPathName());
-        // For admin course template, classroomId must be null
-        request.setClassroomId(null);
         return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path template created successfully",
                 learningPathService.createLearningPath(request));
     }

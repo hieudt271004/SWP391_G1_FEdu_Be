@@ -58,16 +58,15 @@ export function TeacherClassesPage() {
         console.log('Fetching classrooms for teacher ID:', user.userId);
         const classroomsData = await teacherService.getClassroomsByTeacher(user.userId);
         const mapped = (classroomsData ?? []).map((c) => ({
+          classroomSubjectId: c.classroomSubjectId,
           classroomId: c.classroomId,
           classroomCode: c.className,
           classroomName: c.className,
           subjectId: c.subjectId,
           teacherId: c.lecturerId ?? 0,
-          semester: c.semester ?? '',
-          year: c.createdAt ? new Date(c.createdAt).getFullYear() : new Date().getFullYear(),
-          createdAt: c.createdAt,
-          updatedAt: c.updatedAt,
-          status: c.status,
+          semester: 'Summer 2026',
+          year: new Date().getFullYear(),
+          status: 'active',
           subjectCode: c.subjectCode,
           subjectName: c.subjectName,
           studentCount: c.studentCount,
@@ -84,8 +83,8 @@ export function TeacherClassesPage() {
     fetchClassrooms();
   }, [user]);
 
-  const handleEnterClass = (classroomId: number) => {
-    navigate(`/teacher/classrooms/${classroomId}`);
+  const handleEnterClass = (classroomSubjectId: number) => {
+    navigate(`/teacher/classroom-subjects/${classroomSubjectId}`);
   };
 
   if (loading) {
@@ -180,7 +179,7 @@ export function TeacherClassesPage() {
 
             return (
               <div
-                key={classroom.classroomId}
+                key={classroom.classroomSubjectId || classroom.classroomId}
                 className="group rounded-2xl bg-white border border-slate-150 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden"
               >
                 {/* Card Top / Header */}
@@ -230,7 +229,7 @@ export function TeacherClassesPage() {
                 {/* Card Action Button */}
                 <div className="px-6 pb-6 pt-0">
                   <button
-                    onClick={() => handleEnterClass(classroom.classroomId)}
+                    onClick={() => handleEnterClass(classroom.classroomSubjectId || classroom.classroomId)}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-150 hover:shadow-lg hover:shadow-indigo-200 transition-all cursor-pointer"
                   >
                     Vào lớp học

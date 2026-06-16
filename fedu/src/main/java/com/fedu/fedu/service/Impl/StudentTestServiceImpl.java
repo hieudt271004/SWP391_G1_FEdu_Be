@@ -222,10 +222,11 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     private void verifyStudentAccess(LearningNode node, Long studentId) {
-        List<UserAccount> students = classroomSubjectStudentRepository.findDistinctStudentsByClassroomId(node.getLearningPath().getClassroom().getClassroomId());
-        boolean isEnrolled = students.stream().anyMatch(s -> s.getUserId() == studentId);
+        Long csId = node.getLearningPath().getClassroomSubject().getId();
+        boolean isEnrolled = classroomSubjectStudentRepository
+                .existsByClassroomSubject_IdAndStudent_UserId(csId, studentId);
         if (!isEnrolled) {
-            throw new AccessDeniedException("Học sinh không thuộc lớp học này");
+            throw new AccessDeniedException("Học sinh không thuộc lớp-môn này");
         }
 
         StudentNodeProgress progress = studentNodeProgressRepository

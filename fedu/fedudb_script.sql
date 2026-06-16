@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS subjects (
                                         description  TEXT,
                                         created_by   BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                         is_deleted   BOOLEAN DEFAULT FALSE,
+                                        status       VARCHAR(50) NOT NULL DEFAULT 'draft',
                                         created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                         updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
