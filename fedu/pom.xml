@@ -50,7 +50,6 @@
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<version>42.6.0</version>
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
@@ -117,6 +116,11 @@
 			<scope>runtime</scope>
 		</dependency>
 		<!-- Đọc/ghi file Excel (.xlsx) cho import sinh viên -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>5.2.5</version>
+		</dependency>
 	</dependencies>
 
 	<build>

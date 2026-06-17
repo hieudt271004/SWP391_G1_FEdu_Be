@@ -166,7 +166,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
 
             // Create indexes if not exists
             try (Statement statement = connection.createStatement()) {
-                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_path ON learning_paths(classroom_id) WHERE classroom_id IS NOT NULL AND is_deleted = FALSE");
+                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_path ON learning_paths(classroom_subject_id) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_snp_path_status ON student_node_progress(path_id, status)");
