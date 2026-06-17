@@ -100,4 +100,11 @@ public class AuthenticationController {
         userAccountService.resetAllPasswordsTo123456();
         return new ResponseData<>(HttpStatus.OK.value(), "All passwords reset to 123456 successfully");
     }
+
+    @Operation(summary = "Setup default admin account", description = "Create admin@gmail.com with password 123456 and role ADMIN")
+    @PostMapping("/setup-admin")
+    public ResponseData<Void> setupAdmin() {
+        userAccountService.createDefaultAdmin();
+        return new ResponseData<>(HttpStatus.OK.value(), "Default admin user set up successfully");
+    }
 }

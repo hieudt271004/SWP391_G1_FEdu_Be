@@ -304,4 +304,50 @@ public class UserAccountServiceImpl implements UserAccountService {
         userAccountRepository.saveAll(users);
         log.info("Reset {} user passwords to 123456 successfully", users.size());
     }
+
+    @Override
+    @Transactional
+    public void createDefaultAdmin() {
+        log.info("---------- createDefaultAdmin ----------");
+        String adminEmail = "admin@gmail.com";
+        
+        UserAccount userAccount = userAccountRepository.findByEmail(adminEmail).orElse(null);
+        if (userAccount == null) {
+            userAccount = UserAccount.builder()
+                    .email(adminEmail)
+                    .password(passwordEncoder.encode("123456"))
+                    .status(UserStatus.ACTIVE)
+                    .firstName("System")
+                    .lastName("Admin")
+                    .isDeleted(false)
+                    .build();
+            userAccountRepository.save(userAccount);
+        } else {
+            userAccount.setPassword(passwordEncoder.encode("123456"));
+            userAccount.setStatus(UserStatus.ACTIVE);
+            userAccountRepository.save(userAccount);
+        }
+
+        Role adminRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.ADMIN)
+                .orElseThrow(() -> new IllegalStateException("Role ADMIN not found"));
+
+        boolean hasAdminRole = false;
+        if (userAccount.getUserRoles() != null) {
+            hasAdminRole = userAccount.getUserRoles().stream()
+                    .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+        }
+
+        if (!hasAdminRole) {
+            if (userAccount.getUserRoles() != null) {
+                userRoleRepository.deleteAll(userAccount.getUserRoles());
+            }
+            UserRole userRole = UserRole.builder()
+                    .role(adminRole)
+                    .userAccount(userAccount)
+                    .build();
+            userRoleRepository.save(userRole);
+            userAccount.setUserRoles(Collections.singletonList(userRole));
+        }
+        log.info("Admin user created/updated successfully with email admin@gmail.com and role ADMIN");
+    }
 }

@@ -18,16 +18,17 @@ export function FeaturesPage() {
   }, []);
 
   return (
-    <div className="pt-12 bg-white">
-      <div className="max-w-6xl mx-auto px-6 text-center mb-6">
-        <h1 className="text-4xl font-extrabold text-slate-900 md:text-5xl tracking-tight mb-4">
+    <div className="pt-12 bg-background font-sans">
+      <div className="max-w-6xl mx-auto px-6 text-center mb-8">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight mb-3">
           Tính năng nổi bật
         </h1>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+        <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
           Khám phá những công cụ tuyệt vời mà FEdu cung cấp cho cả Sinh viên và Giảng viên để nâng cao hiệu quả giảng dạy và học tập.
         </p>
       </div>
       <FeaturesSection stats={stats} />
     </div>
   );
+
 }
