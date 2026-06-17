@@ -42,4 +42,6 @@ public interface UserAccountService {
     void updateUser(long userId, UserUpdateRequest request);
 
     void resetAllPasswordsTo123456();
+
+    void createDefaultAdmin();
 }
