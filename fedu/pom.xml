@@ -117,7 +117,6 @@
 			<scope>runtime</scope>
 		</dependency>
 		<!-- Đọc/ghi file Excel (.xlsx) cho import sinh viên -->
-		<dependency>
 	</dependencies>
 
 	<build>
