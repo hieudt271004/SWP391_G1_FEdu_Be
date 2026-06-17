@@ -73,4 +73,38 @@ public class MailService {
         mailSender.send(message);
         log.info("Email sent successfully to {}", emailTo);
     }
+
+    /**
+     * Gửi nền email báo sinh viên đã được thêm vào lớp-môn (dùng khi import Excel).
+     * Lỗi gửi mail KHÔNG làm hỏng import — chỉ log lại.
+     */
+    @org.springframework.scheduling.annotation.Async
+    public void sendClassEnrollmentEmailAsync(String emailTo, String fullName, String classLabel,
+                                              boolean newAccount, String defaultPassword) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
+            helper.setFrom(emailFrom);
+            helper.setTo(emailTo);
+            helper.setSubject("Bạn đã được thêm vào lớp - FEdu");
+
+            StringBuilder html = new StringBuilder();
+            html.append("<h3>Xin chào ").append(fullName == null ? "" : fullName).append("!</h3>");
+            html.append("<p>Bạn đã được thêm vào lớp <b>").append(classLabel).append("</b> trên hệ thống FEdu.</p>");
+            if (newAccount) {
+                html.append("<p>Tài khoản đăng nhập của bạn:</p>");
+                html.append("<ul><li>Email: <b>").append(emailTo).append("</b></li>");
+                html.append("<li>Mật khẩu: <b>").append(defaultPassword).append("</b></li></ul>");
+                html.append("<p>Vui lòng đăng nhập và <b>đổi mật khẩu</b> ngay trong lần đầu sử dụng.</p>");
+            }
+            html.append("<a href=\"").append(frontendUrl)
+                .append("/login\" style=\"display:inline-block;padding:10px 20px;background-color:#4338ca;color:white;text-decoration:none;border-radius:5px;\">Đăng nhập</a>");
+
+            helper.setText(html.toString(), true);
+            mailSender.send(message);
+            log.info("Sent class-enrollment email to {}", emailTo);
+        } catch (Exception e) {
+            log.error("Failed to send class-enrollment email to {}: {}", emailTo, e.getMessage());
+        }
+    }
 }

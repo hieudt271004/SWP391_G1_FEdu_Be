@@ -88,6 +88,27 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public UserAccount createStudentAccount(String email, String firstName, String lastName,
+                                            com.fedu.fedu.utils.enums.Gender gender,
+                                            java.time.LocalDate dob, String phone, String rawPassword) {
+        UserAccount account = UserAccount.builder()
+                .email(email)
+                .password(passwordEncoder.encode(rawPassword))
+                .firstName(firstName)
+                .lastName(lastName)
+                .gender(gender)
+                .bod(dob)
+                .phone(phone)
+                .status(UserStatus.ACTIVE)
+                .isDeleted(false)
+                .build();
+        userAccountRepository.save(account);
+        assignUserRole(account, com.fedu.fedu.utils.enums.UserRole.STUDENT);
+        return account;
+    }
+
     private void assignUserRole(UserAccount userAccount, com.fedu.fedu.utils.enums.UserRole userRole) {
         // Mặc định USER nếu input null/invalid — KHÔNG bao giờ fallback về ADMIN
         com.fedu.fedu.utils.enums.UserRole targetRole =
