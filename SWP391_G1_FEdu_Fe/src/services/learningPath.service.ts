@@ -139,6 +139,50 @@ export interface ReorderContentRequest {
   orderIndex: number;
 }
 
+export interface UpdateTestRequest {
+  title: string;
+  description?: string;
+  durationMinutes?: number;
+  passingPercentage?: number;
+}
+
+export interface StudentAttemptResponse {
+  attemptId: number;
+  studentId: number | null;
+  studentName: string;
+  studentEmail: string;
+  score: number | null;
+  passed: boolean | null;
+  startedAt: string;
+  submittedAt: string | null;
+}
+
+export interface AnswerRequest {
+  answerContent: string;
+  isCorrect?: boolean;
+}
+
+export interface QuestionRequest {
+  questionContent: string;
+  questionType: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY';
+  score?: number;
+  answers: AnswerRequest[];
+}
+
+export interface AnswerResponse {
+  answerId: number;
+  answerContent: string;
+  isCorrect: boolean;
+}
+
+export interface QuestionResponse {
+  questionId: number;
+  questionContent: string;
+  questionType: string;
+  score: number;
+  answers: AnswerResponse[];
+}
+
 
 export const learningPathService = {
   getSubjectLearningPaths: (subjectId: number) =>
@@ -163,6 +207,34 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/learning-nodes/${nodeId}`),
   createNodeEdge: (request: CreateNodeEdgeRequest) =>
     http.post<NodeEdgeResponse>('/teacher-manage/node-edges', request),
+
+  // Teacher content management endpoints
+  getTeacherNodeContent: (nodeId: number) =>
+    http.get<NodeContentResponse>(`/teacher-manage/learning-nodes/${nodeId}/content`),
+  addTeacherNodeTest: (nodeId: number, request: CreateNodeTestRequest) =>
+    http.post<NodeTestResponse>(`/teacher-manage/learning-nodes/${nodeId}/tests`, request),
+  updateTeacherNodeTest: (testId: number, request: UpdateTestRequest) =>
+    http.put<NodeTestResponse>(`/teacher-manage/tests/${testId}`, request),
+  deleteTeacherNodeTest: (testId: number) =>
+    http.delete<void>(`/teacher-manage/tests/${testId}`),
+  getTeacherTestAttempts: (testId: number) =>
+    http.get<StudentAttemptResponse[]>(`/teacher-manage/tests/${testId}/attempts`),
+  getTeacherTestQuestions: (testId: number) =>
+    http.get<QuestionResponse[]>(`/teacher-manage/tests/${testId}/questions`),
+  addTeacherTestQuestion: (testId: number, request: QuestionRequest) =>
+    http.post<QuestionResponse>(`/teacher-manage/tests/${testId}/questions`, request),
+  updateTeacherTestQuestion: (questionId: number, request: QuestionRequest) =>
+    http.put<QuestionResponse>(`/teacher-manage/test-questions/${questionId}`, request),
+  deleteTeacherTestQuestion: (questionId: number) =>
+    http.delete<void>(`/teacher-manage/test-questions/${questionId}`),
+  addTeacherNodeMaterial: (nodeId: number, formData: FormData) =>
+    http.post<NodeMaterialResponse>(`/teacher-manage/learning-nodes/${nodeId}/materials`, formData, {
+      'Content-Type': 'multipart/form-data',
+    }),
+  deleteTeacherNodeMaterial: (materialId: number) =>
+    http.delete<void>(`/teacher-manage/materials/${materialId}`),
+  reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
+    http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
 
   // Admin template endpoints
   getAdminSubjectTemplates: (subjectId: number) =>

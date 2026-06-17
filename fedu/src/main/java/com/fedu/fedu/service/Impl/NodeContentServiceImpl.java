@@ -3,6 +3,7 @@ package com.fedu.fedu.service.Impl;
 import com.fedu.fedu.dto.req.CreateNodeMaterialRequest;
 import com.fedu.fedu.dto.req.CreateNodeTestRequest;
 import com.fedu.fedu.dto.req.ReorderContentRequest;
+import com.fedu.fedu.dto.req.UpdateTestRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
 import com.fedu.fedu.exception.ResourceNotFoundException;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import java.math.BigDecimal;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,6 +33,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     private final VideoRepository videoRepository;
     private final FileEntityRepository fileEntityRepository;
     private final TestRepository testRepository;
+    private final StudentTestAttemptRepository studentTestAttemptRepository;
 
     private static final String UPLOAD_DIR = "uploads";
 
@@ -221,7 +224,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     @Override
     @Transactional
     public void deleteTest(Long testId) {
-        Test test = testRepository.findById(testId)
+        Test test = testRepository.findByTestIdAndIsDeletedFalse(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         test.setIsDeleted(true);
@@ -290,7 +293,7 @@ public class NodeContentServiceImpl implements NodeContentService {
                 material.setOrderIndex(req.getOrderIndex());
                 nodeMaterialRepository.save(material);
             } else if ("TEST".equalsIgnoreCase(req.getType())) {
-                Test test = testRepository.findById(req.getId())
+                Test test = testRepository.findByTestIdAndIsDeletedFalse(req.getId())
                         .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + req.getId()));
                 test.setOrderIndex(req.getOrderIndex());
                 testRepository.save(test);
@@ -314,5 +317,61 @@ public class NodeContentServiceImpl implements NodeContentService {
             }
         }
         return max + 1;
+    }
+
+    @Override
+    @Transactional
+    public NodeTestResponse updateTest(Long testId, UpdateTestRequest request) {
+        Test test = testRepository.findByTestIdAndIsDeletedFalse(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+
+        test.setTitle(request.getTitle());
+        test.setDescription(request.getDescription());
+        test.setDurationMinutes(request.getDurationMinutes());
+        if (request.getPassingPercentage() != null) {
+            test.setPassingPercentage(request.getPassingPercentage());
+        }
+
+        testRepository.save(test);
+        return mapToTestResponse(test);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StudentAttemptResponse> getTestAttempts(Long testId) {
+        Test test = testRepository.findByTestIdAndIsDeletedFalse(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+
+        List<StudentTestAttempt> attempts = studentTestAttemptRepository.findByTestTestId(testId);
+        BigDecimal passingPercentage = test.getPassingPercentage() != null ? test.getPassingPercentage() : BigDecimal.ZERO;
+
+        return attempts.stream()
+                .map(attempt -> {
+                    String studentName = "";
+                    String studentEmail = "";
+                    if (attempt.getStudent() != null) {
+                        studentEmail = attempt.getStudent().getEmail();
+                        String firstName = attempt.getStudent().getFirstName() != null ? attempt.getStudent().getFirstName() : "";
+                        String lastName = attempt.getStudent().getLastName() != null ? attempt.getStudent().getLastName() : "";
+                        studentName = (firstName + " " + lastName).trim();
+                    }
+
+                    Boolean passed = null;
+                    if (attempt.getScore() != null) {
+                        passed = attempt.getScore().compareTo(passingPercentage) >= 0;
+                    }
+
+                    return StudentAttemptResponse.builder()
+                            .attemptId(attempt.getAttemptId())
+                            .studentId(attempt.getStudent() != null ? attempt.getStudent().getUserId() : null)
+                            .studentName(studentName)
+                            .studentEmail(studentEmail)
+                            .score(attempt.getScore())
+                            .passed(passed)
+                            .startedAt(attempt.getStartedAt())
+                            .submittedAt(attempt.getSubmittedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }

@@ -10,13 +10,6 @@ import type { ClassroomResponse } from "../../types/classroom";
 import type { StudentInClass } from "../../types/student";
 import type { AdminUserResponse } from "../../services/admin.service";
 
-const mockModuleProgress = [
-  { id: "1", title: "Module 1: Introduction", status: "completed" as const },
-  { id: "2", title: "Module 2: Requirements", status: "completed" as const },
-  { id: "3", title: "Module 3: Design", status: "in-progress" as const },
-  { id: "4", title: "Module 4: Implementation", status: "not-started" as const },
-  { id: "5", title: "Module 5: Testing", status: "not-started" as const },
-];
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -38,8 +31,6 @@ export function ClassDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-
-  const [expandedModules, setExpandedModules] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addEmail, setAddEmail] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
@@ -97,11 +88,6 @@ export function ClassDetailPage() {
     }
   }, [showAddModal]);
 
-  const toggleModule = (moduleId: string) => {
-    setExpandedModules((prev) =>
-      prev.includes(moduleId) ? prev.filter((id) => id !== moduleId) : [...prev, moduleId]
-    );
-  };
 
   const handleAddStudent = async () => {
     if (!addEmail.trim()) return;
@@ -313,48 +299,8 @@ export function ClassDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Class Roadmap */}
-        <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827", marginBottom: "1.5rem" }}>Lộ trình Lớp học</h2>
-          <div className="space-y-4">
-            {mockModuleProgress.map((module, index) => {
-              const isExpanded = expandedModules.includes(module.id);
-              const statusColor = module.status === "completed" ? "#059669" : module.status === "in-progress" ? "#4338ca" : "#d1d5db";
-              return (
-                <div key={module.id}>
-                  <div className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: module.status === "completed" ? "#ecfdf5" : module.status === "in-progress" ? "#eef2ff" : "white", border: `2px solid ${statusColor}` }}>
-                        {module.status === "completed"
-                          ? <CheckCircle2 className="w-5 h-5" style={{ color: statusColor }} />
-                          : <Circle className="w-4 h-4" style={{ color: statusColor }} />}
-                      </div>
-                      {index < mockModuleProgress.length - 1 && (
-                        <div className="w-0.5 h-12 mt-1" style={{ backgroundColor: "#e5e7eb" }} />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <button onClick={() => toggleModule(module.id)} className="text-left w-full">
-                        <h3 style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827", marginBottom: "0.25rem" }}>{module.title}</h3>
-                        <p style={{ fontSize: "0.8125rem", color: module.status === "completed" ? "#059669" : module.status === "in-progress" ? "#4338ca" : "#9ca3af" }}>
-                          {module.status === "completed" ? "Đã hoàn thành" : module.status === "in-progress" ? "Đang học" : "Chưa bắt đầu"}
-                        </p>
-                      </button>
-                      {isExpanded && (
-                        <div className="mt-3 space-y-2">
-                          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50" style={{ color: "#4338ca", fontWeight: 500 }}>
-                            <Plus className="w-4 h-4" /> Thêm Nội dung
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* Left: Class Roadmap - Removed hardcoded timeline */}
+        <div></div>
 
         {/* Right: Student List */}
         <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>

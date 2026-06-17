@@ -40,6 +40,7 @@ import { TeacherClassesPage } from '../pages/teacher/classes/TeacherClassesPage'
 import { ClassOverviewPage } from '../pages/teacher/classes/ClassOverviewPage';
 import { ClassManagementPage } from '../pages/teacher/classes/ClassManagementPage';
 import { StudentDetailsPage } from '../pages/teacher/students/StudentDetailsPage';
+import { TeacherTicketsPage } from '../pages/teacher/tickets/TeacherTicketsPage';
 
 // Common pages
 import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
@@ -93,6 +94,7 @@ export function AppRoutes() {
                 <Route path="/teacher/courses" element={<TeacherCoursesPage />} />
                 <Route path="/teacher/courses/:subjectId" element={<CourseClassroomsPage />} />
                 <Route path="/teacher/classes" element={<TeacherClassesPage />} />
+                <Route path="/teacher/tickets" element={<TeacherTicketsPage />} />
                 <Route path="/teacher/classrooms/:classroomId" element={<ClassOverviewPage />} />
                 <Route path="/teacher/classrooms/:classroomId/manage" element={<ClassManagementPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />

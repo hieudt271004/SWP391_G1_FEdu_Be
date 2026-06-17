@@ -32,6 +32,12 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final StudentNodeProgressRepository studentNodeProgressRepository;
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final UserAccountRepository userAccountRepository;
+    private final NodeMaterialRepository nodeMaterialRepository;
+    private final VideoRepository videoRepository;
+    private final FileEntityRepository fileEntityRepository;
+    private final TestRepository testRepository;
+    private final TestQuestionRepository testQuestionRepository;
+    private final TestAnswerRepository testAnswerRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -143,7 +149,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .title(templateNode.getTitle())
                     .description(templateNode.getDescription())
                     .nodeType(templateNode.getNodeType())
-                    .status(NodeStatus.LOCKED)
+                    .status(templateNode.getStatus() != null ? templateNode.getStatus() : NodeStatus.LOCKED)
                     .displayOrder(templateNode.getDisplayOrder() != null ? templateNode.getDisplayOrder() : 0)
                     .isRequired(templateNode.getIsRequired() != null ? templateNode.getIsRequired() : true)
                     .branchName(templateNode.getBranchName())
@@ -151,6 +157,85 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .build();
             learningNodeRepository.save(clonedNode);
             templateNodeIdToCloned.put(templateNode.getNodeId(), clonedNode);
+
+            // Clone NodeMaterials
+            List<NodeMaterial> templateMaterials = nodeMaterialRepository.findByLearningNodeNodeIdAndIsDeletedFalse(templateNode.getNodeId());
+            for (NodeMaterial templateMat : templateMaterials) {
+                NodeMaterial clonedMat = NodeMaterial.builder()
+                        .learningNode(clonedNode)
+                        .title(templateMat.getTitle())
+                        .required(templateMat.getRequired() != null ? templateMat.getRequired() : true)
+                        .orderIndex(templateMat.getOrderIndex())
+                        .isDeleted(false)
+                        .build();
+                nodeMaterialRepository.save(clonedMat);
+
+                // Clone Videos
+                List<Video> templateVideos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(templateMat.getMaterialId());
+                for (Video templateVid : templateVideos) {
+                    Video clonedVid = Video.builder()
+                            .nodeMaterial(clonedMat)
+                            .videoUrl(templateVid.getVideoUrl())
+                            .title(templateVid.getTitle())
+                            .durationSeconds(templateVid.getDurationSeconds())
+                            .description(templateVid.getDescription())
+                            .isDeleted(false)
+                            .build();
+                    videoRepository.save(clonedVid);
+                }
+
+                // Clone Files
+                List<FileEntity> templateFiles = fileEntityRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(templateMat.getMaterialId());
+                for (FileEntity templateFile : templateFiles) {
+                    FileEntity clonedFile = FileEntity.builder()
+                            .nodeMaterial(clonedMat)
+                            .fileUrl(templateFile.getFileUrl())
+                            .fileName(templateFile.getFileName())
+                            .fileType(templateFile.getFileType())
+                            .description(templateFile.getDescription())
+                            .isDeleted(false)
+                            .build();
+                    fileEntityRepository.save(clonedFile);
+                }
+            }
+
+            // Clone Tests
+            List<Test> templateTests = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(templateNode.getNodeId());
+            for (Test templateTest : templateTests) {
+                Test clonedTest = Test.builder()
+                        .learningNode(clonedNode)
+                        .title(templateTest.getTitle())
+                        .description(templateTest.getDescription())
+                        .durationMinutes(templateTest.getDurationMinutes())
+                        .passingPercentage(templateTest.getPassingPercentage())
+                        .orderIndex(templateTest.getOrderIndex())
+                        .isDeleted(false)
+                        .build();
+                testRepository.save(clonedTest);
+
+                // Clone TestQuestions
+                List<TestQuestion> templateQuestions = testQuestionRepository.findByTestTestId(templateTest.getTestId());
+                for (TestQuestion templateQuest : templateQuestions) {
+                    TestQuestion clonedQuest = TestQuestion.builder()
+                            .test(clonedTest)
+                            .questionContent(templateQuest.getQuestionContent())
+                            .questionType(templateQuest.getQuestionType())
+                            .score(templateQuest.getScore())
+                            .build();
+                    testQuestionRepository.save(clonedQuest);
+
+                    // Clone TestAnswers
+                    List<TestAnswer> templateAnswers = testAnswerRepository.findByQuestionQuestionId(templateQuest.getQuestionId());
+                    for (TestAnswer templateAns : templateAnswers) {
+                        TestAnswer clonedAns = TestAnswer.builder()
+                                .question(clonedQuest)
+                                .answerContent(templateAns.getAnswerContent())
+                                .isCorrect(templateAns.getIsCorrect())
+                                .build();
+                        testAnswerRepository.save(clonedAns);
+                    }
+                }
+            }
         }
 
         // 4. Clone các edge từ template sang path của lớp học

@@ -716,13 +716,6 @@ export function CourseDetailPage() {
                   >
                     <Plus className="w-3.5 h-3.5" /> Thêm bài học
                   </button>
-                  <button
-                    disabled={nodes.length < 2}
-                    onClick={() => setIsAddEdgeOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors border border-teal-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <GitFork className="w-3.5 h-3.5" /> Liên kết tiên quyết
-                  </button>
                 </div>
               </div>
 
@@ -1068,29 +1061,6 @@ export function CourseDetailPage() {
 
         {/* Right Column: Instructor and Classrooms list */}
         <div className="space-y-6">
-          {/* Instructor details */}
-          <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827", marginBottom: "1.5rem" }}>
-              Giảng viên phụ trách
-            </h2>
-            <div className="flex items-center gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors" style={{ border: "1px solid #e5e7eb" }}>
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
-              >
-                <span className="text-white text-lg font-bold">
-                  {((subject?.createdBy?.firstName?.[0]) || (subject?.createdBy?.lastName?.[0]) || "A").toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 style={{ fontSize: "1rem", fontWeight: 600, color: "#111827", marginBottom: "0.25rem" }}>
-                  {subject?.createdBy ? `${subject.createdBy.firstName} ${subject.createdBy.lastName}` : "Quản trị viên"}
-                </h3>
-                <span className="px-2 py-0.5 rounded text-xs" style={{ backgroundColor: "#eef2ff", color: "#4338ca", fontWeight: 600 }}>Người tạo môn học</span>
-              </div>
-            </div>
-          </div>
-
           {/* Active Classrooms */}
           <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
             <div className="flex items-center justify-between mb-6">
@@ -1391,13 +1361,15 @@ export function CourseDetailPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Nhánh phụ, Nâng cao..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     value={newNodeBranch}
                     onChange={(e) => setNewNodeBranch(e.target.value)}
-                  />
+                  >
+                    <option value="">-- Chọn nhánh --</option>
+                    <option value="Main">Main</option>
+                    <option value="Optional">Optional</option>
+                  </select>
                 </div>
               </div>
 
@@ -1552,13 +1524,15 @@ export function CourseDetailPage() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="Tên nhánh..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     value={nodeToEdit.branchName || ""}
                     onChange={(e) => setNodeToEdit({ ...nodeToEdit, branchName: e.target.value })}
-                  />
+                  >
+                    <option value="">-- Chọn nhánh --</option>
+                    <option value="Main">Main</option>
+                    <option value="Optional">Optional</option>
+                  </select>
                 </div>
               </div>
 
@@ -1674,13 +1648,15 @@ export function CourseDetailPage() {
 
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Tên nhánh liên kết (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Main, Optional..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   value={edgeBranch}
                   onChange={(e) => setEdgeBranch(e.target.value)}
-                />
+                >
+                  <option value="">-- Chọn nhánh --</option>
+                  <option value="Main">Main</option>
+                  <option value="Optional">Optional</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
