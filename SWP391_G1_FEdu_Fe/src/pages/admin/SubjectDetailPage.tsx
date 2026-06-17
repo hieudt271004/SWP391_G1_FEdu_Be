@@ -15,7 +15,7 @@ import type { AdminUserResponse } from "../../services/admin.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
 import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
-import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse, BranchType } from "../../services/learningPath.service";
+import type { LearningPathResponse, LearningNodeResponse, NodeEdgeResponse, NodeContentResponse } from "../../services/learningPath.service";
 import { toast } from "sonner";
 
 export function SubjectDetailPage() {
@@ -57,7 +57,6 @@ export function SubjectDetailPage() {
   const [isDeleteTplConfirmOpen, setIsDeleteTplConfirmOpen] = useState(false);
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isEditNodeOpen, setIsEditNodeOpen] = useState(false);
-  const [isAddEdgeOpen, setIsAddEdgeOpen] = useState(false);
   const [showNodeDeleteConfirm, setShowNodeDeleteConfirm] = useState(false);
   const [isAddMaterialOpen, setIsAddMaterialOpen] = useState(false);
   const [isAddTestOpen, setIsAddTestOpen] = useState(false);
@@ -81,12 +80,8 @@ export function SubjectDetailPage() {
   const [addingNode, setAddingNode] = useState(false);
   const submittingNodeRef = useRef(false);
 
-  // Form states - Edge
+  // Điểm tối thiểu để qua nhánh phụ (dùng khi thêm node nhánh phụ)
   const [edgeMinScore, setEdgeMinScore] = useState("");
-  const [edgeMaxScore, setEdgeMaxScore] = useState("");
-  const [edgeFromNodeId, setEdgeFromNodeId] = useState("");
-  const [edgeToNodeId, setEdgeToNodeId] = useState("");
-  const [edgeBranch, setEdgeBranch] = useState<BranchType | "">("");
 
   // Form states - Node Content (Materials & Tests)
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
@@ -620,37 +615,6 @@ export function SubjectDetailPage() {
   };
 
   // Edge CRUD actions
-  const handleAddEdgeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!edgeFromNodeId || !edgeToNodeId || !selectedTemplateId) {
-      toast.error("Vui lòng chọn đầy đủ các bài học liên kết");
-      return;
-    }
-    if (edgeFromNodeId === edgeToNodeId) {
-      toast.error("Không thể tự liên kết bài học với chính nó");
-      return;
-    }
-    try {
-      await learningPathService.createAdminEdge({
-        fromNodeId: Number(edgeFromNodeId),
-        toNodeId: Number(edgeToNodeId),
-        branchName: edgeBranch || undefined,
-        minScore: edgeMinScore ? Number(edgeMinScore) : undefined,
-        maxScore: edgeMaxScore ? Number(edgeMaxScore) : undefined,
-      });
-      toast.success("Tạo liên kết tiên quyết thành công");
-      setIsAddEdgeOpen(false);
-      setEdgeFromNodeId("");
-      setEdgeToNodeId("");
-      setEdgeBranch("");
-      setEdgeMinScore("");
-      setEdgeMaxScore("");
-      await fetchGraph(selectedTemplateId);
-    } catch (err: any) {
-      toast.error(err.message || "Không thể tạo liên kết. Có thể hành động này gây ra vòng lặp vô hạn (cycle)!");
-    }
-  };
-
   const handleDeleteEdge = async (edgeId: number) => {
     if (!selectedTemplateId) return;
     try {
@@ -1012,13 +976,6 @@ export function SubjectDetailPage() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors border border-indigo-150"
                   >
                     <Plus className="w-3.5 h-3.5" /> Thêm bài học
-                  </button>
-                  <button
-                    disabled={nodes.length < 2}
-                    onClick={() => setIsAddEdgeOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 transition-colors border border-teal-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <GitFork className="w-3.5 h-3.5" /> Liên kết tiên quyết
                   </button>
                 </div>
               </div>
@@ -1887,110 +1844,6 @@ export function SubjectDetailPage() {
                 Xác nhận xóa
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ADD EDGE MODAL */}
-      {isAddEdgeOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-4 border-b border-gray-150">
-              <h2 className="text-lg font-bold text-gray-900">Tạo liên kết tiên quyết</h2>
-              <button onClick={() => setIsAddEdgeOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleAddEdgeSubmit} className="p-4 space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Bài học nguồn (Phải hoàn thành trước) *</label>
-                <select
-                  required
-                  value={edgeFromNodeId}
-                  onChange={(e) => setEdgeFromNodeId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                  <option value="">-- Chọn bài học tiên quyết --</option>
-                  {nodes.map((n) => (
-                    <option key={n.nodeId} value={n.nodeId}>
-                      {n.title} (Thứ tự: {n.displayOrder})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Bài học đích (Bài học bị mở sau đó) *</label>
-                <select
-                  required
-                  value={edgeToNodeId}
-                  onChange={(e) => setEdgeToNodeId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                  <option value="">-- Chọn bài học bị khóa --</option>
-                  {nodes.map((n) => (
-                    <option key={n.nodeId} value={n.nodeId}>
-                      {n.title} (Thứ tự: {n.displayOrder})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Tên nhánh liên kết (Optional)</label>
-                <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                  value={edgeBranch}
-                  onChange={(e) => setEdgeBranch(e.target.value as BranchType)}
-                >
-                  <option value="">-- Chọn nhánh --</option>
-                  <option value="MAIN">MAIN (Nhánh chính)</option>
-                  <option value="SUB">SUB (Nhánh phụ)</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-700">Điểm tối thiểu (Optional)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Ví dụ: 8.0"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={edgeMinScore}
-                    onChange={(e) => setEdgeMinScore(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-700">Điểm tối đa (Optional)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Ví dụ: 10.0"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={edgeMaxScore}
-                    onChange={(e) => setEdgeMaxScore(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddEdgeOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
-                  style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
-                >
-                  Tạo liên kết
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
