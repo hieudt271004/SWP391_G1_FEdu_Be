@@ -1,11 +1,12 @@
 import { http } from './http';
+import { apiClient } from './api.client';
 import type { ClassroomResponse, ClassroomRequest } from '../types/classroom';
 import type {
   ClassroomSubjectResponse,
   AddClassroomSubjectRequest,
   ChangeLecturerRequest,
 } from '../types/classroomSubject';
-import type { StudentInClass, AddStudentRequest } from '../types/student';
+import type { StudentInClass, AddStudentRequest, ImportStudentsResult } from '../types/student';
 
 export const classroomService = {
   // ─── Classroom CRUD (ADMIN) ────────────────────────────────────────────────
@@ -68,4 +69,30 @@ export const classroomService = {
 
   removeStudent: (classroomSubjectId: number, studentId: number) =>
     http.delete<void>(`/classroom-subjects/${classroomSubjectId}/students/${studentId}`),
+
+  // ─── Import sinh viên bằng Excel ─────────────────────────────────────────────
+  importStudents: (classroomSubjectId: number, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return http.post<ImportStudentsResult>(
+      `/classroom-subjects/${classroomSubjectId}/students/import`,
+      form,
+      { 'Content-Type': 'multipart/form-data' }
+    );
+  },
+
+  downloadImportTemplate: async (classroomSubjectId: number) => {
+    const res = await apiClient.get(
+      `/classroom-subjects/${classroomSubjectId}/students/import/template`,
+      { responseType: 'blob' }
+    );
+    const url = window.URL.createObjectURL(res.data as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'student_import_template.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

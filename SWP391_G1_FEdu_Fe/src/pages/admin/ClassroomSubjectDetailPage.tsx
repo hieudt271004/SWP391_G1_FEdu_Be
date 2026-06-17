@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Search, UserPlus, Loader2, AlertCircle, Trash2,
   BookOpen, GraduationCap, Mail, Pencil, X, Route as RouteIcon,
-  Lock, CheckCircle2, FileText,
+  Lock, CheckCircle2, FileText, Upload, Download,
   ChevronDown, ChevronRight, Video, ClipboardCheck, ExternalLink,
 } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
@@ -11,7 +11,7 @@ import { adminService } from "../../services/admin.service";
 import { learningPathService } from "../../services/learningPath.service";
 import { API_BASE_URL } from "../../services/api.client";
 import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
-import type { StudentInClass } from "../../types/student";
+import type { StudentInClass, ImportStudentsResult } from "../../types/student";
 import type { ClassroomGraphResponse, LearningNodeResponse, NodeContentResponse } from "../../services/learningPath.service";
 import type { AdminUserResponse } from "../../services/admin.service";
 
@@ -52,6 +52,13 @@ export function ClassroomSubjectDetailPage() {
   const [addEmail, setAddEmail] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
+
+  // Modal import sinh viên bằng Excel
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportStudentsResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!classroomId || !csId) return;
@@ -155,6 +162,38 @@ export function ClassroomSubjectDetailPage() {
       setAddError(e instanceof Error ? e.message : "Thêm học sinh thất bại");
     } finally {
       setAddLoading(false);
+    }
+  };
+
+  const openImport = () => {
+    setShowImport(true);
+    setImportFile(null);
+    setImportResult(null);
+    setImportError(null);
+  };
+
+  const handleDownloadTemplate = async () => {
+    if (!cs) return;
+    try {
+      await classroomService.downloadImportTemplate(cs.classroomSubjectId);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Tải file mẫu thất bại");
+    }
+  };
+
+  const handleImport = async () => {
+    if (!cs || !importFile) return;
+    try {
+      setImporting(true);
+      setImportError(null);
+      setImportResult(null);
+      const result = await classroomService.importStudents(cs.classroomSubjectId, importFile);
+      setImportResult(result);
+      await fetchData(); // refresh roster + studentCount
+    } catch (e: unknown) {
+      setImportError(e instanceof Error ? e.message : "Import thất bại");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -417,11 +456,18 @@ export function ClassroomSubjectDetailPage() {
             <BookOpen className="w-5 h-5" style={{ color: "#4338ca" }} />
             <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>Sinh viên ({cs.studentCount})</h2>
           </div>
-          <button onClick={() => { setShowAddStudent(true); setAddEmail(""); setAddError(null); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-white hover:opacity-90 transition-opacity"
-            style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontSize: "0.875rem", fontWeight: 600 }}>
-            <UserPlus className="w-4 h-4" /> Thêm SV
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={openImport}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              style={{ border: "1px solid #e5e7eb", color: "#4338ca", cursor: "pointer", fontSize: "0.875rem", fontWeight: 600 }}>
+              <Upload className="w-4 h-4" /> Import Excel
+            </button>
+            <button onClick={() => { setShowAddStudent(true); setAddEmail(""); setAddError(null); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white hover:opacity-90 transition-opacity"
+              style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontSize: "0.875rem", fontWeight: 600 }}>
+              <UserPlus className="w-4 h-4" /> Thêm SV
+            </button>
+          </div>
         </div>
 
         {roster.length === 0 ? (
@@ -498,6 +544,86 @@ export function ClassroomSubjectDetailPage() {
                 className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white hover:opacity-90 disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", fontSize: "0.875rem", fontWeight: 600, cursor: addEmail.trim() ? "pointer" : "not-allowed" }}>
                 {addLoading && <Loader2 className="w-4 h-4 animate-spin" />} Thêm vào lớp-môn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal import sinh viên bằng Excel */}
+      {showImport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !importing && setShowImport(false)}>
+          <div className="rounded-2xl w-full max-w-lg overflow-hidden" style={{ backgroundColor: "white" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid #e5e7eb" }}>
+              <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>Import sinh viên bằng Excel</h3>
+              <button onClick={() => !importing && setShowImport(false)} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" style={{ color: "#6b7280" }} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="flex items-start gap-2 px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: "#eff6ff", border: "1px solid #bfdbfe", color: "#1e40af" }}>
+                <FileText className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>File <b>.xlsx</b> gồm cột <b>email, Họ, Tên</b> (bắt buộc) + Giới tính, Ngày sinh, SĐT (tùy chọn). SV chưa có tài khoản sẽ được tạo mới (mật khẩu mặc định <b>123456</b>) và nhận email.</div>
+              </div>
+
+              <button onClick={handleDownloadTemplate} className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#4338ca" }}>
+                <Download className="w-4 h-4" /> Tải file mẫu
+              </button>
+
+              <input type="file" accept=".xlsx"
+                onChange={(e) => { setImportFile(e.target.files?.[0] ?? null); setImportResult(null); setImportError(null); }}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" />
+
+              {importError && (<div className="px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>{importError}</div>)}
+
+              {importResult && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    {[
+                      { label: "Tạo mới", value: importResult.created, color: "#059669" },
+                      { label: "Vào lớp", value: importResult.enrolled, color: "#4338ca" },
+                      { label: "Bỏ qua", value: importResult.skipped, color: "#d97706" },
+                      { label: "Lỗi", value: importResult.failed, color: "#dc2626" },
+                    ].map((s) => (
+                      <div key={s.label} className="rounded-lg py-2" style={{ backgroundColor: "#f9fafb", border: "1px solid #f3f4f6" }}>
+                        <div style={{ fontSize: "1.25rem", fontWeight: 700, color: s.color }}>{s.value}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {importResult.errors.length > 0 && (
+                    <div className="max-h-48 overflow-y-auto rounded-lg" style={{ border: "1px solid #fecaca" }}>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr style={{ backgroundColor: "#fef2f2", color: "#991b1b" }}>
+                            <th className="text-left px-3 py-2">Dòng</th>
+                            <th className="text-left px-3 py-2">Email</th>
+                            <th className="text-left px-3 py-2">Lý do</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importResult.errors.map((er, idx) => (
+                            <tr key={idx} style={{ borderTop: "1px solid #fee2e2" }}>
+                              <td className="px-3 py-1.5">{er.rowNumber}</td>
+                              <td className="px-3 py-1.5" style={{ color: "#374151" }}>{er.email}</td>
+                              <td className="px-3 py-1.5" style={{ color: "#dc2626" }}>{er.reason}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4" style={{ borderTop: "1px solid #e5e7eb" }}>
+              <button onClick={() => setShowImport(false)} disabled={importing}
+                className="px-5 py-2.5 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                style={{ border: "1px solid #e5e7eb", backgroundColor: "white", color: "#374151", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer" }}>
+                {importResult ? "Đóng" : "Hủy"}
+              </button>
+              <button onClick={handleImport} disabled={!importFile || importing}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white hover:opacity-90 disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", fontSize: "0.875rem", fontWeight: 600, cursor: importFile ? "pointer" : "not-allowed" }}>
+                {importing && <Loader2 className="w-4 h-4 animate-spin" />} {importResult ? "Import lại" : "Tải lên"}
               </button>
             </div>
           </div>

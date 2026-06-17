@@ -11,3 +11,19 @@ export interface StudentInClass {
 export interface AddStudentRequest {
   email: string;
 }
+
+// Khớp BE ImportRowError / ImportStudentsResult
+export interface ImportRowError {
+  rowNumber: number;
+  email: string;
+  reason: string;
+}
+
+export interface ImportStudentsResult {
+  totalRows: number;
+  created: number;
+  enrolled: number;
+  skipped: number;
+  failed: number;
+  errors: ImportRowError[];
+}
