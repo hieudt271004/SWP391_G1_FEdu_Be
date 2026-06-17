@@ -171,4 +171,13 @@ public class LearningPathManagementController {
             learningPathService.deleteDraftPath(classroomSubjectId, pathId);
             return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình nháp đã được xóa thành công");
         }
+
+        @Operation(summary = "Unlock an ON_CLASS node for the whole class")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PostMapping("/classroom-subjects/{classroomSubjectId}/nodes/{nodeId}/unlock")
+        public ResponseData<Integer> unlockOnClassNode(@PathVariable Long classroomSubjectId, @PathVariable Long nodeId) {
+            int opened = learningPathService.unlockOnClassNode(classroomSubjectId, nodeId);
+            return new ResponseData<>(HttpStatus.OK.value(),
+                    "Đã mở khóa node trên lớp cho " + opened + " học sinh", opened);
+        }
 }
