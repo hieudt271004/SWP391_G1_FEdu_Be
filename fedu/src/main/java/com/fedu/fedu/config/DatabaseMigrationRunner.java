@@ -179,6 +179,12 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Status check constraint dropped/verified successfully.");
             }
 
+            // Add test_locked column to student_node_progress (khóa test trong khi nợ nhánh phụ)
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE student_node_progress ADD COLUMN IF NOT EXISTS test_locked BOOLEAN NOT NULL DEFAULT FALSE");
+                log.info("Column 'test_locked' verified/added on 'student_node_progress'.");
+            }
+
             // Update old 'UNLOCKED' student progress status to 'OPEN'
             try (Statement statement = connection.createStatement()) {
                 int rows = statement.executeUpdate("UPDATE student_node_progress SET status = 'OPEN' WHERE status = 'UNLOCKED'");

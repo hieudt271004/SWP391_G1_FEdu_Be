@@ -35,4 +35,7 @@ public interface LearningPathService {
     void unpublishClassroomPath(Long classroomSubjectId, Long pathId);
     void deleteDraftPath(Long classroomSubjectId, Long pathId);
     void backfillProgressForStudent(Long classroomSubjectId, Long studentId);
+
+    /** Giáo viên mở khóa 1 node "Trên lớp" cho cả lớp-môn; trả về số học sinh được mở. */
+    int unlockOnClassNode(Long classroomSubjectId, Long nodeId);
 }

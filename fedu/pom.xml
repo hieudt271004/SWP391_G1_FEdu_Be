@@ -50,6 +50,7 @@
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
+			<version>42.6.0</version>
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
@@ -115,6 +116,8 @@
 			<version>0.11.2</version>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- Đọc/ghi file Excel (.xlsx) cho import sinh viên -->
+		<dependency>
 	</dependencies>
 
 	<build>

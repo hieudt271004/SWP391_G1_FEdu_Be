@@ -298,6 +298,7 @@ CREATE TABLE IF NOT EXISTS student_node_progress (
                                                      path_id      BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
                                                      order_index  INT NOT NULL DEFAULT 0,
                                                      status       VARCHAR(50) NOT NULL DEFAULT 'LOCKED',
+                                                     test_locked  BOOLEAN NOT NULL DEFAULT FALSE,
                                                      unlocked_at  TIMESTAMP,
                                                      completed_at TIMESTAMP,
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
