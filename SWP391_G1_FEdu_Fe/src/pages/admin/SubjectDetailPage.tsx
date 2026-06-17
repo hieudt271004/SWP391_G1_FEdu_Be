@@ -4,12 +4,13 @@ import {
   ArrowLeft, Plus, Edit2, Trash2, Users, Loader2,
   AlertCircle, BookOpen, GraduationCap, X,
   ChevronRight, Map, GitFork, AlertTriangle, CheckCircle,
-  HelpCircle, Circle, Video as VideoIcon, FileText, ArrowUp, ArrowDown
+  Video as VideoIcon, FileText, ArrowUp, ArrowDown, Download
 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
 import { learningPathService } from "../../services/learningPath.service";
 import { adminService } from "../../services/admin.service";
+import { API_BASE_URL } from "../../services/api.client";
 import type { AdminUserResponse } from "../../services/admin.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
@@ -75,8 +76,10 @@ export function SubjectDetailPage() {
   const [newNodeType, setNewNodeType] = useState<'AT_HOME' | 'ON_CLASS'>('AT_HOME');
   const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('OPEN');
   const [newNodeRequired, setNewNodeRequired] = useState(true);
-  const [newNodeBranch, setNewNodeBranch] = useState<BranchType | "">("");
-  const [newNodePredecessor, setNewNodePredecessor] = useState<string>("");
+  const [addNodeParent, setAddNodeParent] = useState<LearningNodeResponse | null>(null);
+  const [branchMode, setBranchMode] = useState<'MAIN' | 'SUB'>('MAIN');
+  const [addingNode, setAddingNode] = useState(false);
+  const submittingNodeRef = useRef(false);
 
   // Form states - Edge
   const [edgeMinScore, setEdgeMinScore] = useState("");
@@ -97,6 +100,12 @@ export function SubjectDetailPage() {
   const [materialFileName, setMaterialFileName] = useState("");
   const [materialFileDesc, setMaterialFileDesc] = useState("");
   const [materialSelectedFile, setMaterialSelectedFile] = useState<File | null>(null);
+  // Xem trước tài liệu theo đúng định dạng
+  const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
+  // PDF được tải dạng blob để xem trực tiếp (tránh X-Frame-Options chặn iframe cross-origin :5173 -> :8080)
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
 
   const [testTitle, setTestTitle] = useState("");
   const [testDesc, setTestDesc] = useState("");
@@ -212,6 +221,45 @@ export function SubjectDetailPage() {
       fetchGraph(selectedTemplateId);
     }
   }, [selectedTemplateId, fetchGraph]);
+
+  // Khi mở xem trước PDF: tải về dạng blob rồi nhúng bằng object URL.
+  // Iframe trỏ thẳng tới :8080 bị Spring Security chặn (X-Frame-Options: DENY),
+  // còn blob: cùng origin với trang FE nên hiển thị được.
+  useEffect(() => {
+    setPreviewBlobUrl(null);
+    setPreviewError(false);
+    if (!previewFile) return;
+
+    const t = (previewFile.type || "").toLowerCase();
+    const ext = (previewFile.url.split(/[?#]/)[0].split(".").pop() || "").toLowerCase();
+    const isPdf = t === "application/pdf" || ext === "pdf";
+    if (!isPdf) return;
+
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setPreviewLoading(true);
+    fetch(previewFile.url)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [previewFile]);
 
   const handleSelectTemplate = (id: number) => {
     setSelectedTemplateId(id);
@@ -421,8 +469,8 @@ export function SubjectDetailPage() {
     submittingNodeRef.current = true;
     setAddingNode(true);
     try {
-      const mainNodes = nodes.filter((n) => (n.branchName || "Main") !== "Phụ");
-      const branchName = isSub ? "Phụ" : "Main";
+      const mainNodes = nodes.filter((n) => (n.branchName || "MAIN") !== "SUB");
+      const branchName = isSub ? "SUB" : "MAIN";
       let order: number;
 
       if (!parent) {
@@ -457,14 +505,14 @@ export function SubjectDetailPage() {
           await learningPathService.createAdminEdge({
             fromNodeId: parent.nodeId,
             toNodeId: createdNode.nodeId,
-            branchName: "Phụ",
+            branchName: "SUB",
             maxScore: Number(edgeMinScore),
           });
         } else {
           await learningPathService.createAdminEdge({
             fromNodeId: parent.nodeId,
             toNodeId: createdNode.nodeId,
-            branchName: "Main",
+            branchName: "MAIN",
           });
         }
       } else {
@@ -474,7 +522,7 @@ export function SubjectDetailPage() {
           await learningPathService.createAdminEdge({
             fromNodeId: lastMain.nodeId,
             toNodeId: createdNode.nodeId,
-            branchName: "Main",
+            branchName: "MAIN",
           });
         }
       }
@@ -764,31 +812,8 @@ export function SubjectDetailPage() {
   };
 
   // UI Helpers
-  const getNodeColorClass = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return 'border-l-4 border-l-green-500 hover:bg-green-50/5';
-      case 'LOCKED':
-        return 'border-l-4 border-l-gray-300 hover:bg-gray-50 opacity-90';
-      case 'HIDDEN':
-        return 'border-l-4 border-l-yellow-500 hover:bg-yellow-50/5 opacity-70';
-      default:
-        return 'border-l-4 border-l-gray-300 hover:bg-gray-50';
-    }
-  };
-
-  const getNodeIcon = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'LOCKED':
-        return <Circle className="w-5 h-5 text-gray-400" />;
-      case 'HIDDEN':
-        return <HelpCircle className="w-5 h-5 text-yellow-500" />;
-      default:
-        return <Circle className="w-5 h-5" />;
-    }
-  };
+  // Viền xanh mép trái chỉ hiện khi MÔN đã xuất bản; bản nháp thì trung tính
+  const isSubjectPublished = subject?.status === "published";
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -1006,7 +1031,7 @@ export function SubjectDetailPage() {
                       });
 
                     return (
-                      <div key={node.nodeId} className={`transition-all duration-200 ${getNodeColorClass(node.status)}`}>
+                      <div key={node.nodeId} className={`transition-all duration-200 ${isSubjectPublished ? "border-l-4 border-l-green-500 hover:bg-green-50/5" : "hover:bg-gray-50"}`}>
                         {/* Expandable node header */}
                         <div
                           onClick={() => toggleNode(node.nodeId)}
@@ -1016,7 +1041,6 @@ export function SubjectDetailPage() {
                             <div className={`p-0.5 rounded transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>
                               <ChevronRight className="w-4 h-4 text-gray-400" />
                             </div>
-                            <div className="shrink-0">{getNodeIcon(node.status)}</div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className={`font-semibold text-sm ${node.status === "LOCKED" ? "text-gray-500" : "text-gray-900"}`}>
@@ -1212,19 +1236,19 @@ export function SubjectDetailPage() {
                                                 <span className="px-1 py-0.2 bg-orange-50 text-orange-700 border border-orange-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
                                                   <FileText className="w-2.5 h-2.5" /> File
                                                 </span>
-                                                <a
-                                                  href={
-                                                    m.file.fileUrl.startsWith("/")
-                                                      ? `http://localhost:8080${m.file.fileUrl}`
-                                                      : m.file.fileUrl
-                                                  }
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  className="text-indigo-600 hover:underline truncate max-w-[200px]"
-                                                  title={m.file.fileName}
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const f = m!.file!;
+                                                    const url = f.fileUrl.startsWith("/") ? `${API_BASE_URL}${f.fileUrl}` : f.fileUrl;
+                                                    setPreviewFile({ url, type: f.fileType || "", name: f.fileName || "Tài liệu" });
+                                                  }}
+                                                  className="text-indigo-600 hover:underline truncate max-w-[200px] text-left"
+                                                  title="Xem tài liệu"
                                                 >
-                                                  {m.file.fileName || "Tải tài liệu"}
-                                                </a>
+                                                  {m.file.fileName || "Tài liệu"}
+                                                </button>
                                               </div>
                                             )}
                                             {!isMaterial && t && (
@@ -1604,67 +1628,34 @@ export function SubjectDetailPage() {
                   <option value="ON_CLASS">Lên lớp</option>
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              {addNodeParent && (
                 <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Thứ tự hiển thị</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={newNodeOrder}
-                    onChange={(e) => setNewNodeOrder(Number(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
+                  <label className="text-sm font-semibold text-gray-700">Nhánh</label>
                   <select
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodeBranch}
-                    onChange={(e) => setNewNodeBranch(e.target.value as BranchType)}
+                    value={branchMode}
+                    onChange={(e) => setBranchMode(e.target.value as 'MAIN' | 'SUB')}
                   >
-                    <option value="">-- Chọn nhánh --</option>
-                    <option value="MAIN">MAIN (Nhánh chính)</option>
-                    <option value="SUB">SUB (Nhánh phụ)</option>
+                    <option value="MAIN">Nhánh chính</option>
+                    <option value="SUB">Nhánh phụ</option>
                   </select>
                 </div>
-              </div>
+              )}
 
-              {/* Edge Connection Section */}
-              <div className="space-y-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              {addNodeParent && branchMode === "SUB" && (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-600 uppercase">Điều kiện tiên quyết ban đầu</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodePredecessor}
-                    onChange={(e) => setNewNodePredecessor(e.target.value)}
-                  >
-                    <option value="">-- Không có điều kiện (Tự do) --</option>
-                    {nodes.map((n) => (
-                      <option key={n.nodeId} value={n.nodeId}>
-                        Sau khi hoàn thành: {n.title} (Thứ tự: {n.displayOrder})
-                      </option>
-                    ))}
-                  </select>
+                  <label className="text-sm font-semibold text-gray-700">Điểm tối thiểu để qua *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    placeholder="VD: 80"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={edgeMinScore}
+                    onChange={(e) => setEdgeMinScore(e.target.value)}
+                  />
                 </div>
-
-                {newNodePredecessor && (
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-sm font-semibold text-gray-700">Điểm tối thiểu để qua *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        placeholder="VD: 80"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={edgeMinScore}
-                        onChange={(e) => setEdgeMinScore(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
 
               <div className="flex items-center gap-2 pt-2">
                 <input
@@ -1675,7 +1666,7 @@ export function SubjectDetailPage() {
                   onChange={(e) => setNewNodeRequired(e.target.checked)}
                 />
                 <label htmlFor="newNodeRequiredChk" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
-                  Mốc bắt buộc hoàn thành (Required)
+                  Mốc bắt buộc hoàn thành
                 </label>
               </div>
 
@@ -1954,6 +1945,74 @@ export function SubjectDetailPage() {
       )}
 
       {/* ADD MATERIAL MODAL */}
+      {/* PREVIEW TÀI LIỆU theo đúng định dạng */}
+      {previewFile && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setPreviewFile(null)}>
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-3 border-b border-gray-150">
+              <span className="text-sm font-semibold text-gray-800 truncate pr-3">{previewFile.name}</span>
+              <div className="flex items-center gap-3 shrink-0">
+                <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-indigo-600 hover:underline">Mở/Tải về</a>
+                <button onClick={() => setPreviewFile(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              </div>
+            </div>
+            <div className="p-3 overflow-auto flex items-center justify-center bg-gray-50" style={{ minHeight: "300px" }}>
+              {(() => {
+                const t = (previewFile.type || "").toLowerCase();
+                const ext = (previewFile.url.split(/[?#]/)[0].split(".").pop() || "").toLowerCase();
+                const is = (mime: string, exts: string[]) => t.startsWith(mime) || exts.includes(ext);
+                if (is("image/", ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"]))
+                  return <img src={previewFile.url} alt={previewFile.name} style={{ maxWidth: "100%", maxHeight: "78vh" }} />;
+                if (t === "application/pdf" || ext === "pdf") {
+                  if (previewLoading)
+                    return (
+                      <div className="flex flex-col items-center gap-3 text-gray-500 py-16">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="text-sm">Đang tải tài liệu…</span>
+                      </div>
+                    );
+                  if (previewError || !previewBlobUrl)
+                    return (
+                      <div className="text-center text-sm text-gray-500 py-10">
+                        Không tải được bản xem trước.
+                        <div className="mt-2">
+                          <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-semibold">Mở trong tab mới / Tải về</a>
+                        </div>
+                      </div>
+                    );
+                  return <iframe src={previewBlobUrl} title={previewFile.name} style={{ width: "100%", height: "78vh", border: "none" }} />;
+                }
+                if (is("video/", ["mp4", "webm", "ogv", "mov"]))
+                  return <video src={previewFile.url} controls style={{ maxWidth: "100%", maxHeight: "78vh" }} />;
+                if (is("audio/", ["mp3", "wav", "m4a", "ogg"]))
+                  return <audio src={previewFile.url} controls />;
+                return (
+                  <div className="flex flex-col items-center gap-4 text-center py-12 px-6">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-indigo-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 break-all">{previewFile.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">Định dạng Word/Excel/PowerPoint không xem trực tiếp trên trình duyệt được.</p>
+                    </div>
+                    <a
+                      href={previewFile.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      download={previewFile.name}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                      style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
+                    >
+                      <Download className="w-4 h-4" /> Tải về để xem
+                    </a>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isAddMaterialOpen && selectedNodeForContent && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
