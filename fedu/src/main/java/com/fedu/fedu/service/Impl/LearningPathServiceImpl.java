@@ -11,6 +11,7 @@ import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
 import com.fedu.fedu.utils.enums.NodeStatus;
+import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -318,6 +319,11 @@ public class LearningPathServiceImpl implements LearningPathService {
         LearningPath learningPath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
+        // Chỉ ADMIN (lộ trình gốc, classroomSubject == null) được tạo node loại "Trên lớp".
+        if (request.getNodeType() == NodeType.ON_CLASS && learningPath.getClassroomSubject() != null) {
+            throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
+        }
+
         LearningNode learningNode = LearningNode.builder()
                 .learningPath(learningPath)
                 .title(request.getTitle())
@@ -339,6 +345,11 @@ public class LearningPathServiceImpl implements LearningPathService {
     public LearningNodeResponse updateLearningNode(Long nodeId, UpdateLearningNodeRequest request) {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
+
+        // Không cho đổi node thành loại "Trên lớp" trên lộ trình của lớp-môn (chỉ admin/lộ trình gốc).
+        if (request.getNodeType() == NodeType.ON_CLASS && node.getLearningPath().getClassroomSubject() != null) {
+            throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
+        }
 
         node.setTitle(request.getTitle());
         node.setDescription(request.getDescription());
@@ -550,14 +561,15 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (UserAccount student : students) {
             for (LearningNode node : nodes) {
-                boolean isEntry = entryNodes.contains(node);
+                // Node ON_CLASS luôn khóa (chỉ giáo viên mở), kể cả khi là node vào.
+                boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS;
                 progressList.add(StudentNodeProgress.builder()
                         .student(student)
                         .learningNode(node)
                         .learningPath(path)
                         .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)
-                        .status(isEntry ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
-                        .unlockedAt(isEntry ? java.time.LocalDateTime.now() : null)
+                        .status(openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
+                        .unlockedAt(openIt ? java.time.LocalDateTime.now() : null)
                         .build());
             }
         }
@@ -651,17 +663,65 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
-            boolean isEntry = entryNodes.contains(node);
+            // Node ON_CLASS luôn khóa (chỉ giáo viên mở), kể cả khi là node vào.
+            boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS;
             progressList.add(StudentNodeProgress.builder()
                     .student(student)
                     .learningNode(node)
                     .learningPath(path)
                     .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)
-                    .status(isEntry ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
-                    .unlockedAt(isEntry ? java.time.LocalDateTime.now() : null)
+                    .status(openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
+                    .unlockedAt(openIt ? java.time.LocalDateTime.now() : null)
                     .build());
         }
         studentNodeProgressRepository.saveAll(progressList);
+    }
+
+    @Override
+    @Transactional
+    public int unlockOnClassNode(Long classroomSubjectId, Long nodeId) {
+        assertTeacherOwnsClassroomSubject(classroomSubjectId);
+
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
+        if (node.getNodeType() != NodeType.ON_CLASS) {
+            throw new InvalidDataException("Chỉ mở khóa được node loại 'Trên lớp'");
+        }
+        LearningPath path = node.getLearningPath();
+        if (path.getClassroomSubject() == null
+                || !path.getClassroomSubject().getId().equals(classroomSubjectId)) {
+            throw new InvalidDataException("Node không thuộc lộ trình của lớp-môn này");
+        }
+
+        // TODO: sau này tự mở theo thời gian buổi học (chưa có thuộc tính thời gian) — hiện giáo viên mở thủ công.
+        List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(nodeId);
+        List<UserAccount> students =
+                classroomSubjectStudentRepository.findDistinctStudentsByClassroomSubjectId(classroomSubjectId);
+
+        int opened = 0;
+        for (UserAccount student : students) {
+            List<StudentNodeProgress> list = studentNodeProgressRepository
+                    .findByStudentUserIdAndLearningPathPathId(student.getUserId(), path.getPathId());
+            Map<Long, StudentProgressStatus> statusMap = list.stream()
+                    .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(),
+                            StudentNodeProgress::getStatus, (a, b) -> a));
+
+            StudentNodeProgress target = list.stream()
+                    .filter(p -> p.getLearningNode().getNodeId().equals(nodeId))
+                    .findFirst().orElse(null);
+            if (target == null || target.getStatus() != StudentProgressStatus.LOCKED) continue;
+
+            // Tôn trọng điều kiện tiên quyết: chỉ mở cho học sinh đã hoàn thành các node trước.
+            boolean prereqMet = incoming.stream().allMatch(
+                    e -> statusMap.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
+            if (!prereqMet) continue;
+
+            target.setStatus(StudentProgressStatus.OPEN);
+            target.setUnlockedAt(java.time.LocalDateTime.now());
+            studentNodeProgressRepository.save(target);
+            opened++;
+        }
+        return opened;
     }
 
     private void assertTeacherOwnsClassroomSubject(Long csId) {
