@@ -80,10 +80,19 @@ public class SubjectServiceImpl implements SubjectService {
         Subject subject = subjectRepository.findBySubjectIdAndIsDeletedFalse(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + subjectId));
 
-        boolean hasTemplate = !learningPathRepository
-                .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId).isEmpty();
-        if (!hasTemplate) {
-            throw new InvalidDataException("Môn học chưa có lộ trình mẫu, không thể xuất bản.");
+        // Bắt buộc đủ 3 lộ trình theo mức: 1=yếu, 2=tb, 3=khá.
+        java.util.Set<Integer> levels = learningPathRepository
+                .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId).stream()
+                .map(com.fedu.fedu.entity.LearningPath::getLevel)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        java.util.List<Integer> missing = new java.util.ArrayList<>();
+        for (int lv = com.fedu.fedu.utils.LearningLevels.MIN; lv <= com.fedu.fedu.utils.LearningLevels.MAX; lv++) {
+            if (!levels.contains(lv)) missing.add(lv);
+        }
+        if (!missing.isEmpty()) {
+            throw new InvalidDataException(
+                    "Môn học phải có đủ 3 lộ trình (1=yếu, 2=tb, 3=khá) trước khi xuất bản. Còn thiếu mức: " + missing);
         }
 
         subject.setStatus("published");

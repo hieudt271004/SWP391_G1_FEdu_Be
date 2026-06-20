@@ -36,6 +36,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final NodeEdgeRepository nodeEdgeRepository;
     private final UserAccountRepository userAccountRepository;
+    private final com.fedu.fedu.service.LevelRoutingService levelRoutingService;
 
     @Override
     @Transactional(readOnly = true)
@@ -110,7 +111,53 @@ public class StudentTestServiceImpl implements StudentTestService {
             throw new AccessDeniedException("Lượt thi này không thuộc về bạn");
         }
 
-        List<TestQuestion> questions = testQuestionRepository.findByTestTestId(testId);
+        if (test.getLearningNode() == null) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Bài test phân loại: hãy dùng endpoint nộp bài phân loại (placement).");
+        }
+
+        BigDecimal finalPercentage = gradeAttempt(test, attempt, request);
+        boolean passed = finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
+
+        // Định tuyến sau khi nộp: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại
+        routeAfterAttempt(studentId, test.getLearningNode(),
+                test.getLearningNode().getLearningPath().getPathId(), passed);
+
+        // Cổng test: nếu test có khoảng điểm (score band) → đổi mức năng lực của học sinh.
+        com.fedu.fedu.entity.ClassroomSubject cs = test.getLearningNode().getLearningPath().getClassroomSubject();
+        if (cs != null) {
+            levelRoutingService.applyGateBands(cs.getId(), test.getTestId(), studentId, finalPercentage);
+        }
+
+        return AttemptSubmissionResultResponse.builder()
+                .attemptId(attempt.getAttemptId())
+                .score(finalPercentage)
+                .passed(passed)
+                .startedAt(attempt.getStartedAt())
+                .submittedAt(attempt.getSubmittedAt())
+                .passingPercentage(test.getPassingPercentage())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public BigDecimal submitForGrading(Long testId, Long attemptId, Long studentId, AttemptSubmissionRequest request) {
+        com.fedu.fedu.entity.Test test = testRepository.findById(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+        StudentTestAttempt attempt = studentTestAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attempt not found with id: " + attemptId));
+        if (attempt.getStudent().getUserId() != studentId) {
+            throw new AccessDeniedException("Lượt thi này không thuộc về bạn");
+        }
+        return gradeAttempt(test, attempt, request);
+    }
+
+    /**
+     * Chấm điểm một lượt thi: lưu từng câu trả lời, set điểm % và thời điểm nộp cho attempt.
+     * Dùng chung cho test theo node, bài phân loại (placement) và cổng test. Không định tuyến.
+     */
+    BigDecimal gradeAttempt(com.fedu.fedu.entity.Test test, StudentTestAttempt attempt, AttemptSubmissionRequest request) {
+        List<TestQuestion> questions = testQuestionRepository.findByTestTestId(test.getTestId());
         BigDecimal totalScore = BigDecimal.ZERO;
         BigDecimal maxScore = BigDecimal.ZERO;
 
@@ -206,23 +253,14 @@ public class StudentTestServiceImpl implements StudentTestService {
         attempt.setSubmittedAt(LocalDateTime.now());
         studentTestAttemptRepository.save(attempt);
 
-        boolean passed = finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
-
-        // Định tuyến sau khi nộp: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại
-        routeAfterAttempt(studentId, test.getLearningNode(),
-                test.getLearningNode().getLearningPath().getPathId(), passed);
-
-        return AttemptSubmissionResultResponse.builder()
-                .attemptId(attempt.getAttemptId())
-                .score(finalPercentage)
-                .passed(passed)
-                .startedAt(attempt.getStartedAt())
-                .submittedAt(attempt.getSubmittedAt())
-                .passingPercentage(test.getPassingPercentage())
-                .build();
+        return finalPercentage;
     }
 
     private void verifyStudentAccess(LearningNode node, Long studentId) {
+        // Bài test phân loại (placement) không gắn node — kiểm soát truy cập ở PlacementService.
+        if (node == null) {
+            return;
+        }
         Long csId = node.getLearningPath().getClassroomSubject().getId();
         boolean isEnrolled = classroomSubjectStudentRepository
                 .existsByClassroomSubject_IdAndStudent_UserId(csId, studentId);

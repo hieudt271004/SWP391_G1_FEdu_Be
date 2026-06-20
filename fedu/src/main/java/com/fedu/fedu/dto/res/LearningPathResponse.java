@@ -18,7 +18,7 @@ public class LearningPathResponse {
     private String description;
     private Long createdById;
     private Long classroomSubjectId;
-    private com.fedu.fedu.utils.enums.LearningPathLevel level;
+    private Integer level;
     private Long originalPathId;
     private LocalDateTime publishedAt;
     private Long publishedById;

@@ -45,6 +45,11 @@ import { StudentDetailsPage } from '../pages/teacher/students/StudentDetailsPage
 // Common pages
 import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
 
+// Student pages
+import { NodeTestPage } from '../pages/student/tests/NodeTestPage';
+import { PlacementPage } from '../pages/student/tests/PlacementPage';
+import { LevelHistoryPage } from '../pages/student/tests/LevelHistoryPage';
+
 
 // Removed UserDetailPageWrapper, using UserDetailPage directly
 
@@ -80,6 +85,9 @@ export function AppRoutes() {
                 }
             >
                 <Route path="/student/dashboard" element={<div>Student Dashboard placeholder</div>} />
+                <Route path="/student/tests/:testId" element={<NodeTestPage />} />
+                <Route path="/student/classroom-subjects/:csId/placement" element={<PlacementPage />} />
+                <Route path="/student/classroom-subjects/:csId/level-history" element={<LevelHistoryPage />} />
             </Route>
 
             <Route

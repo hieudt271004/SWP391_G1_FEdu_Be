@@ -28,10 +28,21 @@ public class StudentProgressServiceImpl implements StudentProgressService {
     @Transactional(readOnly = true)
     public ClassroomGraphResponse getStudentClassroomGraph(Long classroomSubjectId, Long studentId) {
         // Verify student is enrolled in the classroom-subject
-        boolean isEnrolled = classroomSubjectStudentRepository
-                .existsByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId);
-        if (!isEnrolled) {
-            throw new AccessDeniedException("Học sinh không thuộc lớp-môn này");
+        ClassroomSubjectStudent enrollment = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
+                .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
+
+        // Chưa làm bài test phân loại → chặn truy cập nội dung học, yêu cầu làm placement trước.
+        if (enrollment.getCurrentLevel() == null) {
+            return ClassroomGraphResponse.builder()
+                    .classroomSubjectId(classroomSubjectId)
+                    .state("NEED_PLACEMENT")
+                    .pathId(null)
+                    .publishedAt(null)
+                    .nodes(Collections.emptyList())
+                    .edges(Collections.emptyList())
+                    .availableTemplates(Collections.emptyList())
+                    .build();
         }
 
         Optional<LearningPath> pathOpt = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);

@@ -32,4 +32,8 @@ public class ClassroomSubjectStudent extends AbstractEntity<Long> {
     @Column(name = "joined_at", nullable = false, updatable = false)
     @CreationTimestamp
     private LocalDateTime joinedAt;
+
+    /** Mức đang học: null = chưa làm placement quiz (bị chặn học); 1=yếu, 2=tb, 3=khá. */
+    @Column(name = "current_level")
+    private Integer currentLevel;
 }

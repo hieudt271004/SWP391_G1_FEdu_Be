@@ -49,6 +49,14 @@ public class LearningNode extends AbstractEntity<Long> {
     @Column(name = "branch_name")
     private com.fedu.fedu.utils.enums.BranchType branchName;
 
+    /** Chặng thứ mấy trong lộ trình (1..subject.learningpathLength). */
+    @Column(name = "stage_order")
+    private Integer stageOrder;
+
+    /** Mức của node: null = node chung mọi mức; 1=yếu, 2=tb, 3=khá = node thuộc nhánh mức cụ thể. */
+    @Column(name = "level")
+    private Integer level;
+
     @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = true;

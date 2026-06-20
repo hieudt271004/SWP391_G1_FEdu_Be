@@ -204,6 +204,58 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 statement.execute("UPDATE node_edges SET branch_name = NULL WHERE branch_name NOT IN ('MAIN', 'SUB') AND branch_name IS NOT NULL");
                 log.info("Branch name values normalized to 'MAIN' and 'SUB' successfully.");
             }
+
+            // === Adaptive placement learning path: new columns/tables ===
+            try (Statement statement = connection.createStatement()) {
+                // subjects.learningpath_length
+                statement.execute("ALTER TABLE subjects ADD COLUMN IF NOT EXISTS learningpath_length INT");
+                // learning_paths.level (int 1=yếu,2=tb,3=khá). Backfill legacy enum values if present.
+                statement.execute("ALTER TABLE learning_paths ADD COLUMN IF NOT EXISTS level INT");
+                // learning_nodes.stage_order, learning_nodes.level
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS stage_order INT");
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS level INT");
+                // classroom_subjects.id_quiz_start -> tests
+                statement.execute("ALTER TABLE classroom_subjects ADD COLUMN IF NOT EXISTS id_quiz_start BIGINT REFERENCES tests(test_id) ON DELETE SET NULL");
+                // classroom_subject_students.current_level (null = chưa làm placement)
+                statement.execute("ALTER TABLE classroom_subject_students ADD COLUMN IF NOT EXISTS current_level INT");
+                // tests.node_id nullable (placement quiz không gắn node)
+                statement.execute("ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL");
+                log.info("Adaptive placement: columns added/verified.");
+            }
+
+            // quiz_score_bands table
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                    "CREATE TABLE IF NOT EXISTS quiz_score_bands (" +
+                    "    band_id      BIGSERIAL PRIMARY KEY," +
+                    "    test_id      BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE," +
+                    "    min_score    DECIMAL(5,2) NOT NULL," +
+                    "    max_score    DECIMAL(5,2) NOT NULL," +
+                    "    target_level INT NOT NULL," +
+                    "    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")"
+                );
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_quiz_score_bands_test ON quiz_score_bands(test_id)");
+                log.info("Table 'quiz_score_bands' verified/created.");
+            }
+
+            // student_level_history table
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                    "CREATE TABLE IF NOT EXISTS student_level_history (" +
+                    "    id                   BIGSERIAL PRIMARY KEY," +
+                    "    student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE," +
+                    "    classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE," +
+                    "    old_level            INT," +
+                    "    new_level            INT NOT NULL," +
+                    "    reason               VARCHAR(50) NOT NULL," +
+                    "    changed_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")"
+                );
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_slh_student_cs ON student_level_history(student_id, classroom_subject_id)");
+                log.info("Table 'student_level_history' verified/created.");
+            }
         } catch (Exception e) {
             log.error("Failed to run database migration: {}", e.getMessage(), e);
         }

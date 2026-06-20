@@ -30,4 +30,11 @@ public class CreateLearningNodeRequest {
     private Boolean isRequired;
 
     private com.fedu.fedu.utils.enums.BranchType branchName;
+
+    /** Chặng thứ mấy trong lộ trình (1..subject.learningpathLength). */
+    @jakarta.validation.constraints.Min(value = 1, message = "stageOrder phải >= 1")
+    private Integer stageOrder;
+
+    /** Mức của node: null = node chung mọi mức; 1=yếu, 2=tb, 3=khá. */
+    private Integer level;
 }

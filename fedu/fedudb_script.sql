@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS subjects (
                                         subject_code VARCHAR(50) UNIQUE NOT NULL,
                                         subject_name VARCHAR(255) NOT NULL,
                                         description  TEXT,
+                                        learningpath_length INT,
                                         created_by   BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                         is_deleted   BOOLEAN DEFAULT FALSE,
                                         status       VARCHAR(50) NOT NULL DEFAULT 'draft',
@@ -121,6 +122,7 @@ CREATE TABLE IF NOT EXISTS classroom_subjects (
                                                   classroom_id BIGINT NOT NULL REFERENCES classrooms(classroom_id) ON DELETE CASCADE,
                                                   subject_id   BIGINT NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
                                                   lecturer_id  BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                                  id_quiz_start BIGINT, -- FK -> tests(test_id) added after tests table
                                                   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                   updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                   UNIQUE(classroom_id, subject_id)
@@ -130,6 +132,7 @@ CREATE TABLE IF NOT EXISTS classroom_subject_students (
                                                           id                   BIGSERIAL PRIMARY KEY,
                                                           classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
                                                           student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                                          current_level        INT,
                                                           joined_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -153,6 +156,7 @@ CREATE TABLE IF NOT EXISTS learning_paths (
                                               description      TEXT,
                                               created_by       BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                               classroom_id     BIGINT REFERENCES classrooms(classroom_id) ON DELETE CASCADE,
+                                              level            INT, -- 1=yếu, 2=tb, 3=khá (chỉ set cho template)
                                               original_path_id BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL,
                                               is_deleted       BOOLEAN DEFAULT FALSE,
                                               published_at     TIMESTAMP NULL,
@@ -171,6 +175,8 @@ CREATE TABLE IF NOT EXISTS learning_nodes (
                                               display_order INT NOT NULL DEFAULT 0,
                                               is_required   BOOLEAN NOT NULL DEFAULT TRUE,
                                               branch_name   VARCHAR(100),
+                                              stage_order   INT, -- chặng thứ mấy (1..subjects.learningpath_length)
+                                              level         INT, -- null = node chung; 1=yếu,2=tb,3=khá
                                               is_deleted    BOOLEAN DEFAULT FALSE,
                                               created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                               updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -384,8 +390,40 @@ INSERT INTO roles(role_name) VALUES ('STUDENT') ON CONFLICT (role_name) DO NOTHI
 INSERT INTO roles(role_name) VALUES ('SUB_MENTOR') ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO roles(role_name) VALUES ('USER') ON CONFLICT (role_name) DO NOTHING;
 
+-- Adaptive placement learning path: tests.node_id nullable (placement quiz không gắn node)
+ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL;
+
+-- FK classroom_subjects.id_quiz_start -> tests (added after tests table exists)
+ALTER TABLE classroom_subjects
+    ADD CONSTRAINT fk_classroom_subjects_quiz_start
+    FOREIGN KEY (id_quiz_start) REFERENCES tests(test_id) ON DELETE SET NULL;
+
+-- Khoảng điểm quiz (placement + cổng test) do giảng viên cấu hình
+CREATE TABLE IF NOT EXISTS quiz_score_bands (
+    band_id      BIGSERIAL PRIMARY KEY,
+    test_id      BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
+    min_score    DECIMAL(5,2) NOT NULL,
+    max_score    DECIMAL(5,2) NOT NULL,
+    target_level INT NOT NULL, -- 1=yếu, 2=tb, 3=khá
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Lịch sử thay đổi mức năng lực của học sinh
+CREATE TABLE IF NOT EXISTS student_level_history (
+    id                   BIGSERIAL PRIMARY KEY,
+    student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+    classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
+    old_level            INT,
+    new_level            INT NOT NULL,
+    reason               VARCHAR(50) NOT NULL, -- PLACEMENT | GATE
+    changed_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance and uniqueness
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_path ON learning_paths(classroom_id) WHERE classroom_id IS NOT NULL AND is_deleted = FALSE;
 CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id);
 CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id);
 CREATE INDEX IF NOT EXISTS idx_snp_path_status ON student_node_progress(path_id, status);
+CREATE INDEX IF NOT EXISTS idx_quiz_score_bands_test ON quiz_score_bands(test_id);
+CREATE INDEX IF NOT EXISTS idx_slh_student_cs ON student_level_history(student_id, classroom_subject_id);

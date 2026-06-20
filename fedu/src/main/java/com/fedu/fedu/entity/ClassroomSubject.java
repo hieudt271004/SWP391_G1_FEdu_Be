@@ -34,4 +34,9 @@ public class ClassroomSubject extends AbstractEntity<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lecturer_id", nullable = false)
     private UserAccount lecturer;
+
+    /** Bài test phân loại đầu vào (placement quiz). null = chưa cấu hình. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_quiz_start")
+    private Test quizStart;
 }
