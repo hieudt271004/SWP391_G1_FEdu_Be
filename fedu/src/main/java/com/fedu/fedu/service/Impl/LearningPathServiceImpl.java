@@ -63,10 +63,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         boolean levelExists = learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(request.getSubjectId())
                 .stream()
-                .anyMatch(p -> p.getLevel() == request.getLevel());
+                .anyMatch(p -> java.util.Objects.equals(p.getLevel(), request.getLevel()));
         if (levelExists) {
             throw new InvalidDataException(
-                    "Môn học đã có lộ trình loại này rồi. Mỗi môn chỉ có tối đa 1 lộ trình cơ bản và 1 lộ trình nâng cao.");
+                    "Môn học đã có lộ trình mức này rồi. Mỗi môn chỉ có 1 lộ trình cho mỗi mức (1=yếu, 2=tb, 3=khá).");
         }
 
         LearningPath learningPath = LearningPath.builder()
@@ -165,6 +165,8 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .displayOrder(tn.getDisplayOrder() != null ? tn.getDisplayOrder() : 0)
                     .isRequired(tn.getIsRequired() != null ? tn.getIsRequired() : true)
                     .branchName(tn.getBranchName())
+                    .stageOrder(tn.getStageOrder())
+                    .level(tn.getLevel())
                     .isDeleted(false)
                     .build();
             learningNodeRepository.save(cn);
@@ -324,6 +326,19 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
         }
 
+        // Validate stageOrder trong [1, subject.learningpathLength] và level node hợp lệ (null hoặc 1..3).
+        if (request.getStageOrder() != null) {
+            Integer length = learningPath.getSubject() != null
+                    ? learningPath.getSubject().getLearningpathLength() : null;
+            if (length != null && request.getStageOrder() > length) {
+                throw new InvalidDataException(
+                        "stageOrder phải trong [1, " + length + "] (số chặng của môn)");
+            }
+        }
+        if (request.getLevel() != null && !com.fedu.fedu.utils.LearningLevels.isValid(request.getLevel())) {
+            throw new InvalidDataException("level của node phải null (node chung) hoặc 1=yếu, 2=tb, 3=khá");
+        }
+
         LearningNode learningNode = LearningNode.builder()
                 .learningPath(learningPath)
                 .title(request.getTitle())
@@ -333,6 +348,8 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .displayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : 0)
                 .isRequired(request.getIsRequired() != null ? request.getIsRequired() : true)
                 .branchName(request.getBranchName())
+                .stageOrder(request.getStageOrder())
+                .level(request.getLevel())
                 .isDeleted(false)
                 .build();
 
@@ -652,6 +669,16 @@ public class LearningPathServiceImpl implements LearningPathService {
         UserAccount student = userAccountRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
 
+        // Chưa làm bài test phân loại (currentLevel == null) → chưa khởi tạo tiến trình.
+        // Backfill được gọi lại sau khi học sinh nộp placement quiz và được gán mức.
+        Integer currentLevel = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
+                .map(ClassroomSubjectStudent::getCurrentLevel)
+                .orElse(null);
+        if (currentLevel == null) {
+            return;
+        }
+
         // Idempotency
         if (!studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()).isEmpty()) {
             return;
@@ -663,8 +690,10 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
+            // Node nhánh (level != null) chỉ mở nếu khớp mức hiện tại; node chung (level == null) theo logic edge.
+            boolean levelOk = node.getLevel() == null || node.getLevel().equals(currentLevel);
             // Node ON_CLASS luôn khóa (chỉ giáo viên mở), kể cả khi là node vào.
-            boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS;
+            boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS && levelOk;
             progressList.add(StudentNodeProgress.builder()
                     .student(student)
                     .learningNode(node)
