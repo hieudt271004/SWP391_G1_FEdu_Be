@@ -346,6 +346,35 @@ export function SubjectDetailPage() {
 
   const handlePublish = async () => {
     if (!subject) return;
+
+    // Validate that all 3 roadmaps (Yếu = 1, Trung bình = 2, Khá = 3) are present
+    const levels = new Set(templates.map((t) => t.level));
+    const missing: string[] = [];
+    if (!levels.has(1)) missing.push("Yếu");
+    if (!levels.has(2)) missing.push("Trung bình");
+    if (!levels.has(3)) missing.push("Khá");
+
+    if (missing.length > 0) {
+      toast.error(`Môn học phải có đủ 3 lộ trình (Yếu, Trung bình, Khá) trước khi xuất bản. Còn thiếu: ${missing.join(", ")}`);
+      return;
+    }
+
+    const requiredLength = subject.learningpathLength || 0;
+    if (requiredLength <= 0) {
+      toast.error("Môn học chưa cấu hình số chặng (learningpathLength) hợp lệ.");
+      return;
+    }
+
+    // Validate each roadmap's main node count
+    for (const t of templates) {
+      const colNodes = graphs[t.pathId]?.nodes || [];
+      const mainNodes = colNodes.filter((n) => (n.branchName || "MAIN") !== "SUB");
+      if (mainNodes.length !== requiredLength) {
+        toast.error(`Lộ trình "${t.pathName}" có ${mainNodes.length} bài học chính, chưa đúng với số chặng yêu cầu của môn học (${requiredLength} bài).`);
+        return;
+      }
+    }
+
     try {
       setPublishing(true);
       const updated = await subjectService.publish(subject.subjectId);

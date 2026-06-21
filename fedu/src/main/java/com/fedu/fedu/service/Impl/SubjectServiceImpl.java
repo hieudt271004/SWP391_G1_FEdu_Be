@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fedu.fedu.repository.LearningNodeRepository;
+import com.fedu.fedu.entity.LearningNode;
 import java.util.List;
 
 @Slf4j
@@ -26,6 +28,7 @@ public class SubjectServiceImpl implements SubjectService {
     private final SubjectRepository subjectRepository;
     private final UserAccountRepository userAccountRepository;
     private final LearningPathRepository learningPathRepository;
+    private final LearningNodeRepository learningNodeRepository;
 
     @Override
     @Transactional
@@ -100,8 +103,10 @@ public class SubjectServiceImpl implements SubjectService {
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + subjectId));
 
         // Bắt buộc đủ 3 lộ trình theo mức: 1=yếu, 2=tb, 3=khá.
-        java.util.Set<Integer> levels = learningPathRepository
-                .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId).stream()
+        java.util.List<com.fedu.fedu.entity.LearningPath> paths = learningPathRepository
+                .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId);
+        
+        java.util.Set<Integer> levels = paths.stream()
                 .map(com.fedu.fedu.entity.LearningPath::getLevel)
                 .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());
@@ -112,6 +117,24 @@ public class SubjectServiceImpl implements SubjectService {
         if (!missing.isEmpty()) {
             throw new InvalidDataException(
                     "Môn học phải có đủ 3 lộ trình (1=yếu, 2=tb, 3=khá) trước khi xuất bản. Còn thiếu mức: " + missing);
+        }
+
+        // Bắt buộc mỗi lộ trình phải có số bài học chính đúng với số chặng yêu cầu của môn học.
+        if (subject.getLearningpathLength() == null || subject.getLearningpathLength() <= 0) {
+            throw new InvalidDataException("Môn học chưa cấu hình số chặng (learningpathLength) hợp lệ.");
+        }
+
+        for (com.fedu.fedu.entity.LearningPath path : paths) {
+            List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
+            long mainNodeCount = nodes.stream()
+                    .filter(n -> n.getBranchName() == null || n.getBranchName() != com.fedu.fedu.utils.enums.BranchType.SUB)
+                    .count();
+            if (mainNodeCount != subject.getLearningpathLength()) {
+                throw new InvalidDataException(
+                        String.format("Lộ trình '%s' có %d bài học chính, chưa đúng với số chặng yêu cầu của môn học (%d bài).",
+                                path.getPathName(), mainNodeCount, subject.getLearningpathLength())
+                );
+            }
         }
 
         subject.setStatus("published");
