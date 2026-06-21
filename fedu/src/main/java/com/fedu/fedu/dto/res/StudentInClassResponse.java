@@ -14,4 +14,6 @@ public class StudentInClassResponse {
     private String lastName;
     private String avatarUrl;
     private LocalDateTime joinedAt;
+    private Integer currentLevel;
+    private String assignedPathName;
 }

@@ -94,6 +94,8 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
                 .lastName(s.getLastName())
                 .avatarUrl(s.getAvatarUrl())
                 .joinedAt(enrollment.getJoinedAt())
+                .currentLevel(enrollment.getCurrentLevel())
+                .assignedPathName(enrollment.getAssignedPath() != null ? enrollment.getAssignedPath().getPathName() : null)
                 .build();
     }
 }

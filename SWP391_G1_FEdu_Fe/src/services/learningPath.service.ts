@@ -30,6 +30,8 @@ export interface LearningNodeResponse {
   nodeType: 'AT_HOME' | 'ON_CLASS';
   displayOrder: number;
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  studentStatus?: 'LOCKED' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
+  testLocked?: boolean;
   isRequired: boolean;
   isDeleted: boolean;
   level?: number | null;
@@ -84,6 +86,7 @@ export interface ClassroomGraphResponse {
   canCloneAll: boolean | null;
   missingLevels: number[] | null;
   availableTemplates: AvailableTemplateResponse[] | null;
+  quizStartTestId: number | null;
 }
 
 export interface CreateLearningNodeRequest {
@@ -161,6 +164,50 @@ export interface ReorderContentRequest {
   id: number;
   type: 'MATERIAL' | 'TEST';
   orderIndex: number;
+}
+
+
+export interface ScoreBandResponse {
+  bandId: number;
+  testId: number;
+  minScore: number;
+  maxScore: number;
+  targetLevel: number;
+}
+
+export interface PlacementQuizDetailsResponse {
+  testId: number;
+  title: string;
+  description?: string;
+  durationMinutes: number;
+  scoreBands: ScoreBandResponse[];
+  questionCount: number;
+}
+
+export interface TeacherAnswerRequest {
+  answerContent: string;
+  isCorrect: boolean;
+}
+
+export interface TeacherQuestionRequest {
+  questionContent: string;
+  questionType: 'SINGLE' | 'MULTIPLE' | 'ESSAY' | 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER';
+  score?: number;
+  answers?: TeacherAnswerRequest[];
+}
+
+export interface TeacherAnswerResponse {
+  answerId: number;
+  answerContent: string;
+  isCorrect: boolean;
+}
+
+export interface TeacherQuestionResponse {
+  questionId: number;
+  questionContent: string;
+  questionType: 'SINGLE' | 'MULTIPLE' | 'ESSAY' | 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER';
+  score: number;
+  answers: TeacherAnswerResponse[];
 }
 
 
@@ -246,4 +293,22 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/tests/${testId}`),
   reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
+
+  // Teacher Placement & Question endpoints
+  getPlacementQuizDetails: (csId: number) =>
+    http.get<PlacementQuizDetailsResponse>(`/teacher-manage/classroom-subjects/${csId}/placement-quiz`),
+  createPlacementQuiz: (csId: number, request: { title: string; description?: string; durationMinutes: number }) =>
+    http.post<PlacementQuizDetailsResponse>(`/teacher-manage/classroom-subjects/${csId}/placement-quiz`, request),
+  updateScoreBands: (testId: number, bands: { minScore: number; maxScore: number; targetLevel: number }[]) =>
+    http.put<ScoreBandResponse[]>(`/teacher-manage/tests/${testId}/score-bands`, bands),
+  getPlacementQuestions: (testId: number) =>
+    http.get<TeacherQuestionResponse[]>(`/teacher-manage/tests/${testId}/questions`),
+  addPlacementQuestion: (testId: number, request: TeacherQuestionRequest) =>
+    http.post<TeacherQuestionResponse>(`/teacher-manage/tests/${testId}/questions`, request),
+  updatePlacementQuestion: (questionId: number, request: TeacherQuestionRequest) =>
+    http.put<TeacherQuestionResponse>(`/teacher-manage/test-questions/${questionId}`, request),
+  deletePlacementQuestion: (questionId: number) =>
+    http.delete<void>(`/teacher-manage/test-questions/${questionId}`),
+  getStudentLevelHistory: (csId: number, studentId: number) =>
+    http.get<any[]>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/level-history`),
 };

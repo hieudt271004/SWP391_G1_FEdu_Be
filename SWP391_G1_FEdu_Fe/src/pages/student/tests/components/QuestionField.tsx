@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { RadioGroup, RadioGroupItem } from '../../../../components/ui/radio-group';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { Textarea } from '../../../../components/ui/textarea';
@@ -14,13 +15,18 @@ export interface AnswerValue {
 interface QuestionFieldProps {
   question: Question;
   value: AnswerValue;
-  onChange: (next: AnswerValue) => void;
+  onChange: (questionId: number, next: AnswerValue) => void;
   disabled?: boolean;
 }
 
 // Render input phù hợp với từng loại câu hỏi. Không bao giờ hiển thị đáp án đúng
 // (backend đã loại bỏ isCorrect khỏi payload trả về cho học sinh).
-export function QuestionField({ question, value, onChange, disabled }: QuestionFieldProps) {
+export const QuestionField = memo(function QuestionField({
+  question,
+  value,
+  onChange,
+  disabled,
+}: QuestionFieldProps) {
   const { questionType, answers } = question;
 
   if (questionType === 'MULTIPLE_CHOICE' || questionType === 'TRUE_FALSE') {
@@ -29,7 +35,7 @@ export function QuestionField({ question, value, onChange, disabled }: QuestionF
       <RadioGroup
         value={selected !== undefined ? String(selected) : undefined}
         onValueChange={(val) =>
-          onChange({ ...value, selectedAnswerIds: [Number(val)] })
+          onChange(question.questionId, { ...value, selectedAnswerIds: [Number(val)] })
         }
         disabled={disabled}
       >
@@ -54,7 +60,7 @@ export function QuestionField({ question, value, onChange, disabled }: QuestionF
       const next = new Set(selectedSet);
       if (checked) next.add(answerId);
       else next.delete(answerId);
-      onChange({ ...value, selectedAnswerIds: Array.from(next) });
+      onChange(question.questionId, { ...value, selectedAnswerIds: Array.from(next) });
     };
     return (
       <div className="grid gap-2">
@@ -82,7 +88,7 @@ export function QuestionField({ question, value, onChange, disabled }: QuestionF
     return (
       <Textarea
         value={value.responseText}
-        onChange={(e) => onChange({ ...value, responseText: e.target.value })}
+        onChange={(e) => onChange(question.questionId, { ...value, responseText: e.target.value })}
         placeholder={questionType === 'ESSAY' ? 'Nhập bài làm của bạn...' : 'Nhập câu trả lời...'}
         rows={questionType === 'ESSAY' ? 6 : 2}
         disabled={disabled}
@@ -99,4 +105,5 @@ export function QuestionField({ question, value, onChange, disabled }: QuestionF
       </AlertDescription>
     </Alert>
   );
-}
+});
+

@@ -6,6 +6,8 @@ export interface StudentInClass {
   lastName: string;
   avatarUrl?: string;
   joinedAt?: string;
+  currentLevel?: number;
+  assignedPathName?: string;
 }
 
 export interface AddStudentRequest {

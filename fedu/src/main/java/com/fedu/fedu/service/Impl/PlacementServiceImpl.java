@@ -164,6 +164,15 @@ public class PlacementServiceImpl implements PlacementService {
         }
     }
 
+    @Override
+    @Transactional
+    public void cancelPlacementAttemptForTeacher(Long classroomSubjectId, Long studentId, Long teacherId) {
+        if (!classroomSubjectRepository.existsByIdAndLecturerUserId(classroomSubjectId, teacherId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+        cancelPlacementAttempt(classroomSubjectId, studentId);
+    }
+
     /** Học sinh phải thuộc lớp-môn và CHƯA được phân mức (currentLevel == null). */
     private void requireNotPlacedYet(Long classroomSubjectId, Long studentId) {
         ClassroomSubjectStudent css = classroomSubjectStudentRepository

@@ -119,11 +119,6 @@ export const studentService = {
       body
     ),
 
-  cancelPlacementAttempt: (csId: number) =>
-    http.post<void>(
-      `/student/classroom-subjects/${csId}/placement-quiz/cancel`
-    ),
-
   getLevelHistory: (csId: number) =>
     http.get<LevelHistoryEntry[]>(
       `/student/classroom-subjects/${csId}/level-history`

@@ -63,16 +63,6 @@ public class PlacementController {
         return new ResponseData<>(HttpStatus.OK.value(), "Đã phân loại và gán mức học", result);
     }
 
-    @Operation(summary = "Hủy lượt làm bài test phân loại")
-    @PreAuthorize("hasRole('STUDENT')")
-    @PostMapping("/classroom-subjects/{csId}/placement-quiz/cancel")
-    public ResponseData<Void> cancelPlacementAttempt(
-            @PathVariable Long csId,
-            @AuthenticationPrincipal UserAccount currentUser) {
-        placementService.cancelPlacementAttempt(csId, currentUser.getUserId());
-        return new ResponseData<>(HttpStatus.OK.value(), "Hủy bài test phân loại thành công", null);
-    }
-
     @Operation(summary = "Lịch sử thay đổi mức của bản thân trong lớp-môn")
     @PreAuthorize("hasRole('STUDENT')")
     @GetMapping("/classroom-subjects/{csId}/level-history")

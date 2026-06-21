@@ -24,4 +24,7 @@ public interface PlacementService {
 
     /** Hủy lượt làm bài test phân loại (để cho phép làm lại). */
     void cancelPlacementAttempt(Long classroomSubjectId, Long studentId);
+
+    /** Hủy lượt làm bài test phân loại do giảng viên yêu cầu (sau khi kiểm tra quyền sở hữu). */
+    void cancelPlacementAttemptForTeacher(Long classroomSubjectId, Long studentId, Long teacherId);
 }

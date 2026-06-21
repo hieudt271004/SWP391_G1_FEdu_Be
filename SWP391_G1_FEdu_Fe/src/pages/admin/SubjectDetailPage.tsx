@@ -301,7 +301,7 @@ export function SubjectDetailPage() {
     { videos: 0, docs: 0, tests: 0 }
   );
 
-  const isSubNode = (n: LearningNodeResponse) => false;
+  const isSubNode = (n: LearningNodeResponse) => edges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
   // Node đã có cạnh rẽ nhánh phụ (mang ngưỡng điểm) đi ra hay chưa
   const hasSubChild = (nodeId: number) => edges.some((e) => e.fromNodeId === nodeId && e.maxScore != null);
   // Độ sâu trong nhánh phụ: 0 = node chính, 1 = node phụ #1, 2 = node phụ #2 (nghiệp vụ: tối đa 2)
@@ -954,17 +954,12 @@ export function SubjectDetailPage() {
     const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
 
     // Helper functions for this column
-    const isColSubNode = (n: LearningNodeResponse) => false;
-    const hasColSubChild = (nodeId: number) => false;
-    const colSubDepth = (n: LearningNodeResponse) => 0;
+    const isColSubNode = (n: LearningNodeResponse) => isSubNode(n);
+    const hasColSubChild = (nodeId: number) => hasSubChild(nodeId);
+    const colSubDepth = (n: LearningNodeResponse) => subDepth(n);
 
-    // Build node labels for this column
-    const colNodeLabels: Record<number, string> = {};
-    let colLessonCounter = 0;
-    for (const n of sortedColNodes) {
-      colLessonCounter += 1;
-      colNodeLabels[n.nodeId] = `Bài ${colLessonCounter}`;
-    }
+    // Build node labels for this column (use global mapping)
+    const colNodeLabels = nodeLabels;
 
     // Totals for this column
     const colTotals = sortedColNodes.reduce(
@@ -1063,9 +1058,22 @@ export function SubjectDetailPage() {
                 });
                 const canAddChild = !isFull;
 
+                const depth = colSubDepth(node);
+
                 return (
-                  <div key={node.nodeId} className="w-full">
-                    {index > 0 && (
+                  <div key={node.nodeId} className="w-full relative" style={{ marginLeft: `${depth * 28}px` }}>
+                    {/* Branch connector on the left */}
+                    {depth > 0 && (
+                      <div className="absolute top-0 bottom-0 flex items-start justify-center pointer-events-none" style={{ left: `-${28}px`, width: `${28}px` }}>
+                        <svg className="w-full h-12 text-indigo-300" viewBox="0 0 28 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <path d="M 14 0 L 14 16 Q 14 24 21 24 L 28 24" />
+                          {index < sortedColNodes.length - 1 && <path d="M 14 24 L 14 48" />}
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* Standard vertical line connector for main nodes */}
+                    {index > 0 && depth === 0 && (
                       <div className="flex flex-col items-center justify-center my-1.5">
                         <div className="h-6 w-0.5 bg-indigo-200 relative flex items-center justify-center">
                           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-0.5 rounded-full border border-indigo-200 shadow-sm shrink-0 z-10">
@@ -1081,7 +1089,9 @@ export function SubjectDetailPage() {
                       className={`rounded-xl border transition-all overflow-hidden ${
                         isExpanded
                           ? "bg-white border-indigo-300 shadow-sm"
-                          : "bg-gray-50/50 hover:bg-white hover:border-gray-300 border-gray-200"
+                          : depth > 0
+                            ? "bg-indigo-50/5 hover:bg-indigo-50/10 border-indigo-150"
+                            : "bg-gray-50/50 hover:bg-white hover:border-gray-300 border-gray-200"
                       }`}
                     >
                       {/* Node Header */}
@@ -1098,11 +1108,16 @@ export function SubjectDetailPage() {
                               <span className={`font-semibold text-xs ${node.status === "LOCKED" ? "text-gray-500" : "text-gray-900"}`}>
                                 {colNodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}
                               </span>
-                              {isSubNode(node) && (
+                              {isColSubNode(node) && (
                                 <span className="text-[9px] px-1 bg-amber-50 text-amber-700 border border-amber-200 rounded font-medium shrink-0 flex items-center gap-0.5">
                                   <GitFork className="w-2.5 h-2.5" /> Nhánh phụ
                                 </span>
                               )}
+                              {isColSubNode(node) && incomingNodesInfo.map((info) => info.maxScore !== null && (
+                                <span key={info.edgeId} className="text-[9px] px-1 bg-rose-50 text-rose-700 border border-rose-200 rounded font-semibold shrink-0">
+                                  Nếu &lt; {info.maxScore}đ
+                                </span>
+                              ))}
                               <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium shrink-0">
                                 {node.nodeType === "ON_CLASS" ? "Lên lớp" : "Tự học"}
                               </span>
