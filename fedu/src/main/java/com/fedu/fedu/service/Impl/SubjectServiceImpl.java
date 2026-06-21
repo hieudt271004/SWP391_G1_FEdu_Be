@@ -42,6 +42,7 @@ public class SubjectServiceImpl implements SubjectService {
                 .subjectCode(request.getSubjectCode().trim().toUpperCase())
                 .subjectName(request.getSubjectName().trim())
                 .description(request.getDescription())
+                .learningpathLength(request.getLearningpathLength())
                 .createdBy(creator)
                 .isDeleted(false)
                 .status("draft")
@@ -67,6 +68,7 @@ public class SubjectServiceImpl implements SubjectService {
         subject.setSubjectCode(request.getSubjectCode().trim().toUpperCase());
         subject.setSubjectName(request.getSubjectName().trim());
         subject.setDescription(request.getDescription());
+        subject.setLearningpathLength(request.getLearningpathLength());
         // status chỉ đổi qua publish/unpublish (có guard kiểm tra lộ trình), không sửa ở đây
 
         return SubjectResponse.from(subjectRepository.save(subject));

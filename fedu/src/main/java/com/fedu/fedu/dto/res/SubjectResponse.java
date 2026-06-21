@@ -16,6 +16,7 @@ public class SubjectResponse {
     private String subjectName;
     private String description;
     private String status;
+    private Integer learningpathLength;
 
     public static SubjectResponse from(Subject s){
         return SubjectResponse.builder()
@@ -24,6 +25,7 @@ public class SubjectResponse {
                 .subjectName(s.getSubjectName())
                 .description(s.getDescription())
                 .status(s.getStatus())
+                .learningpathLength(s.getLearningpathLength())
                 .build();
     }
 }

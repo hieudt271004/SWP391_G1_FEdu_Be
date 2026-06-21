@@ -1,6 +1,6 @@
 import { http } from './http';
 
-export type LearningPathLevel = 'BASIC' | 'ADVANCED';
+export type LearningPathLevel = 1 | 2 | 3;
 export type BranchType = 'MAIN' | 'SUB';
 
 export interface CreateLearningPathRequest {
@@ -87,6 +87,8 @@ export interface CreateLearningNodeRequest {
   displayOrder: number;
   status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
   isRequired?: boolean;
+  stageOrder?: number;
+  level?: number | null;
 }
 
 export interface UpdateLearningNodeRequest {

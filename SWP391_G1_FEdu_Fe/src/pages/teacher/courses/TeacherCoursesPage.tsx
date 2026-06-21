@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getLevelLabel } from '../../../utils/levels';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
@@ -53,7 +54,7 @@ export function TeacherCoursesPage() {
   const [createSubjectId, setCreateSubjectId] = useState<number | ''>('');
   const [createPathName, setCreatePathName] = useState('');
   const [createDescription, setCreateDescription] = useState('');
-  const [createLevel, setCreateLevel] = useState<'BASIC' | 'ADVANCED'>('BASIC');
+  const [createLevel, setCreateLevel] = useState<1 | 2 | 3>(1);
   const [creating, setCreating] = useState(false);
 
   // Modal: View template detail (nodes list)
@@ -243,7 +244,7 @@ export function TeacherCoursesPage() {
       // Reset form fields
       setCreatePathName('');
       setCreateDescription('');
-      setCreateLevel('BASIC');
+      setCreateLevel(1);
     } catch (err: any) {
       console.error('Error creating template:', err);
       toast.error(err.response?.data?.message || 'Không thể tạo lộ trình mới');
@@ -378,7 +379,7 @@ export function TeacherCoursesPage() {
                           {/* Accent bar */}
                           <div
                             className={`h-1.5 w-full ${
-                              template.level === 'ADVANCED' ? 'bg-purple-500' : 'bg-indigo-500'
+                              template.level === 3 ? 'bg-emerald-500' : template.level === 2 ? 'bg-purple-500' : 'bg-indigo-500'
                             }`}
                           />
 
@@ -390,12 +391,14 @@ export function TeacherCoursesPage() {
                               <Badge
                                 variant="outline"
                                 className={`shrink-0 text-[10px] py-0 px-2 font-semibold border ${
-                                  template.level === 'ADVANCED'
+                                  template.level === 3
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : template.level === 2
                                     ? 'bg-purple-50 text-purple-700 border-purple-200'
                                     : 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                 }`}
                               >
-                                {template.level === 'ADVANCED' ? 'Nâng cao' : 'Cơ bản'}
+                                {getLevelLabel(template.level)}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium pt-1">
@@ -488,11 +491,12 @@ export function TeacherCoursesPage() {
               <label className="text-xs font-semibold text-slate-500">Cấp độ</label>
               <select
                 value={createLevel}
-                onChange={(e) => setCreateLevel(e.target.value as 'BASIC' | 'ADVANCED')}
+                onChange={(e) => setCreateLevel(Number(e.target.value) as 1 | 2 | 3)}
                 className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium"
               >
-                <option value="BASIC">Cơ bản (BASIC)</option>
-                <option value="ADVANCED">Nâng cao (ADVANCED)</option>
+                <option value={1}>Yêu (1)</option>
+                <option value={2}>Trung bình (2)</option>
+                <option value={3}>Khá (3)</option>
               </select>
             </div>
 
@@ -541,7 +545,7 @@ export function TeacherCoursesPage() {
             <DialogDescription className="text-sm text-slate-500">
               {selectedTemplateForDetail?.pathName} — Mức độ:{' '}
               <span className="font-semibold text-indigo-600">
-                {selectedTemplateForDetail?.level === 'ADVANCED' ? 'Nâng cao' : 'Cơ bản'}
+                {getLevelLabel(selectedTemplateForDetail?.level)}
               </span>
             </DialogDescription>
           </DialogHeader>

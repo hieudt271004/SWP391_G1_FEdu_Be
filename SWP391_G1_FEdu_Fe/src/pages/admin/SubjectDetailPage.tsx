@@ -63,7 +63,7 @@ export function SubjectDetailPage() {
 
   // Form states - Template
   const [newTplDesc, setNewTplDesc] = useState("");
-  const [newTplLevel, setNewTplLevel] = useState<"BASIC" | "ADVANCED">("BASIC");
+  const [newTplLevel, setNewTplLevel] = useState<1 | 2 | 3>(1);
   const [editTplName, setEditTplName] = useState("");
   const [editTplDesc, setEditTplDesc] = useState("");
 
@@ -75,6 +75,8 @@ export function SubjectDetailPage() {
   const [newNodeType, setNewNodeType] = useState<'AT_HOME' | 'ON_CLASS'>('AT_HOME');
   const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('OPEN');
   const [newNodeRequired, setNewNodeRequired] = useState(true);
+  const [newNodeStageOrder, setNewNodeStageOrder] = useState<number>(1);
+  const [newNodeLevel, setNewNodeLevel] = useState<number | "">("");
   const [addNodeParent, setAddNodeParent] = useState<LearningNodeResponse | null>(null);
   const [branchMode, setBranchMode] = useState<'MAIN' | 'SUB'>('MAIN');
   const [addingNode, setAddingNode] = useState(false);
@@ -262,9 +264,9 @@ export function SubjectDetailPage() {
     setNodeContents({});
   };
 
-  // Lộ trình gốc chỉ có 2 loại (cơ bản/nâng cao); mỗi loại tối đa 1 cho mỗi môn
+  // Lộ trình theo mức (1=Yếu, 2=Trung bình, 3=Khá)
   const existingLevels = new Set(templates.map((t) => t.level));
-  const bothLevelsExist = existingLevels.has("BASIC") && existingLevels.has("ADVANCED");
+  const allThreeExist = existingLevels.has(1) && existingLevels.has(2) && existingLevels.has(3);
 
   // Sắp xếp node theo thứ tự hiển thị (tie-break nodeId cho ổn định khi trùng order)
   const sortedNodes = [...nodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
@@ -386,16 +388,19 @@ export function SubjectDetailPage() {
   const handleCreateTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const pathName = newTplLevel === 1 ? "Lộ trình Yếu" : newTplLevel === 2 ? "Lộ trình Trung bình" : "Lộ trình Khá";
       const created = await learningPathService.createAdminTemplate({
         subjectId,
-        pathName: newTplLevel === "ADVANCED" ? "Lộ trình nâng cao" : "Lộ trình cơ bản",
+        pathName,
         description: newTplDesc,
         level: newTplLevel,
       });
       toast.success("Tạo lộ trình mẫu thành công");
       setIsCreateTemplateOpen(false);
       setNewTplDesc("");
-      setNewTplLevel("BASIC");
+      const newExisting = new Set([...templates.map((t) => t.level), created.level]);
+      const nextAvailable = ([1, 2, 3] as const).find((lv) => !newExisting.has(lv)) || 1;
+      setNewTplLevel(nextAvailable);
       setSelectedTemplateId(created.pathId);
       await fetchTemplates();
     } catch (err: any) {
@@ -441,6 +446,8 @@ export function SubjectDetailPage() {
     setNewNodeRequired(true);
     setEdgeMinScore("");
     setBranchMode("MAIN");
+    setNewNodeStageOrder(1);
+    setNewNodeLevel("");
   };
 
   // "Thêm bài học" ở header = thêm node vào nhánh chính (xương sống), nối tiếp ở cuối
@@ -526,6 +533,8 @@ export function SubjectDetailPage() {
         displayOrder: order,
         status: newNodeStatus,
         isRequired: newNodeRequired,
+        stageOrder: newNodeStageOrder,
+        level: newNodeLevel !== "" ? Number(newNodeLevel) : null,
       });
 
       if (parent) {
@@ -909,13 +918,13 @@ export function SubjectDetailPage() {
                 </h2>
               </div>
               <button
-                disabled={bothLevelsExist}
+                disabled={allThreeExist}
                 onClick={() => {
-                  const firstAvailable = (["BASIC", "ADVANCED"] as const).find((lv) => !existingLevels.has(lv));
+                  const firstAvailable = ([1, 2, 3] as const).find((lv) => !existingLevels.has(lv));
                   if (firstAvailable) setNewTplLevel(firstAvailable);
                   setIsCreateTemplateOpen(true);
                 }}
-                title={bothLevelsExist ? "Đã đủ 2 lộ trình (cơ bản + nâng cao)" : "Tạo lộ trình mẫu mới"}
+                title={allThreeExist ? "Đã đủ 3 lộ trình (Yếu, Trung bình, Khá)" : "Tạo lộ trình mẫu mới"}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer" }}
               >
@@ -1470,10 +1479,11 @@ export function SubjectDetailPage() {
                 <select
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newTplLevel}
-                  onChange={(e) => setNewTplLevel(e.target.value as "BASIC" | "ADVANCED")}
+                  onChange={(e) => setNewTplLevel(Number(e.target.value) as 1 | 2 | 3)}
                 >
-                  <option value="BASIC" disabled={existingLevels.has("BASIC")}>Lộ trình cơ bản{existingLevels.has("BASIC") ? " (đã có)" : ""}</option>
-                  <option value="ADVANCED" disabled={existingLevels.has("ADVANCED")}>Lộ trình nâng cao{existingLevels.has("ADVANCED") ? " (đã có)" : ""}</option>
+                  <option value={1} disabled={existingLevels.has(1)}>Lộ trình Yếu{existingLevels.has(1) ? " (đã có)" : ""}</option>
+                  <option value={2} disabled={existingLevels.has(2)}>Lộ trình Trung bình{existingLevels.has(2) ? " (đã có)" : ""}</option>
+                  <option value={3} disabled={existingLevels.has(3)}>Lộ trình Khá{existingLevels.has(3) ? " (đã có)" : ""}</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -1664,6 +1674,32 @@ export function SubjectDetailPage() {
                   />
                 </div>
               )}
+
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Chặng (stageOrder)</label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Ví dụ: 1"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={newNodeStageOrder}
+                  onChange={(e) => setNewNodeStageOrder(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Mức năng lực (level)</label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  value={newNodeLevel}
+                  onChange={(e) => setNewNodeLevel(e.target.value === "" ? "" : Number(e.target.value))}
+                >
+                  <option value="">Chung (Mọi mức đều học)</option>
+                  <option value={1}>Yếu (1)</option>
+                  <option value={2}>Trung bình (2)</option>
+                  <option value={3}>Khá (3)</option>
+                </select>
+              </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <input
