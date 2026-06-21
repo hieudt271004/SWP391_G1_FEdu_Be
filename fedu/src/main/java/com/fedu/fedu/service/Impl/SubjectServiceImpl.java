@@ -2,6 +2,7 @@ package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.req.SubjectRequest;
 import com.fedu.fedu.dto.res.SubjectResponse;
+import com.fedu.fedu.entity.LearningPath;
 import com.fedu.fedu.entity.Subject;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.exception.InvalidDataException;
@@ -49,6 +50,22 @@ public class SubjectServiceImpl implements SubjectService {
                 .build();
 
         Subject saved = subjectRepository.save(subject);
+
+        // Auto-create 3 learning path templates for levels 1 (Yếu), 2 (Trung bình), 3 (Khá)
+        for (int lv = 1; lv <= 3; lv++) {
+            String pathName = lv == 1 ? "Lộ trình Yếu" : lv == 2 ? "Lộ trình Trung bình" : "Lộ trình Khá";
+            String description = "Lộ trình mẫu cấp độ " + (lv == 1 ? "Yếu" : lv == 2 ? "Trung bình" : "Khá");
+            LearningPath lp = LearningPath.builder()
+                    .subject(saved)
+                    .pathName(pathName)
+                    .description(description)
+                    .level(lv)
+                    .isDeleted(false)
+                    .createdBy(creator)
+                    .build();
+            learningPathRepository.save(lp);
+        }
+
         return SubjectResponse.from(saved);
     }
 

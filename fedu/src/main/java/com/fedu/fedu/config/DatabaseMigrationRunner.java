@@ -210,7 +210,19 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 // subjects.learningpath_length
                 statement.execute("ALTER TABLE subjects ADD COLUMN IF NOT EXISTS learningpath_length INT");
                 // learning_paths.level (int 1=yếu,2=tb,3=khá). Backfill legacy enum values if present.
+                statement.execute("ALTER TABLE learning_paths DROP CONSTRAINT IF EXISTS learning_paths_level_check");
                 statement.execute("ALTER TABLE learning_paths ADD COLUMN IF NOT EXISTS level INT");
+                try {
+                    statement.execute("ALTER TABLE learning_paths ALTER COLUMN level TYPE INT USING (" +
+                            "CASE " +
+                            "  WHEN level = 'BASIC' THEN 1 " +
+                            "  WHEN level = 'ADVANCED' THEN 3 " +
+                            "  WHEN level ~ '^[0-9]+$' THEN level::integer " +
+                            "  ELSE NULL " +
+                            "END)");
+                } catch (Exception e) {
+                    log.warn("Could not alter learning_paths.level type: {}", e.getMessage());
+                }
                 // learning_nodes.stage_order, learning_nodes.level
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS stage_order INT");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS level INT");

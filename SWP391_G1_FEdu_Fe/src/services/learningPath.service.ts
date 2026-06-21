@@ -34,6 +34,8 @@ export interface LearningNodeResponse {
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
   isRequired: boolean;
   isDeleted: boolean;
+  level?: number | null;
+  stageOrder?: number | null;
   createdAt: string;
   updatedAt: string;
 }

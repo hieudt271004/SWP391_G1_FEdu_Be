@@ -485,6 +485,8 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .isRequired(node.getIsRequired())
                 .branchName(node.getBranchName())
                 .isDeleted(node.getIsDeleted())
+                .stageOrder(node.getStageOrder())
+                .level(node.getLevel())
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
                 .build();
