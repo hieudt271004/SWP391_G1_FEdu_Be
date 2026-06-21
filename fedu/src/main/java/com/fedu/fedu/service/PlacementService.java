@@ -21,4 +21,7 @@ public interface PlacementService {
     /** Lịch sử thay đổi mức của một học sinh trong lớp-môn, theo thứ tự thời gian. */
     java.util.List<com.fedu.fedu.dto.res.StudentLevelHistoryResponse> getLevelHistory(
             Long classroomSubjectId, Long studentId);
+
+    /** Hủy lượt làm bài test phân loại (để cho phép làm lại). */
+    void cancelPlacementAttempt(Long classroomSubjectId, Long studentId);
 }

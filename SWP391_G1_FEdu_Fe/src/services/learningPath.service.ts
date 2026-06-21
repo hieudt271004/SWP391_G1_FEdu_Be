@@ -66,13 +66,23 @@ export interface PublishResultResponse {
   seededStudents: number;
 }
 
+export interface ClassroomPathDto {
+  level: number;
+  pathId: number;
+  nodes: LearningNodeResponse[];
+  edges: NodeEdgeResponse[];
+}
+
 export interface ClassroomGraphResponse {
   classroomSubjectId: number;
-  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED';
+  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED' | 'NEED_PLACEMENT';
   pathId: number | null;
   publishedAt: string | null;
   nodes: LearningNodeResponse[];
   edges: NodeEdgeResponse[];
+  paths: ClassroomPathDto[] | null;
+  canCloneAll: boolean | null;
+  missingLevels: number[] | null;
   availableTemplates: AvailableTemplateResponse[] | null;
 }
 
@@ -166,8 +176,8 @@ export const learningPathService = {
   // Admin read-only: xem graph lớp-môn (endpoint riêng cho ADMIN, không đụng /teacher-manage)
   getAdminClassroomGraph: (classroomSubjectId: number) =>
     http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
-  cloneFromTemplate: (classroomSubjectId: number, templatePathId: number) =>
-    http.post<LearningPathResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path/${templatePathId}`),
+  cloneFromTemplate: (classroomSubjectId: number) =>
+    http.post<LearningPathResponse[]>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path`),
   publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
     http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
   unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>

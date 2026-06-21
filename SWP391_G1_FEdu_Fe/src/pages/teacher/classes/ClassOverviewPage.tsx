@@ -23,14 +23,24 @@ import {
   AlertTriangle,
   Play,
   Trash2,
-  Undo2
+  Undo2,
+  BookOpen,
+  GraduationCap,
+  FileText,
+  Film,
+  Award,
+  Map,
+  Plus,
+  X,
+  Users
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
 import { 
   learningPathService, 
   LearningNodeResponse, 
-  ClassroomGraphResponse 
+  ClassroomGraphResponse,
+  NodeContentResponse
 } from '../../../services/learningPath.service';
 import {
   Dialog,
@@ -58,7 +68,6 @@ export function ClassOverviewPage() {
     semester: '',
     description: ''
   });
-  const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -66,6 +75,8 @@ export function ClassOverviewPage() {
   const [parentClassroomId, setParentClassroomId] = useState<number | null>(null);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
+  const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
+  const [loadingContents, setLoadingContents] = useState<Record<number, boolean>>({});
   
   // New classroom publish flow states
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
@@ -84,11 +95,49 @@ export function ClassOverviewPage() {
   
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
-  const toggleNode = (nodeId: number) => {
+  const fetchNodeContent = async (nodeId: number) => {
+    try {
+      setLoadingContents((prev) => ({ ...prev, [nodeId]: true }));
+      const content = await learningPathService.getTeacherNodeContent(nodeId);
+      setNodeContents((prev) => ({ ...prev, [nodeId]: content }));
+    } catch (err: any) {
+      console.error('Failed to load node content:', err);
+    } finally {
+      setLoadingContents((prev) => ({ ...prev, [nodeId]: false }));
+    }
+  };
+
+  const toggleNode = async (nodeId: number) => {
+    const nextState = !expandedNodes[nodeId];
     setExpandedNodes((prev) => ({
       ...prev,
-      [nodeId]: !prev[nodeId],
+      [nodeId]: nextState,
     }));
+    if (nextState && !nodeContents[nodeId]) {
+      await fetchNodeContent(nodeId);
+    }
+  };
+
+  const getSortedTimelineItems = (nodeId: number) => {
+    const content = nodeContents[nodeId];
+    if (!content) return [];
+    const materials = (content.materials || []).map((m) => ({
+      key: `material-${m.materialId}`,
+      id: m.materialId,
+      type: "MATERIAL" as const,
+      title: m.title,
+      orderIndex: m.orderIndex ?? 9999,
+      data: m,
+    }));
+    const tests = (content.tests || []).map((t) => ({
+      key: `test-${t.testId}`,
+      id: t.testId,
+      type: "TEST" as const,
+      title: t.title,
+      orderIndex: t.orderIndex ?? 9999,
+      data: t,
+    }));
+    return [...materials, ...tests].sort((a, b) => a.orderIndex - b.orderIndex);
   };
 
   const fetchClassroomData = async () => {
@@ -122,12 +171,6 @@ export function ClassOverviewPage() {
       }));
       setStudents(formatted);
       setGraphData(graph);
-      setNodes(graph.nodes || []);
-
-      // Expand the first node by default if available
-      if (graph.nodes && graph.nodes.length > 0) {
-        setExpandedNodes({ [graph.nodes[0].nodeId]: true });
-      }
     } catch (err: any) {
       console.error('Error loading classroom overview:', err);
       setError(err.response?.data?.message || 'Failed to load classroom data');
@@ -178,7 +221,6 @@ export function ClassOverviewPage() {
         learningPathService.getClassroomGraph(Number(classroomSubjectId))
           .then(graph => {
             setGraphData(graph);
-            setNodes(graph.nodes || []);
           })
           .catch(err => console.error('Error auto-refreshing graph:', err));
       }
@@ -189,19 +231,28 @@ export function ClassOverviewPage() {
     };
   }, [classroomSubjectId]);
 
+  useEffect(() => {
+    if (graphData && graphData.paths) {
+      const initialExpanded: Record<number, boolean> = {};
+      graphData.paths.forEach((path) => {
+        if (path.nodes && path.nodes.length > 0) {
+          const sorted = [...path.nodes].sort((a, b) => a.displayOrder - b.displayOrder);
+          initialExpanded[sorted[0].nodeId] = true;
+        }
+      });
+      setExpandedNodes((prev) => ({ ...initialExpanded, ...prev }));
+    }
+  }, [graphData]);
+
   const handleClone = async () => {
-    if (!classroomSubjectId || !selectedTemplateId) return;
+    if (!classroomSubjectId) return;
     try {
       setActionState('cloning');
-      await learningPathService.cloneFromTemplate(Number(classroomSubjectId), selectedTemplateId);
+      await learningPathService.cloneFromTemplate(Number(classroomSubjectId));
       
       // Refetch classroom graph
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
-      setNodes(updatedGraph.nodes || []);
-      if (updatedGraph.nodes && updatedGraph.nodes.length > 0) {
-        setExpandedNodes({ [updatedGraph.nodes[0].nodeId]: true });
-      }
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to clone learning path');
     } finally {
@@ -218,7 +269,6 @@ export function ClassOverviewPage() {
       
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
-      setNodes(updatedGraph.nodes || []);
       setShowPublishConfirm(false);
       setUnderstandPublish(false);
     } catch (err: any) {
@@ -236,7 +286,6 @@ export function ClassOverviewPage() {
       
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
-      setNodes(updatedGraph.nodes || []);
       setShowUnpublishConfirm(false);
       setUnderstandUnpublish(false);
     } catch (err: any) {
@@ -261,7 +310,6 @@ export function ClassOverviewPage() {
       
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
-      setNodes(updatedGraph.nodes || []);
       setSelectedTemplateId(null);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to delete draft');
@@ -294,6 +342,230 @@ export function ClassOverviewPage() {
       default:
         return <Circle className="size-5" />;
     }
+  };
+
+  const renderClassRoadmapColumn = (level: number, title: string, defaultDesc: string) => {
+    const pathDto = graphData?.paths?.find((p) => p.level === level);
+
+    if (!pathDto) {
+      return (
+        <Card className="border border-slate-200 bg-white shadow-xs min-h-[400px] flex flex-col justify-between p-6 rounded-2xl">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-slate-400" />
+              <h3 className="font-bold text-lg text-slate-800">{title}</h3>
+            </div>
+            <p className="text-sm text-slate-500">{defaultDesc}</p>
+            <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+              <Map className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+              <p className="text-xs text-slate-400">Chưa thiết lập lộ trình cho mức này.</p>
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
+    const colNodes = pathDto.nodes || [];
+    const colEdges = pathDto.edges || [];
+
+    // Sort nodes by displayOrder
+    const sortedColNodes = [...colNodes].sort((a, b) => a.displayOrder - b.displayOrder);
+
+    const colTotals = sortedColNodes.reduce(
+      (acc, n) => {
+        const c = nodeContents[n.nodeId];
+        if (c) {
+          acc.videos += (c.materials || []).filter((m) => m.video).length;
+          acc.docs += (c.materials || []).filter((m) => m.file).length;
+          acc.tests += (c.tests || []).length;
+        }
+        return acc;
+      },
+      { videos: 0, docs: 0, tests: 0 }
+    );
+
+    return (
+      <Card className="border border-slate-200 bg-white shadow-xs flex flex-col min-h-[500px] p-6 rounded-2xl">
+        <div className="flex-1">
+          {/* Column Header */}
+          <div className="pb-4 mb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2 mb-1.5">
+              <BookOpen className="w-5 h-5 text-indigo-600 shrink-0" />
+              <h3 className="font-bold text-lg text-slate-800">{title}</h3>
+            </div>
+            <p className="text-xs text-slate-500 line-clamp-2">
+              {defaultDesc}
+            </p>
+          </div>
+
+          {/* Stats Bar */}
+          {sortedColNodes.length > 0 && (
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 pb-3 mb-4 border-b border-slate-100 text-[11px] text-slate-500 font-medium">
+              <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 text-indigo-600" /> {sortedColNodes.length} bài học</span>
+              {colTotals.videos > 0 && (
+                <span className="flex items-center gap-1"><Film className="w-3.5 h-3.5 text-purple-500" /> {colTotals.videos} video</span>
+              )}
+              {colTotals.docs > 0 && (
+                <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5 text-orange-500" /> {colTotals.docs} tài liệu</span>
+              )}
+              {colTotals.tests > 0 && (
+                <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5 text-emerald-500" /> {colTotals.tests} test</span>
+              )}
+            </div>
+          )}
+
+          {/* Nodes list */}
+          {sortedColNodes.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+              <Map className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+              <p className="text-xs">Chưa có bài học nào trong lộ trình này.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col space-y-3">
+              {sortedColNodes.map((node, index) => {
+                const isExpanded = !!expandedNodes[node.nodeId];
+                const sortedItems = getSortedTimelineItems(node.nodeId);
+                const isLoadingContent = !!loadingContents[node.nodeId];
+
+                return (
+                  <div key={node.nodeId} className="w-full">
+                    {index > 0 && (
+                      <div className="flex flex-col items-center justify-center my-1.5">
+                        <div className="h-4 w-0.5 bg-slate-200 relative flex items-center justify-center">
+                          <ChevronRight className="w-2.5 h-2.5 text-slate-300 rotate-90" />
+                        </div>
+                      </div>
+                    )}
+                    <div
+                      className={`rounded-xl border transition-all overflow-hidden ${
+                        isExpanded
+                          ? "bg-white border-indigo-200 shadow-sm"
+                          : "bg-slate-50/50 hover:bg-white hover:border-slate-300 border-slate-200"
+                      }`}
+                    >
+                      {/* Node Header */}
+                      <div
+                        onClick={() => toggleNode(node.nodeId)}
+                        className="flex items-center justify-between p-3.5 cursor-pointer select-none"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className={`p-0.5 rounded transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`font-semibold text-xs ${node.status === "LOCKED" ? "text-slate-400" : "text-slate-800"}`}>
+                                {node.title}
+                              </span>
+                              <Badge variant="outline" className="text-[9px] py-0.2 px-1 hover:bg-transparent font-semibold bg-indigo-50/80 text-indigo-700 border-indigo-100">
+                                {node.nodeType === "ON_CLASS" ? "On Class" : "At Home"}
+                              </Badge>
+                              {node.isRequired && (
+                                <Badge variant="outline" className="text-[9px] py-0.2 px-1 hover:bg-transparent font-semibold bg-red-50 text-red-600 border-red-100">
+                                  Bắt buộc
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-[10px] font-semibold text-slate-400 select-none">
+                          {node.status}
+                        </div>
+                      </div>
+
+                      {/* Node Expanded Content */}
+                      {isExpanded && (
+                        <div className="px-3.5 pb-3.5 pt-1.5 bg-slate-50/30 border-t border-slate-100 space-y-3">
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            {node.description || "Chưa có mô tả chi tiết."}
+                          </p>
+
+                          {/* Materials & Tests list */}
+                          <div className="border border-slate-200/80 rounded-lg p-2.5 bg-white space-y-2">
+                            <div className="text-[10px] font-bold text-slate-700 flex items-center gap-1">
+                              <BookOpen className="w-3 h-3 text-indigo-500" />
+                              Nội dung học tập
+                            </div>
+
+                            {isLoadingContent ? (
+                              <div className="flex items-center gap-1.5 py-2 text-[11px] text-slate-400 justify-center">
+                                <Loader className="w-3.5 h-3.5 animate-spin" />
+                                Đang tải tài liệu...
+                              </div>
+                            ) : sortedItems.length === 0 ? (
+                              <div className="text-[10px] text-slate-400 italic py-2 text-center bg-slate-50/50 rounded border border-dashed border-slate-100">
+                                Chưa có tài liệu hoặc bài test.
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {sortedItems.map((item) => {
+                                  const isMaterial = item.type === "MATERIAL";
+                                  const m = isMaterial ? item.data : null;
+                                  const t = !isMaterial ? item.data : null;
+
+                                  return (
+                                    <div
+                                      key={item.key}
+                                      className="flex items-center gap-2 p-2 bg-slate-50/50 hover:bg-slate-50 rounded-lg border border-slate-100 text-[11px] transition-colors"
+                                    >
+                                      {isMaterial ? (
+                                        <>
+                                          {m?.video ? (
+                                            <Film className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                                          ) : (
+                                            <FileText className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <span className="font-semibold text-slate-700 truncate block" title={item.title}>
+                                              {item.title}
+                                            </span>
+                                            {m?.video && (
+                                              <a
+                                                href={m.video.videoUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-[9px] text-indigo-600 hover:underline block truncate mt-0.5"
+                                              >
+                                                Xem video youtube
+                                              </a>
+                                            )}
+                                            {m?.file && (
+                                              <span className="text-[9px] text-slate-400 block truncate mt-0.5">
+                                                Tài liệu đính kèm
+                                              </span>
+                                            )}
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Award className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <span className="font-semibold text-slate-700 truncate block" title={item.title}>
+                                              {item.title}
+                                            </span>
+                                            <span className="text-[9px] text-slate-400 block mt-0.5">
+                                              {t?.durationMinutes || 0} phút · Yêu cầu đạt: {t?.passingPercentage || 80}%
+                                            </span>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Card>
+    );
   };
 
   if (loading) {
@@ -373,39 +645,31 @@ export function ClassOverviewPage() {
         <Card className="border-indigo-100 bg-indigo-50/10">
           <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-1 text-center md:text-left">
-              <h2 className="text-lg font-semibold text-indigo-900">Chọn template để bắt đầu</h2>
-              <p className="text-sm text-muted-foreground">Lớp học này chưa cấu hình lộ trình. Vui lòng chọn một lộ trình mẫu từ khoa.</p>
+              <h2 className="text-lg font-semibold text-indigo-900">
+                {graphData.canCloneAll ? "Khởi tạo lộ trình học cho lớp" : "Môn học chưa đầy đủ lộ trình mẫu"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {graphData.canCloneAll 
+                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình mẫu cả 3 mức (Yếu, Trung bình, Khá)." 
+                  : "Môn học này chưa được cấu hình đầy đủ lộ trình mẫu 3 mức (Yếu, Trung bình, Khá) từ khoa."}
+              </p>
             </div>
             
             <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-wrap">
-              {graphData.availableTemplates && graphData.availableTemplates.length > 0 ? (
-                <>
-                  <select 
-                    id="template-select"
-                    className="flex h-9 w-full md:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
-                    value={selectedTemplateId || ''}
-                    onChange={(e) => setSelectedTemplateId(Number(e.target.value) || null)}
-                    disabled={isNonIdle}
-                  >
-                    <option value="">-- Chọn lộ trình mẫu --</option>
-                    {graphData.availableTemplates.map((t) => (
-                      <option key={t.pathId} value={t.pathId}>
-                        {t.pathName} ({t.nodeCount} bài học)
-                      </option>
-                    ))}
-                  </select>
-                  <Button 
-                    onClick={handleClone} 
-                    disabled={isNonIdle || !selectedTemplateId} 
-                    className="w-full md:w-auto"
-                  >
-                    {actionState === 'cloning' ? <Loader className="size-4 animate-spin mr-1" /> : <Play className="size-4 mr-1" />}
-                    Clone lộ trình
-                  </Button>
-                </>
+              {graphData.canCloneAll ? (
+                <Button 
+                  onClick={handleClone} 
+                  disabled={isNonIdle} 
+                  className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl"
+                >
+                  {actionState === 'cloning' ? <Loader className="size-4 animate-spin mr-1" /> : <Play className="size-4 mr-1" />}
+                  Khởi tạo lộ trình (3 mức)
+                </Button>
               ) : (
                 <div className="text-sm text-red-600 bg-red-50 py-2 px-3 rounded-md border border-red-100">
-                  Môn học này chưa có template. Liên hệ admin. <a href="/contact" className="underline font-semibold hover:text-red-700">Liên hệ admin</a>
+                  Thiếu lộ trình mẫu mức: {
+                    graphData.missingLevels?.map(lvl => lvl === 1 ? "Yếu" : lvl === 2 ? "Trung bình" : "Khá").join(", ")
+                  }. Liên hệ admin.
                 </div>
               )}
             </div>
@@ -476,123 +740,79 @@ export function ClassOverviewPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-lg font-bold text-slate-800">Lộ trình lớp học</CardTitle>
-            {graphData?.state !== 'NO_PATH' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50/50 rounded-xl"
-                onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}/manage`)}
-                disabled={isNonIdle}
-              >
-                <Settings className="size-3.5 mr-1" />
-                Chỉnh sửa Lộ trình
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {nodes.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Chưa cấu hình lộ trình. Chọn template ở trên để clone và bắt đầu.
-              </div>
-            ) : (
-              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border shadow-sm">
-                {nodes.map((node) => {
-                  const isExpanded = !!expandedNodes[node.nodeId];
-
-                  return (
-                    <div
-                      key={node.nodeId}
-                      className={`transition-all duration-200 ${getNodeColorClass(node.status)}`}
-                    >
-                      {/* Header */}
-                      <div
-                        onClick={() => toggleNode(node.nodeId)}
-                        className="flex items-center justify-between p-4 cursor-pointer select-none"
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className={`p-1 rounded transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-90' : ''}`}>
-                            <ChevronRight className="size-4 text-muted-foreground" />
-                          </div>
-                          <div className="shrink-0">
-                            {getNodeIcon(node.status)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`font-semibold text-sm ${node.status === 'LOCKED' ? 'text-muted-foreground' : 'text-foreground'
-                                }`}>
-                                {node.title}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal bg-indigo-50 text-indigo-700 hover:bg-indigo-50 border-indigo-200">
-                                {node.nodeType === 'ON_CLASS' ? 'On Class' : 'At Home'}
-                              </Badge>
-                              {node.isRequired && (
-                                <Badge className="text-[10px] py-0 px-1 font-normal bg-red-50 text-red-700 hover:bg-red-50 border-red-200" variant="outline">
-                                  Required
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider pl-4 shrink-0">
-                          {node.status}
-                        </div>
-                      </div>
-
-                      {/* Expanded content */}
-                      {isExpanded && (
-                        <div className="px-4 pb-4 pt-1 bg-muted/5 border-t border-muted/20">
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {node.description || 'No description provided.'}
-                          </p>
-                          <div className="text-xs text-muted-foreground space-y-1">
-                            <div>Display Order: <span className="font-semibold">{node.displayOrder}</span></div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Student List</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student ID</TableHead>
-                  <TableHead>Full Name</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-center py-6 text-muted-foreground">
-                      No students enrolled in this classroom.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  students.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell className="font-medium">{student.id}</TableCell>
-                      <TableCell>{student.fullName}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+      {/* Parallel Roadmap Columns Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between pl-1">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Map className="w-5 h-5 text-indigo-600" />
+            Lộ trình học tập song song (3 mức)
+          </h2>
+          {graphData?.state !== 'NO_PATH' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50/50 rounded-xl"
+              onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}/manage`)}
+              disabled={isNonIdle}
+            >
+              <Settings className="size-3.5 mr-1" />
+              Chỉnh sửa Lộ trình
+            </Button>
+          )}
+        </div>
+        
+        {(!graphData?.paths || graphData.paths.length === 0) && graphData?.state === 'NO_PATH' ? (
+          <Card className="border border-dashed border-slate-200 bg-white p-12 text-center rounded-2xl">
+            <Map className="w-12 h-12 mx-auto text-slate-300 mb-3 animate-pulse" />
+            <h3 className="text-base font-bold text-slate-800 mb-1">Chưa cấu hình lộ trình</h3>
+            <p className="text-sm text-slate-500 max-w-md mx-auto">
+              Lớp học này chưa khởi tạo lộ trình học tập. Hãy nhấp nút "Khởi tạo lộ trình (3 mức)" ở trên để bắt đầu.
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {renderClassRoadmapColumn(1, "Lộ trình Yếu (Level 1)", "Lộ trình dành cho học sinh có năng lực yếu, tập trung bổ trợ kiến thức cơ bản.")}
+            {renderClassRoadmapColumn(2, "Lộ trình Trung bình (Level 2)", "Lộ trình chuẩn cho học sinh có năng lực trung bình, bám sát khung chương trình chính.")}
+            {renderClassRoadmapColumn(3, "Lộ trình Khá (Level 3)", "Lộ trình nâng cao cho học sinh khá giỏi, tích hợp các bài toán/chủ đề chuyên sâu.")}
+          </div>
+        )}
       </div>
+
+      {/* Student List Section */}
+      <Card className="border border-slate-200 shadow-xs rounded-2xl">
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Users className="w-5 h-5 text-indigo-650" />
+            Danh sách học sinh trong lớp ({students.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50 hover:bg-slate-50 border-slate-100">
+                <TableHead className="font-bold text-slate-700 w-1/3">Mã học sinh</TableHead>
+                <TableHead className="font-bold text-slate-700">Họ và tên</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {students.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={2} className="text-center py-8 text-slate-400 italic">
+                    Chưa có học sinh nào tham gia lớp học này.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                students.map((student) => (
+                  <TableRow key={student.id} className="border-slate-100 hover:bg-slate-50/50">
+                    <TableCell className="font-semibold text-slate-650">{student.id}</TableCell>
+                    <TableCell className="font-medium text-slate-700">{student.fullName}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* Confirmation Modal for Publish */}
       <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>

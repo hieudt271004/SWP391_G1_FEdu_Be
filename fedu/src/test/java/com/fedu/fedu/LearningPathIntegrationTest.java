@@ -191,11 +191,28 @@ public class LearningPathIntegrationTest {
                     .lecturer(teacherB)
                     .build());
 
-            // Create template learning path
+            // Create template learning paths
+            LearningPath templatePath1 = learningPathRepository.save(LearningPath.builder()
+                    .subject(subject)
+                    .pathName("Template Roadmap L1")
+                    .description("PRJ301 Template L1")
+                    .level(1)
+                    .isDeleted(false)
+                    .build());
+
             templatePath = learningPathRepository.save(LearningPath.builder()
                     .subject(subject)
-                    .pathName("Template Roadmap")
-                    .description("PRJ301 Template")
+                    .pathName("Template Roadmap L2")
+                    .description("PRJ301 Template L2")
+                    .level(2)
+                    .isDeleted(false)
+                    .build());
+
+            LearningPath templatePath3 = learningPathRepository.save(LearningPath.builder()
+                    .subject(subject)
+                    .pathName("Template Roadmap L3")
+                    .description("PRJ301 Template L3")
+                    .level(3)
                     .isDeleted(false)
                     .build());
 
@@ -219,18 +236,21 @@ public class LearningPathIntegrationTest {
         });
     }
 
-    // 6.7 Integration test end-to-end: clone template -> publish -> assert SNP count = students x nodes; thêm student mới -> assert SNP backfilled chỉ cho student đó
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testEndToEndLearningPathFlow() throws Exception {
         // 1. Clone template
-        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
-                .orElse(null);
-        assertNull(clonedPath);
+        List<LearningPath> clonedPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId());
+        assertTrue(clonedPaths.isEmpty());
 
-        learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
+        learningPathService.cloneLearningPath(classroomSubjectA.getId());
 
-        clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
+        clonedPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId());
+        assertEquals(3, clonedPaths.size());
+
+        LearningPath clonedPath = clonedPaths.stream()
+                .filter(p -> p.getLevel() == 2)
+                .findFirst()
                 .orElse(null);
         assertNotNull(clonedPath);
         assertEquals(classroomSubjectA.getId(), clonedPath.getClassroomSubject().getId());
@@ -254,6 +274,8 @@ public class LearningPathIntegrationTest {
         ClassroomSubjectStudent enrollment = ClassroomSubjectStudent.builder()
                 .classroomSubject(classroomSubjectA)
                 .student(student)
+                .assignedPath(clonedPath) // Pre-bind student to Level 2 path
+                .currentLevel(2)
                 .build();
         classroomSubjectStudentRepository.save(enrollment);
 
@@ -284,6 +306,17 @@ public class LearningPathIntegrationTest {
 
         classroomEnrollmentService.enrollStudent(classroomSubjectA.getId(), addRequest);
 
+        // Simulate student 2 resolving placement level and getting bound path
+        ClassroomSubjectStudent css2 = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectA.getId(), student2.getUserId())
+                .orElseThrow();
+        css2.setAssignedPath(clonedPath);
+        css2.setCurrentLevel(2);
+        classroomSubjectStudentRepository.save(css2);
+
+        // Call backfill explicitly
+        learningPathService.backfillProgressForStudent(classroomSubjectA.getId(), student2.getUserId());
+
         // Check SNP backfilled only for student 2
         List<StudentNodeProgress> student2Progress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(student2.getUserId(), clonedPath.getPathId());
         assertEquals(2, student2Progress.size());
@@ -294,10 +327,13 @@ public class LearningPathIntegrationTest {
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testConcurrentPublishRace() throws Exception {
         transactionTemplate.execute(status -> {
-            learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
+            learningPathService.cloneLearningPath(classroomSubjectA.getId());
             return null;
         });
-        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).orElseThrow();
+        LearningPath clonedPath = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).stream()
+                .filter(p -> p.getLevel() == 2)
+                .findFirst()
+                .orElseThrow();
 
         int threadCount = 2;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -356,8 +392,11 @@ public class LearningPathIntegrationTest {
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void testRollbackEnrollmentWhenBackfillFails() {
-        learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
-        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).orElseThrow();
+        learningPathService.cloneLearningPath(classroomSubjectA.getId());
+        LearningPath clonedPath = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).stream()
+                .filter(p -> p.getLevel() == 2)
+                .findFirst()
+                .orElseThrow();
         learningPathService.publishClassroomPath(classroomSubjectA.getId(), clonedPath.getPathId());
 
         UserAccount student = UserAccount.builder()

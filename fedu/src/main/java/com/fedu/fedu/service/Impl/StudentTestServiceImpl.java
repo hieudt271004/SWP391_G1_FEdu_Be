@@ -92,6 +92,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .test(test)
                 .student(student)
                 .startedAt(LocalDateTime.now())
+                .status(com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS)
                 .build();
 
         return studentTestAttemptRepository.save(attempt);
@@ -122,11 +123,11 @@ public class StudentTestServiceImpl implements StudentTestService {
         routeAfterAttempt(studentId, test.getLearningNode(),
                 test.getLearningNode().getLearningPath().getPathId(), passed);
 
-        // Cổng test: nếu test có khoảng điểm (score band) → đổi mức năng lực của học sinh.
-        com.fedu.fedu.entity.ClassroomSubject cs = test.getLearningNode().getLearningPath().getClassroomSubject();
-        if (cs != null) {
-            levelRoutingService.applyGateBands(cs.getId(), test.getTestId(), studentId, finalPercentage);
-        }
+        // Cổng test: nếu test có khoảng điểm (score band) → đổi mức năng lực của học sinh (disabled in Model A).
+        // com.fedu.fedu.entity.ClassroomSubject cs = test.getLearningNode().getLearningPath().getClassroomSubject();
+        // if (cs != null) {
+        //     levelRoutingService.applyGateBands(cs.getId(), test.getTestId(), studentId, finalPercentage);
+        // }
 
         return AttemptSubmissionResultResponse.builder()
                 .attemptId(attempt.getAttemptId())
@@ -250,6 +251,7 @@ public class StudentTestServiceImpl implements StudentTestService {
 
         attempt.setScore(finalPercentage);
         attempt.setSubmittedAt(LocalDateTime.now());
+        attempt.setStatus(com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED);
         studentTestAttemptRepository.save(attempt);
 
         return finalPercentage;

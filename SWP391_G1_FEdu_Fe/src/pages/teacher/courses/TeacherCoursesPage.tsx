@@ -196,8 +196,7 @@ export function TeacherCoursesPage() {
     try {
       setApplying(true);
       await learningPathService.cloneFromTemplate(
-        Number(selectedClassroomSubjectId),
-        selectedTemplateForApply.pathId
+        Number(selectedClassroomSubjectId)
       );
 
       toast.success(`Đã áp dụng lộ trình "${selectedTemplateForApply.pathName}" cho lớp thành công!`);

@@ -62,9 +62,9 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
     public void removeStudentFromClassroomSubject(Long classroomSubjectId, long studentId) {
         // Lớp đã bắt đầu (lộ trình đã PUBLISHED) thì không cho xóa SV — giữ dữ liệu, SV chỉ là không qua môn.
         boolean published = learningPathRepository
-                .findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId)
-                .map(p -> p.getPublishedAt() != null)
-                .orElse(false);
+                .findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId)
+                .stream()
+                .anyMatch(p -> p.getPublishedAt() != null);
         if (published) {
             throw new InvalidDataException(
                     "Lớp đã bắt đầu (lộ trình đã xuất bản) — không thể xóa sinh viên. Dữ liệu được giữ lại, sinh viên chỉ là không qua môn.");

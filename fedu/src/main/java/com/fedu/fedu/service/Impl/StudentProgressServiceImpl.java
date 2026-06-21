@@ -33,7 +33,7 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
 
         // Chưa làm bài test phân loại → chặn truy cập nội dung học, yêu cầu làm placement trước.
-        if (enrollment.getCurrentLevel() == null) {
+        if (enrollment.getAssignedPath() == null) {
             return ClassroomGraphResponse.builder()
                     .classroomSubjectId(classroomSubjectId)
                     .state("NEED_PLACEMENT")
@@ -45,8 +45,8 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                     .build();
         }
 
-        Optional<LearningPath> pathOpt = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
-        if (pathOpt.isEmpty() || pathOpt.get().getPublishedAt() == null) {
+        LearningPath path = enrollment.getAssignedPath();
+        if (path == null || path.getPublishedAt() == null) {
             // No path published yet
             return ClassroomGraphResponse.builder()
                     .classroomSubjectId(classroomSubjectId)
@@ -58,8 +58,6 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                     .availableTemplates(Collections.emptyList())
                     .build();
         }
-
-        LearningPath path = pathOpt.get();
 
         List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
