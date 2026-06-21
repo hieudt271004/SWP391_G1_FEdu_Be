@@ -585,6 +585,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .canCloneAll(canCloneAll)
                     .missingLevels(missingLevels)
                     .availableTemplates(availableTemplates)
+                    .quizStartTestId(cs.getQuizStart() != null ? cs.getQuizStart().getTestId() : null)
                     .build();
         }
 
@@ -633,6 +634,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .canCloneAll(true)
                 .missingLevels(Collections.emptyList())
                 .availableTemplates(null)
+                .quizStartTestId(cs.getQuizStart() != null ? cs.getQuizStart().getTestId() : null)
                 .build();
     }
 
@@ -640,6 +642,12 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public PublishResultResponse publishClassroomPath(Long classroomSubjectId, Long pathId) {
         assertTeacherOwnsClassroomSubject(classroomSubjectId);
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp-môn học không tồn tại"));
+        if (cs.getQuizStart() == null) {
+            throw new InvalidDataException("Vui lòng khởi tạo và cấu hình bài test phân loại đầu vào trước khi xuất bản lộ trình.");
+        }
+
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (paths.isEmpty()) {
             throw new ResourceNotFoundException("No learning paths found for this classroom subject");

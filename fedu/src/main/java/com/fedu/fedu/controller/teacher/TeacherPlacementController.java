@@ -1,5 +1,7 @@
 package com.fedu.fedu.controller.teacher;
 
+import com.fedu.fedu.dto.req.CreatePlacementQuizRequest;
+import com.fedu.fedu.dto.res.PlacementQuizDetailsResponse;
 import com.fedu.fedu.dto.req.ScoreBandRequest;
 import com.fedu.fedu.dto.res.ResponseData;
 import com.fedu.fedu.dto.res.ScoreBandResponse;
@@ -69,5 +71,28 @@ public class TeacherPlacementController {
             @PathVariable Long studentId) {
         return new ResponseData<>(HttpStatus.OK.value(), "Lịch sử mức năng lực",
                 placementService.getLevelHistory(csId, studentId));
+    }
+
+    @Operation(summary = "Tạo mới hoặc cập nhật bài test phân loại")
+    @PreAuthorize("hasRole('TEACHER')")
+    @PostMapping("/classroom-subjects/{csId}/placement-quiz")
+    public ResponseData<PlacementQuizDetailsResponse> createPlacementQuiz(
+            @PathVariable Long csId,
+            @Valid @RequestBody CreatePlacementQuizRequest request,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Teacher creating/updating placement quiz for classroom subject ID: {}", csId);
+        PlacementQuizDetailsResponse response = teacherPlacementService.createPlacementQuiz(csId, request, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.CREATED.value(), "Khởi tạo bài test phân loại thành công", response);
+    }
+
+    @Operation(summary = "Lấy thông tin chi tiết bài test phân loại")
+    @PreAuthorize("hasRole('TEACHER')")
+    @GetMapping("/classroom-subjects/{csId}/placement-quiz")
+    public ResponseData<PlacementQuizDetailsResponse> getPlacementQuizDetails(
+            @PathVariable Long csId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Teacher retrieving placement quiz details for classroom subject ID: {}", csId);
+        PlacementQuizDetailsResponse response = teacherPlacementService.getPlacementQuizDetails(csId, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Lấy chi tiết bài test phân loại thành công", response);
     }
 }

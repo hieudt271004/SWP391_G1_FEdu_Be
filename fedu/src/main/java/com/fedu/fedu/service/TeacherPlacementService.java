@@ -1,5 +1,7 @@
 package com.fedu.fedu.service;
 
+import com.fedu.fedu.dto.req.CreatePlacementQuizRequest;
+import com.fedu.fedu.dto.res.PlacementQuizDetailsResponse;
 import com.fedu.fedu.dto.req.ScoreBandRequest;
 import com.fedu.fedu.dto.res.ScoreBandResponse;
 
@@ -16,4 +18,10 @@ public interface TeacherPlacementService {
 
     /** Lấy khoảng điểm hiện có của một bài quiz. */
     List<ScoreBandResponse> getScoreBands(Long testId);
+
+    /** Khởi tạo hoặc cập nhật thông tin bài test phân loại mới cho lớp-môn. */
+    PlacementQuizDetailsResponse createPlacementQuiz(Long classroomSubjectId, CreatePlacementQuizRequest request, Long teacherId);
+
+    /** Lấy cấu hình bài test phân loại hiện tại của lớp-môn. */
+    PlacementQuizDetailsResponse getPlacementQuizDetails(Long classroomSubjectId, Long teacherId);
 }

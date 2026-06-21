@@ -2,6 +2,8 @@ package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.req.ScoreBandRequest;
 import com.fedu.fedu.dto.res.ScoreBandResponse;
+import com.fedu.fedu.dto.req.CreatePlacementQuizRequest;
+import com.fedu.fedu.dto.res.PlacementQuizDetailsResponse;
 import com.fedu.fedu.entity.ClassroomSubject;
 import com.fedu.fedu.entity.QuizScoreBand;
 import com.fedu.fedu.entity.Test;
@@ -10,6 +12,7 @@ import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.ClassroomSubjectRepository;
 import com.fedu.fedu.repository.QuizScoreBandRepository;
 import com.fedu.fedu.repository.TestRepository;
+import com.fedu.fedu.repository.TestQuestionRepository;
 import com.fedu.fedu.service.TeacherPlacementService;
 import com.fedu.fedu.utils.LearningLevels;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class TeacherPlacementServiceImpl implements TeacherPlacementService {
     private final ClassroomSubjectRepository classroomSubjectRepository;
     private final TestRepository testRepository;
     private final QuizScoreBandRepository quizScoreBandRepository;
+    private final TestQuestionRepository testQuestionRepository;
 
     @Override
     @Transactional
@@ -125,6 +129,74 @@ public class TeacherPlacementServiceImpl implements TeacherPlacementService {
                 .minScore(b.getMinScore())
                 .maxScore(b.getMaxScore())
                 .targetLevel(b.getTargetLevel())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public PlacementQuizDetailsResponse createPlacementQuiz(Long classroomSubjectId, CreatePlacementQuizRequest request, Long teacherId) {
+        if (!classroomSubjectRepository.existsByIdAndLecturerUserId(classroomSubjectId, teacherId)) {
+            throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp-môn không tồn tại"));
+
+        Test test = cs.getQuizStart();
+        if (test == null) {
+            test = Test.builder()
+                    .title(request.getTitle().trim())
+                    .description(request.getDescription() != null ? request.getDescription().trim() : null)
+                    .durationMinutes(request.getDurationMinutes())
+                    .passingPercentage(BigDecimal.valueOf(50))
+                    .isDeleted(false)
+                    .build();
+            testRepository.save(test);
+            cs.setQuizStart(test);
+            classroomSubjectRepository.save(cs);
+        } else {
+            test.setTitle(request.getTitle().trim());
+            test.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
+            test.setDurationMinutes(request.getDurationMinutes());
+            testRepository.save(test);
+        }
+
+        List<ScoreBandResponse> bands = getScoreBands(test.getTestId());
+        int questionCount = testQuestionRepository.findByTestTestId(test.getTestId()).size();
+
+        return PlacementQuizDetailsResponse.builder()
+                .testId(test.getTestId())
+                .title(test.getTitle())
+                .description(test.getDescription())
+                .durationMinutes(test.getDurationMinutes())
+                .scoreBands(bands)
+                .questionCount(questionCount)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlacementQuizDetailsResponse getPlacementQuizDetails(Long classroomSubjectId, Long teacherId) {
+        if (!classroomSubjectRepository.existsByIdAndLecturerUserId(classroomSubjectId, teacherId)) {
+            throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lớp-môn không tồn tại"));
+
+        Test test = cs.getQuizStart();
+        if (test == null) {
+            return null;
+        }
+
+        List<ScoreBandResponse> bands = getScoreBands(test.getTestId());
+        int questionCount = testQuestionRepository.findByTestTestId(test.getTestId()).size();
+
+        return PlacementQuizDetailsResponse.builder()
+                .testId(test.getTestId())
+                .title(test.getTitle())
+                .description(test.getDescription())
+                .durationMinutes(test.getDurationMinutes())
+                .scoreBands(bands)
+                .questionCount(questionCount)
                 .build();
     }
 }

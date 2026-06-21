@@ -22,4 +22,5 @@ public class ClassroomGraphResponse {
     private Boolean canCloneAll;
     private List<Integer> missingLevels;
     private List<AvailableTemplateResponse> availableTemplates;
+    private Long quizStartTestId;
 }
