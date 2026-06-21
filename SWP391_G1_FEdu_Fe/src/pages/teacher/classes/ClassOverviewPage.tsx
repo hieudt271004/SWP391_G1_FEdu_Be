@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
@@ -96,7 +96,7 @@ export function ClassOverviewPage() {
   
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
-  const fetchNodeContent = async (nodeId: number) => {
+  const fetchNodeContent = useCallback(async (nodeId: number) => {
     try {
       setLoadingContents((prev) => ({ ...prev, [nodeId]: true }));
       const content = await learningPathService.getTeacherNodeContent(nodeId);
@@ -106,7 +106,7 @@ export function ClassOverviewPage() {
     } finally {
       setLoadingContents((prev) => ({ ...prev, [nodeId]: false }));
     }
-  };
+  }, []);
 
   const toggleNode = async (nodeId: number) => {
     const nextState = !expandedNodes[nodeId];
@@ -196,7 +196,7 @@ export function ClassOverviewPage() {
       setClassroomStatus(newStatus);
       toast.success(newStatus === 'active' ? 'Lớp học đã bắt đầu thành công!' : 'Lớp học đã kết thúc!');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Cập nhật trạng thái thất bại');
+      toast.error(err.response?.data?.message || 'Cập nhật trạng thái thất bại');
     } finally {
       setActionState('idle');
     }
@@ -238,12 +238,14 @@ export function ClassOverviewPage() {
       graphData.paths.forEach((path) => {
         if (path.nodes && path.nodes.length > 0) {
           const sorted = [...path.nodes].sort((a, b) => a.displayOrder - b.displayOrder);
-          initialExpanded[sorted[0].nodeId] = true;
+          const firstNodeId = sorted[0].nodeId;
+          initialExpanded[firstNodeId] = true;
+          fetchNodeContent(firstNodeId);
         }
       });
       setExpandedNodes((prev) => ({ ...initialExpanded, ...prev }));
     }
-  }, [graphData]);
+  }, [graphData, fetchNodeContent]);
 
   const handleClone = async () => {
     if (!classroomSubjectId) return;
@@ -254,8 +256,9 @@ export function ClassOverviewPage() {
       // Refetch classroom graph
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
+      toast.success('Khởi tạo lộ trình học (3 mức) thành công!');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to clone learning path');
+      toast.error(err.response?.data?.message || 'Không thể khởi tạo lộ trình học');
     } finally {
       setActionState('idle');
     }
@@ -272,8 +275,9 @@ export function ClassOverviewPage() {
       setGraphData(updatedGraph);
       setShowPublishConfirm(false);
       setUnderstandPublish(false);
+      toast.success('Xuất bản lộ trình học thành công!');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to publish learning path');
+      toast.error(err.response?.data?.message || 'Không thể xuất bản lộ trình học');
     } finally {
       setActionState('idle');
     }
@@ -289,12 +293,13 @@ export function ClassOverviewPage() {
       setGraphData(updatedGraph);
       setShowUnpublishConfirm(false);
       setUnderstandUnpublish(false);
+      toast.success('Gỡ xuất bản lộ trình học thành công!');
     } catch (err: any) {
       if (err.response?.status === 409) {
         setUnpublishErrorMsg(err.response?.data?.message || 'Không thể unpublish — đã có học sinh hoàn thành node.');
         setShowUnpublishError(true);
       } else {
-        alert(err.response?.data?.message || 'Failed to unpublish learning path');
+        toast.error(err.response?.data?.message || 'Không thể gỡ xuất bản lộ trình học');
       }
     } finally {
       setActionState('idle');
@@ -312,8 +317,9 @@ export function ClassOverviewPage() {
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setSelectedTemplateId(null);
+      toast.success('Đã xóa bản nháp lộ trình học thành công!');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete draft');
+      toast.error(err.response?.data?.message || 'Không thể xóa bản nháp lộ trình học');
     } finally {
       setActionState('idle');
     }
