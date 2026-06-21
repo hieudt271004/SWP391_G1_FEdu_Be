@@ -126,9 +126,7 @@ public class SubjectServiceImpl implements SubjectService {
 
         for (com.fedu.fedu.entity.LearningPath path : paths) {
             List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
-            long mainNodeCount = nodes.stream()
-                    .filter(n -> n.getBranchName() == null || n.getBranchName() != com.fedu.fedu.utils.enums.BranchType.SUB)
-                    .count();
+            long mainNodeCount = nodes.size();
             if (mainNodeCount != subject.getLearningpathLength()) {
                 throw new InvalidDataException(
                         String.format("Lộ trình '%s' có %d bài học chính, chưa đúng với số chặng yêu cầu của môn học (%d bài).",

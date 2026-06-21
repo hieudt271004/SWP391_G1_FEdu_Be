@@ -21,7 +21,6 @@ public class LearningNodeResponse {
     private Boolean testLocked;
     private Integer displayOrder;
     private Boolean isRequired;
-    private com.fedu.fedu.utils.enums.BranchType branchName;
     private Boolean isDeleted;
     private Integer stageOrder;
     private Integer level;

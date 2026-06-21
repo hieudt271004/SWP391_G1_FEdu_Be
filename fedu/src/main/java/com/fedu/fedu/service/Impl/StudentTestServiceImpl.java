@@ -3,10 +3,9 @@ package com.fedu.fedu.service.Impl;
 import com.fedu.fedu.dto.req.AttemptSubmissionRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
-import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
+import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.service.StudentTestService;
-import com.fedu.fedu.utils.enums.BranchType;
 import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.QuestionType;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
@@ -286,14 +285,13 @@ public class StudentTestServiceImpl implements StudentTestService {
 
     // ── Định tuyến tiến độ sau mỗi lần nộp test ───────────────────────────────
 
-    /** Cạnh "rẽ nhánh phụ / trượt" = mang ngưỡng điểm (maxScore) hoặc branchName SUB. */
+    /** Cạnh "rẽ nhánh phụ / trượt" = mang ngưỡng điểm (maxScore). */
     private boolean isSubEdge(NodeEdge e) {
-        return e.getBranchName() == BranchType.SUB || e.getMaxScore() != null;
+        return e.getMaxScore() != null;
     }
 
     private boolean isSubNode(LearningNode node, List<NodeEdge> incoming) {
-        return node.getBranchName() == BranchType.SUB
-                || incoming.stream().anyMatch(this::isSubEdge);
+        return incoming.stream().anyMatch(this::isSubEdge);
     }
 
     private StudentNodeProgress getProgress(Long studentId, Long pathId, Long nodeId) {

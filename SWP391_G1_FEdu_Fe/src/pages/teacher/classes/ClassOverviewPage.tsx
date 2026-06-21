@@ -550,7 +550,6 @@ export function ClassOverviewPage() {
                           </p>
                           <div className="text-xs text-muted-foreground space-y-1">
                             <div>Display Order: <span className="font-semibold">{node.displayOrder}</span></div>
-                            {node.branchName && <div>Branch: <span className="font-semibold">{node.branchName}</span></div>}
                           </div>
                         </div>
                       )}

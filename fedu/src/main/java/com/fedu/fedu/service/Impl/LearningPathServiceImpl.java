@@ -164,7 +164,6 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .status(NodeStatus.LOCKED)
                     .displayOrder(tn.getDisplayOrder() != null ? tn.getDisplayOrder() : 0)
                     .isRequired(tn.getIsRequired() != null ? tn.getIsRequired() : true)
-                    .branchName(tn.getBranchName())
                     .stageOrder(tn.getStageOrder())
                     .level(tn.getLevel())
                     .isDeleted(false)
@@ -178,7 +177,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             LearningNode t = nodeMap.get(te.getToNode().getNodeId());
             if (f != null && t != null) {
                 nodeEdgeRepository.save(NodeEdge.builder()
-                        .fromNode(f).toNode(t).branchName(te.getBranchName())
+                        .fromNode(f).toNode(t)
                         .minScore(te.getMinScore()).maxScore(te.getMaxScore()).build());
             }
         }
@@ -339,6 +338,19 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("level của node phải null (node chung) hoặc 1=yếu, 2=tb, 3=khá");
         }
 
+        // Validate learningpathLength limit for template roadmaps (classroomSubject == null)
+        if (learningPath.getClassroomSubject() == null) {
+            Subject subject = learningPath.getSubject();
+            if (subject != null && subject.getLearningpathLength() != null) {
+                List<LearningNode> existingNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(learningPath.getPathId());
+                if (existingNodes.size() >= subject.getLearningpathLength()) {
+                    throw new InvalidDataException(
+                            "Không thể thêm bài học. Lộ trình đã đạt số bài học tối đa cấu hình cho môn học ("
+                            + subject.getLearningpathLength() + " bài học)");
+                }
+            }
+        }
+
         LearningNode learningNode = LearningNode.builder()
                 .learningPath(learningPath)
                 .title(request.getTitle())
@@ -347,7 +359,6 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .status(request.getStatus() != null ? request.getStatus() : NodeStatus.LOCKED)
                 .displayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : 0)
                 .isRequired(request.getIsRequired() != null ? request.getIsRequired() : true)
-                .branchName(request.getBranchName())
                 .stageOrder(request.getStageOrder())
                 .level(request.getLevel())
                 .isDeleted(false)
@@ -374,7 +385,6 @@ public class LearningPathServiceImpl implements LearningPathService {
         node.setStatus(request.getStatus());
         node.setDisplayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : node.getDisplayOrder());
         node.setIsRequired(request.getIsRequired() != null ? request.getIsRequired() : node.getIsRequired());
-        node.setBranchName(request.getBranchName());
 
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
@@ -483,7 +493,6 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .status(node.getStatus())
                 .displayOrder(node.getDisplayOrder())
                 .isRequired(node.getIsRequired())
-                .branchName(node.getBranchName())
                 .isDeleted(node.getIsDeleted())
                 .stageOrder(node.getStageOrder())
                 .level(node.getLevel())
@@ -497,7 +506,6 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .edgeId(e.getEdgeId())
                 .fromNodeId(e.getFromNode().getNodeId())
                 .toNodeId(e.getToNode().getNodeId())
-                .branchName(e.getBranchName())
                 .minScore(e.getMinScore())
                 .maxScore(e.getMaxScore())
                 .build();

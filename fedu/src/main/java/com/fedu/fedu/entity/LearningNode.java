@@ -45,9 +45,7 @@ public class LearningNode extends AbstractEntity<Long> {
     @Column(name = "is_required", nullable = false)
     private Boolean isRequired = true;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "branch_name")
-    private com.fedu.fedu.utils.enums.BranchType branchName;
+
 
     /** Chặng thứ mấy trong lộ trình (1..subject.learningpathLength). */
     @Column(name = "stage_order")

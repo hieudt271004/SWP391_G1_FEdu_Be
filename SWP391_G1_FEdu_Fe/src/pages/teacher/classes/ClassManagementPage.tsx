@@ -38,8 +38,7 @@ import {
   LearningNodeResponse, 
   NodeEdgeResponse, 
   ClassroomGraphResponse,
-  NodeContentResponse,
-  BranchType
+  NodeContentResponse
 } from '../../../services/learningPath.service';
 import { toast } from 'sonner';
 import {
@@ -91,7 +90,6 @@ export function ClassManagementPage() {
   const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
   const [newNodeOrder, setNewNodeOrder] = useState<number>(1);
   const [newNodeRequired, setNewNodeRequired] = useState(true);
-  const [newNodeBranch, setNewNodeBranch] = useState<BranchType | ''>('');
   const [newNodePredecessor, setNewNodePredecessor] = useState<string>('');
 
   // Edge score requirements state
@@ -108,7 +106,6 @@ export function ClassManagementPage() {
   const [editNodeStatus, setEditNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
   const [editNodeOrder, setEditNodeOrder] = useState<number>(1);
   const [editNodeRequired, setEditNodeRequired] = useState(true);
-  const [editNodeBranch, setEditNodeBranch] = useState<BranchType | ''>('');
   const [editingNode, setEditingNode] = useState(false);
 
   // Node content state
@@ -237,7 +234,6 @@ export function ClassManagementPage() {
     setNewNodeType('AT_HOME');
     setNewNodeStatus('LOCKED');
     setNewNodeRequired(true);
-    setNewNodeBranch('');
     setNewNodePredecessor('');
     setIsPredecessorLocked(false);
     setEdgeMinScore('');
@@ -251,7 +247,6 @@ export function ClassManagementPage() {
     setNewNodeType('AT_HOME');
     setNewNodeStatus('LOCKED');
     setNewNodeRequired(true);
-    setNewNodeBranch(node.branchName || '');
     setNewNodePredecessor(node.nodeId.toString());
     setIsPredecessorLocked(true);
     setEdgeMinScore('');
@@ -427,7 +422,6 @@ export function ClassManagementPage() {
         title: newNodeTitle,
         description: newNodeDesc,
         nodeType: newNodeType,
-        branchName: newNodeBranch || undefined,
         displayOrder: newNodeOrder,
         status: newNodeStatus,
         isRequired: newNodeRequired
@@ -437,7 +431,6 @@ export function ClassManagementPage() {
         await learningPathService.createNodeEdge({
           fromNodeId: Number(newNodePredecessor),
           toNodeId: createdNode.nodeId,
-          branchName: newNodeBranch || undefined,
           minScore: edgeMinScore ? Number(edgeMinScore) : undefined,
           maxScore: edgeMaxScore ? Number(edgeMaxScore) : undefined
         });
@@ -452,7 +445,6 @@ export function ClassManagementPage() {
       setNewNodeType('AT_HOME');
       setNewNodeStatus('LOCKED');
       setNewNodeRequired(true);
-      setNewNodeBranch('');
       setNewNodePredecessor('');
       setEdgeMinScore('');
       setEdgeMaxScore('');
@@ -473,7 +465,6 @@ export function ClassManagementPage() {
     setEditNodeStatus(node.status);
     setEditNodeOrder(node.displayOrder);
     setEditNodeRequired(node.isRequired);
-    setEditNodeBranch(node.branchName || '');
     setIsEditNodeOpen(true);
   };
 
@@ -494,7 +485,6 @@ export function ClassManagementPage() {
         status: editNodeStatus,
         displayOrder: editNodeOrder,
         isRequired: editNodeRequired,
-        branchName: editNodeBranch || undefined,
       });
 
       toast.success('Cập nhật node thành công!');
@@ -676,7 +666,6 @@ export function ClassManagementPage() {
 
                           <div className="text-xs text-muted-foreground">
                             Display Order: <span className="font-semibold text-foreground">{node.displayOrder}</span>
-                            {node.branchName && <span className="ml-4">Branch: <span className="font-semibold text-foreground">{node.branchName}</span></span>}
                           </div>
 
                           {/* Node Content Section */}
@@ -698,11 +687,11 @@ export function ClassManagementPage() {
                                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                     Tài liệu & Video ({nodeContents[node.nodeId]?.materials?.length || 0})
                                   </div>
-                                  {!nodeContents[node.nodeId]?.materials || nodeContents[node.nodeId].materials.length === 0 ? (
+                                  {!(nodeContents[node.nodeId]?.materials) || nodeContents[node.nodeId].materials.length === 0 ? (
                                     <p className="text-xs text-muted-foreground italic pl-2">Chưa có tài liệu học tập.</p>
                                   ) : (
                                     <div className="space-y-1.5">
-                                      {nodeContents[node.nodeId].materials.map((material) => (
+                                      {(nodeContents[node.nodeId]?.materials || []).map((material) => (
                                         <div
                                           key={material.materialId}
                                           className="flex items-center justify-between p-2 rounded-lg border border-border bg-card hover:bg-muted/10 text-xs transition-colors"
@@ -762,11 +751,11 @@ export function ClassManagementPage() {
                                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                     Bài kiểm tra ({nodeContents[node.nodeId]?.tests?.length || 0})
                                   </div>
-                                  {!nodeContents[node.nodeId]?.tests || nodeContents[node.nodeId].tests.length === 0 ? (
+                                  {!(nodeContents[node.nodeId]?.tests) || nodeContents[node.nodeId].tests.length === 0 ? (
                                     <p className="text-xs text-muted-foreground italic pl-2">Chưa có bài kiểm tra.</p>
                                   ) : (
                                     <div className="space-y-1.5">
-                                      {nodeContents[node.nodeId].tests.map((test) => (
+                                      {(nodeContents[node.nodeId]?.tests || []).map((test) => (
                                         <div
                                           key={test.testId}
                                           className="flex items-center justify-between p-2 rounded-lg border border-border bg-card hover:bg-muted/10 text-xs transition-colors"
@@ -1023,18 +1012,6 @@ export function ClassManagementPage() {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Branch Name (Optional)</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodeBranch}
-                    onChange={(e) => setNewNodeBranch(e.target.value as BranchType)}
-                  >
-                    <option value="">-- Chọn nhánh --</option>
-                    <option value="MAIN">MAIN (Nhánh chính)</option>
-                    <option value="SUB">SUB (Nhánh phụ)</option>
-                  </select>
-                </div>
               </div>
 
               <div className="space-y-1">
@@ -1458,18 +1435,6 @@ export function ClassManagementPage() {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Tên nhánh (Branch Name)</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-slate-850 font-medium"
-                    value={editNodeBranch}
-                    onChange={(e) => setEditNodeBranch(e.target.value as BranchType)}
-                  >
-                    <option value="">-- Chọn nhánh --</option>
-                    <option value="MAIN">MAIN (Nhánh chính)</option>
-                    <option value="SUB">SUB (Nhánh phụ)</option>
-                  </select>
-                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-2">

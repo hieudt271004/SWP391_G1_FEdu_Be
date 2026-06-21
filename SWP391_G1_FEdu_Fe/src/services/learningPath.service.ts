@@ -1,7 +1,6 @@
 import { http } from './http';
 
 export type LearningPathLevel = 1 | 2 | 3;
-export type BranchType = 'MAIN' | 'SUB';
 
 export interface CreateLearningPathRequest {
   subjectId: number;
@@ -29,7 +28,6 @@ export interface LearningNodeResponse {
   title: string;
   description: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  branchName?: BranchType;
   displayOrder: number;
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
   isRequired: boolean;
@@ -44,7 +42,6 @@ export interface NodeEdgeResponse {
   edgeId: number;
   fromNodeId: number;
   toNodeId: number;
-  branchName?: BranchType;
   minScore?: number;
   maxScore?: number;
 }
@@ -85,7 +82,6 @@ export interface CreateLearningNodeRequest {
   title: string;
   description?: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  branchName?: BranchType;
   displayOrder: number;
   status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
   isRequired?: boolean;
@@ -100,13 +96,11 @@ export interface UpdateLearningNodeRequest {
   status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
   displayOrder?: number;
   isRequired?: boolean;
-  branchName?: BranchType;
 }
 
 export interface CreateNodeEdgeRequest {
   fromNodeId: number;
   toNodeId: number;
-  branchName?: BranchType;
   minScore?: number;
   maxScore?: number;
 }

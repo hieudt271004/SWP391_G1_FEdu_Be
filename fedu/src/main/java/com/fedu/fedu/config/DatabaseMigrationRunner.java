@@ -89,12 +89,11 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
             if (!hasDisplayOrder) {
-                log.info("Columns 'display_order', 'is_required', 'branch_name' do not exist in 'learning_nodes' table. Running migration...");
+                log.info("Columns 'display_order', 'is_required' do not exist in 'learning_nodes' table. Running migration...");
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("ALTER TABLE learning_nodes ADD COLUMN display_order INT NOT NULL DEFAULT 0");
                     statement.execute("ALTER TABLE learning_nodes ADD COLUMN is_required BOOLEAN NOT NULL DEFAULT TRUE");
-                    statement.execute("ALTER TABLE learning_nodes ADD COLUMN branch_name VARCHAR(100)");
-                    log.info("Migration successful: added display_order, is_required, branch_name columns to 'learning_nodes'.");
+                    log.info("Migration successful: added display_order, is_required columns to 'learning_nodes'.");
                 }
             }
 
@@ -130,7 +129,6 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                         "    edge_id BIGSERIAL PRIMARY KEY," +
                         "    from_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE," +
                         "    to_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE," +
-                        "    branch_name VARCHAR(100)," +
                         "    min_score DECIMAL(5,2)," +
                         "    max_score DECIMAL(5,2)," +
                         "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
@@ -193,16 +191,11 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Normalize existing branch_name values to BranchType enum values (MAIN, SUB)
+            // Drop branch_name column from learning_nodes and node_edges
             try (Statement statement = connection.createStatement()) {
-                statement.execute("UPDATE learning_nodes SET branch_name = 'MAIN' WHERE LOWER(branch_name) IN ('main', 'a', 'primary')");
-                statement.execute("UPDATE learning_nodes SET branch_name = 'SUB' WHERE LOWER(branch_name) IN ('sub', 'b', 'optional', 'secondary')");
-                statement.execute("UPDATE learning_nodes SET branch_name = NULL WHERE branch_name NOT IN ('MAIN', 'SUB') AND branch_name IS NOT NULL");
-
-                statement.execute("UPDATE node_edges SET branch_name = 'MAIN' WHERE LOWER(branch_name) IN ('main', 'a', 'primary')");
-                statement.execute("UPDATE node_edges SET branch_name = 'SUB' WHERE LOWER(branch_name) IN ('sub', 'b', 'optional', 'secondary')");
-                statement.execute("UPDATE node_edges SET branch_name = NULL WHERE branch_name NOT IN ('MAIN', 'SUB') AND branch_name IS NOT NULL");
-                log.info("Branch name values normalized to 'MAIN' and 'SUB' successfully.");
+                statement.execute("ALTER TABLE learning_nodes DROP COLUMN IF EXISTS branch_name");
+                statement.execute("ALTER TABLE node_edges DROP COLUMN IF EXISTS branch_name");
+                log.info("Columns 'branch_name' dropped from 'learning_nodes' and 'node_edges' successfully.");
             }
 
             // === Adaptive placement learning path: new columns/tables ===

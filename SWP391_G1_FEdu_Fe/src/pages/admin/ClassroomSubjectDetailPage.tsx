@@ -201,18 +201,14 @@ export function ClassroomSubjectDetailPage() {
   const sortedNodes = graph ? [...graph.nodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId)) : [];
   const stBadge = graph ? pathStateBadge(graph.state) : pathStateBadge("NO_PATH");
 
-  // Node "phụ" = branchName Phụ HOẶC có cạnh fail đi vào (maxScore != null) — bền với data cũ/Unicode
-  const csEdges = graph?.edges || [];
-  const isSubNode = (n: LearningNodeResponse) =>
-    (n.branchName || "").normalize("NFC").trim().toLowerCase() === "phụ" ||
-    csEdges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
+  const isSubNode = (n: LearningNodeResponse) => false;
   // Tự đánh số "Bài N" theo vị trí (node phụ = "Bài {N cha} phụ"); bỏ tiền tố "Bài N:" cũ trong title
   const stripLessonPrefix = (t: string) => (t || "").replace(/^\s*Bài\s+\d+(\s*phụ)?\s*:?\s*/i, "").trim();
   const nodeLabels: Record<number, string> = {};
   let lessonCounter = 0;
   for (const n of sortedNodes) {
     if (isSubNode(n)) {
-      const pe = csEdges.find((e) => e.toNodeId === n.nodeId);
+      const pe = (graph?.edges || []).find((e) => e.toNodeId === n.nodeId);
       const parentLabel = pe ? nodeLabels[pe.fromNodeId] : undefined;
       nodeLabels[n.nodeId] = parentLabel ? `${parentLabel} phụ` : `Bài ${lessonCounter} phụ`;
     } else {
@@ -225,9 +221,9 @@ export function ClassroomSubjectDetailPage() {
     (acc, n) => {
       const c = nodeContent[n.nodeId];
       if (c) {
-        acc.videos += c.materials.filter((m) => m.video).length;
-        acc.docs += c.materials.filter((m) => m.file).length;
-        acc.tests += c.tests.length;
+        acc.videos += (c.materials || []).filter((m) => m.video).length;
+        acc.docs += (c.materials || []).filter((m) => m.file).length;
+        acc.tests += (c.tests || []).length;
       }
       return acc;
     },
@@ -347,7 +343,6 @@ export function ClassroomSubjectDetailPage() {
                       <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{nodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}</div>
                       <div className="flex items-center gap-2 mt-0.5" style={{ fontSize: "0.75rem", color: "#6b7280" }}>
                         <span>{node.nodeType === "AT_HOME" ? "Tự học" : "Trên lớp"}</span>
-                        {node.branchName && (<><span>·</span><span>{node.branchName}</span></>)}
                         {content && (<><span>·</span><span>{itemCount} mục</span></>)}
                       </div>
                     </div>

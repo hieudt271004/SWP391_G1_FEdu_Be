@@ -80,12 +80,8 @@ export function SubjectDetailPage() {
   const [newNodeStageOrder, setNewNodeStageOrder] = useState<number>(1);
   const [newNodeLevel, setNewNodeLevel] = useState<number | "">("");
   const [addNodeParent, setAddNodeParent] = useState<LearningNodeResponse | null>(null);
-  const [branchMode, setBranchMode] = useState<'MAIN' | 'SUB'>('MAIN');
   const [addingNode, setAddingNode] = useState(false);
   const submittingNodeRef = useRef(false);
-
-  // Điểm tối thiểu để qua nhánh phụ (dùng khi thêm node nhánh phụ)
-  const [edgeMinScore, setEdgeMinScore] = useState("");
 
   // Form states - Node Content (Materials & Tests)
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
@@ -296,19 +292,16 @@ export function SubjectDetailPage() {
     (acc, n) => {
       const c = nodeContents[n.nodeId];
       if (c) {
-        acc.videos += c.materials.filter((m) => m.video).length;
-        acc.docs += c.materials.filter((m) => m.file).length;
-        acc.tests += c.tests.length;
+        acc.videos += (c.materials || []).filter((m) => m.video).length;
+        acc.docs += (c.materials || []).filter((m) => m.file).length;
+        acc.tests += (c.tests || []).length;
       }
       return acc;
     },
     { videos: 0, docs: 0, tests: 0 }
   );
 
-  // Node "phụ" = có branchName Phụ HOẶC có cạnh fail đi vào (maxScore != null) — bền với data cũ/Unicode
-  const isSubNode = (n: LearningNodeResponse) =>
-    (n.branchName || "").normalize("NFC").trim().toLowerCase() === "phụ" ||
-    edges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
+  const isSubNode = (n: LearningNodeResponse) => false;
   // Node đã có cạnh rẽ nhánh phụ (mang ngưỡng điểm) đi ra hay chưa
   const hasSubChild = (nodeId: number) => edges.some((e) => e.fromNodeId === nodeId && e.maxScore != null);
   // Độ sâu trong nhánh phụ: 0 = node chính, 1 = node phụ #1, 2 = node phụ #2 (nghiệp vụ: tối đa 2)
@@ -368,7 +361,7 @@ export function SubjectDetailPage() {
     // Validate each roadmap's main node count
     for (const t of templates) {
       const colNodes = graphs[t.pathId]?.nodes || [];
-      const mainNodes = colNodes.filter((n) => (n.branchName || "MAIN") !== "SUB");
+      const mainNodes = colNodes;
       if (mainNodes.length !== requiredLength) {
         toast.error(`Lộ trình "${t.pathName}" có ${mainNodes.length} bài học chính, chưa đúng với số chặng yêu cầu của môn học (${requiredLength} bài).`);
         return;
@@ -463,7 +456,6 @@ export function SubjectDetailPage() {
             title: cn.title,
             description: cn.description,
             nodeType: cn.nodeType,
-            branchName: cn.branchName || "MAIN",
             displayOrder: cn.displayOrder,
             status: cn.status,
             isRequired: cn.isRequired,
@@ -481,7 +473,6 @@ export function SubjectDetailPage() {
           await learningPathService.createAdminEdge({
             fromNodeId: idMap[ce.fromNodeId],
             toNodeId: idMap[ce.toNodeId],
-            branchName: ce.branchName || "MAIN",
             maxScore: ce.maxScore,
           });
         }
@@ -544,8 +535,6 @@ export function SubjectDetailPage() {
     setNewNodeType("AT_HOME");
     setNewNodeStatus("OPEN");
     setNewNodeRequired(true);
-    setEdgeMinScore("");
-    setBranchMode("MAIN");
     setNewNodeStageOrder(1);
     setNewNodeLevel("");
   };
@@ -557,12 +546,10 @@ export function SubjectDetailPage() {
     setIsAddNodeOpen(true);
   };
 
-  // "Thêm node mới" trong popup 1 node = thêm node sau node đó, chọn nhánh chính/phụ
+  // "Thêm node mới" trong popup 1 node = thêm node sau node đó
   const openChildAddNode = (parent: LearningNodeResponse) => {
     resetNodeForm();
     setAddNodeParent(parent);
-    // Node nối sau 1 node phụ luôn là node phụ #2 (tiếp nối nhánh phụ)
-    if (isSubNode(parent)) setBranchMode("SUB");
     setIsAddNodeOpen(true);
   };
 
@@ -571,7 +558,6 @@ export function SubjectDetailPage() {
     title: n.title,
     description: n.description,
     nodeType: n.nodeType,
-    branchName: n.branchName || undefined,
     displayOrder: orderOverride,
     status: n.status,
     isRequired: n.isRequired,
@@ -584,29 +570,10 @@ export function SubjectDetailPage() {
       return;
     }
     const parent = addNodeParent;
-    const parentIsSub = !!parent && isSubNode(parent);
-    // Nghiệp vụ: nhánh phụ tối đa 2 node → không cho nối thêm sau node phụ #2
-    if (parent && subDepth(parent) >= 2) {
-      toast.error("Nhánh phụ chỉ gồm tối đa 2 node");
-      return;
-    }
-    // Node nối sau node phụ luôn là node phụ tiếp theo, dù chọn nhánh nào
-    const isSub = parentIsSub || (!!parent && branchMode === "SUB");
-    // Mỗi node chính chỉ rẽ được 1 nhánh phụ
-    if (isSub && parent && !parentIsSub && hasSubChild(parent.nodeId)) {
-      toast.error("Mỗi node chỉ có 1 nhánh phụ");
-      return;
-    }
-    if (isSub && !edgeMinScore) {
-      toast.error("Vui lòng nhập điểm tối thiểu cho nhánh phụ");
-      return;
-    }
     if (submittingNodeRef.current) return; // đang tạo → bỏ qua click thứ 2
     submittingNodeRef.current = true;
     setAddingNode(true);
     try {
-      const branchName = isSub ? "SUB" : "MAIN";
-
       const targetLevels: number[] = [];
       if (newNodeLevel === "") {
         // Chung: Add to all templates
@@ -616,12 +583,29 @@ export function SubjectDetailPage() {
         targetLevels.push(Number(newNodeLevel));
       }
 
+      if (!subject) return;
+      const limit = subject.learningpathLength || 0;
+      if (limit > 0) {
+        for (const lv of targetLevels) {
+          const t = templates.find((x) => x.level != null && Number(x.level) === lv);
+          if (!t) continue;
+          const colNodes = graphs[t.pathId]?.nodes || [];
+          if (colNodes.length >= limit) {
+            toast.error(
+              `Không thể thêm bài học. Lộ trình ${
+                lv === 1 ? "Yếu" : lv === 2 ? "Trung bình" : "Khá"
+              } đã đạt số bài học tối đa cấu hình (${limit} bài học).`
+            );
+            return;
+          }
+        }
+      }
+
       for (const lv of targetLevels) {
         const t = templates.find((x) => x.level != null && Number(x.level) === lv);
         if (!t) continue; // template of this level doesn't exist yet
 
         const colNodes = graphs[t.pathId]?.nodes || [];
-        const mainNodes = colNodes.filter((n) => (n.branchName || "MAIN") !== "SUB");
         
         let parentInTpl = null;
         if (parent) {
@@ -638,7 +622,7 @@ export function SubjectDetailPage() {
 
         let order: number;
         if (!parentInTpl) {
-          order = mainNodes.reduce((m, n) => Math.max(m, n.displayOrder), 0) + 1;
+          order = colNodes.reduce((m, n) => Math.max(m, n.displayOrder), 0) + 1;
         } else {
           order = parentInTpl.displayOrder + 1;
           const toShift = colNodes
@@ -654,7 +638,6 @@ export function SubjectDetailPage() {
           title: newNodeTitle,
           description: newNodeDesc,
           nodeType: newNodeType,
-          branchName,
           displayOrder: order,
           status: newNodeStatus,
           isRequired: newNodeRequired,
@@ -663,27 +646,16 @@ export function SubjectDetailPage() {
         });
 
         if (parentInTpl) {
-          if (isSub) {
-            await learningPathService.createAdminEdge({
-              fromNodeId: parentInTpl.nodeId,
-              toNodeId: createdNode.nodeId,
-              branchName: "SUB",
-              maxScore: Number(edgeMinScore),
-            });
-          } else {
-            await learningPathService.createAdminEdge({
-              fromNodeId: parentInTpl.nodeId,
-              toNodeId: createdNode.nodeId,
-              branchName: "MAIN",
-            });
-          }
+          await learningPathService.createAdminEdge({
+            fromNodeId: parentInTpl.nodeId,
+            toNodeId: createdNode.nodeId,
+          });
         } else {
-          const lastMain = [...mainNodes].sort((a, b) => b.displayOrder - a.displayOrder)[0];
+          const lastMain = [...colNodes].sort((a, b) => b.displayOrder - a.displayOrder)[0];
           if (lastMain) {
             await learningPathService.createAdminEdge({
               fromNodeId: lastMain.nodeId,
               toNodeId: createdNode.nodeId,
-              branchName: "MAIN",
             });
           }
         }
@@ -713,7 +685,6 @@ export function SubjectDetailPage() {
         status: nodeToEdit.status,
         displayOrder: nodeToEdit.displayOrder,
         isRequired: nodeToEdit.isRequired,
-        branchName: nodeToEdit.branchName || undefined,
       });
       toast.success("Cập nhật bài học thành công");
       setIsEditNodeOpen(false);
@@ -976,47 +947,23 @@ export function SubjectDetailPage() {
 
     const colNodes = graphs[tpl.pathId]?.nodes || [];
     const colEdges = graphs[tpl.pathId]?.edges || [];
+    const limit = subject?.learningpathLength || 0;
+    const isFull = limit > 0 && colNodes.length >= limit;
     
     // Sort nodes by displayOrder, then nodeId
     const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
 
     // Helper functions for this column
-    const isColSubNode = (n: LearningNodeResponse) =>
-      (n.branchName || "").normalize("NFC").trim().toLowerCase() === "phụ" ||
-      colEdges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
-
-    const hasColSubChild = (nodeId: number) => colEdges.some((e) => e.fromNodeId === nodeId && e.maxScore != null);
-
-    const colSubDepth = (n: LearningNodeResponse, seen: Set<number> = new Set()): number => {
-      if (!isColSubNode(n)) return 0;
-      if (seen.has(n.nodeId)) return 1;
-      seen.add(n.nodeId);
-      const pe = colEdges.find((e) => e.toNodeId === n.nodeId);
-      const parent = pe ? colNodes.find((x) => x.nodeId === pe.fromNodeId) : undefined;
-      return parent ? colSubDepth(parent, seen) + 1 : 1;
-    };
+    const isColSubNode = (n: LearningNodeResponse) => false;
+    const hasColSubChild = (nodeId: number) => false;
+    const colSubDepth = (n: LearningNodeResponse) => 0;
 
     // Build node labels for this column
     const colNodeLabels: Record<number, string> = {};
-    const colSubInfo: Record<number, { base: string; idx: number }> = {};
     let colLessonCounter = 0;
     for (const n of sortedColNodes) {
-      if (isColSubNode(n)) {
-        const pe = colEdges.find((e) => e.toNodeId === n.nodeId);
-        const parentId = pe?.fromNodeId;
-        const parentSub = parentId != null ? colSubInfo[parentId] : undefined;
-        const base = parentSub
-          ? parentSub.base
-          : parentId != null
-            ? colNodeLabels[parentId] || `Bài ${colLessonCounter}`
-            : `Bài ${colLessonCounter}`;
-        const idx = parentSub ? parentSub.idx + 1 : 1;
-        colSubInfo[n.nodeId] = { base, idx };
-        colNodeLabels[n.nodeId] = `${base} phụ ${idx}`;
-      } else {
-        colLessonCounter += 1;
-        colNodeLabels[n.nodeId] = `Bài ${colLessonCounter}`;
-      }
+      colLessonCounter += 1;
+      colNodeLabels[n.nodeId] = `Bài ${colLessonCounter}`;
     }
 
     // Totals for this column
@@ -1024,9 +971,9 @@ export function SubjectDetailPage() {
       (acc, n) => {
         const c = nodeContents[n.nodeId];
         if (c) {
-          acc.videos += c.materials.filter((m) => m.video).length;
-          acc.docs += c.materials.filter((m) => m.file).length;
-          acc.tests += c.tests.length;
+          acc.videos += (c.materials || []).filter((m) => m.video).length;
+          acc.docs += (c.materials || []).filter((m) => m.file).length;
+          acc.tests += (c.tests || []).length;
         }
         return acc;
       },
@@ -1101,11 +1048,9 @@ export function SubjectDetailPage() {
               </button>
             </div>
           ) : (
-            <div className="relative border-l border-indigo-150 ml-3 pl-4 space-y-4 py-2">
-              {sortedColNodes.map((node) => {
+            <div className="flex flex-col space-y-3 py-1">
+              {sortedColNodes.map((node, index) => {
                 const isExpanded = !!expandedNodes[node.nodeId];
-                const isSub = isColSubNode(node);
-                const depth = colSubDepth(node);
                 const incomingEdges = colEdges.filter((e) => e.toNodeId === node.nodeId);
                 const incomingNodesInfo = incomingEdges.map((e) => {
                   const fromNode = colNodes.find((n) => n.nodeId === e.fromNodeId);
@@ -1116,32 +1061,20 @@ export function SubjectDetailPage() {
                     maxScore: e.maxScore,
                   };
                 });
-                const canAddChild = isSub ? depth < 2 && !hasColSubChild(node.nodeId) : true;
+                const canAddChild = !isFull;
 
                 return (
-                  <div
-                    key={node.nodeId}
-                    className={`relative group transition-all duration-200 ${
-                      isSub ? "ml-6 pl-2" : ""
-                    }`}
-                  >
-                    {/* Node Dot / Branch Connector */}
-                    {isSub ? (
-                      // Branch connector drawing
-                      <div className="absolute -left-[30px] top-[14px] flex items-center">
-                        <div className="w-[18px] h-0.5 bg-indigo-200"></div>
-                        <div className="w-2.5 h-2.5 rounded-full border border-indigo-400 bg-indigo-50"></div>
+                  <div key={node.nodeId} className="w-full">
+                    {index > 0 && (
+                      <div className="flex flex-col items-center justify-center my-1.5">
+                        <div className="h-6 w-0.5 bg-indigo-200 relative flex items-center justify-center">
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-0.5 rounded-full border border-indigo-200 shadow-sm shrink-0 z-10">
+                            <ChevronRight className="w-2.5 h-2.5 text-indigo-500 rotate-90" />
+                          </div>
+                        </div>
                       </div>
-                    ) : (
-                      // Main timeline dot
-                      <div
-                        className={`absolute -left-[22px] top-[12px] w-3 h-3 rounded-full border-2 bg-white transition-colors duration-200 ${
-                          isSubjectPublished
-                            ? "border-green-500 group-hover:bg-green-100"
-                            : "border-indigo-500 group-hover:bg-indigo-100"
-                        }`}
-                      />
                     )}
+                    <div className="relative group transition-all duration-200">
 
                     {/* Node Box */}
                     <div
@@ -1165,7 +1098,7 @@ export function SubjectDetailPage() {
                               <span className={`font-semibold text-xs ${node.status === "LOCKED" ? "text-gray-500" : "text-gray-900"}`}>
                                 {colNodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}
                               </span>
-                              {isSub && (
+                              {isSubNode(node) && (
                                 <span className="text-[9px] px-1 bg-amber-50 text-amber-700 border border-amber-200 rounded font-medium shrink-0 flex items-center gap-0.5">
                                   <GitFork className="w-2.5 h-2.5" /> Nhánh phụ
                                 </span>
@@ -1446,6 +1379,7 @@ export function SubjectDetailPage() {
                         </div>
                       )}
                     </div>
+                    </div>
                   </div>
                 );
               })}
@@ -1454,15 +1388,17 @@ export function SubjectDetailPage() {
         </div>
 
         {/* Column Footer: "+ Thêm bài học" */}
-        <button
-          onClick={() => {
-            setSelectedTemplateId(tpl.pathId);
-            openTopLevelAddNode();
-          }}
-          className="w-full mt-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5"
-        >
-          <Plus className="w-3.5 h-3.5" /> Thêm bài học
-        </button>
+        {!isFull && (
+          <button
+            onClick={() => {
+              setSelectedTemplateId(tpl.pathId);
+              openTopLevelAddNode();
+            }}
+            className="w-full mt-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" /> Thêm bài học
+          </button>
+        )}
       </div>
     );
   };
@@ -1835,45 +1771,7 @@ export function SubjectDetailPage() {
                   <option value="ON_CLASS">Lên lớp</option>
                 </select>
               </div>
-              {addNodeParent && (
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Nhánh</label>
-                  {isSubNode(addNodeParent) ? (
-                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
-                      Nhánh phụ – node thứ 2
-                    </div>
-                  ) : (
-                    <>
-                      <select
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                        value={branchMode}
-                        onChange={(e) => setBranchMode(e.target.value as 'MAIN' | 'SUB')}
-                      >
-                        <option value="MAIN">Nhánh chính</option>
-                        {!hasSubChild(addNodeParent.nodeId) && <option value="SUB">Nhánh phụ</option>}
-                      </select>
-                      {hasSubChild(addNodeParent.nodeId) && (
-                        <p className="text-xs text-gray-500">Node này đã có nhánh phụ nên chỉ thêm được nhánh chính.</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
 
-              {addNodeParent && branchMode === "SUB" && (
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Điểm tối thiểu để qua *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    placeholder="VD: 80"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={edgeMinScore}
-                    onChange={(e) => setEdgeMinScore(e.target.value)}
-                  />
-                </div>
-              )}
 
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-gray-700">Chặng (stageOrder)</label>
@@ -1993,30 +1891,16 @@ export function SubjectDetailPage() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Thứ tự hiển thị</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={nodeToEdit.displayOrder}
-                    onChange={(e) => setNodeToEdit({ ...nodeToEdit, displayOrder: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={nodeToEdit.branchName || ""}
-                    onChange={(e) => setNodeToEdit({ ...nodeToEdit, branchName: e.target.value as any })}
-                  >
-                    <option value="">-- Chọn nhánh --</option>
-                    <option value="MAIN">MAIN (Nhánh chính)</option>
-                    <option value="SUB">SUB (Nhánh phụ)</option>
-                  </select>
-                </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Thứ tự hiển thị</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={nodeToEdit.displayOrder}
+                  onChange={(e) => setNodeToEdit({ ...nodeToEdit, displayOrder: Number(e.target.value) })}
+                />
               </div>
 
               <div className="flex items-center gap-2 pt-2">
