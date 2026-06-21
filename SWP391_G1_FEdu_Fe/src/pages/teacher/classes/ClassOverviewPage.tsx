@@ -32,7 +32,8 @@ import {
   Map,
   Plus,
   X,
-  Users
+  Users,
+  GitFork
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -368,8 +369,41 @@ export function ClassOverviewPage() {
     const colNodes = pathDto.nodes || [];
     const colEdges = pathDto.edges || [];
 
-    // Sort nodes by displayOrder
-    const sortedColNodes = [...colNodes].sort((a, b) => a.displayOrder - b.displayOrder);
+    const isColSubNode = (n: any) => colEdges.some((e) => e.toNodeId === n.nodeId && e.maxScore !== null);
+    const colSubDepth = (n: any, seen: Set<number> = new Set()): number => {
+      if (!isColSubNode(n)) return 0;
+      if (seen.has(n.nodeId)) return 1;
+      seen.add(n.nodeId);
+      const pe = colEdges.find((e) => e.toNodeId === n.nodeId);
+      const parent = pe ? colNodes.find((x) => x.nodeId === pe.fromNodeId) : undefined;
+      return parent ? colSubDepth(parent, seen) + 1 : 1;
+    };
+    const stripLessonPrefix = (t: string) => (t || "").replace(/^\s*Bài\s+\d+(\s*phụ(\s*\d+)?)?\s*:?\s*/i, "").trim();
+    const colNodeLabels: Record<number, string> = {};
+    const subInfo: Record<number, { base: string; idx: number }> = {};
+    let lessonCounter = 0;
+    
+    // Sort nodes by displayOrder, then nodeId for stable sorting
+    const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
+
+    for (const n of sortedColNodes) {
+      if (isColSubNode(n)) {
+        const pe = colEdges.find((e) => e.toNodeId === n.nodeId);
+        const parentId = pe?.fromNodeId;
+        const parentSub = parentId != null ? subInfo[parentId] : undefined;
+        const base = parentSub
+          ? parentSub.base
+          : parentId != null
+            ? colNodeLabels[parentId] || `Bài ${lessonCounter}`
+            : `Bài ${lessonCounter}`;
+        const idx = parentSub ? parentSub.idx + 1 : 1;
+        subInfo[n.nodeId] = { base, idx };
+        colNodeLabels[n.nodeId] = `${base} phụ ${idx}`;
+      } else {
+        lessonCounter += 1;
+        colNodeLabels[n.nodeId] = `Bài ${lessonCounter}`;
+      }
+    }
 
     const colTotals = sortedColNodes.reduce(
       (acc, n) => {
@@ -427,9 +461,32 @@ export function ClassOverviewPage() {
                 const sortedItems = getSortedTimelineItems(node.nodeId);
                 const isLoadingContent = !!loadingContents[node.nodeId];
 
+                const depth = colSubDepth(node);
+                const incomingEdges = colEdges.filter((e) => e.toNodeId === node.nodeId);
+                const incomingNodesInfo = incomingEdges.map((e) => {
+                  const fromNode = colNodes.find((n) => n.nodeId === e.fromNodeId);
+                  return {
+                    edgeId: e.edgeId,
+                    fromTitle: fromNode ? fromNode.title : `Node #${e.fromNodeId}`,
+                    minScore: e.minScore,
+                    maxScore: e.maxScore,
+                  };
+                });
+
                 return (
-                  <div key={node.nodeId} className="w-full">
-                    {index > 0 && (
+                  <div key={node.nodeId} className="w-full relative" style={{ marginLeft: `${depth * 28}px` }}>
+                    {/* Branch connector on the left */}
+                    {depth > 0 && (
+                      <div className="absolute top-0 bottom-0 flex items-start justify-center pointer-events-none" style={{ left: `-${28}px`, width: `${28}px` }}>
+                        <svg className="w-full h-12 text-indigo-300" viewBox="0 0 28 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <path d="M 14 0 L 14 16 Q 14 24 21 24 L 28 24" />
+                          {index < sortedColNodes.length - 1 && <path d="M 14 24 L 14 48" />}
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* Standard vertical line connector for main nodes */}
+                    {index > 0 && depth === 0 && (
                       <div className="flex flex-col items-center justify-center my-1.5">
                         <div className="h-4 w-0.5 bg-slate-200 relative flex items-center justify-center">
                           <ChevronRight className="w-2.5 h-2.5 text-slate-300 rotate-90" />
@@ -440,7 +497,9 @@ export function ClassOverviewPage() {
                       className={`rounded-xl border transition-all overflow-hidden ${
                         isExpanded
                           ? "bg-white border-indigo-200 shadow-sm"
-                          : "bg-slate-50/50 hover:bg-white hover:border-slate-300 border-slate-200"
+                          : depth > 0
+                            ? "bg-indigo-50/5 hover:bg-indigo-50/10 border-indigo-150"
+                            : "bg-slate-50/50 hover:bg-white hover:border-slate-300 border-slate-200"
                       }`}
                     >
                       {/* Node Header */}
@@ -455,8 +514,18 @@ export function ClassOverviewPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className={`font-semibold text-xs ${node.status === "LOCKED" ? "text-slate-400" : "text-slate-800"}`}>
-                                {node.title}
+                                {colNodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}
                               </span>
+                              {isColSubNode(node) && (
+                                <Badge variant="outline" className="text-[9px] py-0.2 px-1 hover:bg-transparent font-semibold bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-0.5">
+                                  <GitFork className="w-2.5 h-2.5" /> Nhánh phụ
+                                </Badge>
+                              )}
+                              {isColSubNode(node) && incomingNodesInfo.map((info) => info.maxScore !== null && (
+                                <Badge key={info.edgeId} variant="outline" className="text-[9px] py-0.2 px-1 hover:bg-transparent font-semibold bg-rose-50 text-rose-700 border-rose-200">
+                                  Nếu &lt; {info.maxScore}đ
+                                </Badge>
+                              ))}
                               <Badge variant="outline" className="text-[9px] py-0.2 px-1 hover:bg-transparent font-semibold bg-indigo-50/80 text-indigo-700 border-indigo-100">
                                 {node.nodeType === "ON_CLASS" ? "On Class" : "At Home"}
                               </Badge>
