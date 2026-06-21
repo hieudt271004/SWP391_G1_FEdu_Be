@@ -22,6 +22,4 @@ public class UpdateLearningNodeRequest {
     private Integer displayOrder;
 
     private Boolean isRequired;
-
-    private com.fedu.fedu.utils.enums.BranchType branchName;
 }

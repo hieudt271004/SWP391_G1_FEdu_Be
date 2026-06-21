@@ -18,5 +18,8 @@ public class ClassroomGraphResponse {
     private LocalDateTime publishedAt;
     private List<LearningNodeResponse> nodes;
     private List<NodeEdgeResponse> edges;
+    private List<ClassroomPathDto> paths;
+    private Boolean canCloneAll;
+    private List<Integer> missingLevels;
     private List<AvailableTemplateResponse> availableTemplates;
 }

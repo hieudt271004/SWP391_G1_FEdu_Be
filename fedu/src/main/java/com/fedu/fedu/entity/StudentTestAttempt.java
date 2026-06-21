@@ -37,5 +37,11 @@ public class StudentTestAttempt extends AbstractEntity<Long> {
 
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
+
+    /** Trạng thái lượt làm bài (placement cancel/retake). Mặc định SUBMITTED cho dữ liệu cũ. */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private com.fedu.fedu.utils.enums.AttemptStatus status = com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED;
     // created_at và updated_at kế thừa từ AbstractEntity
 }

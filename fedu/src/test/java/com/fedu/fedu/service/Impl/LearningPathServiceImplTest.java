@@ -116,24 +116,32 @@ class LearningPathServiceImplTest {
         when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
         when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
         when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
-        when(learningPathRepository.findById(200L)).thenReturn(Optional.of(templatePath));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.emptyList());
 
-        LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").displayOrder(1).isRequired(true).branchName(com.fedu.fedu.utils.enums.BranchType.MAIN).build();
-        LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(2).isRequired(false).branchName(com.fedu.fedu.utils.enums.BranchType.SUB).build();
-        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(200L))
-                .thenReturn(Arrays.asList(node1, node2));
+        LearningPath template1 = LearningPath.builder().pathId(201L).subject(subject).level(1).build();
+        LearningPath template2 = LearningPath.builder().pathId(202L).subject(subject).level(2).build();
+        LearningPath template3 = LearningPath.builder().pathId(203L).subject(subject).level(3).build();
+        when(learningPathRepository.findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(10L))
+                .thenReturn(Arrays.asList(template1, template2, template3));
 
-        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).branchName(com.fedu.fedu.utils.enums.BranchType.MAIN).minScore(BigDecimal.ZERO).maxScore(BigDecimal.TEN).build();
-        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(200L))
-                .thenReturn(Collections.singletonList(edge));
+        LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").displayOrder(1).isRequired(true).build();
+        LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(2).isRequired(false).build();
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(201L)).thenReturn(Collections.emptyList());
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(202L)).thenReturn(Arrays.asList(node1, node2));
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(203L)).thenReturn(Collections.emptyList());
+
+        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).minScore(BigDecimal.ZERO).maxScore(BigDecimal.TEN).build();
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(201L)).thenReturn(Collections.emptyList());
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(202L)).thenReturn(Collections.singletonList(edge));
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(203L)).thenReturn(Collections.emptyList());
 
         when(learningPathRepository.save(any(LearningPath.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        LearningPathResponse response = learningPathService.cloneLearningPath(100L, 200L);
+        List<LearningPathResponse> responses = learningPathService.cloneLearningPath(100L);
 
-        assertNotNull(response);
-        assertEquals(100L, response.getClassroomSubjectId());
-        assertEquals(200L, response.getOriginalPathId());
+        assertNotNull(responses);
+        assertEquals(3, responses.size());
 
         verify(learningNodeRepository, times(2)).save(any(LearningNode.class));
         verify(nodeEdgeRepository, times(1)).save(any(NodeEdge.class));
@@ -146,12 +154,11 @@ class LearningPathServiceImplTest {
         when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
         when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
         when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
-        when(learningPathRepository.findById(200L)).thenReturn(Optional.of(templatePath));
-        when(learningPathRepository.save(any(LearningPath.class)))
-                .thenThrow(new DataIntegrityViolationException("uniq_active_classroom_path"));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(new LearningPath()));
 
         assertThrows(InvalidDataException.class, () -> {
-            learningPathService.cloneLearningPath(100L, 200L);
+            learningPathService.cloneLearningPath(100L);
         });
         clearAuthentication();
     }
@@ -163,21 +170,30 @@ class LearningPathServiceImplTest {
         when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
         when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
         when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
-        when(learningPathRepository.findById(200L)).thenReturn(Optional.of(templatePath));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.emptyList());
+
+        LearningPath template1 = LearningPath.builder().pathId(201L).subject(subject).level(1).build();
+        LearningPath template2 = LearningPath.builder().pathId(202L).subject(subject).level(2).build();
+        LearningPath template3 = LearningPath.builder().pathId(203L).subject(subject).level(3).build();
+        when(learningPathRepository.findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(10L))
+                .thenReturn(Arrays.asList(template1, template2, template3));
 
         LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").build();
         LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").build();
-        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(200L))
-                .thenReturn(Arrays.asList(node1, node2));
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(201L)).thenReturn(Collections.emptyList());
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(202L)).thenReturn(Arrays.asList(node1, node2));
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(203L)).thenReturn(Collections.emptyList());
 
         // Create a cycle: 1 -> 2 and 2 -> 1
         NodeEdge edge1 = NodeEdge.builder().fromNode(node1).toNode(node2).build();
         NodeEdge edge2 = NodeEdge.builder().fromNode(node2).toNode(node1).build();
-        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(200L))
-                .thenReturn(Arrays.asList(edge1, edge2));
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(201L)).thenReturn(Collections.emptyList());
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(202L)).thenReturn(Arrays.asList(edge1, edge2));
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(203L)).thenReturn(Collections.emptyList());
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            learningPathService.cloneLearningPath(100L, 200L);
+            learningPathService.cloneLearningPath(100L);
         });
         assertEquals("Template chứa cycle", exception.getMessage());
         clearAuthentication();
@@ -190,8 +206,8 @@ class LearningPathServiceImplTest {
         when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
         when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
         when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
-        when(learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(100L))
-                .thenReturn(Optional.empty());
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.emptyList());
 
         LearningPath template = new LearningPath();
         template.setPathId(200L);
@@ -223,8 +239,8 @@ class LearningPathServiceImplTest {
         draftPath.setPathId(300L);
         draftPath.setClassroomSubject(classroomSubject);
         draftPath.setPublishedAt(null);
-        when(learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(100L))
-                .thenReturn(Optional.of(draftPath));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(draftPath));
 
         ClassroomGraphResponse response = learningPathService.getClassroomGraph(100L);
 
@@ -326,8 +342,14 @@ class LearningPathServiceImplTest {
         path.setPathId(300L);
         path.setClassroomSubject(classroomSubject);
         path.setPublishedAt(LocalDateTime.now());
-        when(learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(100L))
-                .thenReturn(Optional.of(path));
+
+        ClassroomSubjectStudent css = ClassroomSubjectStudent.builder()
+                .classroomSubject(classroomSubject)
+                .student(new UserAccount())
+                .assignedPath(path)
+                .build();
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(100L, 10L))
+                .thenReturn(Optional.of(css));
 
         UserAccount student = new UserAccount();
         student.setUserId(10L);

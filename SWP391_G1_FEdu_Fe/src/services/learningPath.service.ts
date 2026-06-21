@@ -1,7 +1,6 @@
 import { http } from './http';
 
-export type LearningPathLevel = 'BASIC' | 'ADVANCED';
-export type BranchType = 'MAIN' | 'SUB';
+export type LearningPathLevel = 1 | 2 | 3;
 
 export interface CreateLearningPathRequest {
   subjectId: number;
@@ -29,11 +28,12 @@ export interface LearningNodeResponse {
   title: string;
   description: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  branchName?: BranchType;
   displayOrder: number;
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
   isRequired: boolean;
   isDeleted: boolean;
+  level?: number | null;
+  stageOrder?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,7 +42,6 @@ export interface NodeEdgeResponse {
   edgeId: number;
   fromNodeId: number;
   toNodeId: number;
-  branchName?: BranchType;
   minScore?: number;
   maxScore?: number;
 }
@@ -67,13 +66,23 @@ export interface PublishResultResponse {
   seededStudents: number;
 }
 
+export interface ClassroomPathDto {
+  level: number;
+  pathId: number;
+  nodes: LearningNodeResponse[];
+  edges: NodeEdgeResponse[];
+}
+
 export interface ClassroomGraphResponse {
   classroomSubjectId: number;
-  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED';
+  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED' | 'NEED_PLACEMENT';
   pathId: number | null;
   publishedAt: string | null;
   nodes: LearningNodeResponse[];
   edges: NodeEdgeResponse[];
+  paths: ClassroomPathDto[] | null;
+  canCloneAll: boolean | null;
+  missingLevels: number[] | null;
   availableTemplates: AvailableTemplateResponse[] | null;
 }
 
@@ -83,10 +92,11 @@ export interface CreateLearningNodeRequest {
   title: string;
   description?: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  branchName?: BranchType;
   displayOrder: number;
   status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
   isRequired?: boolean;
+  stageOrder?: number;
+  level?: number | null;
 }
 
 export interface UpdateLearningNodeRequest {
@@ -96,13 +106,11 @@ export interface UpdateLearningNodeRequest {
   status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
   displayOrder?: number;
   isRequired?: boolean;
-  branchName?: BranchType;
 }
 
 export interface CreateNodeEdgeRequest {
   fromNodeId: number;
   toNodeId: number;
-  branchName?: BranchType;
   minScore?: number;
   maxScore?: number;
 }
@@ -168,8 +176,8 @@ export const learningPathService = {
   // Admin read-only: xem graph lớp-môn (endpoint riêng cho ADMIN, không đụng /teacher-manage)
   getAdminClassroomGraph: (classroomSubjectId: number) =>
     http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
-  cloneFromTemplate: (classroomSubjectId: number, templatePathId: number) =>
-    http.post<LearningPathResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path/${templatePathId}`),
+  cloneFromTemplate: (classroomSubjectId: number) =>
+    http.post<LearningPathResponse[]>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path`),
   publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
     http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
   unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>

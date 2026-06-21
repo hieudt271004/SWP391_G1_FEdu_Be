@@ -17,8 +17,12 @@ public interface LearningPathRepository extends JpaRepository<LearningPath, Long
     // templates theo môn
     List<LearningPath> findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(Long subjectId);
 
-    // path của lớp-môn
-    Optional<LearningPath> findByClassroomSubjectIdAndIsDeletedFalse(Long classroomSubjectId);
+
+    // Model A scaffolding: lớp-môn có nhiều lộ trình clone (1 cho mỗi mức).
+    List<LearningPath> findAllByClassroomSubjectIdAndIsDeletedFalse(Long classroomSubjectId);
+
+    // Lộ trình clone của lớp-môn theo đúng 1 mức (1=yếu,2=tb,3=khá)
+    Optional<LearningPath> findByClassroomSubjectIdAndLevelAndIsDeletedFalse(Long classroomSubjectId, Integer level);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from LearningPath p where p.pathId = :pathId")

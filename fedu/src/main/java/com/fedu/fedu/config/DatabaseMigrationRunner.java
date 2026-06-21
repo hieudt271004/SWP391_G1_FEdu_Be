@@ -89,12 +89,11 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
             if (!hasDisplayOrder) {
-                log.info("Columns 'display_order', 'is_required', 'branch_name' do not exist in 'learning_nodes' table. Running migration...");
+                log.info("Columns 'display_order', 'is_required' do not exist in 'learning_nodes' table. Running migration...");
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("ALTER TABLE learning_nodes ADD COLUMN display_order INT NOT NULL DEFAULT 0");
                     statement.execute("ALTER TABLE learning_nodes ADD COLUMN is_required BOOLEAN NOT NULL DEFAULT TRUE");
-                    statement.execute("ALTER TABLE learning_nodes ADD COLUMN branch_name VARCHAR(100)");
-                    log.info("Migration successful: added display_order, is_required, branch_name columns to 'learning_nodes'.");
+                    log.info("Migration successful: added display_order, is_required columns to 'learning_nodes'.");
                 }
             }
 
@@ -130,7 +129,6 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                         "    edge_id BIGSERIAL PRIMARY KEY," +
                         "    from_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE," +
                         "    to_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE," +
-                        "    branch_name VARCHAR(100)," +
                         "    min_score DECIMAL(5,2)," +
                         "    max_score DECIMAL(5,2)," +
                         "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
@@ -166,11 +164,15 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
 
             // Create indexes if not exists
             try (Statement statement = connection.createStatement()) {
-                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_path ON learning_paths(classroom_subject_id) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE");
+                // Model A (clone-three-level-paths): drop the old single-path-per-classroom-subject
+                // unique indexes and replace with one-path-per-(classroom-subject, level) so 3 levels coexist.
+                statement.execute("DROP INDEX IF EXISTS uniq_active_classroom_subject_path");
+                statement.execute("DROP INDEX IF EXISTS uniq_active_classroom_path");
+                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_level_path ON learning_paths(classroom_subject_id, level) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_snp_path_status ON student_node_progress(path_id, status)");
-                log.info("Indexes verified/created successfully.");
+                log.info("Indexes verified/created successfully (Model A per-level unique).");
             }
 
             // Drop old status check constraint if it exists, to allow 'OPEN' and 'IN_PROGRESS'
@@ -193,16 +195,11 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Normalize existing branch_name values to BranchType enum values (MAIN, SUB)
+            // Drop branch_name column from learning_nodes and node_edges
             try (Statement statement = connection.createStatement()) {
-                statement.execute("UPDATE learning_nodes SET branch_name = 'MAIN' WHERE LOWER(branch_name) IN ('main', 'a', 'primary')");
-                statement.execute("UPDATE learning_nodes SET branch_name = 'SUB' WHERE LOWER(branch_name) IN ('sub', 'b', 'optional', 'secondary')");
-                statement.execute("UPDATE learning_nodes SET branch_name = NULL WHERE branch_name NOT IN ('MAIN', 'SUB') AND branch_name IS NOT NULL");
-
-                statement.execute("UPDATE node_edges SET branch_name = 'MAIN' WHERE LOWER(branch_name) IN ('main', 'a', 'primary')");
-                statement.execute("UPDATE node_edges SET branch_name = 'SUB' WHERE LOWER(branch_name) IN ('sub', 'b', 'optional', 'secondary')");
-                statement.execute("UPDATE node_edges SET branch_name = NULL WHERE branch_name NOT IN ('MAIN', 'SUB') AND branch_name IS NOT NULL");
-                log.info("Branch name values normalized to 'MAIN' and 'SUB' successfully.");
+                statement.execute("ALTER TABLE learning_nodes DROP COLUMN IF EXISTS branch_name");
+                statement.execute("ALTER TABLE node_edges DROP COLUMN IF EXISTS branch_name");
+                log.info("Columns 'branch_name' dropped from 'learning_nodes' and 'node_edges' successfully.");
             }
 
             // === Adaptive placement learning path: new columns/tables ===
@@ -210,7 +207,19 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 // subjects.learningpath_length
                 statement.execute("ALTER TABLE subjects ADD COLUMN IF NOT EXISTS learningpath_length INT");
                 // learning_paths.level (int 1=yếu,2=tb,3=khá). Backfill legacy enum values if present.
+                statement.execute("ALTER TABLE learning_paths DROP CONSTRAINT IF EXISTS learning_paths_level_check");
                 statement.execute("ALTER TABLE learning_paths ADD COLUMN IF NOT EXISTS level INT");
+                try {
+                    statement.execute("ALTER TABLE learning_paths ALTER COLUMN level TYPE INT USING (" +
+                            "CASE " +
+                            "  WHEN level = 'BASIC' THEN 1 " +
+                            "  WHEN level = 'ADVANCED' THEN 3 " +
+                            "  WHEN level ~ '^[0-9]+$' THEN level::integer " +
+                            "  ELSE NULL " +
+                            "END)");
+                } catch (Exception e) {
+                    log.warn("Could not alter learning_paths.level type: {}", e.getMessage());
+                }
                 // learning_nodes.stage_order, learning_nodes.level
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS stage_order INT");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS level INT");
@@ -220,7 +229,25 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 statement.execute("ALTER TABLE classroom_subject_students ADD COLUMN IF NOT EXISTS current_level INT");
                 // tests.node_id nullable (placement quiz không gắn node)
                 statement.execute("ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL");
-                log.info("Adaptive placement: columns added/verified.");
+                // Model A: lộ trình clone học sinh được gán sau placement
+                statement.execute("ALTER TABLE classroom_subject_students ADD COLUMN IF NOT EXISTS assigned_path_id BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL");
+                // Placement cancel/retake: trạng thái lượt làm bài
+                statement.execute("ALTER TABLE student_test_attempts ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'SUBMITTED'");
+                log.info("Adaptive placement + Model A: columns added/verified.");
+            }
+
+            // Model A legacy backfill: bind already-placed students of single-path classrooms to that path.
+            try (Statement statement = connection.createStatement()) {
+                int rows = statement.executeUpdate(
+                    "UPDATE classroom_subject_students css SET assigned_path_id = (" +
+                    "    SELECT lp.path_id FROM learning_paths lp" +
+                    "    WHERE lp.classroom_subject_id = css.classroom_subject_id AND lp.is_deleted = FALSE" +
+                    "    ORDER BY lp.path_id LIMIT 1) " +
+                    "WHERE css.assigned_path_id IS NULL AND css.current_level IS NOT NULL " +
+                    "AND EXISTS (SELECT 1 FROM learning_paths lp2 WHERE lp2.classroom_subject_id = css.classroom_subject_id AND lp2.is_deleted = FALSE)");
+                if (rows > 0) {
+                    log.info("Model A backfill: bound {} legacy student(s) to their single classroom path.", rows);
+                }
             }
 
             // quiz_score_bands table

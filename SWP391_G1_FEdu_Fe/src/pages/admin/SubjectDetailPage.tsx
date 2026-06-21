@@ -44,6 +44,7 @@ export function SubjectDetailPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
   const [edges, setEdges] = useState<NodeEdgeResponse[]>([]);
+  const [graphs, setGraphs] = useState<Record<number, { nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] }>>({});
   const [loadingGraph, setLoadingGraph] = useState(false);
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
 
@@ -63,9 +64,10 @@ export function SubjectDetailPage() {
 
   // Form states - Template
   const [newTplDesc, setNewTplDesc] = useState("");
-  const [newTplLevel, setNewTplLevel] = useState<"BASIC" | "ADVANCED">("BASIC");
+  const [newTplLevel, setNewTplLevel] = useState<1 | 2 | 3>(1);
   const [editTplName, setEditTplName] = useState("");
   const [editTplDesc, setEditTplDesc] = useState("");
+  const [isSubmittingTemplate, setIsSubmittingTemplate] = useState(false);
 
   // Form states - Node
   const [nodeToEdit, setNodeToEdit] = useState<LearningNodeResponse | null>(null);
@@ -75,13 +77,11 @@ export function SubjectDetailPage() {
   const [newNodeType, setNewNodeType] = useState<'AT_HOME' | 'ON_CLASS'>('AT_HOME');
   const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('OPEN');
   const [newNodeRequired, setNewNodeRequired] = useState(true);
+  const [newNodeStageOrder, setNewNodeStageOrder] = useState<number>(1);
+  const [newNodeLevel, setNewNodeLevel] = useState<number | "">("");
   const [addNodeParent, setAddNodeParent] = useState<LearningNodeResponse | null>(null);
-  const [branchMode, setBranchMode] = useState<'MAIN' | 'SUB'>('MAIN');
   const [addingNode, setAddingNode] = useState(false);
   const submittingNodeRef = useRef(false);
-
-  // Điểm tối thiểu để qua nhánh phụ (dùng khi thêm node nhánh phụ)
-  const [edgeMinScore, setEdgeMinScore] = useState("");
 
   // Form states - Node Content (Materials & Tests)
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
@@ -111,10 +111,44 @@ export function SubjectDetailPage() {
   const fetchTemplates = useCallback(async () => {
     if (!subjectId) return;
     try {
+      setLoadingGraph(true);
       const list = await learningPathService.getAdminSubjectTemplates(subjectId);
       setTemplates(list);
+      
+      const newGraphs: Record<number, { nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] }> = {};
+      const newContents: Record<number, NodeContentResponse> = {};
+      
       if (list.length > 0) {
-        // Automatically select the first template if none is currently selected
+        await Promise.all(
+          list.map(async (t) => {
+            try {
+              const graph = await learningPathService.getAdminTemplateGraph(t.pathId);
+              newGraphs[t.pathId] = { nodes: graph.nodes || [], edges: graph.edges || [] };
+              
+              const allNodes = graph.nodes || [];
+              const contentEntries = await Promise.all(
+                allNodes.map(async (n) => {
+                  try {
+                    const content = await learningPathService.getAdminNodeContent(n.nodeId);
+                    return [n.nodeId, content] as const;
+                  } catch {
+                    return [n.nodeId, { materials: [], tests: [] } as NodeContentResponse] as const;
+                  }
+                })
+              );
+              
+              contentEntries.forEach(([nodeId, content]) => {
+                newContents[nodeId] = content;
+              });
+            } catch (err) {
+              console.error(`Failed to load graph for template ${t.pathId}`, err);
+            }
+          })
+        );
+        
+        setGraphs(newGraphs);
+        setNodeContents((prev) => ({ ...prev, ...newContents }));
+        
         setSelectedTemplateId((prev) => {
           if (prev && list.some((t) => t.pathId === prev)) {
             return prev;
@@ -123,6 +157,7 @@ export function SubjectDetailPage() {
         });
       } else {
         setSelectedTemplateId(null);
+        setGraphs({});
         setNodes([]);
         setEdges([]);
         setNodeContents({});
@@ -130,31 +165,12 @@ export function SubjectDetailPage() {
     } catch (e) {
       console.error("Failed to load templates", e);
       toast.error("Không tải được danh sách lộ trình mẫu");
-    }
-  }, [subjectId]);
-
-  // Fetch graph details for the selected template path
-  const fetchGraph = useCallback(async (pathId: number) => {
-    try {
-      setLoadingGraph(true);
-      const graph = await learningPathService.getAdminTemplateGraph(pathId);
-      setNodes(graph.nodes || []);
-      setEdges(graph.edges || []);
-      // Nạp sẵn nội dung tất cả node để hiện thống kê kiểu Coursera
-      const allNodes = graph.nodes || [];
-      const contentEntries = await Promise.all(
-        allNodes.map(async (n) => {
-          try { return [n.nodeId, await learningPathService.getAdminNodeContent(n.nodeId)] as const; }
-          catch { return [n.nodeId, { materials: [], tests: [] } as NodeContentResponse] as const; }
-        })
-      );
-      setNodeContents(Object.fromEntries(contentEntries));
-    } catch (e: any) {
-      toast.error(e.message || "Không tải được cấu trúc lộ trình");
     } finally {
       setLoadingGraph(false);
     }
-  }, []);
+  }, [subjectId]);
+
+
 
   // Fetch node specific materials and tests
   const fetchNodeContent = async (nodeId: number) => {
@@ -210,12 +226,16 @@ export function SubjectDetailPage() {
     loadCatalog();
   }, []);
 
-  // Load template graph when selection changes
+  // Sync nodes and edges for the currently selected template
   useEffect(() => {
-    if (selectedTemplateId) {
-      fetchGraph(selectedTemplateId);
+    if (selectedTemplateId && graphs[selectedTemplateId]) {
+      setNodes(graphs[selectedTemplateId].nodes);
+      setEdges(graphs[selectedTemplateId].edges);
+    } else {
+      setNodes([]);
+      setEdges([]);
     }
-  }, [selectedTemplateId, fetchGraph]);
+  }, [selectedTemplateId, graphs]);
 
   // Khi mở xem trước PDF: tải về dạng blob rồi nhúng bằng object URL.
   // Iframe trỏ thẳng tới :8080 bị Spring Security chặn (X-Frame-Options: DENY),
@@ -262,9 +282,9 @@ export function SubjectDetailPage() {
     setNodeContents({});
   };
 
-  // Lộ trình gốc chỉ có 2 loại (cơ bản/nâng cao); mỗi loại tối đa 1 cho mỗi môn
+  // Lộ trình theo mức (1=Yếu, 2=Trung bình, 3=Khá)
   const existingLevels = new Set(templates.map((t) => t.level));
-  const bothLevelsExist = existingLevels.has("BASIC") && existingLevels.has("ADVANCED");
+  const allThreeExist = existingLevels.has(1) && existingLevels.has(2) && existingLevels.has(3);
 
   // Sắp xếp node theo thứ tự hiển thị (tie-break nodeId cho ổn định khi trùng order)
   const sortedNodes = [...nodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
@@ -272,19 +292,16 @@ export function SubjectDetailPage() {
     (acc, n) => {
       const c = nodeContents[n.nodeId];
       if (c) {
-        acc.videos += c.materials.filter((m) => m.video).length;
-        acc.docs += c.materials.filter((m) => m.file).length;
-        acc.tests += c.tests.length;
+        acc.videos += (c.materials || []).filter((m) => m.video).length;
+        acc.docs += (c.materials || []).filter((m) => m.file).length;
+        acc.tests += (c.tests || []).length;
       }
       return acc;
     },
     { videos: 0, docs: 0, tests: 0 }
   );
 
-  // Node "phụ" = có branchName Phụ HOẶC có cạnh fail đi vào (maxScore != null) — bền với data cũ/Unicode
-  const isSubNode = (n: LearningNodeResponse) =>
-    (n.branchName || "").normalize("NFC").trim().toLowerCase() === "phụ" ||
-    edges.some((e) => e.toNodeId === n.nodeId && e.maxScore != null);
+  const isSubNode = (n: LearningNodeResponse) => false;
   // Node đã có cạnh rẽ nhánh phụ (mang ngưỡng điểm) đi ra hay chưa
   const hasSubChild = (nodeId: number) => edges.some((e) => e.fromNodeId === nodeId && e.maxScore != null);
   // Độ sâu trong nhánh phụ: 0 = node chính, 1 = node phụ #1, 2 = node phụ #2 (nghiệp vụ: tối đa 2)
@@ -322,6 +339,35 @@ export function SubjectDetailPage() {
 
   const handlePublish = async () => {
     if (!subject) return;
+
+    // Validate that all 3 roadmaps (Yếu = 1, Trung bình = 2, Khá = 3) are present
+    const levels = new Set(templates.map((t) => t.level));
+    const missing: string[] = [];
+    if (!levels.has(1)) missing.push("Yếu");
+    if (!levels.has(2)) missing.push("Trung bình");
+    if (!levels.has(3)) missing.push("Khá");
+
+    if (missing.length > 0) {
+      toast.error(`Môn học phải có đủ 3 lộ trình (Yếu, Trung bình, Khá) trước khi xuất bản. Còn thiếu: ${missing.join(", ")}`);
+      return;
+    }
+
+    const requiredLength = subject.learningpathLength || 0;
+    if (requiredLength <= 0) {
+      toast.error("Môn học chưa cấu hình số chặng (learningpathLength) hợp lệ.");
+      return;
+    }
+
+    // Validate each roadmap's main node count
+    for (const t of templates) {
+      const colNodes = graphs[t.pathId]?.nodes || [];
+      const mainNodes = colNodes;
+      if (mainNodes.length !== requiredLength) {
+        toast.error(`Lộ trình "${t.pathName}" có ${mainNodes.length} bài học chính, chưa đúng với số chặng yêu cầu của môn học (${requiredLength} bài).`);
+        return;
+      }
+    }
+
     try {
       setPublishing(true);
       const updated = await subjectService.publish(subject.subjectId);
@@ -385,28 +431,73 @@ export function SubjectDetailPage() {
   // Template CRUD actions
   const handleCreateTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingTemplate) return;
     try {
+      setIsSubmittingTemplate(true);
+      const pathName = newTplLevel === 1 ? "Lộ trình Yếu" : newTplLevel === 2 ? "Lộ trình Trung bình" : "Lộ trình Khá";
       const created = await learningPathService.createAdminTemplate({
         subjectId,
-        pathName: newTplLevel === "ADVANCED" ? "Lộ trình nâng cao" : "Lộ trình cơ bản",
+        pathName,
         description: newTplDesc,
         level: newTplLevel,
       });
+
+      // Copy existing "Chung" (level === null) nodes from other templates to the newly created template
+      const existingTpl = templates.find((t) => graphs[t.pathId]?.nodes?.length > 0);
+      if (existingTpl) {
+        const existNodes = graphs[existingTpl.pathId].nodes;
+        const existEdges = graphs[existingTpl.pathId].edges;
+        const chungNodes = existNodes.filter((n) => n.level === null || n.level === undefined);
+        
+        const idMap: Record<number, number> = {};
+        for (const cn of chungNodes) {
+          const createdNode = await learningPathService.createAdminNode({
+            learningPathId: created.pathId,
+            title: cn.title,
+            description: cn.description,
+            nodeType: cn.nodeType,
+            displayOrder: cn.displayOrder,
+            status: cn.status,
+            isRequired: cn.isRequired,
+            stageOrder: cn.stageOrder || 1,
+            level: null,
+          });
+          idMap[cn.nodeId] = createdNode.nodeId;
+        }
+
+        const chungNodeIds = new Set(chungNodes.map((n) => n.nodeId));
+        const chungEdges = existEdges.filter(
+          (e) => chungNodeIds.has(e.fromNodeId) && chungNodeIds.has(e.toNodeId)
+        );
+        for (const ce of chungEdges) {
+          await learningPathService.createAdminEdge({
+            fromNodeId: idMap[ce.fromNodeId],
+            toNodeId: idMap[ce.toNodeId],
+            maxScore: ce.maxScore,
+          });
+        }
+      }
+
       toast.success("Tạo lộ trình mẫu thành công");
       setIsCreateTemplateOpen(false);
       setNewTplDesc("");
-      setNewTplLevel("BASIC");
+      const newExisting = new Set([...templates.map((t) => t.level), created.level]);
+      const nextAvailable = ([1, 2, 3] as const).find((lv) => !newExisting.has(lv)) || 1;
+      setNewTplLevel(nextAvailable);
       setSelectedTemplateId(created.pathId);
       await fetchTemplates();
     } catch (err: any) {
       toast.error(err.message || "Tạo lộ trình mẫu thất bại");
+    } finally {
+      setIsSubmittingTemplate(false);
     }
   };
 
   const handleEditTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTemplateId) return;
+    if (!selectedTemplateId || isSubmittingTemplate) return;
     try {
+      setIsSubmittingTemplate(true);
       await learningPathService.updateAdminTemplate(selectedTemplateId, {
         pathName: editTplName,
         description: editTplDesc,
@@ -416,12 +507,15 @@ export function SubjectDetailPage() {
       await fetchTemplates();
     } catch (err: any) {
       toast.error(err.message || "Cập nhật lộ trình mẫu thất bại");
+    } finally {
+      setIsSubmittingTemplate(false);
     }
   };
 
   const handleDeleteTemplateConfirm = async () => {
-    if (!selectedTemplateId) return;
+    if (!selectedTemplateId || isSubmittingTemplate) return;
     try {
+      setIsSubmittingTemplate(true);
       await learningPathService.deleteAdminTemplate(selectedTemplateId);
       toast.success("Đã xóa lộ trình mẫu");
       setIsDeleteTplConfirmOpen(false);
@@ -429,6 +523,8 @@ export function SubjectDetailPage() {
       await fetchTemplates();
     } catch (err: any) {
       toast.error(err.message || "Xóa lộ trình mẫu thất bại");
+    } finally {
+      setIsSubmittingTemplate(false);
     }
   };
 
@@ -439,8 +535,8 @@ export function SubjectDetailPage() {
     setNewNodeType("AT_HOME");
     setNewNodeStatus("OPEN");
     setNewNodeRequired(true);
-    setEdgeMinScore("");
-    setBranchMode("MAIN");
+    setNewNodeStageOrder(1);
+    setNewNodeLevel("");
   };
 
   // "Thêm bài học" ở header = thêm node vào nhánh chính (xương sống), nối tiếp ở cuối
@@ -450,12 +546,10 @@ export function SubjectDetailPage() {
     setIsAddNodeOpen(true);
   };
 
-  // "Thêm node mới" trong popup 1 node = thêm node sau node đó, chọn nhánh chính/phụ
+  // "Thêm node mới" trong popup 1 node = thêm node sau node đó
   const openChildAddNode = (parent: LearningNodeResponse) => {
     resetNodeForm();
     setAddNodeParent(parent);
-    // Node nối sau 1 node phụ luôn là node phụ #2 (tiếp nối nhánh phụ)
-    if (isSubNode(parent)) setBranchMode("SUB");
     setIsAddNodeOpen(true);
   };
 
@@ -464,7 +558,6 @@ export function SubjectDetailPage() {
     title: n.title,
     description: n.description,
     nodeType: n.nodeType,
-    branchName: n.branchName || undefined,
     displayOrder: orderOverride,
     status: n.status,
     isRequired: n.isRequired,
@@ -477,82 +570,94 @@ export function SubjectDetailPage() {
       return;
     }
     const parent = addNodeParent;
-    const parentIsSub = !!parent && isSubNode(parent);
-    // Nghiệp vụ: nhánh phụ tối đa 2 node → không cho nối thêm sau node phụ #2
-    if (parent && subDepth(parent) >= 2) {
-      toast.error("Nhánh phụ chỉ gồm tối đa 2 node");
-      return;
-    }
-    // Node nối sau node phụ luôn là node phụ tiếp theo, dù chọn nhánh nào
-    const isSub = parentIsSub || (!!parent && branchMode === "SUB");
-    // Mỗi node chính chỉ rẽ được 1 nhánh phụ
-    if (isSub && parent && !parentIsSub && hasSubChild(parent.nodeId)) {
-      toast.error("Mỗi node chỉ có 1 nhánh phụ");
-      return;
-    }
-    if (isSub && !edgeMinScore) {
-      toast.error("Vui lòng nhập điểm tối thiểu cho nhánh phụ");
-      return;
-    }
     if (submittingNodeRef.current) return; // đang tạo → bỏ qua click thứ 2
     submittingNodeRef.current = true;
     setAddingNode(true);
     try {
-      const mainNodes = nodes.filter((n) => (n.branchName || "MAIN") !== "SUB");
-      const branchName = isSub ? "SUB" : "MAIN";
-      let order: number;
-
-      if (!parent) {
-        // nối tiếp cuối xương sống
-        order = mainNodes.reduce((m, n) => Math.max(m, n.displayOrder), 0) + 1;
+      const targetLevels: number[] = [];
+      if (newNodeLevel === "") {
+        // Chung: Add to all templates
+        targetLevels.push(1, 2, 3);
       } else {
-        // có parent (chính hoặc phụ): chèn ngay sau node cha, dồn các node sau lên +1
-        // (cao->thấp để tránh trùng thứ tự) → node mới luôn nằm ngay sau cha, không trùng order
-        order = parent.displayOrder + 1;
-        const toShift = nodes
-          .filter((n) => n.displayOrder >= order)
-          .sort((a, b) => b.displayOrder - a.displayOrder);
-        for (const n of toShift) {
-          await learningPathService.updateAdminNode(n.nodeId, nodeToReq(n, n.displayOrder + 1));
+        // Specific level: only add to that template
+        targetLevels.push(Number(newNodeLevel));
+      }
+
+      if (!subject) return;
+      const limit = subject.learningpathLength || 0;
+      if (limit > 0) {
+        for (const lv of targetLevels) {
+          const t = templates.find((x) => x.level != null && Number(x.level) === lv);
+          if (!t) continue;
+          const colNodes = graphs[t.pathId]?.nodes || [];
+          if (colNodes.length >= limit) {
+            toast.error(
+              `Không thể thêm bài học. Lộ trình ${
+                lv === 1 ? "Yếu" : lv === 2 ? "Trung bình" : "Khá"
+              } đã đạt số bài học tối đa cấu hình (${limit} bài học).`
+            );
+            return;
+          }
         }
       }
 
-      const createdNode = await learningPathService.createAdminNode({
-        learningPathId: selectedTemplateId,
-        title: newNodeTitle,
-        description: newNodeDesc,
-        nodeType: newNodeType,
-        branchName,
-        displayOrder: order,
-        status: newNodeStatus,
-        isRequired: newNodeRequired,
-      });
+      for (const lv of targetLevels) {
+        const t = templates.find((x) => x.level != null && Number(x.level) === lv);
+        if (!t) continue; // template of this level doesn't exist yet
 
-      if (parent) {
-        if (isSub) {
-          // Nhánh phụ = đi xuống khi điểm test DƯỚI ngưỡng tối thiểu (maxScore = ngưỡng)
+        const colNodes = graphs[t.pathId]?.nodes || [];
+        
+        let parentInTpl = null;
+        if (parent) {
+          // If parent belongs to the target template, use it directly
+          if (parent.learningPathId === t.pathId) {
+            parentInTpl = parent;
+          } else {
+            // Find corresponding parent node in the target template
+            parentInTpl = colNodes.find(
+              (n) => n.title === parent.title || n.displayOrder === parent.displayOrder
+            ) || null;
+          }
+        }
+
+        let order: number;
+        if (!parentInTpl) {
+          order = colNodes.reduce((m, n) => Math.max(m, n.displayOrder), 0) + 1;
+        } else {
+          order = parentInTpl.displayOrder + 1;
+          const toShift = colNodes
+            .filter((n) => n.displayOrder >= order)
+            .sort((a, b) => b.displayOrder - a.displayOrder);
+          for (const n of toShift) {
+            await learningPathService.updateAdminNode(n.nodeId, nodeToReq(n, n.displayOrder + 1));
+          }
+        }
+
+        const createdNode = await learningPathService.createAdminNode({
+          learningPathId: t.pathId,
+          title: newNodeTitle,
+          description: newNodeDesc,
+          nodeType: newNodeType,
+          displayOrder: order,
+          status: newNodeStatus,
+          isRequired: newNodeRequired,
+          stageOrder: newNodeStageOrder,
+          level: newNodeLevel !== "" ? Number(newNodeLevel) : null,
+        });
+
+        if (parentInTpl) {
           await learningPathService.createAdminEdge({
-            fromNodeId: parent.nodeId,
+            fromNodeId: parentInTpl.nodeId,
             toNodeId: createdNode.nodeId,
-            branchName: "SUB",
-            maxScore: Number(edgeMinScore),
           });
         } else {
-          await learningPathService.createAdminEdge({
-            fromNodeId: parent.nodeId,
-            toNodeId: createdNode.nodeId,
-            branchName: "MAIN",
-          });
-        }
-      } else {
-        // top-level: nối từ node cuối của xương sống (nếu có)
-        const lastMain = [...mainNodes].sort((a, b) => b.displayOrder - a.displayOrder)[0];
-        if (lastMain) {
-          await learningPathService.createAdminEdge({
-            fromNodeId: lastMain.nodeId,
-            toNodeId: createdNode.nodeId,
-            branchName: "MAIN",
-          });
+          const lastMain = [...colNodes].sort((a, b) => b.displayOrder - a.displayOrder)[0];
+          if (lastMain) {
+            await learningPathService.createAdminEdge({
+              fromNodeId: lastMain.nodeId,
+              toNodeId: createdNode.nodeId,
+            });
+          }
         }
       }
 
@@ -560,7 +665,7 @@ export function SubjectDetailPage() {
       setIsAddNodeOpen(false);
       setAddNodeParent(null);
       resetNodeForm();
-      await fetchGraph(selectedTemplateId);
+      await fetchTemplates();
     } catch (err: any) {
       toast.error(err.message || "Không tạo được bài học mới");
     } finally {
@@ -580,12 +685,11 @@ export function SubjectDetailPage() {
         status: nodeToEdit.status,
         displayOrder: nodeToEdit.displayOrder,
         isRequired: nodeToEdit.isRequired,
-        branchName: nodeToEdit.branchName || undefined,
       });
       toast.success("Cập nhật bài học thành công");
       setIsEditNodeOpen(false);
       setNodeToEdit(null);
-      await fetchGraph(selectedTemplateId);
+      await fetchTemplates();
     } catch (err: any) {
       toast.error(err.message || "Cập nhật bài học thất bại");
     }
@@ -608,7 +712,7 @@ export function SubjectDetailPage() {
       toast.success(`Đã xóa bài học "${nodeToDelete.title}"`);
       setShowNodeDeleteConfirm(false);
       setNodeToDelete(null);
-      await fetchGraph(selectedTemplateId);
+      await fetchTemplates();
     } catch (err: any) {
       toast.error(err.message || "Không xóa được bài học");
     }
@@ -620,7 +724,7 @@ export function SubjectDetailPage() {
     try {
       await learningPathService.deleteAdminEdge(edgeId);
       toast.success("Đã xóa liên kết tiên quyết");
-      await fetchGraph(selectedTemplateId);
+      await fetchTemplates();
     } catch (err: any) {
       toast.error(err.message || "Xóa liên kết tiên quyết thất bại");
     }
@@ -809,30 +913,495 @@ export function SubjectDetailPage() {
     }
   };
 
-  // UI Helpers
-  // Viền xanh mép trái chỉ hiện khi MÔN đã xuất bản; bản nháp thì trung tính
   const isSubjectPublished = subject?.status === "published";
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
-      <span style={{ marginLeft: "0.75rem", color: "#6b7280" }}>Đang tải môn học...</span>
-    </div>
-  );
+  const renderRoadmapColumn = (level: 1 | 2 | 3, title: string, defaultDesc: string) => {
+    const tpl = templates.find((t) => t.level === level);
 
-  if (error) return (
-    <div className="flex flex-col items-center justify-center py-20 gap-3">
-      <AlertCircle className="w-10 h-10" style={{ color: "#ef4444" }} />
-      <p style={{ color: "#374151" }}>{error}</p>
-      <button
-        onClick={fetchData}
-        className="px-4 py-2 rounded-lg text-white text-sm"
-        style={{ background: "#4338ca" }}
-      >
-        Thử lại
-      </button>
-    </div>
-  );
+    if (!tpl) {
+      return (
+        <div className="rounded-xl p-6 bg-white border border-gray-200 shadow-sm flex flex-col justify-between min-h-[400px]">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="w-5 h-5 text-gray-400" />
+              <h3 className="font-bold text-lg text-gray-900">{title}</h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-6">{defaultDesc}</p>
+            <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+              <Map className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+              <p className="text-xs text-gray-400">Chưa thiết lập lộ trình cho mức này.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setNewTplLevel(level);
+              setIsCreateTemplateOpen(true);
+            }}
+            className="w-full mt-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold rounded-lg border border-indigo-200 transition-colors"
+          >
+            + Khởi tạo lộ trình
+          </button>
+        </div>
+      );
+    }
+
+    const colNodes = graphs[tpl.pathId]?.nodes || [];
+    const colEdges = graphs[tpl.pathId]?.edges || [];
+    const limit = subject?.learningpathLength || 0;
+    const isFull = limit > 0 && colNodes.length >= limit;
+    
+    // Sort nodes by displayOrder, then nodeId
+    const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
+
+    // Helper functions for this column
+    const isColSubNode = (n: LearningNodeResponse) => false;
+    const hasColSubChild = (nodeId: number) => false;
+    const colSubDepth = (n: LearningNodeResponse) => 0;
+
+    // Build node labels for this column
+    const colNodeLabels: Record<number, string> = {};
+    let colLessonCounter = 0;
+    for (const n of sortedColNodes) {
+      colLessonCounter += 1;
+      colNodeLabels[n.nodeId] = `Bài ${colLessonCounter}`;
+    }
+
+    // Totals for this column
+    const colTotals = sortedColNodes.reduce(
+      (acc, n) => {
+        const c = nodeContents[n.nodeId];
+        if (c) {
+          acc.videos += (c.materials || []).filter((m) => m.video).length;
+          acc.docs += (c.materials || []).filter((m) => m.file).length;
+          acc.tests += (c.tests || []).length;
+        }
+        return acc;
+      },
+      { videos: 0, docs: 0, tests: 0 }
+    );
+
+    return (
+      <div className="rounded-xl p-6 bg-white border border-gray-200 shadow-sm flex flex-col justify-between min-h-[500px]">
+        <div>
+          {/* Column Header */}
+          <div className="pb-4 mb-4 border-b border-gray-200 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <BookOpen className="w-5 h-5 text-indigo-600 shrink-0" />
+                <h3 className="font-bold text-lg text-gray-900 truncate">{tpl.pathName}</h3>
+              </div>
+              <p className="text-xs text-gray-500 line-clamp-2" title={tpl.description || ""}>
+                {tpl.description || "Chưa có mô tả chi tiết."}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => {
+                  setSelectedTemplateId(tpl.pathId);
+                  setEditTplName(tpl.pathName);
+                  setEditTplDesc(tpl.description || "");
+                  setIsEditTemplateOpen(true);
+                }}
+                className="p-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                title="Sửa mô tả lộ trình"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-gray-500" />
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedTemplateId(tpl.pathId);
+                  setIsDeleteTplConfirmOpen(true);
+                }}
+                className="p-1.5 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                title="Xóa lộ trình mẫu"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-500" />
+              </button>
+            </div>
+          </div>
+
+          {/* Stats Bar */}
+          {sortedColNodes.length > 0 && (
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 pb-3 mb-3 border-b border-gray-200 text-[11px] text-gray-500">
+              <span className="flex items-center gap-1 font-medium"><BookOpen className="w-3.5 h-3.5 text-indigo-600" /> {sortedColNodes.length} bài</span>
+              <span className="flex items-center gap-1"><VideoIcon className="w-3.5 h-3.5 text-purple-500" /> {colTotals.videos} video</span>
+              <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5 text-orange-500" /> {colTotals.docs} tài liệu</span>
+              <span className="flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5 text-teal-500" /> {colTotals.tests} test</span>
+            </div>
+          )}
+
+          {/* Timeline Tree Nodes */}
+          {sortedColNodes.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+              <Map className="w-8 h-8 mx-auto text-gray-300 mb-2 animate-pulse" />
+              <p className="text-xs">Chưa có bài học nào trong lộ trình mẫu này.</p>
+              <button
+                onClick={() => {
+                  setSelectedTemplateId(tpl.pathId);
+                  resetNodeForm();
+                  setAddNodeParent(null);
+                  setIsAddNodeOpen(true);
+                }}
+                className="mt-3 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                Tạo bài học đầu tiên
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col space-y-3 py-1">
+              {sortedColNodes.map((node, index) => {
+                const isExpanded = !!expandedNodes[node.nodeId];
+                const incomingEdges = colEdges.filter((e) => e.toNodeId === node.nodeId);
+                const incomingNodesInfo = incomingEdges.map((e) => {
+                  const fromNode = colNodes.find((n) => n.nodeId === e.fromNodeId);
+                  return {
+                    edgeId: e.edgeId,
+                    fromTitle: fromNode ? fromNode.title : `Node #${e.fromNodeId}`,
+                    minScore: e.minScore,
+                    maxScore: e.maxScore,
+                  };
+                });
+                const canAddChild = !isFull;
+
+                return (
+                  <div key={node.nodeId} className="w-full">
+                    {index > 0 && (
+                      <div className="flex flex-col items-center justify-center my-1.5">
+                        <div className="h-6 w-0.5 bg-indigo-200 relative flex items-center justify-center">
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-0.5 rounded-full border border-indigo-200 shadow-sm shrink-0 z-10">
+                            <ChevronRight className="w-2.5 h-2.5 text-indigo-500 rotate-90" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="relative group transition-all duration-200">
+
+                    {/* Node Box */}
+                    <div
+                      className={`rounded-xl border transition-all overflow-hidden ${
+                        isExpanded
+                          ? "bg-white border-indigo-300 shadow-sm"
+                          : "bg-gray-50/50 hover:bg-white hover:border-gray-300 border-gray-200"
+                      }`}
+                    >
+                      {/* Node Header */}
+                      <div
+                        onClick={() => toggleNode(node.nodeId)}
+                        className="flex items-center justify-between p-3.5 cursor-pointer select-none"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className={`p-0.5 rounded transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`font-semibold text-xs ${node.status === "LOCKED" ? "text-gray-500" : "text-gray-900"}`}>
+                                {colNodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}
+                              </span>
+                              {isSubNode(node) && (
+                                <span className="text-[9px] px-1 bg-amber-50 text-amber-700 border border-amber-200 rounded font-medium shrink-0 flex items-center gap-0.5">
+                                  <GitFork className="w-2.5 h-2.5" /> Nhánh phụ
+                                </span>
+                              )}
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium shrink-0">
+                                {node.nodeType === "ON_CLASS" ? "Lên lớp" : "Tự học"}
+                              </span>
+                              {node.isRequired && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-50 text-red-600 border border-red-100 font-medium shrink-0">
+                                  Bắt buộc
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Node Expanded Body */}
+                      {isExpanded && (
+                        <div className="px-3.5 pb-3.5 pt-1.5 bg-gray-50/30 border-t border-gray-150 space-y-3">
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            {node.description || "Chưa có mô tả chi tiết."}
+                          </p>
+
+
+
+                          {/* Prerequisites info */}
+                          {incomingNodesInfo.length > 0 && (
+                            <div className="text-[11px] border border-gray-150 bg-white rounded-lg p-2.5 space-y-1.5">
+                              <div className="font-semibold text-gray-700 flex items-center gap-1">
+                                <GitFork className="w-3 h-3 text-indigo-600" />
+                                <span>Điều kiện tiên quyết:</span>
+                              </div>
+                              <div className="divide-y divide-gray-100">
+                                {incomingNodesInfo.map((info) => (
+                                  <div key={info.edgeId} className="flex items-center justify-between py-1">
+                                    <span className="text-gray-600 truncate max-w-[85%]">
+                                      Sau: <strong className="text-gray-800">{info.fromTitle}</strong>
+                                      {info.maxScore !== null && (
+                                        <span className="text-red-500 font-semibold ml-1">
+                                          (Điểm dưới {info.maxScore})
+                                        </span>
+                                      )}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTemplateId(tpl.pathId);
+                                        handleDeleteEdge(info.edgeId);
+                                      }}
+                                      className="p-0.5 rounded text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors shrink-0"
+                                      title="Xóa liên kết"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Materials & Tests Card */}
+                          <div className="border border-gray-200 rounded-lg p-2.5 bg-white space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-gray-700 flex items-center gap-1">
+                                <BookOpen className="w-3 h-3 text-indigo-600" />
+                                Nội dung học tập
+                              </span>
+                              <div className="flex items-center gap-1.5 text-[9px] font-bold text-indigo-600">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTemplateId(tpl.pathId);
+                                    setSelectedNodeForContent(node);
+                                    setIsAddMaterialOpen(true);
+                                  }}
+                                  className="hover:text-indigo-850 hover:underline"
+                                >
+                                  + Tài liệu
+                                </button>
+                                <span className="text-gray-300">|</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTemplateId(tpl.pathId);
+                                    setSelectedNodeForContent(node);
+                                    setIsAddTestOpen(true);
+                                  }}
+                                  className="hover:text-indigo-850 hover:underline"
+                                >
+                                  + Test
+                                </button>
+                              </div>
+                            </div>
+
+                            {loadingContents[node.nodeId] ? (
+                              <div className="flex items-center gap-1.5 py-1 text-[11px] text-gray-400">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                Đang tải...
+                              </div>
+                            ) : (() => {
+                              const sortedItems = getSortedTimelineItems(node.nodeId);
+                              if (sortedItems.length === 0) {
+                                return (
+                                  <div className="text-[10px] text-gray-400 italic py-1.5 text-center bg-gray-50 rounded border border-dashed border-gray-200">
+                                    Chưa có tài liệu/bài test.
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="space-y-1.5">
+                                  {sortedItems.map((item, index) => {
+                                    const isMaterial = item.type === "MATERIAL";
+                                    const m = isMaterial ? item.data : null;
+                                    const t = !isMaterial ? item.data : null;
+
+                                    return (
+                                      <div
+                                        key={item.key}
+                                        className="flex items-start gap-1.5 p-1.5 bg-gray-50 rounded border border-gray-150 text-[11px] hover:border-indigo-200 transition-colors"
+                                      >
+                                        {/* Reorder Buttons */}
+                                        <div className="flex flex-col gap-0.5 shrink-0 pt-0.5">
+                                          <button
+                                            disabled={index === 0}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleReorderContent(node.nodeId, item.id, item.type, "up");
+                                            }}
+                                            className={`p-0.5 rounded ${
+                                              index === 0
+                                                ? "text-gray-300 cursor-not-allowed opacity-50"
+                                                : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                                            }`}
+                                            title="Di chuyển lên"
+                                          >
+                                            <ArrowUp className="w-3 h-3" />
+                                          </button>
+                                          <button
+                                            disabled={index === sortedItems.length - 1}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleReorderContent(node.nodeId, item.id, item.type, "down");
+                                            }}
+                                            className={`p-0.5 rounded ${
+                                              index === sortedItems.length - 1
+                                                ? "text-gray-300 cursor-not-allowed opacity-50"
+                                                : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                                            }`}
+                                            title="Di chuyển xuống"
+                                          >
+                                            <ArrowDown className="w-3 h-3" />
+                                          </button>
+                                        </div>
+
+                                        {/* Item Info */}
+                                        <div className="space-y-0.5 flex-1 pr-1 min-w-0">
+                                          <div className="font-semibold text-gray-800 flex items-center gap-1 flex-wrap">
+                                            {isMaterial ? (
+                                              <>
+                                                <BookOpen className="w-3 h-3 text-indigo-500 shrink-0" />
+                                                <span className="truncate max-w-[120px]" title={item.title}>{item.title}</span>
+                                                {m?.required && (
+                                                  <span className="text-[8px] px-0.5 bg-red-50 text-red-500 rounded font-bold border border-red-100 shrink-0">
+                                                    Yêu cầu
+                                                  </span>
+                                                )}
+                                              </>
+                                            ) : (
+                                              <>
+                                                <GraduationCap className="w-3 h-3 text-teal-500 shrink-0" />
+                                                <span className="truncate max-w-[120px]" title={item.title}>{item.title}</span>
+                                              </>
+                                            )}
+                                          </div>
+
+                                          {isMaterial && m?.video && (
+                                            <div className="text-gray-500 flex items-center gap-1 text-[10px]">
+                                              <span className="px-0.5 py-0.1 bg-teal-50 text-teal-700 border border-teal-100 rounded text-[8px] font-semibold shrink-0">Video</span>
+                                              <a
+                                                href={m.video.videoUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-indigo-600 hover:underline truncate max-w-[100px]"
+                                                title={m.video.videoUrl}
+                                              >
+                                                Xem video
+                                              </a>
+                                            </div>
+                                          )}
+                                          {isMaterial && m?.file && (
+                                            <div className="text-gray-500 flex items-center gap-1 text-[10px]">
+                                              <span className="px-0.5 py-0.1 bg-orange-50 text-orange-700 border border-orange-100 rounded text-[8px] font-semibold shrink-0">File</span>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  const f = m!.file!;
+                                                  const url = f.fileUrl.startsWith("/") ? `${API_BASE_URL}${f.fileUrl}` : f.fileUrl;
+                                                  setPreviewFile({ url, type: f.fileType || "", name: f.fileName || "Tài liệu" });
+                                                }}
+                                                className="text-indigo-600 hover:underline truncate max-w-[100px] text-left"
+                                              >
+                                                {m.file.fileName || "Tài liệu"}
+                                              </button>
+                                            </div>
+                                          )}
+                                          {!isMaterial && t && (
+                                            <div className="text-[9px] text-gray-500">
+                                              <span>{t.durationMinutes || "—"}p</span>
+                                              {t.passingPercentage !== undefined && (
+                                                <span className="ml-1.5">chuẩn: {t.passingPercentage}%</span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Actions (Delete) */}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isMaterial) {
+                                              handleDeleteMaterial(item.id, node.nodeId);
+                                            } else {
+                                              handleDeleteTest(item.id, node.nodeId);
+                                            }
+                                          }}
+                                          className="p-0.5 rounded text-red-500 hover:bg-red-50 hover:text-red-700 shrink-0 self-center"
+                                          title={isMaterial ? "Xóa tài liệu" : "Xóa bài kiểm tra"}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-1.5 pt-2 border-t border-gray-200/50">
+                            {canAddChild && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTemplateId(tpl.pathId);
+                                  openChildAddNode(node);
+                                }}
+                                className="flex items-center gap-0.5 px-2 py-1 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-md text-[10px] font-bold text-indigo-700 transition-colors"
+                              >
+                                <Plus className="w-3 h-3" /> Node mới
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTemplateId(tpl.pathId);
+                                setNodeToEdit(node);
+                                setIsEditNodeOpen(true);
+                              }}
+                              className="flex items-center gap-0.5 px-2 py-1 border border-gray-300 bg-white hover:bg-gray-100 rounded-md text-[10px] font-bold text-gray-700 transition-colors"
+                            >
+                              <Edit2 className="w-3 h-3" /> Sửa
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTemplateId(tpl.pathId);
+                                setNodeToDelete({ nodeId: node.nodeId, title: node.title });
+                                setShowNodeDeleteConfirm(true);
+                              }}
+                              className="flex items-center gap-0.5 px-2 py-1 border border-red-200 bg-white hover:bg-red-50 rounded-md text-[10px] font-bold text-red-600 transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" /> Xóa
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Column Footer: "+ Thêm bài học" */}
+        {!isFull && (
+          <button
+            onClick={() => {
+              setSelectedTemplateId(tpl.pathId);
+              openTopLevelAddNode();
+            }}
+            className="w-full mt-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" /> Thêm bài học
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const totalStudents = classroomSubjects.reduce((sum, cs) => sum + cs.studentCount, 0);
   const enrolledClassroomIds = new Set(classroomSubjects.map((cs) => cs.classroomId));
@@ -882,7 +1451,7 @@ export function SubjectDetailPage() {
           </div>
           {subject && (subject.status === "published" ? (
             <button onClick={handleUnpublish} disabled={publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-55 disabled:opacity-50"
               style={{ border: "1px solid #e5e7eb", backgroundColor: "white", color: "#374151", cursor: publishing ? "not-allowed" : "pointer" }}>
               {publishing && <Loader2 className="w-4 h-4 animate-spin" />} Gỡ xuất bản
             </button>
@@ -896,508 +1465,78 @@ export function SubjectDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column: Interactive Roadmap Template Builder */}
-        <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-          {/* Template Selection Header */}
-          <div className="pb-5 mb-5 border-b border-gray-100 space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5" style={{ color: "#4338ca" }} />
-                <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>
-                  Lộ trình mẫu
-                </h2>
-              </div>
-              <button
-                disabled={bothLevelsExist}
-                onClick={() => {
-                  const firstAvailable = (["BASIC", "ADVANCED"] as const).find((lv) => !existingLevels.has(lv));
-                  if (firstAvailable) setNewTplLevel(firstAvailable);
-                  setIsCreateTemplateOpen(true);
-                }}
-                title={bothLevelsExist ? "Đã đủ 2 lộ trình (cơ bản + nâng cao)" : "Tạo lộ trình mẫu mới"}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer" }}
-              >
-                <Plus className="w-3.5 h-3.5" /> Tạo mẫu mới
-              </button>
-            </div>
-
-            {templates.length > 0 ? (
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedTemplateId || ""}
-                  onChange={(e) => handleSelectTemplate(Number(e.target.value))}
-                  className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                  {templates.map((t) => (
-                    <option key={t.pathId} value={t.pathId}>
-                      {t.pathName}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => {
-                    const currentTpl = templates.find((t) => t.pathId === selectedTemplateId);
-                    if (currentTpl) {
-                      setEditTplName(currentTpl.pathName);
-                      setEditTplDesc(currentTpl.description || "");
-                      setIsEditTemplateOpen(true);
-                    }
-                  }}
-                  className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  title="Sửa mô tả lộ trình"
-                >
-                  <Edit2 className="w-4 h-4 text-gray-500" />
-                </button>
-                <button
-                  onClick={() => setIsDeleteTplConfirmOpen(true)}
-                  className="p-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                  title="Xóa lộ trình mẫu"
-                >
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </button>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-sm text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-                Không tìm thấy lộ trình mẫu nào. Click "Tạo mẫu mới" để thiết lập một lộ trình khung cho môn học này.
-              </div>
-            )}
+      {/* Classrooms List Section */}
+      <div className="rounded-xl p-6 bg-white border border-gray-200 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-lg font-bold text-gray-900">
+              Lớp đang học môn này ({classroomSubjects.length})
+            </h2>
           </div>
-
-          {/* Graph Nodes and Designer Section */}
-          {selectedTemplateId && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Thiết kế bài học & Liên kết</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={openTopLevelAddNode}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors border border-indigo-150"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Thêm bài học
-                  </button>
-                </div>
-              </div>
-
-              {sortedNodes.length > 0 && (
-                <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 pb-1" style={{ fontSize: "0.8125rem", color: "#4b5563" }}>
-                  <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-indigo-600" /> {sortedNodes.length} bài học</span>
-                  <span className="flex items-center gap-1.5"><VideoIcon className="w-4 h-4 text-purple-600" /> {nodeTotals.videos} video</span>
-                  <span className="flex items-center gap-1.5"><FileText className="w-4 h-4 text-indigo-600" /> {nodeTotals.docs} tài liệu</span>
-                  <span className="flex items-center gap-1.5"><GraduationCap className="w-4 h-4 text-teal-600" /> {nodeTotals.tests} bài test</span>
-                </div>
-              )}
-
-              {loadingGraph ? (
-                <div className="flex items-center justify-center py-10">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-                  <span className="ml-2 text-sm text-gray-400">Đang tải cấu trúc lộ trình...</span>
-                </div>
-              ) : nodes.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                  <Map className="w-8 h-8 mx-auto text-gray-300 mb-2 animate-pulse" />
-                  <p className="text-sm">Chưa có bài học nào trong lộ trình mẫu này.</p>
-                  <button
-                    onClick={() => setIsAddNodeOpen(true)}
-                    className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors"
-                  >
-                    Tạo bài học đầu tiên
-                  </button>
-                </div>
-              ) : (
-                <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 shadow-sm">
-                  {sortedNodes.map((node) => {
-                    const isExpanded = !!expandedNodes[node.nodeId];
-                    const incomingEdges = edges.filter((e) => e.toNodeId === node.nodeId);
-                    const incomingNodesInfo = incomingEdges
-                      .map((e) => {
-                        const fromNode = nodes.find((n) => n.nodeId === e.fromNodeId);
-                        return {
-                          edgeId: e.edgeId,
-                          fromTitle: fromNode ? fromNode.title : `Node #${e.fromNodeId}`,
-                          minScore: e.minScore,
-                          maxScore: e.maxScore,
-                        };
-                      });
-                    // Node phụ chỉ nối thêm được tối đa tới node phụ #2; node chính luôn nối tiếp được
-                    const canAddChild = isSubNode(node)
-                      ? subDepth(node) < 2 && !hasSubChild(node.nodeId)
-                      : true;
-
-                    return (
-                      <div key={node.nodeId} className={`transition-all duration-200 ${isSubjectPublished ? "border-l-4 border-l-green-500 hover:bg-green-50/5" : "hover:bg-gray-50"}`}>
-                        {/* Expandable node header */}
-                        <div
-                          onClick={() => toggleNode(node.nodeId)}
-                          className="flex items-center justify-between p-4 cursor-pointer select-none"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className={`p-0.5 rounded transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>
-                              <ChevronRight className="w-4 h-4 text-gray-400" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`font-semibold text-sm ${node.status === "LOCKED" ? "text-gray-500" : "text-gray-900"}`}>
-                                  {nodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}
-                                </span>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium">
-                                  {node.nodeType === "ON_CLASS" ? "Lên lớp" : "Tự học"}
-                                </span>
-                                {node.isRequired && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-100 font-medium">
-                                    Bắt buộc
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Expanded details */}
-                        {isExpanded && (
-                          <div className="px-4 pb-4 pt-1 bg-gray-50/50 border-t border-gray-150 space-y-3">
-                            <p className="text-sm text-gray-600 leading-relaxed pt-1">
-                              {node.description || "Chưa có mô tả chi tiết."}
-                            </p>
-
-                            {/* Node settings summary */}
-                            <div className="text-xs text-gray-500">
-                              <div>Nhánh: <span className="font-semibold text-gray-700">{node.branchName || "Main"}</span></div>
-                            </div>
-
-                            {/* Prerequisites edges details */}
-                            {incomingNodesInfo.length > 0 && (
-                              <div className="text-xs border border-gray-200 bg-white rounded-lg p-3 space-y-2">
-                                <div className="font-semibold text-gray-700 flex items-center gap-1">
-                                  <GitFork className="w-3.5 h-3.5 text-indigo-600" />
-                                  <span>Điều kiện tiên quyết (Prerequisites):</span>
-                                </div>
-                                <div className="divide-y divide-gray-100">
-                                  {incomingNodesInfo.map((info) => (
-                                    <div key={info.edgeId} className="flex items-center justify-between py-1.5">
-                                      <span className="text-gray-600 font-medium">
-                                        Sau khi hoàn thành: <strong className="text-gray-800">{info.fromTitle}</strong>
-                                      </span>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteEdge(info.edgeId);
-                                        }}
-                                        className="p-1 rounded text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
-                                        title="Xóa liên kết này"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Materials and Tests details card */}
-                            <div className="border border-gray-200 rounded-lg p-3 bg-white space-y-3">
-                              {/* Unified Header */}
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-gray-750 flex items-center gap-1.5">
-                                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-                                  Nội dung & Bài kiểm tra
-                                </span>
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedNodeForContent(node);
-                                      setIsAddMaterialOpen(true);
-                                    }}
-                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-850 hover:underline transition-colors"
-                                  >
-                                    + Thêm tài liệu
-                                  </button>
-                                  <span className="text-gray-300 text-[10px]">|</span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedNodeForContent(node);
-                                      setIsAddTestOpen(true);
-                                    }}
-                                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-850 hover:underline transition-colors"
-                                  >
-                                    + Thêm bài kiểm tra
-                                  </button>
-                                </div>
-                              </div>
-
-                              {loadingContents[node.nodeId] ? (
-                                <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  Đang tải nội dung...
-                                </div>
-                              ) : (() => {
-                                const sortedItems = getSortedTimelineItems(node.nodeId);
-                                if (sortedItems.length === 0) {
-                                  return (
-                                    <div className="text-xs text-gray-400 italic py-2 text-center bg-gray-50 rounded border border-dashed border-gray-200">
-                                      Chưa có tài liệu hoặc bài kiểm tra.
-                                    </div>
-                                  );
-                                }
-                                return (
-                                  <div className="space-y-2">
-                                    {sortedItems.map((item, index) => {
-                                      const isMaterial = item.type === "MATERIAL";
-                                      const m = isMaterial ? item.data : null;
-                                      const t = !isMaterial ? item.data : null;
-
-                                      return (
-                                        <div
-                                          key={item.key}
-                                          className="flex items-start gap-2 p-2 bg-gray-50 rounded border border-gray-150 text-xs hover:border-indigo-200 transition-colors"
-                                        >
-                                          {/* Reorder Buttons Column */}
-                                          <div className="flex flex-col gap-0.5 shrink-0 pt-0.5">
-                                            <button
-                                              disabled={index === 0}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleReorderContent(node.nodeId, item.id, item.type, "up");
-                                              }}
-                                              className={`p-0.5 rounded transition-colors ${
-                                                index === 0
-                                                  ? "text-gray-350 cursor-not-allowed opacity-50"
-                                                  : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-                                              }`}
-                                              title="Di chuyển lên"
-                                            >
-                                              <ArrowUp className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button
-                                              disabled={index === sortedItems.length - 1}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleReorderContent(node.nodeId, item.id, item.type, "down");
-                                              }}
-                                              className={`p-0.5 rounded transition-colors ${
-                                                index === sortedItems.length - 1
-                                                  ? "text-gray-350 cursor-not-allowed opacity-50"
-                                                  : "text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-                                              }`}
-                                              title="Di chuyển xuống"
-                                            >
-                                              <ArrowDown className="w-3.5 h-3.5" />
-                                            </button>
-                                          </div>
-
-                                          {/* Main Content Info */}
-                                          <div className="space-y-1 flex-1 pr-1 min-w-0">
-                                            <div className="font-semibold text-gray-800 flex items-center gap-1.5 flex-wrap">
-                                              {isMaterial ? (
-                                                <>
-                                                  <BookOpen className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                                                  <span className="truncate">{item.title}</span>
-                                                  {m?.required && (
-                                                    <span className="text-[9px] px-1 bg-red-50 text-red-500 rounded font-bold border border-red-100 shrink-0">
-                                                      Bắt buộc
-                                                    </span>
-                                                  )}
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <GraduationCap className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                                                  <span className="truncate">{item.title}</span>
-                                                </>
-                                              )}
-                                            </div>
-
-                                            {/* Sub-details depending on subtype */}
-                                            {isMaterial && m?.video && (
-                                              <div className="text-gray-500 flex items-center gap-1.5 flex-wrap text-[11px]">
-                                                <span className="px-1 py-0.2 bg-teal-50 text-teal-700 border border-teal-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
-                                                  <VideoIcon className="w-2.5 h-2.5" /> Video
-                                                </span>
-                                                <a
-                                                  href={m.video.videoUrl}
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  className="text-indigo-600 hover:underline truncate max-w-[200px]"
-                                                  title={m.video.videoUrl}
-                                                >
-                                                  {m.video.videoUrl}
-                                                </a>
-                                              </div>
-                                            )}
-                                            {isMaterial && m?.file && (
-                                              <div className="text-gray-500 flex items-center gap-1.5 flex-wrap text-[11px]">
-                                                <span className="px-1 py-0.2 bg-orange-50 text-orange-700 border border-orange-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
-                                                  <FileText className="w-2.5 h-2.5" /> File
-                                                </span>
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const f = m!.file!;
-                                                    const url = f.fileUrl.startsWith("/") ? `${API_BASE_URL}${f.fileUrl}` : f.fileUrl;
-                                                    setPreviewFile({ url, type: f.fileType || "", name: f.fileName || "Tài liệu" });
-                                                  }}
-                                                  className="text-indigo-600 hover:underline truncate max-w-[200px] text-left"
-                                                  title="Xem tài liệu"
-                                                >
-                                                  {m.file.fileName || "Tài liệu"}
-                                                </button>
-                                              </div>
-                                            )}
-                                            {!isMaterial && t && (
-                                              <div className="text-[10px] text-gray-500">
-                                                Thời gian làm bài:{" "}
-                                                <span className="font-semibold text-gray-700">
-                                                  {t.durationMinutes || "—"} phút
-                                                </span>
-                                                {t.passingPercentage !== undefined && (
-                                                  <span className="ml-3">
-                                                    Điểm chuẩn:{" "}
-                                                    <span className="font-semibold text-gray-700">
-                                                      {t.passingPercentage}%
-                                                    </span>
-                                                  </span>
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          {/* Actions (Delete) */}
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (isMaterial) {
-                                                handleDeleteMaterial(item.id, node.nodeId);
-                                              } else {
-                                                handleDeleteTest(item.id, node.nodeId);
-                                              }
-                                            }}
-                                            className="p-1 rounded text-red-500 hover:bg-red-50 hover:text-red-750 shrink-0 transition-colors self-center"
-                                            title={isMaterial ? "Xóa tài liệu" : "Xóa bài kiểm tra"}
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                          </button>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-
-                            {/* Actions bar */}
-                            <div className="flex items-center gap-2 pt-2 border-t border-gray-200/50">
-                              {canAddChild && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openChildAddNode(node);
-                                  }}
-                                  className="flex items-center gap-1 px-3 py-1.5 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-xs font-semibold text-indigo-700 transition-colors"
-                                >
-                                  <Plus className="w-3.5 h-3.5" /> Thêm node mới
-                                </button>
-                              )}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setNodeToEdit(node);
-                                  setIsEditNodeOpen(true);
-                                }}
-                                className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 bg-white hover:bg-gray-100 rounded-lg text-xs font-semibold text-gray-700 transition-colors"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" /> Chỉnh sửa
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setNodeToDelete({ nodeId: node.nodeId, title: node.title });
-                                  setShowNodeDeleteConfirm(true);
-                                }}
-                                className="flex items-center gap-1 px-3 py-1.5 border border-red-200 bg-white hover:bg-red-50 rounded-lg text-xs font-semibold text-red-600 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" /> Xóa bài học
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          <button
+            onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }}
+            className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-white transition-opacity hover:opacity-90 font-semibold"
+            style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer" }}
+          >
+            <Plus className="w-4 h-4" /> Thêm lớp
+          </button>
         </div>
 
-        {/* Right Column: Instructor and Classrooms list */}
-        <div className="space-y-6">
-          {/* Lớp đang học môn này */}
-          <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="w-5 h-5" style={{ color: "#7c3aed" }} />
-                <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>
-                  Lớp đang học môn này ({classroomSubjects.length})
-                </h2>
-              </div>
-              <button
-                onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-white transition-opacity hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontWeight: 600 }}
+        {classroomSubjects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <GraduationCap className="w-12 h-12 text-gray-300" />
+            <p className="text-sm text-gray-500">Chưa có lớp nào học môn này</p>
+            <button
+              onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }}
+              className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm text-white font-semibold"
+              style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer" }}
+            >
+              <Plus className="w-4 h-4" /> Thêm lớp
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            {classroomSubjects.map((cs) => (
+              <div
+                key={cs.classroomSubjectId}
+                className="p-4 rounded-xl border border-gray-200 hover:shadow-md transition-all bg-white"
               >
-                <Plus className="w-4 h-4" /> Thêm lớp
-              </button>
-            </div>
-
-            {classroomSubjects.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <GraduationCap className="w-12 h-12" style={{ color: "#d1d5db" }} />
-                <p style={{ color: "#9ca3af", fontSize: "0.875rem" }}>Chưa có lớp nào học môn này</p>
+                <div className="mb-2">
+                  <span className="font-bold text-gray-900 text-base">
+                    {cs.className}
+                  </span>
+                </div>
+                <div className="text-xs mb-3 truncate text-gray-400" title={cs.lecturerName}>
+                  GV: {cs.lecturerName}
+                </div>
+                <div className="flex items-center gap-2 mb-4 text-gray-500 text-sm">
+                  <Users className="w-4 h-4 text-gray-450" />
+                  <span>{cs.studentCount} học sinh</span>
+                </div>
                 <button
-                  onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }}
-                  className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm text-white"
-                  style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontWeight: 600 }}
+                  onClick={() => navigate(`/admin/classes/${cs.classroomId}/subjects/${cs.classroomSubjectId}`)}
+                  className="w-full py-2 rounded-lg text-white text-sm font-semibold transition-opacity hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg, #334155, #111827)", border: "none", cursor: "pointer" }}
                 >
-                  <Plus className="w-4 h-4" /> Thêm lớp
+                  Vào lớp-môn
                 </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {classroomSubjects.map((cs) => (
-                  <div
-                    key={cs.classroomSubjectId}
-                    className="p-4 rounded-xl hover:shadow-md transition-all"
-                    style={{ border: "1px solid #e5e7eb" }}
-                  >
-                    <div className="mb-3">
-                      <span style={{ fontSize: "1rem", fontWeight: 700, color: "#111827" }}>
-                        {cs.className}
-                      </span>
-                    </div>
-                    <div className="text-xs mb-3 truncate" style={{ color: "#9ca3af" }} title={cs.lecturerName}>
-                      GV: {cs.lecturerName}
-                    </div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <Users className="w-4 h-4" style={{ color: "#6b7280" }} />
-                      <span style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-                        {cs.studentCount} học sinh
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => navigate(`/admin/classes/${cs.classroomId}/subjects/${cs.classroomSubjectId}`)}
-                      className="w-full py-2 rounded-lg text-white text-sm transition-opacity hover:opacity-90"
-                      style={{ background: "linear-gradient(135deg, #334155, #111827)", border: "none", cursor: "pointer", fontWeight: 600 }}
-                    >
-                      Vào lớp-môn
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            ))}
           </div>
+        )}
+      </div>
+
+      {/* Parallel Roadmap Columns Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 pl-1">
+          <Map className="w-5 h-5 text-indigo-600" />
+          Thiết kế lộ trình học tập song song
+        </h2>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {renderRoadmapColumn(1, "Lộ trình Yếu", "Lộ trình dành cho học sinh có năng lực yếu, tập trung bổ trợ kiến thức cơ bản.")}
+          {renderRoadmapColumn(2, "Lộ trình Trung bình", "Lộ trình chuẩn cho học sinh có năng lực trung bình, bám sát khung chương trình chính.")}
+          {renderRoadmapColumn(3, "Lộ trình Khá", "Lộ trình nâng cao cho học sinh khá giỏi, tích hợp các bài toán/chủ đề chuyên sâu.")}
         </div>
       </div>
 
@@ -1470,10 +1609,11 @@ export function SubjectDetailPage() {
                 <select
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={newTplLevel}
-                  onChange={(e) => setNewTplLevel(e.target.value as "BASIC" | "ADVANCED")}
+                  onChange={(e) => setNewTplLevel(Number(e.target.value) as 1 | 2 | 3)}
                 >
-                  <option value="BASIC" disabled={existingLevels.has("BASIC")}>Lộ trình cơ bản{existingLevels.has("BASIC") ? " (đã có)" : ""}</option>
-                  <option value="ADVANCED" disabled={existingLevels.has("ADVANCED")}>Lộ trình nâng cao{existingLevels.has("ADVANCED") ? " (đã có)" : ""}</option>
+                  <option value={1} disabled={existingLevels.has(1)}>Lộ trình Yếu{existingLevels.has(1) ? " (đã có)" : ""}</option>
+                  <option value={2} disabled={existingLevels.has(2)}>Lộ trình Trung bình{existingLevels.has(2) ? " (đã có)" : ""}</option>
+                  <option value={3} disabled={existingLevels.has(3)}>Lộ trình Khá{existingLevels.has(3) ? " (đã có)" : ""}</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -1490,16 +1630,18 @@ export function SubjectDetailPage() {
                 <button
                   type="button"
                   onClick={() => setIsCreateTemplateOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
+                  disabled={isSubmittingTemplate}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                  disabled={isSubmittingTemplate}
+                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                   style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
                 >
-                  Tạo lộ trình
+                  {isSubmittingTemplate ? "Đang tạo..." : "Tạo lộ trình"}
                 </button>
               </div>
             </form>
@@ -1535,16 +1677,18 @@ export function SubjectDetailPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditTemplateOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
+                  disabled={isSubmittingTemplate}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+                  disabled={isSubmittingTemplate}
+                  className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                   style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
                 >
-                  Cập nhật
+                  {isSubmittingTemplate ? "Đang cập nhật..." : "Cập nhật"}
                 </button>
               </div>
             </form>
@@ -1567,15 +1711,17 @@ export function SubjectDetailPage() {
               <button
                 type="button"
                 onClick={() => setIsDeleteTplConfirmOpen(false)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
+                disabled={isSubmittingTemplate}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Hủy
               </button>
               <button
                 onClick={handleDeleteTemplateConfirm}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors"
+                disabled={isSubmittingTemplate}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
               >
-                Xác nhận xóa
+                {isSubmittingTemplate ? "Đang xóa..." : "Xác nhận xóa"}
               </button>
             </div>
           </div>
@@ -1625,45 +1771,33 @@ export function SubjectDetailPage() {
                   <option value="ON_CLASS">Lên lớp</option>
                 </select>
               </div>
-              {addNodeParent && (
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Nhánh</label>
-                  {isSubNode(addNodeParent) ? (
-                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
-                      Nhánh phụ – node thứ 2
-                    </div>
-                  ) : (
-                    <>
-                      <select
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                        value={branchMode}
-                        onChange={(e) => setBranchMode(e.target.value as 'MAIN' | 'SUB')}
-                      >
-                        <option value="MAIN">Nhánh chính</option>
-                        {!hasSubChild(addNodeParent.nodeId) && <option value="SUB">Nhánh phụ</option>}
-                      </select>
-                      {hasSubChild(addNodeParent.nodeId) && (
-                        <p className="text-xs text-gray-500">Node này đã có nhánh phụ nên chỉ thêm được nhánh chính.</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
 
-              {addNodeParent && branchMode === "SUB" && (
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Điểm tối thiểu để qua *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    placeholder="VD: 80"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={edgeMinScore}
-                    onChange={(e) => setEdgeMinScore(e.target.value)}
-                  />
-                </div>
-              )}
+
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Chặng (stageOrder)</label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Ví dụ: 1"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={newNodeStageOrder}
+                  onChange={(e) => setNewNodeStageOrder(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Mức năng lực (level)</label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  value={newNodeLevel}
+                  onChange={(e) => setNewNodeLevel(e.target.value === "" ? "" : Number(e.target.value))}
+                >
+                  <option value="">Chung (Mọi mức đều học)</option>
+                  <option value={1}>Yếu (1)</option>
+                  <option value={2}>Trung bình (2)</option>
+                  <option value={3}>Khá (3)</option>
+                </select>
+              </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <input
@@ -1682,7 +1816,7 @@ export function SubjectDetailPage() {
                 <button
                   type="button"
                   onClick={() => { setIsAddNodeOpen(false); setAddNodeParent(null); }}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Hủy
                 </button>
@@ -1757,30 +1891,16 @@ export function SubjectDetailPage() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Thứ tự hiển thị</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={nodeToEdit.displayOrder}
-                    onChange={(e) => setNodeToEdit({ ...nodeToEdit, displayOrder: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Tên nhánh (Optional)</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={nodeToEdit.branchName || ""}
-                    onChange={(e) => setNodeToEdit({ ...nodeToEdit, branchName: e.target.value as any })}
-                  >
-                    <option value="">-- Chọn nhánh --</option>
-                    <option value="MAIN">MAIN (Nhánh chính)</option>
-                    <option value="SUB">SUB (Nhánh phụ)</option>
-                  </select>
-                </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-gray-700">Thứ tự hiển thị</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={nodeToEdit.displayOrder}
+                  onChange={(e) => setNodeToEdit({ ...nodeToEdit, displayOrder: Number(e.target.value) })}
+                />
               </div>
 
               <div className="flex items-center gap-2 pt-2">
@@ -1800,7 +1920,7 @@ export function SubjectDetailPage() {
                 <button
                   type="button"
                   onClick={() => { setIsEditNodeOpen(false); setNodeToEdit(null); }}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Hủy
                 </button>
@@ -1833,7 +1953,7 @@ export function SubjectDetailPage() {
               <button
                 type="button"
                 onClick={() => { setShowNodeDeleteConfirm(false); setNodeToDelete(null); }}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Hủy
               </button>
@@ -2055,7 +2175,7 @@ export function SubjectDetailPage() {
                 <button
                   type="button"
                   onClick={() => { setIsAddMaterialOpen(false); setSelectedNodeForContent(null); }}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Hủy
                 </button>
@@ -2142,7 +2262,7 @@ export function SubjectDetailPage() {
                 <button
                   type="button"
                   onClick={() => { setIsAddTestOpen(false); setSelectedNodeForContent(null); }}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-55 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Hủy
                 </button>

@@ -85,12 +85,13 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
      * Node đã COMPLETED và node chung (level == null) giữ nguyên.
      */
     private void reopenBranchNodesForLevel(Long classroomSubjectId, Long studentId, Integer newLevel) {
-        LearningPath path = learningPathRepository
-                .findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId)
+        ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
                 .orElse(null);
-        if (path == null) {
+        if (css == null || css.getAssignedPath() == null) {
             return;
         }
+        LearningPath path = css.getAssignedPath();
         List<StudentNodeProgress> list = studentNodeProgressRepository
                 .findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
         Map<Long, StudentProgressStatus> statusByNode = list.stream()

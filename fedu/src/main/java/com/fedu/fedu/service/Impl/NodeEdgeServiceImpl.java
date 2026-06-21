@@ -38,7 +38,6 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
         NodeEdge edge = NodeEdge.builder()
                 .fromNode(fromNode)
                 .toNode(toNode)
-                .branchName(request.getBranchName())
                 .minScore(request.getMinScore())
                 .maxScore(request.getMaxScore())
                 .build();
@@ -69,7 +68,6 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
                 .edgeId(edge.getEdgeId())
                 .fromNodeId(edge.getFromNode().getNodeId())
                 .toNodeId(edge.getToNode().getNodeId())
-                .branchName(edge.getBranchName())
                 .minScore(edge.getMinScore())
                 .maxScore(edge.getMaxScore())
                 .build();

@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS classroom_subject_students (
                                                           classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
                                                           student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                           current_level        INT,
+                                                          assigned_path_id     BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL, -- Model A: lộ trình clone học sinh được gán sau placement
                                                           joined_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -155,8 +156,8 @@ CREATE TABLE IF NOT EXISTS learning_paths (
                                               path_name        VARCHAR(255) NOT NULL,
                                               description      TEXT,
                                               created_by       BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
-                                              classroom_id     BIGINT REFERENCES classrooms(classroom_id) ON DELETE CASCADE,
-                                              level            INT, -- 1=yếu, 2=tb, 3=khá (chỉ set cho template)
+                                              classroom_subject_id BIGINT REFERENCES classroom_subjects(id) ON DELETE CASCADE, -- null = template; set = bản clone cho lớp-môn
+                                              level            INT, -- 1=yếu, 2=tb, 3=khá (template + clone đều set)
                                               original_path_id BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL,
                                               is_deleted       BOOLEAN DEFAULT FALSE,
                                               published_at     TIMESTAMP NULL,
@@ -273,6 +274,7 @@ CREATE TABLE IF NOT EXISTS student_test_attempts (
                                                      test_id      BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
                                                      student_id   BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                      score        DECIMAL(5,2),
+                                                     status       VARCHAR(20) DEFAULT 'SUBMITTED', -- IN_PROGRESS | SUBMITTED | CANCELLED (placement cancel/retake)
                                                      started_at   TIMESTAMP,
                                                      submitted_at TIMESTAMP,
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -421,7 +423,8 @@ CREATE TABLE IF NOT EXISTS student_level_history (
 );
 
 -- Indexes for performance and uniqueness
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_path ON learning_paths(classroom_id) WHERE classroom_id IS NOT NULL AND is_deleted = FALSE;
+-- Model A: tối đa 1 lộ trình clone cho mỗi (lớp-môn, mức). 3 mức cùng tồn tại cho 1 lớp-môn.
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_level_path ON learning_paths(classroom_subject_id, level) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE;
 CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id);
 CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id);
 CREATE INDEX IF NOT EXISTS idx_snp_path_status ON student_node_progress(path_id, status);
