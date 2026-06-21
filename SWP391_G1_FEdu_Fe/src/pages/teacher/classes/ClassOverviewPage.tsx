@@ -145,6 +145,24 @@ export function ClassOverviewPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailTab, setDetailTab] = useState<'info' | 'history'>('info');
+  const [resettingPlacement, setResettingPlacement] = useState(false);
+
+  const handleResetPlacement = async (studentId: number) => {
+    if (!window.confirm("Bạn có chắc chắn muốn hủy kết quả phân lớp của học sinh này? Toàn bộ tiến độ học tập trên lộ trình cũ của học sinh sẽ bị xóa và không thể khôi phục.")) {
+      return;
+    }
+    setResettingPlacement(true);
+    try {
+      await teacherService.cancelStudentPlacement(Number(classroomSubjectId), studentId);
+      toast.success("Đã hủy kết quả phân lớp học sinh thành công.");
+      setIsDetailOpen(false);
+      fetchClassroomData();
+    } catch (err: any) {
+      toast.error(err?.message || "Hủy kết quả thất bại");
+    } finally {
+      setResettingPlacement(false);
+    }
+  };
 
   // Keep track of which first nodes have been initialized to avoid redundant calls or state resets
   const initializedPathsRef = useRef<Set<number>>(new Set());
@@ -1922,6 +1940,20 @@ export function ClassOverviewPage() {
                         Học sinh đang học theo nhánh riêng biệt của mức năng lực <span className="font-semibold">{selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại'}</span>. Tiến độ sẽ tự động tăng khi học sinh làm bài test cổng phụ hoặc hoàn thành bài học.
                       </p>
                     </div>
+                    {selectedStudent.currentLevel != null && (
+                      <div className="pt-2">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={() => handleResetPlacement(selectedStudent.rawUserId)}
+                          disabled={resettingPlacement}
+                          className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                        >
+                          {resettingPlacement ? <Loader className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
+                          Hủy kết quả phân lớp & Cho phép thi lại
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 

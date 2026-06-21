@@ -19,4 +19,6 @@ export const teacherService = {
     http.get<ClassroomResponse[]>(`/classrooms/subject/${subjectId}`),
   getSubjectById: (subjectId: number) =>
     http.get<Subject>(`/subjects/${subjectId}`),
+  cancelStudentPlacement: (csId: number, studentId: number) =>
+    http.post<void>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/placement/cancel`),
 };

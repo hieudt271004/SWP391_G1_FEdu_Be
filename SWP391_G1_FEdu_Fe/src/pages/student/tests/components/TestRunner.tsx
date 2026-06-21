@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
@@ -17,7 +17,7 @@ interface TestRunnerProps {
   submitLabel?: string;
 }
 
-const emptyAnswer = (): AnswerValue => ({ selectedAnswerIds: [], responseText: '' });
+const EMPTY_ANSWER: AnswerValue = { selectedAnswerIds: [], responseText: '' };
 
 // Thành phần dùng chung cho cả node test và placement quiz.
 // Giữ state câu trả lời theo questionId rồi chuẩn hoá về payload submissions[].
@@ -33,11 +33,12 @@ export function TestRunner({
 }: TestRunnerProps) {
   const [answers, setAnswers] = useState<Record<number, AnswerValue>>({});
 
-  const getAnswer = (questionId: number): AnswerValue =>
-    answers[questionId] ?? emptyAnswer();
+  const getAnswer = useCallback((questionId: number): AnswerValue =>
+    answers[questionId] ?? EMPTY_ANSWER, [answers]);
 
-  const setAnswer = (questionId: number, value: AnswerValue) =>
+  const handleAnswerChange = useCallback((questionId: number, value: AnswerValue) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
+  }, []);
 
   const buildPayload = (): AttemptSubmission => ({
     submissions: details.questions.map((q) => {
@@ -55,8 +56,7 @@ export function TestRunner({
         const a = getAnswer(q.questionId);
         return a.selectedAnswerIds.length > 0 || a.responseText.trim().length > 0;
       }).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [answers, details.questions]
+    [answers, details.questions, getAnswer]
   );
 
   return (
@@ -109,7 +109,7 @@ export function TestRunner({
                 <QuestionField
                   question={q}
                   value={getAnswer(q.questionId)}
-                  onChange={(next) => setAnswer(q.questionId, next)}
+                  onChange={handleAnswerChange}
                   disabled={submitting}
                 />
               </CardContent>
@@ -130,3 +130,4 @@ export function TestRunner({
     </div>
   );
 }
+

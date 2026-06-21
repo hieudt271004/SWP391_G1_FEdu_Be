@@ -74,20 +74,6 @@ export function PlacementPage() {
     }
   };
 
-  const handleCancelPlacement = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn hủy kết quả phân loại hiện tại? Toàn bộ tiến độ học tập trên lộ trình cũ của bạn sẽ bị xóa và không thể khôi phục.")) return;
-    setSubmitting(true);
-    try {
-      await studentService.cancelPlacementAttempt(id);
-      toast.success("Đã hủy kết quả phân loại. Bạn có thể làm lại bài thi.");
-      window.location.reload();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Hủy kết quả thất bại");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -108,16 +94,6 @@ export function PlacementPage() {
           </AlertDescription>
         </Alert>
         <div className="flex gap-2">
-          {isAlreadyPlaced && (
-            <Button 
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={handleCancelPlacement}
-              disabled={submitting}
-            >
-              {submitting ? <Loader className="size-4 animate-spin mr-1" /> : <History className="size-4 mr-1" />}
-              Hủy kết quả & Thi lại
-            </Button>
-          )}
           <Button variant="outline" onClick={() => navigate(-1)}>
             <ArrowLeft className="size-4" /> Quay lại
           </Button>

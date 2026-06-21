@@ -30,6 +30,8 @@ export interface LearningNodeResponse {
   nodeType: 'AT_HOME' | 'ON_CLASS';
   displayOrder: number;
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  studentStatus?: 'LOCKED' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
+  testLocked?: boolean;
   isRequired: boolean;
   isDeleted: boolean;
   level?: number | null;
