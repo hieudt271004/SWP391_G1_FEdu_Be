@@ -41,7 +41,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final TestQuestionRepository testQuestionRepository;
     private final TestAnswerRepository testAnswerRepository;
 
-    // ── Learning Path (Template) ──────────────────────────────────────────────
+    // Learning Path (Template)
 
     @Override
     @Transactional(readOnly = true)
@@ -99,10 +99,6 @@ public class LearningPathServiceImpl implements LearningPathService {
         return mapToResponse(learningPath);
     }
 
-    /**
-     * Clone lộ trình mẫu (template) đã chọn thành lộ trình riêng cho một lớp-môn (classroom_subject),
-     * copy TOÀN BỘ node + edge + nội dung (material/video/file, test/question/answer).
-     */
     @Override
     @Transactional
     public LearningPathResponse cloneLearningPath(Long classroomSubjectId, Long templatePathId) {
@@ -111,7 +107,6 @@ public class LearningPathServiceImpl implements LearningPathService {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
 
-        // Chỉ cho clone khi MÔN đã được xuất bản
         if (!"published".equalsIgnoreCase(cs.getSubject().getStatus())) {
             throw new InvalidDataException("Môn học chưa được xuất bản — không thể clone lộ trình cho lớp.");
         }
@@ -594,7 +589,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
         validateAndGetEntryNodes(nodes, edges);
-        validateDifferentiationVariants(nodes);
+        validateLevelTraversability(nodes, edges);
 
         String email = "";
         try {
@@ -621,22 +616,51 @@ public class LearningPathServiceImpl implements LearningPathService {
         return PublishResultResponse.builder().seededStudents(seededCount).build();
     }
 
-    private void validateDifferentiationVariants(List<LearningNode> nodes) {
-        Set<Integer> leveledPresent = nodes.stream()
-                .map(LearningNode::getLevel)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (leveledPresent.isEmpty()) {
+    private void validateLevelTraversability(List<LearningNode> nodes, List<NodeEdge> edges) {
+        boolean hasLeveled = nodes.stream().anyMatch(n -> n.getLevel() != null);
+        if (!hasLeveled) {
             return;
         }
-        List<String> missing = new ArrayList<>();
-        if (!leveledPresent.contains(1)) missing.add("Yếu");
-        if (!leveledPresent.contains(2)) missing.add("Trung bình");
-        if (!leveledPresent.contains(3)) missing.add("Khá");
-        if (!missing.isEmpty()) {
-            throw new InvalidDataException("Lộ trình có node phân hóa nhưng thiếu biến thể cho mức: "
-                    + String.join(", ", missing) + ". Cần đủ 3 mức (Yếu/Trung bình/Khá).");
+
+        Map<Long, List<LearningNode>> outgoing = new HashMap<>();
+        for (NodeEdge e : edges) {
+            outgoing.computeIfAbsent(e.getFromNode().getNodeId(), k -> new ArrayList<>())
+                    .add(e.getToNode());
         }
+        Set<Long> withIncoming = edges.stream()
+                .map(e -> e.getToNode().getNodeId()).collect(Collectors.toSet());
+        Set<Long> entryIds = nodes.stream().map(LearningNode::getNodeId)
+                .filter(id -> !withIncoming.contains(id)).collect(Collectors.toSet());
+
+        for (int level = 1; level <= 3; level++) {
+            final int lv = level;
+            List<LearningNode> visible = nodes.stream()
+                    .filter(n -> n.getLevel() == null || n.getLevel().equals(lv))
+                    .collect(Collectors.toList());
+
+            if (visible.stream().noneMatch(n -> entryIds.contains(n.getNodeId()))) {
+                throw new InvalidDataException("Lộ trình không có node bắt đầu cho học sinh mức "
+                        + levelName(lv) + " — mức này sẽ không vào học được.");
+            }
+
+            for (LearningNode n : visible) {
+                List<LearningNode> outs = outgoing.getOrDefault(n.getNodeId(), Collections.emptyList());
+                if (outs.isEmpty()) {
+                    continue;
+                }
+                boolean hasVisibleNext = outs.stream()
+                        .anyMatch(t -> t.getLevel() == null || t.getLevel().equals(lv));
+                if (!hasVisibleNext) {
+                    throw new InvalidDataException("Lộ trình bị kẹt ở node '" + n.getTitle()
+                            + "' cho học sinh mức " + levelName(lv)
+                            + ": node có nhánh đi tiếp nhưng không nhánh nào dành cho mức này.");
+                }
+            }
+        }
+    }
+
+    private String levelName(int level) {
+        return level == 1 ? "Yếu" : level == 2 ? "Trung bình" : "Khá";
     }
 
     private boolean anyStudentPlaced(Long classroomSubjectId) {
@@ -720,7 +744,6 @@ public class LearningPathServiceImpl implements LearningPathService {
         UserAccount student = userAccountRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
 
-        // Idempotency
         if (!studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()).isEmpty()) {
             return;
         }
