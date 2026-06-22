@@ -164,15 +164,22 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
 
             // Create indexes if not exists
             try (Statement statement = connection.createStatement()) {
-                // Model A (clone-three-level-paths): drop the old single-path-per-classroom-subject
-                // unique indexes and replace with one-path-per-(classroom-subject, level) so 3 levels coexist.
-                statement.execute("DROP INDEX IF EXISTS uniq_active_classroom_subject_path");
-                statement.execute("DROP INDEX IF EXISTS uniq_active_classroom_path");
-                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_level_path ON learning_paths(classroom_subject_id, level) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_snp_path_status ON student_node_progress(path_id, status)");
-                log.info("Indexes verified/created successfully (Model A per-level unique).");
+                log.info("Indexes verified/created successfully.");
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP INDEX IF EXISTS uniq_active_classroom_subject_level_path");
+                statement.execute("ALTER TABLE classroom_subject_students DROP COLUMN IF EXISTS assigned_path_id");
+                statement.execute("ALTER TABLE learning_paths DROP COLUMN IF EXISTS level");
+                log.info("Dropped legacy columns: assigned_path_id, learning_paths.level.");
+            }
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_path ON learning_paths(classroom_subject_id) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE");
+            } catch (Exception e) {
+                log.warn("Could not create uniq_active_classroom_subject_path: {}", e.getMessage());
             }
 
             // Drop old status check constraint if it exists, to allow 'OPEN' and 'IN_PROGRESS'
@@ -206,20 +213,6 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             try (Statement statement = connection.createStatement()) {
                 // subjects.learningpath_length
                 statement.execute("ALTER TABLE subjects ADD COLUMN IF NOT EXISTS learningpath_length INT");
-                // learning_paths.level (int 1=yếu,2=tb,3=khá). Backfill legacy enum values if present.
-                statement.execute("ALTER TABLE learning_paths DROP CONSTRAINT IF EXISTS learning_paths_level_check");
-                statement.execute("ALTER TABLE learning_paths ADD COLUMN IF NOT EXISTS level INT");
-                try {
-                    statement.execute("ALTER TABLE learning_paths ALTER COLUMN level TYPE INT USING (" +
-                            "CASE " +
-                            "  WHEN level = 'BASIC' THEN 1 " +
-                            "  WHEN level = 'ADVANCED' THEN 3 " +
-                            "  WHEN level ~ '^[0-9]+$' THEN level::integer " +
-                            "  ELSE NULL " +
-                            "END)");
-                } catch (Exception e) {
-                    log.warn("Could not alter learning_paths.level type: {}", e.getMessage());
-                }
                 // learning_nodes.stage_order, learning_nodes.level
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS stage_order INT");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS level INT");
@@ -229,25 +222,9 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 statement.execute("ALTER TABLE classroom_subject_students ADD COLUMN IF NOT EXISTS current_level INT");
                 // tests.node_id nullable (placement quiz không gắn node)
                 statement.execute("ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL");
-                // Model A: lộ trình clone học sinh được gán sau placement
-                statement.execute("ALTER TABLE classroom_subject_students ADD COLUMN IF NOT EXISTS assigned_path_id BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL");
                 // Placement cancel/retake: trạng thái lượt làm bài
                 statement.execute("ALTER TABLE student_test_attempts ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'SUBMITTED'");
-                log.info("Adaptive placement + Model A: columns added/verified.");
-            }
-
-            // Model A legacy backfill: bind already-placed students of single-path classrooms to that path.
-            try (Statement statement = connection.createStatement()) {
-                int rows = statement.executeUpdate(
-                    "UPDATE classroom_subject_students css SET assigned_path_id = (" +
-                    "    SELECT lp.path_id FROM learning_paths lp" +
-                    "    WHERE lp.classroom_subject_id = css.classroom_subject_id AND lp.is_deleted = FALSE" +
-                    "    ORDER BY lp.path_id LIMIT 1) " +
-                    "WHERE css.assigned_path_id IS NULL AND css.current_level IS NOT NULL " +
-                    "AND EXISTS (SELECT 1 FROM learning_paths lp2 WHERE lp2.classroom_subject_id = css.classroom_subject_id AND lp2.is_deleted = FALSE)");
-                if (rows > 0) {
-                    log.info("Model A backfill: bound {} legacy student(s) to their single classroom path.", rows);
-                }
+                log.info("Adaptive placement: columns added/verified.");
             }
 
             // quiz_score_bands table

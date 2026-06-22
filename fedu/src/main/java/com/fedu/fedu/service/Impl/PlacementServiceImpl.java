@@ -64,15 +64,15 @@ public class PlacementServiceImpl implements PlacementService {
                 .findByClassroomSubjectIdAndStudentIdForUpdate(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
 
-        // Guard: check if already placed
-        if (css.getAssignedPath() != null) {
+        if (css.getCurrentLevel() != null) {
             throw new InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
         }
 
-        // 2. Require all 3 paths published before placement opens
-        List<LearningPath> publishedPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
-        if (publishedPaths.size() < 3 || publishedPaths.stream().anyMatch(p -> p.getPublishedAt() == null)) {
-            throw new InvalidDataException("Chưa đủ 3 lộ trình của lớp-môn được xuất bản. Vui lòng liên hệ giảng viên.");
+        LearningPath path = learningPathRepository
+                .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
+                .orElseThrow(() -> new InvalidDataException("Lớp-môn chưa có lộ trình. Vui lòng liên hệ giảng viên."));
+        if (path.getPublishedAt() == null) {
+            throw new InvalidDataException("Lộ trình của lớp-môn chưa được xuất bản. Vui lòng liên hệ giảng viên.");
         }
 
         Test quiz = requirePlacementQuiz(classroomSubjectId);
@@ -86,12 +86,7 @@ public class PlacementServiceImpl implements PlacementService {
                     score, quiz.getTestId(), classroomSubjectId, LearningLevels.WEAK);
             level = LearningLevels.WEAK;
         }
-
         final Integer resolvedLevel = level;
-        LearningPath targetPath = publishedPaths.stream()
-                .filter(p -> resolvedLevel.equals(p.getLevel()))
-                .findFirst()
-                .orElseThrow(() -> new InvalidDataException("Không tìm thấy lộ trình đã xuất bản cho mức năng lực " + resolvedLevel));
 
         // Determine if it is a retake by checking if they have prior history
         boolean isRetake = !studentLevelHistoryRepository
@@ -99,14 +94,8 @@ public class PlacementServiceImpl implements PlacementService {
                 .isEmpty();
         LevelChangeReason reason = isRetake ? LevelChangeReason.RETAKE : LevelChangeReason.PLACEMENT;
 
-        css.setCurrentLevel(resolvedLevel);
-        css.setAssignedPath(targetPath);
-        classroomSubjectStudentRepository.save(css);
-
-        // Assign level via level routing (this writes history)
         levelRoutingService.assignInitialLevel(classroomSubjectId, studentId, resolvedLevel, reason);
 
-        // Seed new-path progress
         learningPathService.backfillProgressForStudent(classroomSubjectId, studentId);
 
         return PlacementResultResponse.builder()
@@ -140,14 +129,11 @@ public class PlacementServiceImpl implements PlacementService {
                 .findByClassroomSubjectIdAndStudentIdForUpdate(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
 
-        // Delete old bound path's progress rows
-        if (css.getAssignedPath() != null) {
-            studentNodeProgressRepository.deleteByStudentUserIdAndLearningPathPathId(
-                    studentId, css.getAssignedPath().getPathId());
-        }
+        learningPathRepository
+                .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
+                .ifPresent(path -> studentNodeProgressRepository
+                        .deleteByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()));
 
-        // Clear binding
-        css.setAssignedPath(null);
         css.setCurrentLevel(null);
         classroomSubjectStudentRepository.save(css);
 
@@ -178,7 +164,7 @@ public class PlacementServiceImpl implements PlacementService {
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
-        if (css.getAssignedPath() != null) {
+        if (css.getCurrentLevel() != null) {
             throw new InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
         }
     }

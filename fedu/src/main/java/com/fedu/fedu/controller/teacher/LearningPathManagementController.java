@@ -66,13 +66,14 @@ public class LearningPathManagementController {
                     learningPathService.getLearningPathsBySubjectId(subjectId));
         }
 
-        @Operation(summary = "Clone learning path to classroom")
+        @Operation(summary = "Clone a chosen template into the classroom-subject (single path)")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @ResponseStatus(HttpStatus.CREATED)
         @PostMapping("/classroom-subjects/{classroomSubjectId}/clone-learning-path")
-        public ResponseData<List<LearningPathResponse>> cloneLearningPath(@PathVariable Long classroomSubjectId) {
+        public ResponseData<LearningPathResponse> cloneLearningPath(@PathVariable Long classroomSubjectId,
+                                                                    @RequestParam Long templatePathId) {
             return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path cloned successfully",
-                    learningPathService.cloneLearningPath(classroomSubjectId));
+                    learningPathService.cloneLearningPath(classroomSubjectId, templatePathId));
         }
 
         @Operation(summary = "Get classroom learning paths")

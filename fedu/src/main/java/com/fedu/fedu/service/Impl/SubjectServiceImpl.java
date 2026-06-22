@@ -54,20 +54,14 @@ public class SubjectServiceImpl implements SubjectService {
 
         Subject saved = subjectRepository.save(subject);
 
-        // Auto-create 3 learning path templates for levels 1 (Yếu), 2 (Trung bình), 3 (Khá)
-        for (int lv = 1; lv <= 3; lv++) {
-            String pathName = lv == 1 ? "Lộ trình Yếu" : lv == 2 ? "Lộ trình Trung bình" : "Lộ trình Khá";
-            String description = "Lộ trình mẫu cấp độ " + (lv == 1 ? "Yếu" : lv == 2 ? "Trung bình" : "Khá");
-            LearningPath lp = LearningPath.builder()
-                    .subject(saved)
-                    .pathName(pathName)
-                    .description(description)
-                    .level(lv)
-                    .isDeleted(false)
-                    .createdBy(creator)
-                    .build();
-            learningPathRepository.save(lp);
-        }
+        LearningPath lp = LearningPath.builder()
+                .subject(saved)
+                .pathName("Lộ trình mẫu")
+                .description("Lộ trình mẫu mặc định cho môn " + saved.getSubjectCode())
+                .isDeleted(false)
+                .createdBy(creator)
+                .build();
+        learningPathRepository.save(lp);
 
         return SubjectResponse.from(saved);
     }
@@ -102,35 +96,27 @@ public class SubjectServiceImpl implements SubjectService {
         Subject subject = subjectRepository.findBySubjectIdAndIsDeletedFalse(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + subjectId));
 
-        // Bắt buộc đủ 3 lộ trình theo mức: 1=yếu, 2=tb, 3=khá.
         java.util.List<com.fedu.fedu.entity.LearningPath> paths = learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId);
-        
-        java.util.Set<Integer> levels = paths.stream()
-                .map(com.fedu.fedu.entity.LearningPath::getLevel)
-                .filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toSet());
-        java.util.List<Integer> missing = new java.util.ArrayList<>();
-        for (int lv = com.fedu.fedu.utils.LearningLevels.MIN; lv <= com.fedu.fedu.utils.LearningLevels.MAX; lv++) {
-            if (!levels.contains(lv)) missing.add(lv);
-        }
-        if (!missing.isEmpty()) {
-            throw new InvalidDataException(
-                    "Môn học phải có đủ 3 lộ trình (1=yếu, 2=tb, 3=khá) trước khi xuất bản. Còn thiếu mức: " + missing);
+        if (paths.isEmpty()) {
+            throw new InvalidDataException("Môn học chưa có lộ trình mẫu nào — không thể xuất bản.");
         }
 
-        // Bắt buộc mỗi lộ trình phải có số bài học chính đúng với số chặng yêu cầu của môn học.
         if (subject.getLearningpathLength() == null || subject.getLearningpathLength() <= 0) {
             throw new InvalidDataException("Môn học chưa cấu hình số chặng (learningpathLength) hợp lệ.");
         }
 
         for (com.fedu.fedu.entity.LearningPath path : paths) {
             List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
-            long mainNodeCount = nodes.size();
-            if (mainNodeCount != subject.getLearningpathLength()) {
+            long stageCount = nodes.stream()
+                    .map(LearningNode::getStageOrder)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct().count();
+            long effective = stageCount > 0 ? stageCount : nodes.size();
+            if (effective != subject.getLearningpathLength()) {
                 throw new InvalidDataException(
-                        String.format("Lộ trình '%s' có %d bài học chính, chưa đúng với số chặng yêu cầu của môn học (%d bài).",
-                                path.getPathName(), mainNodeCount, subject.getLearningpathLength())
+                        String.format("Lộ trình '%s' có %d chặng, chưa đúng với số chặng yêu cầu của môn học (%d).",
+                                path.getPathName(), effective, subject.getLearningpathLength())
                 );
             }
         }

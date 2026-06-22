@@ -191,28 +191,11 @@ public class LearningPathIntegrationTest {
                     .lecturer(teacherB)
                     .build());
 
-            // Create template learning paths
-            LearningPath templatePath1 = learningPathRepository.save(LearningPath.builder()
-                    .subject(subject)
-                    .pathName("Template Roadmap L1")
-                    .description("PRJ301 Template L1")
-                    .level(1)
-                    .isDeleted(false)
-                    .build());
-
+            // Create template learning path
             templatePath = learningPathRepository.save(LearningPath.builder()
                     .subject(subject)
-                    .pathName("Template Roadmap L2")
-                    .description("PRJ301 Template L2")
-                    .level(2)
-                    .isDeleted(false)
-                    .build());
-
-            LearningPath templatePath3 = learningPathRepository.save(LearningPath.builder()
-                    .subject(subject)
-                    .pathName("Template Roadmap L3")
-                    .description("PRJ301 Template L3")
-                    .level(3)
+                    .pathName("Template Roadmap")
+                    .description("PRJ301 Template")
                     .isDeleted(false)
                     .build());
 
@@ -243,15 +226,12 @@ public class LearningPathIntegrationTest {
         List<LearningPath> clonedPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId());
         assertTrue(clonedPaths.isEmpty());
 
-        learningPathService.cloneLearningPath(classroomSubjectA.getId());
+        learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
 
         clonedPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId());
-        assertEquals(3, clonedPaths.size());
+        assertEquals(1, clonedPaths.size());
 
-        LearningPath clonedPath = clonedPaths.stream()
-                .filter(p -> p.getLevel() == 2)
-                .findFirst()
-                .orElse(null);
+        LearningPath clonedPath = clonedPaths.get(0);
         assertNotNull(clonedPath);
         assertEquals(classroomSubjectA.getId(), clonedPath.getClassroomSubject().getId());
 
@@ -274,7 +254,6 @@ public class LearningPathIntegrationTest {
         ClassroomSubjectStudent enrollment = ClassroomSubjectStudent.builder()
                 .classroomSubject(classroomSubjectA)
                 .student(student)
-                .assignedPath(clonedPath) // Pre-bind student to Level 2 path
                 .currentLevel(2)
                 .build();
         classroomSubjectStudentRepository.save(enrollment);
@@ -310,7 +289,6 @@ public class LearningPathIntegrationTest {
         ClassroomSubjectStudent css2 = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectA.getId(), student2.getUserId())
                 .orElseThrow();
-        css2.setAssignedPath(clonedPath);
         css2.setCurrentLevel(2);
         classroomSubjectStudentRepository.save(css2);
 
@@ -327,13 +305,11 @@ public class LearningPathIntegrationTest {
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testConcurrentPublishRace() throws Exception {
         transactionTemplate.execute(status -> {
-            learningPathService.cloneLearningPath(classroomSubjectA.getId());
+            learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
             return null;
         });
-        LearningPath clonedPath = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).stream()
-                .filter(p -> p.getLevel() == 2)
-                .findFirst()
-                .orElseThrow();
+        LearningPath clonedPath = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
+                .get(0);
 
         int threadCount = 2;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -392,11 +368,9 @@ public class LearningPathIntegrationTest {
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void testRollbackEnrollmentWhenBackfillFails() {
-        learningPathService.cloneLearningPath(classroomSubjectA.getId());
-        LearningPath clonedPath = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).stream()
-                .filter(p -> p.getLevel() == 2)
-                .findFirst()
-                .orElseThrow();
+        learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
+        LearningPath clonedPath = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
+                .get(0);
         learningPathService.publishClassroomPath(classroomSubjectA.getId(), clonedPath.getPathId());
 
         UserAccount student = UserAccount.builder()

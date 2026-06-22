@@ -334,8 +334,19 @@ public class StudentTestServiceImpl implements StudentTestService {
     private void openMainTargetIfEligible(Long studentId, LearningNode target, Long pathId) {
         // TODO: tự mở node ON_CLASS khi tới giờ buổi học (chưa có thuộc tính thời gian) — hiện chỉ giáo viên mở.
         if (target.getNodeType() == NodeType.ON_CLASS) return;
+        if (target.getLevel() != null && !matchesStudentLevel(studentId, target)) return;
         if (!checkIncomingPrerequisites(studentId, target, pathId)) return;
         openNode(studentId, target, pathId);
+    }
+
+    private boolean matchesStudentLevel(Long studentId, LearningNode node) {
+        if (node.getLevel() == null) return true;
+        ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
+        if (cs == null) return true;
+        return classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(cs.getId(), studentId)
+                .map(css -> node.getLevel().equals(css.getCurrentLevel()))
+                .orElse(false);
     }
 
     private void routeAfterAttempt(Long studentId, LearningNode node, Long pathId, boolean passed) {

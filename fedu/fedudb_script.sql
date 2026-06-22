@@ -133,7 +133,6 @@ CREATE TABLE IF NOT EXISTS classroom_subject_students (
                                                           classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
                                                           student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                           current_level        INT,
-                                                          assigned_path_id     BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL, -- Model A: lộ trình clone học sinh được gán sau placement
                                                           joined_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -156,8 +155,7 @@ CREATE TABLE IF NOT EXISTS learning_paths (
                                               path_name        VARCHAR(255) NOT NULL,
                                               description      TEXT,
                                               created_by       BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
-                                              classroom_subject_id BIGINT REFERENCES classroom_subjects(id) ON DELETE CASCADE, -- null = template; set = bản clone cho lớp-môn
-                                              level            INT, -- 1=yếu, 2=tb, 3=khá (template + clone đều set)
+                                              classroom_subject_id BIGINT REFERENCES classroom_subjects(id) ON DELETE CASCADE,
                                               original_path_id BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL,
                                               is_deleted       BOOLEAN DEFAULT FALSE,
                                               published_at     TIMESTAMP NULL,

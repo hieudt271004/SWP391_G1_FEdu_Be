@@ -11,7 +11,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClassroomPathDto {
-    private Integer level;
     private Long pathId;
     private List<LearningNodeResponse> nodes;
     private List<NodeEdgeResponse> edges;

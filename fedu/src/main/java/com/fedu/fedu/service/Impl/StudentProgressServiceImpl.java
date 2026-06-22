@@ -32,8 +32,7 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
 
-        // Chưa làm bài test phân loại → chặn truy cập nội dung học, yêu cầu làm placement trước.
-        if (enrollment.getAssignedPath() == null) {
+        if (enrollment.getCurrentLevel() == null) {
             return ClassroomGraphResponse.builder()
                     .classroomSubjectId(classroomSubjectId)
                     .state("NEED_PLACEMENT")
@@ -45,7 +44,9 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                     .build();
         }
 
-        LearningPath path = enrollment.getAssignedPath();
+        LearningPath path = learningPathRepository
+                .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
+                .orElse(null);
         if (path == null || path.getPublishedAt() == null) {
             // No path published yet
             return ClassroomGraphResponse.builder()
@@ -59,8 +60,17 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                     .build();
         }
 
-        List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
-        List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
+        Integer level = enrollment.getCurrentLevel();
+        List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId())
+                .stream()
+                .filter(n -> n.getLevel() == null || n.getLevel().equals(level))
+                .collect(Collectors.toList());
+        Set<Long> visibleNodeIds = nodes.stream().map(LearningNode::getNodeId).collect(Collectors.toSet());
+        List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId())
+                .stream()
+                .filter(e -> visibleNodeIds.contains(e.getFromNode().getNodeId())
+                        && visibleNodeIds.contains(e.getToNode().getNodeId()))
+                .collect(Collectors.toList());
 
         // Fetch student progress list
         List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
