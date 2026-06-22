@@ -3,17 +3,13 @@ package com.fedu.fedu.service.Impl;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
 import com.fedu.fedu.exception.InvalidDataException;
-import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
-import com.fedu.fedu.utils.enums.NodeStatus;
-import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -108,7 +104,7 @@ class LearningPathServiceImplTest {
         SecurityContextHolder.clearContext();
     }
 
-    // 6.1 Unit test cloneLearningPath
+    // Unit test cloneLearningPath
     @Test
     void testCloneLearningPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -155,7 +151,7 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // 6.2 Unit test cycle detection iterative Kahn
+    // Unit test cycle detection iterative Kahn
     @Test
     void testCloneLearningPath_CycleDetected() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -184,7 +180,7 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // 6.3 Unit test getClassroomGraph
+    // Unit test getClassroomGraph
     @Test
     void testGetClassroomGraph_NoPath() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -235,7 +231,7 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // 6.4 Unit test publishClassroomPath
+    // Unit test publishClassroomPath
     @Test
     void testPublishClassroomPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -292,7 +288,41 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // 6.5 Unit test unpublishClassroomPath
+    @Test
+    void testPublishClassroomPath_BlocksStuckLevel() {
+        mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+
+        com.fedu.fedu.entity.Test quiz = new com.fedu.fedu.entity.Test();
+        quiz.setTestId(999L);
+        classroomSubject.setQuizStart(quiz);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
+
+        LearningPath path = new LearningPath();
+        path.setPathId(300L);
+        path.setClassroomSubject(classroomSubject);
+        path.setPublishedAt(null);
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(path));
+
+        LearningNode shared = LearningNode.builder().nodeId(1L).title("Giới thiệu").displayOrder(0).build();
+        LearningNode lvl1 = LearningNode.builder().nodeId(2L).title("Bài mức Yếu").level(1).displayOrder(1).build();
+        LearningNode lvl3 = LearningNode.builder().nodeId(3L).title("Bài mức Khá").level(3).displayOrder(2).build();
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(300L))
+                .thenReturn(Arrays.asList(shared, lvl1, lvl3));
+
+        NodeEdge e1 = NodeEdge.builder().fromNode(shared).toNode(lvl1).build();
+        NodeEdge e2 = NodeEdge.builder().fromNode(shared).toNode(lvl3).build();
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(300L))
+                .thenReturn(Arrays.asList(e1, e2));
+
+        assertThrows(InvalidDataException.class,
+                () -> learningPathService.publishClassroomPath(100L, 300L));
+        clearAuthentication();
+    }
+
+    // Unit test unpublishClassroomPath
     @Test
     void testUnpublishClassroomPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
