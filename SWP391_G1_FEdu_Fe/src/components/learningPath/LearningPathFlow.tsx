@@ -67,60 +67,48 @@ export function LearningPathFlow({
 }: LearningPathFlowProps) {
   const { placed, height, posById } = useMemo(() => {
     const visible = nodes.filter((n) => !n.isDeleted);
-    const idSet = new Set(visible.map((n) => n.nodeId));
-    const usableEdges = edges.filter((e) => idSet.has(e.fromNodeId) && idSet.has(e.toNodeId));
-
-    const adj = new Map<number, number[]>();
-    const indeg = new Map<number, number>();
-    visible.forEach((n) => {
-      adj.set(n.nodeId, []);
-      indeg.set(n.nodeId, 0);
-    });
-    usableEdges.forEach((e) => {
-      adj.get(e.fromNodeId)!.push(e.toNodeId);
-      indeg.set(e.toNodeId, (indeg.get(e.toNodeId) ?? 0) + 1);
-    });
-
-    const layer = new Map<number, number>();
-    const queue: number[] = [];
-    visible.forEach((n) => {
-      if ((indeg.get(n.nodeId) ?? 0) === 0) {
-        layer.set(n.nodeId, 0);
-        queue.push(n.nodeId);
-      }
-    });
-    const indegWork = new Map(indeg);
-    while (queue.length) {
-      const u = queue.shift()!;
-      for (const v of adj.get(u) ?? []) {
-        layer.set(v, Math.max(layer.get(v) ?? 0, (layer.get(u) ?? 0) + 1));
-        indegWork.set(v, (indegWork.get(v) ?? 0) - 1);
-        if ((indegWork.get(v) ?? 0) === 0) queue.push(v);
-      }
-    }
 
     const derivedGates =
       gateNodeIds ??
-      new Set(visible.filter((n) => n.testKind === "GATE" || n.testKind === "PLACEMENT").map((n) => n.nodeId));
+      new Set(
+        visible
+          .filter(
+            (n) =>
+              n.testKind === "GATE" || n.testKind === "PLACEMENT" || n.testKind === "FREE_CHOICE"
+          )
+          .map((n) => n.nodeId)
+      );
 
-    let maxLayer = 0;
+    // Hàng = stageOrder (không suy ra từ cạnh → node rời rạc vẫn nằm đúng chặng).
+    // Test cùng stage với node học hiển thị ngay DƯỚI nhánh (stage + 0.5).
+    const stageHasLearn = new Set<number>();
+    visible.forEach((n) => {
+      if (!derivedGates.has(n.nodeId)) stageHasLearn.add(n.stageOrder ?? 0);
+    });
+    const rowOf = (n: LearningNodeResponse) => {
+      const base = n.stageOrder ?? 0;
+      return derivedGates.has(n.nodeId) && stageHasLearn.has(base) ? base + 0.5 : base;
+    };
+
+    const rowVals = [...new Set(visible.map(rowOf))].sort((a, b) => a - b);
+    const rowIndex = new Map<number, number>();
+    rowVals.forEach((v, i) => rowIndex.set(v, i));
+
     const colCount = new Map<string, number>();
     const placedArr: Placed[] = visible.map((n) => {
-      const lay = layer.get(n.nodeId) ?? 0;
-      maxLayer = Math.max(maxLayer, lay);
+      const r = rowIndex.get(rowOf(n)) ?? 0;
       const col = levelToCol(n.level);
-      const key = `${lay}:${col}`;
+      const key = `${r}:${col}`;
       const offset = colCount.get(key) ?? 0;
       colCount.set(key, offset + 1);
       const isGate = derivedGates.has(n.nodeId);
       const w = isGate ? SQUARE_W : CIRCLE;
       const h = isGate ? SQUARE_H : CIRCLE;
-      const dim =
-        highlightLevel != null && n.level != null && n.level !== highlightLevel;
+      const dim = highlightLevel != null && n.level != null && n.level !== highlightLevel;
       return {
         node: n,
         x: COL_X[col] + offset * (CIRCLE + 16),
-        y: TOP + lay * ROW_GAP + CIRCLE / 2,
+        y: TOP + r * ROW_GAP + CIRCLE / 2,
         w,
         h,
         isGate,
@@ -132,10 +120,10 @@ export function LearningPathFlow({
     placedArr.forEach((p) => pos.set(p.node.nodeId, p));
     return {
       placed: placedArr,
-      height: TOP + (maxLayer + 1) * ROW_GAP,
+      height: TOP + rowVals.length * ROW_GAP,
       posById: pos,
     };
-  }, [nodes, edges, gateNodeIds, highlightLevel]);
+  }, [nodes, gateNodeIds, highlightLevel]);
 
   if (placed.length === 0) {
     return (
@@ -225,7 +213,11 @@ export function LearningPathFlow({
             >
               {p.isGate && (
                 <span className="text-[9px] font-semibold uppercase tracking-wide">
-                  {p.node.testKind === "PLACEMENT" ? "Test NL" : "Test"}
+                  {p.node.testKind === "PLACEMENT"
+                    ? "Test NL"
+                    : p.node.testKind === "FREE_CHOICE"
+                    ? "Test chọn"
+                    : "Test"}
                 </span>
               )}
               <span className="line-clamp-2 text-[11px] leading-tight font-medium">{p.node.title}</span>
