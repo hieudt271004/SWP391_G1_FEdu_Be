@@ -6,6 +6,7 @@ import com.fedu.fedu.entity.*;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.service.StudentTestService;
+import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.QuestionType;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
@@ -119,15 +120,15 @@ public class StudentTestServiceImpl implements StudentTestService {
         BigDecimal finalPercentage = gradeAttempt(test, attempt, request);
         boolean passed = finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
 
-        // Định tuyến sau khi nộp: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại
-        routeAfterAttempt(studentId, test.getLearningNode(),
-                test.getLearningNode().getLearningPath().getPathId(), passed);
-
-        // Cổng test: nếu test có khoảng điểm (score band) → đổi mức năng lực của học sinh (disabled in Model A).
-        // com.fedu.fedu.entity.ClassroomSubject cs = test.getLearningNode().getLearningPath().getClassroomSubject();
-        // if (cs != null) {
-        //     levelRoutingService.applyGateBands(cs.getId(), test.getTestId(), studentId, finalPercentage);
-        // }
+        LearningNode node = test.getLearningNode();
+        Long pathId = node.getLearningPath().getPathId();
+        if (node.getTestKind() == NodeTestKind.GATE) {
+            // Cổng phân luồng: định tuyến theo điểm (đổi mức + mở nhánh đúng mức), không pass/fail.
+            routeGateNode(studentId, node, pathId, finalPercentage);
+        } else {
+            // Node học thường: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại.
+            routeAfterAttempt(studentId, node, pathId, passed);
+        }
 
         return AttemptSubmissionResultResponse.builder()
                 .attemptId(attempt.getAttemptId())
@@ -355,6 +356,33 @@ public class StudentTestServiceImpl implements StudentTestService {
             routeSubNode(studentId, node, pathId, passed, incoming);
         } else {
             routeMainNode(studentId, node, pathId, passed);
+        }
+    }
+
+    /**
+     * Cổng phân luồng (GATE): KHÔNG pass/fail. Hoàn thành node cổng, đổi mức theo điểm
+     * (đổi mức sẽ tự mở nhánh đúng mức &amp; khóa nhánh sai mức), rồi mở node chặng sau khớp
+     * mức hiện tại — xử lý cả trường hợp điểm ở giữa (giữ nguyên mức).
+     */
+    // package-private để unit-test trực tiếp lõi định tuyến cổng.
+    void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage) {
+        StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
+        if (gp != null) {
+            if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
+                gp.setStatus(StudentProgressStatus.COMPLETED);
+                gp.setCompletedAt(LocalDateTime.now());
+            }
+            gp.setTestLocked(false);
+            studentNodeProgressRepository.save(gp);
+        }
+
+        ClassroomSubject cs = gateNode.getLearningPath().getClassroomSubject();
+        if (cs != null) {
+            levelRoutingService.applyGateRouting(cs.getId(), gateNode, studentId, percentage);
+        }
+
+        for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(gateNode.getNodeId())) {
+            openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
         }
     }
 
