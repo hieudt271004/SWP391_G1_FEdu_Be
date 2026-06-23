@@ -1,5 +1,6 @@
 package com.fedu.fedu.service;
 
+import com.fedu.fedu.entity.LearningNode;
 import com.fedu.fedu.utils.enums.LevelChangeReason;
 
 import java.math.BigDecimal;
@@ -17,8 +18,11 @@ public interface LevelRoutingService {
     void assignInitialLevel(Long classroomSubjectId, Long studentId, Integer level, LevelChangeReason reason);
 
     /**
-     * Cổng test: nếu bài test có score band, ánh xạ điểm → mức mới; nếu khác mức hiện tại
-     * thì đổi mức, ghi lịch sử GATE và mở lại node nhánh các chặng chưa hoàn thành theo mức mới.
+     * Cổng phân luồng (GATE): dựa trên MỨC HIỆN TẠI của học sinh + ngưỡng lên/xuống của
+     * node GATE (gateUpMin/gateDownMax) + điểm vừa nộp, dịch mức LÊN/XUỐNG 1 bậc trong
+     * phạm vi applies_levels (điểm ở giữa = giữ nguyên). Nếu mức đổi thì ghi lịch sử GATE
+     * và mở lại node nhánh các chặng chưa hoàn thành theo mức mới. Bỏ qua nếu node không
+     * phải GATE, học sinh chưa có mức, hoặc mức hiện tại nằm ngoài applies_levels.
      */
-    void applyGateBands(Long classroomSubjectId, Long testId, Long studentId, BigDecimal percentage);
+    void applyGateRouting(Long classroomSubjectId, LearningNode gateNode, Long studentId, BigDecimal percentage);
 }

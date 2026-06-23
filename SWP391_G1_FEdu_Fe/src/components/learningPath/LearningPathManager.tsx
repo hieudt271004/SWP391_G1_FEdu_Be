@@ -21,8 +21,138 @@ const LEVEL_OPTIONS: { value: "" | 1 | 2 | 3; label: string }[] = [
   { value: 3, label: "Khá" },
 ];
 
+type Lvl = 1 | 2 | 3;
+const ALL_LEVELS: Lvl[] = [1, 2, 3];
+
+const isLearningNode = (n: LearningNodeResponse) => n.testKind == null || n.testKind === "NONE";
+const isPlacementNode = (n: LearningNodeResponse) => n.testKind === "PLACEMENT";
+// GATE và FREE_CHOICE đều nằm CÙNG STAGE với các node học của nhánh.
+const isGateLikeNode = (n: LearningNodeResponse) => n.testKind === "GATE" || n.testKind === "FREE_CHOICE";
+
+const parseApplies = (s?: string | null): Set<number> =>
+  new Set(
+    (s ?? "")
+      .split(",")
+      .map((x) => Number(x.trim()))
+      .filter((x) => x === 1 || x === 2 || x === 3)
+  );
+
+function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: number; to: number }> {
+  const nodes = allNodes.filter((n) => !n.isDeleted);
+  const byStage = new Map<number, LearningNodeResponse[]>();
+  for (const n of nodes) {
+    const s = n.stageOrder ?? 0;
+    if (!byStage.has(s)) byStage.set(s, []);
+    byStage.get(s)!.push(n);
+  }
+  const stages = [...byStage.keys()].sort((a, b) => a - b);
+
+  const learnAt = (s: number, lvl: Lvl) =>
+    (byStage.get(s) ?? []).find((n) => isLearningNode(n) && n.level === lvl) ?? null;
+  const chungLearnAt = (s: number) =>
+    (byStage.get(s) ?? []).find((n) => isLearningNode(n) && n.level == null) ?? null;
+  const placementAt = (s: number) => (byStage.get(s) ?? []).find(isPlacementNode) ?? null;
+  // GATE (phân luồng) và FREE_CHOICE (tự do chọn) nối cạnh KHÁC nhau → tách riêng.
+  const gatesAt = (s: number) => (byStage.get(s) ?? []).filter((n) => n.testKind === "GATE");
+  const freeChoiceAt = (s: number) => (byStage.get(s) ?? []).filter((n) => n.testKind === "FREE_CHOICE");
+  // Một chặng có thể có NHIỀU gate (vd Yếu+TB 1 gate, Khá 1 gate riêng).
+  const gateCovering = (s: number, x: Lvl): LearningNodeResponse | null => {
+    for (const g of gatesAt(s)) {
+      const a = parseApplies(g.appliesLevels);
+      if (a.size === 0 || a.has(x)) return g;
+    }
+    return null;
+  };
+  // Test tự do = 3 node, mỗi node ứng 1 nhánh (level = mức đích). Đạt bài nào → nhánh đó.
+  const freeChoiceForLevel = (s: number, x: Lvl): LearningNodeResponse | null =>
+    freeChoiceAt(s).find((t) => t.level === x) ?? null;
+
+  const exitForLevel = (s: number, x: Lvl): LearningNodeResponse | null => {
+    const pl = placementAt(s);
+    if (pl) return pl;
+    const fc = freeChoiceForLevel(s, x);
+    if (fc) return fc;
+    const g = gateCovering(s, x);
+    if (g) return g;
+    return learnAt(s, x) ?? chungLearnAt(s); // mức auto-pass (không test nào phụ trách)
+  };
+  const entryForLevel = (s: number, x: Lvl): LearningNodeResponse | null => {
+    const pl = placementAt(s);
+    if (pl) return pl;
+    return learnAt(s, x) ?? chungLearnAt(s);
+  };
+
+  const result = new Set<string>();
+  const add = (from: number, to: number) => {
+    if (from !== to) result.add(`${from}->${to}`);
+  };
+
+  // Trong stage: nối node học của nhánh vào test.
+  for (const s of stages) {
+    const learns = (byStage.get(s) ?? []).filter(isLearningNode);
+    // GATE: chỉ nhánh có mức ∈ applies (có thể nhiều gate).
+    for (const g of gatesAt(s)) {
+      const applies = parseApplies(g.appliesLevels);
+      for (const L of learns) {
+        if (L.level == null || applies.size === 0 || applies.has(L.level)) add(L.nodeId, g.nodeId);
+      }
+    }
+    // FREE_CHOICE: MỌI nhánh → MỖI node test tự do (HS chọn bài nào cũng được).
+    const fcs = freeChoiceAt(s);
+    if (fcs.length) {
+      for (const L of learns) for (const t of fcs) add(L.nodeId, t.nodeId);
+    }
+  }
+  // Giữa 2 stage liền kề.
+  for (let i = 0; i < stages.length - 1; i++) {
+    const s = stages[i];
+    const t = stages[i + 1];
+    for (const x of ALL_LEVELS) {
+      const e = exitForLevel(s, x);
+      const n = entryForLevel(t, x);
+      if (e && n) add(e.nodeId, n.nodeId);
+    }
+  }
+
+  return [...result].map((k) => {
+    const [from, to] = k.split("->").map(Number);
+    return { from, to };
+  });
+}
+
+/** Đồng bộ cạnh thực tế về tập cạnh mong muốn (xóa thừa, thêm thiếu). */
+async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: number; to: number }>) {
+  const desiredSet = new Set(desired.map((e) => `${e.from}->${e.to}`));
+  const currentSet = new Set(current.map((e) => `${e.fromNodeId}->${e.toNodeId}`));
+  for (const e of current) {
+    if (!desiredSet.has(`${e.fromNodeId}->${e.toNodeId}`)) {
+      try {
+        await learningPathService.deleteAdminEdge(e.edgeId);
+      } catch {
+        /* bỏ qua */
+      }
+    }
+  }
+  for (const e of desired) {
+    if (!currentSet.has(`${e.from}->${e.to}`)) {
+      try {
+        await learningPathService.createAdminEdge({ fromNodeId: e.from, toNodeId: e.to });
+      } catch {
+        /* bỏ qua nếu cạnh đã tồn tại */
+      }
+    }
+  }
+}
+
 export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
+  const [templates, setTemplates] = useState<LearningPathResponse[]>([]);
   const [path, setPath] = useState<LearningPathResponse | null>(null);
+  const [showCreateTpl, setShowCreateTpl] = useState(false);
+  const [cTplName, setCTplName] = useState("");
+  const [cTplDesc, setCTplDesc] = useState("");
+  const [showEditTpl, setShowEditTpl] = useState(false);
+  const [eTpName, setETplName] = useState("");
+  const [eTplDesc, setETplDesc] = useState("");
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
   const [edges, setEdges] = useState<NodeEdgeResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +166,12 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
   const [nDesc, setNDesc] = useState("");
   const [nLevel, setNLevel] = useState<"" | 1 | 2 | 3>("");
   const [nStage, setNStage] = useState(1);
-  const [nKind, setNKind] = useState<"AT_HOME" | "ON_CLASS" | "GATE" | "PLACEMENT">("AT_HOME");
+  const [nKind, setNKind] = useState<"AT_HOME" | "ON_CLASS" | "GATE" | "PLACEMENT" | "FREE_CHOICE">("AT_HOME");
+  const [nApplies, setNApplies] = useState<number[]>([]);
+  const [nUpMin, setNUpMin] = useState("");
+  const [nDownMax, setNDownMax] = useState("");
+  const [nYeuMax, setNYeuMax] = useState("");
+  const [nTbMax, setNTbMax] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [mTitle, setMTitle] = useState("");
@@ -46,6 +181,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
   const [tTitle, setTTitle] = useState("");
   const [tDuration, setTDuration] = useState("15");
   const [tPass, setTPass] = useState("80");
+  const [eTitle, setETitle] = useState("");
+  const [eDesc, setEDesc] = useState("");
 
   const loadGraph = useCallback(async (pathId: number) => {
     const g = await learningPathService.getAdminTemplateGraph(pathId);
@@ -58,10 +195,11 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     (async () => {
       setLoading(true);
       try {
-        const tpls = await learningPathService.getAdminSubjectTemplates(subjectId);
-        const p = tpls.find((t) => !t.classroomSubjectId) ?? tpls[0] ?? null;
+        const tpls = (await learningPathService.getAdminSubjectTemplates(subjectId)).filter((t) => !t.classroomSubjectId);
         if (!active) return;
-        setPath(p ?? null);
+        setTemplates(tpls);
+        const p = tpls[0] ?? null;
+        setPath(p);
         if (p) await loadGraph(p.pathId);
       } catch {
         if (active) toast.error("Không tải được lộ trình của môn này");
@@ -78,8 +216,92 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     if (path) await loadGraph(path.pathId);
   };
 
+  const reloadTemplates = async () => {
+    const tpls = (await learningPathService.getAdminSubjectTemplates(subjectId)).filter((t) => !t.classroomSubjectId);
+    setTemplates(tpls);
+    return tpls;
+  };
+
+  const selectPath = async (p: LearningPathResponse) => {
+    setPath(p);
+    setSelectedNode(null);
+    setContent(null);
+    await loadGraph(p.pathId);
+  };
+
+  const submitCreateTpl = async () => {
+    if (!cTplName.trim()) {
+      toast.error("Nhập tên lộ trình");
+      return;
+    }
+    setSaving(true);
+    try {
+      const created = await learningPathService.createAdminTemplate({
+        subjectId,
+        pathName: cTplName.trim(),
+        description: cTplDesc.trim() || undefined,
+      });
+      toast.success("Đã tạo lộ trình");
+      setShowCreateTpl(false);
+      setCTplName("");
+      setCTplDesc("");
+      const tpls = await reloadTemplates();
+      const newP = tpls.find((t) => t.pathId === created.pathId) ?? created;
+      setPath(newP);
+      setNodes([]);
+      setEdges([]);
+      await loadGraph(newP.pathId);
+    } catch {
+      toast.error("Không tạo được lộ trình");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditTemplate = () => {
+    if(!path) return;
+    setETplName(path.pathName);
+    setETplDesc(path.description ?? "");
+    setShowEditTpl(true);
+  };
+
+  const submitEditTpl = async () => {
+    if(!path || !eTplDesc.trim()) { toast.error("Nhập tên lộ trình"); return; }
+    setSaving(true);
+    try{
+      await learningPathService.updateAdminTemplate(path.pathId, {
+        pathName: eTpName.trim(), description: eTplDesc.trim() || undefined,
+      });
+      toast.success("Đã cập nhật lộ trình");
+      setShowEditTpl(false);
+      const tpls = await reloadTemplates();
+      setPath(tpls.find((t) => t.pathId === path.pathId) ?? tpls[0] ?? null);
+    }catch {
+      toast.error("Không cập nhật được lộ trình");
+    }
+    finally {
+      setSaving(false);
+    }
+  }
+
+  const handleDeleteTemplate = async () => {
+    if (!path) return;
+    if (!confirm(`Xóa lộ trình "${path.pathName}"?`)) return;
+    try {
+      await learningPathService.deleteAdminTemplate(path.pathId);
+      toast.success("Đã xóa lộ trình");
+      const tpls = await reloadTemplates();
+      const next = tpls[0] ?? null;
+      setPath(next);
+      setSelectedNode(null);
+      if (next) await loadGraph(next.pathId); else { setNodes([]); setEdges([]); }
+    } catch { toast.error("Không xóa được lộ trình"); }
+  };
+
   const openNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
+    setETitle(node.title);
+    setEDesc(node.description ?? "");
     setContent(null);
     setLoadingContent(true);
     try {
@@ -100,24 +322,33 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     setTTitle("");
   };
 
-  const autoWire = async (created: LearningNodeResponse, level: number | null, stage: number) => {
-    const prev = nodes.filter((n) => (n.stageOrder ?? 0) === stage - 1);
-    if (prev.length === 0) return;
-    let preds: LearningNodeResponse[];
-    if (level == null) {
-      preds = prev;
-    } else {
-      const same = prev.filter((n) => n.level === level);
-      const shared = prev.filter((n) => n.level == null);
-      preds = same.length ? same : shared.length ? shared : prev;
+  const saveNodeEdit = async () => {
+    if (!selectedNode || !eTitle.trim()) {
+      toast.error("Nhập tên node");
+      return;
     }
-    for (const p of preds) {
-      try {
-        await learningPathService.createAdminEdge({ fromNodeId: p.nodeId, toNodeId: created.nodeId });
-      } catch {
-        /* bỏ qua nếu cạnh đã tồn tại */
-      }
+    setSaving(true);
+    try {
+      await learningPathService.updateAdminNode(selectedNode.nodeId, {
+        title: eTitle.trim(),
+        description: eDesc.trim(),
+        nodeType: selectedNode.nodeType,
+      });
+      toast.success("Đã lưu node");
+      setSelectedNode({ ...selectedNode, title: eTitle.trim(), description: eDesc.trim() });
+      await refresh();
+    } catch {
+      toast.error("Không lưu được node");
+    } finally {
+      setSaving(false);
     }
+  };
+
+  // Tính lại toàn bộ cạnh từ tập node hiện tại rồi đồng bộ, sau đó nạp lại graph.
+  const rewireAll = async (pathId: number) => {
+    const g = await learningPathService.getAdminTemplateGraph(pathId);
+    await syncEdges(g.edges, computeDesiredEdges(g.nodes));
+    await loadGraph(pathId);
   };
 
   const submitAddNode = async () => {
@@ -125,37 +356,133 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       toast.error("Nhập tiêu đề bài học");
       return;
     }
-    const lvl = nLevel === "" ? null : Number(nLevel);
-    const atStage = nodes.filter((n) => (n.stageOrder ?? 0) === nStage);
-    if (lvl == null) {
-      if (atStage.length > 0) {
-        toast.error(`Chặng ${nStage} đã có node — không thêm node học chung được.`);
+    if (nodes.length === 0 && nKind !== "PLACEMENT") {
+      toast.error("Node đầu tiên của lộ trình phải là Test năng lực.");
+      return;
+    }
+    const stageNodes = nodes.filter((n) => (n.stageOrder ?? 0) === nStage);
+    const stageHasPlacement = stageNodes.some(isPlacementNode);
+    let lvl: number | null;
+    let appliesLevels: string | undefined;
+
+    if (nKind === "PLACEMENT") {
+      // Test năng lực: mọi mức đều thi → đứng MỘT MÌNH ở chặng của nó.
+      if (stageNodes.length > 0) {
+        toast.error(`Test năng lực phải đứng riêng một chặng. Chặng ${nStage} đã có node khác.`);
         return;
       }
+      appliesLevels = "1,2,3";
+      lvl = null;
+    } else if (nKind === "FREE_CHOICE") {
+      // Test tự do chọn: bao mọi mức (HS tự chọn) → không ghép chung chặng với
+      // bất kỳ test phân luồng/tự do nào khác.
+      if (stageHasPlacement) {
+        toast.error(`Chặng ${nStage} là chặng test năng lực — không thêm node khác.`);
+        return;
+      }
+      if (stageNodes.some(isGateLikeNode)) {
+        toast.error(`Chặng ${nStage} đã có test phân luồng/tự do — không thêm test tự do nữa.`);
+        return;
+      }
+      appliesLevels = "1,2,3";
+      lvl = null;
+    } else if (nKind === "GATE") {
+      if (stageHasPlacement) {
+        toast.error(`Chặng ${nStage} là chặng test năng lực — không thêm node khác.`);
+        return;
+      }
+      if (nApplies.length === 0) {
+        toast.error("Chọn ít nhất 1 mức làm test phân luồng.");
+        return;
+      }
+      const sorted = [...nApplies].sort((a, b) => a - b);
+      // Test phân luồng chỉ ghép các mức LIỀN KỀ (tối đa 2): {Yếu},{TB},{Khá},
+      // {Yếu,TB},{TB,Khá}. KHÔNG cho Yếu+Khá hay cả 3 — dùng Test tự do thay thế.
+      const contiguousPair = sorted.length <= 2 && (sorted.length < 2 || sorted[1] - sorted[0] === 1);
+      if (!contiguousPair) {
+        toast.error(
+          "Test phân luồng chỉ ghép 2 mức liền kề (Yếu+TB hoặc TB+Khá). Yếu và Khá phải tách riêng — hoặc dùng Test tự do chọn."
+        );
+        return;
+      }
+      // Mỗi mức chỉ thuộc 1 test phân luồng trong cùng chặng (không chồng mức).
+      const overlap = stageNodes.filter(isGateLikeNode).some((g) => {
+        const a = parseApplies(g.appliesLevels);
+        return a.size === 0 || sorted.some((x) => a.has(x));
+      });
+      if (overlap) {
+        toast.error(`Chặng ${nStage} đã có test phủ mức bạn chọn. Mỗi mức chỉ thuộc 1 test phân luồng.`);
+        return;
+      }
+      appliesLevels = sorted.join(",");
+      lvl = sorted.length === 1 ? sorted[0] : null;
     } else {
-      if (atStage.some((n) => n.level == null)) {
-        toast.error(`Chặng ${nStage} đã có node học chung — không thêm node phân hóa được.`);
+      // Node học (AT_HOME / ON_CLASS)
+      if (stageHasPlacement) {
+        toast.error(`Chặng ${nStage} là chặng test năng lực — không thêm node học.`);
         return;
       }
-      if (atStage.some((n) => n.level === lvl)) {
-        toast.error(`Chặng ${nStage} đã có node mức ${LEVEL_OPTIONS.find((o) => o.value === lvl)?.label ?? lvl}.`);
-        return;
+      lvl = nLevel === "" ? null : Number(nLevel);
+      const atStage = stageNodes.filter((n) => n.testKind == null || n.testKind === "NONE");
+      if (lvl == null) {
+        if (atStage.length > 0) {
+          toast.error(`Chặng ${nStage} đã có node học — không thêm node học chung được.`);
+          return;
+        }
+      } else {
+        if (atStage.some((n) => n.level == null)) {
+          toast.error(`Chặng ${nStage} đã có node học chung — không thêm node phân hóa được.`);
+          return;
+        }
+        if (atStage.some((n) => n.level === lvl)) {
+          toast.error(`Chặng ${nStage} đã có node mức ${LEVEL_OPTIONS.find((o) => o.value === lvl)?.label ?? lvl}.`);
+          return;
+        }
       }
     }
     setSaving(true);
     try {
-      const created = await learningPathService.createAdminNode({
-        learningPathId: path.pathId,
-        title: nTitle.trim(),
-        description: nDesc.trim() || undefined,
-        nodeType: nKind === "ON_CLASS" ? "ON_CLASS" : "AT_HOME",
-        testKind: nKind === "GATE" ? "GATE" : nKind === "PLACEMENT" ? "PLACEMENT" : "NONE",
-        displayOrder: 0,
-        isRequired: true,
-        stageOrder: nStage,
-        level: lvl,
-      });
-      await autoWire(created, lvl, nStage);
+      if (nKind === "FREE_CHOICE") {
+        // Test tự do = 3 node test (Yếu/TB/Khá) cùng chặng; mỗi node route về
+        // nhánh của nó (level = mức đích). Mọi nhánh sẽ nối vào cả 3 (rewireAll).
+        const variants: { lv: 1 | 2 | 3; name: string }[] = [
+          { lv: 1, name: "Yếu" },
+          { lv: 2, name: "TB" },
+          { lv: 3, name: "Khá" },
+        ];
+        for (const v of variants) {
+          await learningPathService.createAdminNode({
+            learningPathId: path.pathId,
+            title: `${nTitle.trim()} – ${v.name}`,
+            description: nDesc.trim() || undefined,
+            nodeType: "AT_HOME",
+            testKind: "FREE_CHOICE",
+            appliesLevels: String(v.lv),
+            displayOrder: 0,
+            isRequired: true,
+            stageOrder: nStage,
+            level: v.lv,
+          });
+        }
+      } else {
+        await learningPathService.createAdminNode({
+          learningPathId: path.pathId,
+          title: nTitle.trim(),
+          description: nDesc.trim() || undefined,
+          nodeType: nKind === "ON_CLASS" ? "ON_CLASS" : "AT_HOME",
+          testKind: nKind === "GATE" ? "GATE" : nKind === "PLACEMENT" ? "PLACEMENT" : "NONE",
+          appliesLevels,
+          gateUpMin: nKind === "GATE" && nUpMin !== "" ? Number(nUpMin) : undefined,
+          gateDownMax: nKind === "GATE" && nDownMax !== "" ? Number(nDownMax) : undefined,
+          placementYeuMax: nKind === "PLACEMENT" && nYeuMax !== "" ? Number(nYeuMax) : undefined,
+          placementTbMax: nKind === "PLACEMENT" && nTbMax !== "" ? Number(nTbMax) : undefined,
+          displayOrder: 0,
+          isRequired: true,
+          stageOrder: nStage,
+          level: lvl,
+        });
+      }
+      await rewireAll(path.pathId);
       toast.success("Đã thêm bài học");
       setShowAddNode(false);
       setNTitle("");
@@ -163,7 +490,11 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       setNLevel("");
       setNStage(1);
       setNKind("AT_HOME");
-      await refresh();
+      setNApplies([]);
+      setNUpMin("");
+      setNDownMax("");
+      setNYeuMax("");
+      setNTbMax("");
     } catch {
       toast.error("Không thêm được bài học");
     } finally {
@@ -171,24 +502,46 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     }
   };
 
-  const removeEdge = async (edgeId: number) => {
-    try {
-      await learningPathService.deleteAdminEdge(edgeId);
-      toast.success("Đã xóa liên kết");
-      await refresh();
-    } catch {
-      toast.error("Không xóa được liên kết");
-    }
-  };
-
   const removeNode = async () => {
-    if (!selectedNode) return;
-    if (!confirm(`Xóa bài học "${selectedNode.title}"?`)) return;
+    if (!selectedNode || !path) return;
+    const x = selectedNode;
+    // Test tự do gồm 3 node cùng chặng → xóa cả nhóm cho khỏi dở.
+    const isFC = x.testKind === "FREE_CHOICE";
+    const group = isFC
+      ? nodes.filter((n) => n.testKind === "FREE_CHOICE" && (n.stageOrder ?? 0) === (x.stageOrder ?? 0))
+      : [x];
+    const label = isFC ? `nhóm test tự do (${group.length} node)` : `bài học "${x.title}"`;
+    if (!confirm(`Xóa ${label}?`)) return;
+    const delIds = new Set(group.map((n) => n.nodeId));
     try {
-      await learningPathService.deleteAdminNode(selectedNode.nodeId);
-      toast.success("Đã xóa bài học");
+      for (const n of group) {
+        try {
+          await learningPathService.deleteAdminNode(n.nodeId);
+        } catch {
+          /* bỏ qua */
+        }
+      }
+      // Nếu chặng bị rỗng sau khi xóa thì dồn các chặng phía sau lên 1.
+      const deletedStage = x.stageOrder ?? 0;
+      const stillAtStage = nodes.some((n) => !delIds.has(n.nodeId) && (n.stageOrder ?? 0) === deletedStage);
+      if (deletedStage > 0 && !stillAtStage) {
+        const toShift = nodes.filter((n) => !delIds.has(n.nodeId) && (n.stageOrder ?? 0) > deletedStage);
+        for (const n of toShift) {
+          try {
+            await learningPathService.updateAdminNode(n.nodeId, {
+              title: n.title,
+              nodeType: n.nodeType,
+              stageOrder: (n.stageOrder ?? 0) - 1,
+            });
+          } catch {
+            /* bỏ qua */
+          }
+        }
+      }
+      // Cạnh được tính lại tất định từ tập node còn lại.
+      await rewireAll(path.pathId);
+      toast.success("Đã xóa");
       closeDetail();
-      await refresh();
     } catch {
       toast.error("Không xóa được bài học");
     }
@@ -280,29 +633,82 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
 
   if (!path) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-        Môn học chưa có lộ trình mẫu nào.
-      </div>
+      <>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-300 p-8 text-center">
+          <p className="text-sm text-slate-500">Môn học chưa có lộ trình mẫu nào.</p>
+          <button
+            onClick={() => setShowCreateTpl(true)}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            + Tạo lộ trình
+          </button>
+        </div>
+        {showCreateTpl && (
+          <Modal title="Tạo lộ trình mới" onClose={() => setShowCreateTpl(false)}>
+            <Field label="Tên lộ trình">
+              <input className="lp-input" value={cTplName} onChange={(e) => setCTplName(e.target.value)} placeholder="VD: Lộ trình PRJ301 - 2026" />
+            </Field>
+            <Field label="Mô tả">
+              <textarea className="lp-input" rows={2} value={cTplDesc} onChange={(e) => setCTplDesc(e.target.value)} />
+            </Field>
+            <ModalActions onCancel={() => setShowCreateTpl(false)} onSave={submitCreateTpl} saving={saving} />
+          </Modal>
+        )}
+        <style>{`.lp-input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:14px;outline:none}.lp-input:focus{border-color:#6366f1}`}</style>
+      </>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-slate-800">{path.pathName}</h3>
-          {path.description && <p className="text-sm text-slate-500">{path.description}</p>}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {templates.map((t) => (
+            <button
+              key={t.pathId}
+              onClick={() => selectPath(t)}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+                path.pathId === t.pathId
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {t.pathName}
+            </button>
+          ))}
+          <button
+            onClick={() => setShowCreateTpl(true)}
+            className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-50"
+          >
+            + Tạo lộ trình
+          </button>
+          {path && (
+            <span className="ml-1 inline-flex gap-1">
+              <button onClick={handleEditTemplate} title="Sửa lộ trình đang chọn" className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+                ✎ Sửa
+              </button>
+              <button onClick={handleDeleteTemplate} title="Xóa lộ trình đang chọn" className="rounded-lg border border-rose-300 px-2.5 py-1.5 text-sm text-rose-600 hover:bg-rose-50">
+                🗑 Xóa
+              </button>
+            </span>
+          )}
         </div>
-        <button
-          onClick={() => setShowAddNode(true)}
-          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          + Thêm bài học
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-800">{path.pathName}</h3>
+            {path.description && <p className="text-sm text-slate-500">{path.description}</p>}
+          </div>
+          <button
+            onClick={() => setShowAddNode(true)}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            + Thêm bài học
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50/40 p-4 lg:flex-1">
+        <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)] lg:w-[544px] lg:flex-shrink-0">
           <LearningPathFlow
             nodes={nodes}
             edges={edges}
@@ -311,7 +717,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           />
         </div>
 
-        <aside className="overflow-y-auto rounded-xl border border-slate-200 bg-white lg:max-h-[calc(100vh-2rem)] lg:w-[380px] lg:flex-shrink-0">
+        <aside className="overflow-y-auto rounded-xl border border-slate-200 bg-white lg:max-h-[calc(100vh-2rem)] lg:flex-1 lg:min-w-[360px]">
           {!selectedNode ? (
             <div className="p-8 text-center text-sm text-slate-400">
               Chọn một bài học trên lộ trình để xem &amp; chỉnh sửa.
@@ -333,38 +739,17 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
 
               <div className="space-y-5 p-4">
                 <section>
-                  <SectionTitle>Liên kết ra</SectionTitle>
-                  {edges.filter((e) => e.fromNodeId === selectedNode.nodeId).length === 0 ? (
-                    <p className="text-xs text-slate-400">Chưa có liên kết.</p>
-                  ) : (
-                    <ul className="space-y-1">
-                      {edges
-                        .filter((e) => e.fromNodeId === selectedNode.nodeId)
-                        .map((e) => {
-                          const to = nodes.find((n) => n.nodeId === e.toNodeId);
-                          const score = e.minScore != null || e.maxScore != null;
-                          return (
-                            <li key={e.edgeId} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-sm">
-                              <span>
-                                → {to?.title ?? e.toNodeId}
-                                {score && (
-                                  <span className="ml-2 rounded bg-indigo-100 px-1.5 text-xs text-indigo-700">
-                                    {e.minScore != null ? `≥${e.minScore}` : ""}
-                                    {e.maxScore != null ? ` <${e.maxScore}` : ""}
-                                  </span>
-                                )}
-                              </span>
-                              <button onClick={() => removeEdge(e.edgeId)} className="text-xs text-rose-500 hover:underline">
-                                xóa
-                              </button>
-                            </li>
-                          );
-                        })}
-                    </ul>
-                  )}
+                  <SectionTitle>Tên &amp; mô tả</SectionTitle>
+                  <div className="space-y-2">
+                    <input className="lp-input" value={eTitle} onChange={(e) => setETitle(e.target.value)} />
+                    <textarea className="lp-input" rows={2} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Mô tả (tùy chọn)" />
+                    <button onClick={saveNodeEdit} disabled={saving} className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+                      Lưu
+                    </button>
+                  </div>
                 </section>
 
-                {selectedNode.testKind !== "GATE" && selectedNode.testKind !== "PLACEMENT" && (
+                {isLearningNode(selectedNode) && (
                 <section>
                   <SectionTitle>Học liệu</SectionTitle>
                   {loadingContent ? (
@@ -432,14 +817,18 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                     ))}
                     {(content?.tests ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài test.</p>}
                   </ul>
-                  <div className="mt-2 grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-lg border border-slate-200 p-2">
-                    <input className="lp-input" placeholder="Tiêu đề test" value={tTitle} onChange={(e) => setTTitle(e.target.value)} />
-                    <input className="lp-input w-16" type="number" value={tDuration} onChange={(e) => setTDuration(e.target.value)} title="Phút" />
-                    <input className="lp-input w-16" type="number" value={tPass} onChange={(e) => setTPass(e.target.value)} title="% đạt" />
-                    <button onClick={addTest} disabled={saving} className="rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-                      +
-                    </button>
-                  </div>
+                  {(content?.tests ?? []).length >= (isLearningNode(selectedNode) ? Infinity : 1) ? (
+                    <p className="mt-2 text-xs text-slate-400">Mỗi node test chỉ có 1 bài test.</p>
+                  ) : (
+                    <div className="mt-2 grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-lg border border-slate-200 p-2">
+                      <input className="lp-input" placeholder="Tiêu đề test" value={tTitle} onChange={(e) => setTTitle(e.target.value)} />
+                      <input className="lp-input w-16" type="number" value={tDuration} onChange={(e) => setTDuration(e.target.value)} title="Phút" />
+                      <input className="lp-input w-16" type="number" value={tPass} onChange={(e) => setTPass(e.target.value)} title="% đạt" />
+                      <button onClick={addTest} disabled={saving} className="rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+                        +
+                      </button>
+                    </div>
+                  )}
                 </section>
               </div>
 
@@ -461,39 +850,128 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           <Field label="Mô tả">
             <textarea className="lp-input" rows={2} value={nDesc} onChange={(e) => setNDesc(e.target.value)} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Mức năng lực">
-              <select
-                className="lp-input"
-                value={nLevel}
-                onChange={(e) => setNLevel(e.target.value === "" ? "" : (Number(e.target.value) as 1 | 2 | 3))}
-              >
-                {LEVEL_OPTIONS.map((o) => (
-                  <option key={String(o.value)} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Chặng (stage)">
-              <input
-                type="number"
-                min={1}
-                className="lp-input"
-                value={nStage}
-                onChange={(e) => setNStage(Number(e.target.value) || 1)}
-              />
-            </Field>
-          </div>
           <Field label="Loại">
-            <select className="lp-input" value={nKind} onChange={(e) => setNKind(e.target.value as "AT_HOME" | "ON_CLASS" | "GATE" | "PLACEMENT")}>
+            <select className="lp-input" value={nKind} onChange={(e) => setNKind(e.target.value as typeof nKind)}>
               <option value="AT_HOME">Tự học</option>
               <option value="ON_CLASS">Trên lớp</option>
-              <option value="GATE">Test thường (chốt chặn)</option>
-              <option value="PLACEMENT">Test năng lực (phân luồng)</option>
+              <option value="GATE">Test phân luồng</option>
+              <option value="PLACEMENT">Test năng lực</option>
+              <option value="FREE_CHOICE">Test tự do chọn</option>
             </select>
           </Field>
+
+          {nKind === "AT_HOME" || nKind === "ON_CLASS" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Mức năng lực">
+                <select
+                  className="lp-input"
+                  value={nLevel}
+                  onChange={(e) => setNLevel(e.target.value === "" ? "" : (Number(e.target.value) as 1 | 2 | 3))}
+                >
+                  {LEVEL_OPTIONS.map((o) => (
+                    <option key={String(o.value)} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Chặng (stage)">
+                <input type="number" min={1} className="lp-input" value={nStage} onChange={(e) => setNStage(Number(e.target.value) || 1)} />
+              </Field>
+            </div>
+          ) : (
+            <>
+              {nKind === "GATE" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Mức làm test">
+                    <div className="flex gap-3 pt-2">
+                      {[1, 2, 3].map((lv) => (
+                        <label key={lv} className="flex items-center gap-1 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={nApplies.includes(lv)}
+                            onChange={() => setNApplies((p) => (p.includes(lv) ? p.filter((x) => x !== lv) : [...p, lv]))}
+                          />
+                          {lv === 1 ? "Yếu" : lv === 2 ? "TB" : "Khá"}
+                        </label>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="Chặng (stage)">
+                    <input type="number" min={1} className="lp-input" value={nStage} onChange={(e) => setNStage(Number(e.target.value) || 1)} />
+                  </Field>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Mức làm test">
+                    <p className="pt-2 text-sm text-slate-500">
+                      {nKind === "FREE_CHOICE" ? "HS tự chọn 1 trong 3 mức" : "Mọi mức (Yếu · TB · Khá)"}
+                    </p>
+                  </Field>
+                  <Field label="Chặng (stage)">
+                    <input type="number" min={1} className="lp-input" value={nStage} onChange={(e) => setNStage(Number(e.target.value) || 1)} />
+                  </Field>
+                </div>
+              )}
+              {nKind === "PLACEMENT" && (
+                <>
+                  <p className="text-xs text-slate-500">
+                    Test năng lực phải đứng riêng một chặng; mọi học sinh đều làm và được phân về mức theo điểm.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Điểm Yếu tối đa (%)">
+                      <input type="number" className="lp-input" value={nYeuMax} onChange={(e) => setNYeuMax(e.target.value)} placeholder="vd 40" />
+                    </Field>
+                    <Field label="Điểm TB tối đa (%)">
+                      <input type="number" className="lp-input" value={nTbMax} onChange={(e) => setNTbMax(e.target.value)} placeholder="vd 70" />
+                    </Field>
+                  </div>
+                </>
+              )}
+              {nKind === "GATE" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Ngưỡng lên (≥ %)">
+                    <input type="number" className="lp-input" value={nUpMin} onChange={(e) => setNUpMin(e.target.value)} placeholder="vd 80" />
+                  </Field>
+                  <Field label="Ngưỡng xuống (≤ %)">
+                    <input type="number" className="lp-input" value={nDownMax} onChange={(e) => setNDownMax(e.target.value)} placeholder="vd 40" />
+                  </Field>
+                </div>
+              )}
+              {nKind === "FREE_CHOICE" && (
+                <p className="text-xs text-slate-500">
+                  Sẽ tạo <b>3 node test</b> (Yếu / TB / Khá) cùng chặng. Mọi nhánh đều nối vào cả 3; học sinh tự chọn
+                  làm bài nào, đạt ≥ ngưỡng % của bài đó thì học tiếp nhánh tương ứng (vd đang Yếu, làm bài Khá đạt →
+                  học Khá). Mỗi node thêm 1 bài test + ngưỡng % ở phần chi tiết.
+                </p>
+              )}
+            </>
+          )}
           <ModalActions onCancel={() => setShowAddNode(false)} onSave={submitAddNode} saving={saving} />
+        </Modal>
+      )}
+
+      {showCreateTpl && (
+        <Modal title="Tạo lộ trình mới" onClose={() => setShowCreateTpl(false)}>
+          <Field label="Tên lộ trình">
+            <input className="lp-input" value={cTplName} onChange={(e) => setCTplName(e.target.value)} placeholder="VD: Lộ trình PRJ301 - 2026" />
+          </Field>
+          <Field label="Mô tả">
+            <textarea className="lp-input" rows={2} value={cTplDesc} onChange={(e) => setCTplDesc(e.target.value)} />
+          </Field>
+          <ModalActions onCancel={() => setShowCreateTpl(false)} onSave={submitCreateTpl} saving={saving} />
+        </Modal>
+      )}
+
+      {showEditTpl && (
+        <Modal title={"Sửa lộ trình"} onClose={() => setShowEditTpl(false)}>
+          <Field label={"Tên lộ trình"}>
+            <input className={"lp-input"} value={eTpName} onChange={(e) => setETplName(e.target.value)} />
+          </Field>
+          <Field label={"Mô tả"}>
+            <textarea className={"lp-input"} rows={2} value={eTplDesc} onChange={(e) => setETplDesc(e.target.value)}/>
+          </Field>
+          <ModalActions onCancel={() => setShowEditTpl(false)} onSave={submitEditTpl} saving={saving} />
         </Modal>
       )}
 

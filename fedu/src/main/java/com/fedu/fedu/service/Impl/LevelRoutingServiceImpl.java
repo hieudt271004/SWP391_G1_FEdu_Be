@@ -4,7 +4,9 @@ import com.fedu.fedu.entity.*;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LevelRoutingService;
+import com.fedu.fedu.utils.LearningLevels;
 import com.fedu.fedu.utils.enums.LevelChangeReason;
+import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,11 +59,9 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
 
     @Override
     @Transactional
-    public void applyGateBands(Long classroomSubjectId, Long testId, Long studentId, BigDecimal percentage) {
-        Integer newLevel = resolveLevel(testId, percentage);
-        if (newLevel == null) {
-            // Không có band khớp (test không phải cổng test, hoặc điểm rơi ngoài mọi band) → giữ nguyên mức.
-            return;
+    public void applyGateRouting(Long classroomSubjectId, LearningNode gateNode, Long studentId, BigDecimal percentage) {
+        if (gateNode == null || gateNode.getTestKind() != NodeTestKind.GATE) {
+            return; // chỉ áp dụng cho node cổng phân luồng
         }
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
@@ -70,13 +70,53 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
             return;
         }
         Integer current = css.getCurrentLevel();
-        if (Objects.equals(current, newLevel)) {
-            return; // giữ nguyên mức, không ghi lịch sử
+        if (current == null) {
+            return; // chưa phân loại thì cổng không định tuyến được
+        }
+
+        Set<Integer> applies = parseApplies(gateNode.getAppliesLevels());
+        if (!applies.isEmpty() && !applies.contains(current)) {
+            return; // cổng này không phụ trách mức của học sinh → giữ nguyên
+        }
+        int minA = applies.isEmpty() ? LearningLevels.MIN : Collections.min(applies);
+        int maxA = applies.isEmpty() ? LearningLevels.MAX : Collections.max(applies);
+
+        int newLevel = current;
+        BigDecimal up = gateNode.getGateUpMin();
+        BigDecimal down = gateNode.getGateDownMax();
+        if (up != null && percentage != null && percentage.compareTo(up) >= 0) {
+            newLevel = Math.min(current + 1, maxA); // lên 1 bậc, chặn trong applies_levels
+        } else if (down != null && percentage != null && percentage.compareTo(down) <= 0) {
+            newLevel = Math.max(current - 1, minA); // xuống 1 bậc, chặn trong applies_levels
+        }
+        // điểm ở giữa (hoặc thiếu ngưỡng) → giữ nguyên mức
+
+        if (current == newLevel) {
+            return; // không đổi mức, không ghi lịch sử
         }
         css.setCurrentLevel(newLevel);
         classroomSubjectStudentRepository.save(css);
         writeHistory(css, current, newLevel, LevelChangeReason.GATE);
         reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel);
+    }
+
+    /** Parse "1,2" → {1,2}; bỏ giá trị rỗng/không hợp lệ. */
+    private static Set<Integer> parseApplies(String s) {
+        Set<Integer> out = new LinkedHashSet<>();
+        if (s == null || s.isBlank()) {
+            return out;
+        }
+        for (String part : s.split(",")) {
+            try {
+                int v = Integer.parseInt(part.trim());
+                if (v >= LearningLevels.MIN && v <= LearningLevels.MAX) {
+                    out.add(v);
+                }
+            } catch (NumberFormatException ignored) {
+                // bỏ qua phần không phải số
+            }
+        }
+        return out;
     }
 
     /**
