@@ -10,8 +10,8 @@ interface LearningPathFlowProps {
   onNodeClick?: (node: LearningNodeResponse) => void;
 }
 
-const COL_X: Record<number, number> = { 0: 110, 1: 320, 2: 530 };
-const WIDTH = 640;
+const COL_X: Record<number, number> = { 0: 80, 1: 260, 2: 440 };
+const WIDTH = 520;
 const TOP = 28;
 const ROW_GAP = 104;
 const CIRCLE = 64;

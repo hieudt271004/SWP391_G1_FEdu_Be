@@ -62,6 +62,24 @@ public class LearningNode extends AbstractEntity<Long> {
     @Column(name = "test_kind")
     private NodeTestKind testKind = NodeTestKind.NONE;
 
+    /** Mức nào LÀM test phân luồng/năng lực này (vd "1,2"); null = không áp dụng / mọi mức. */
+    @Column(name = "applies_levels")
+    private String appliesLevels;
+
+    /** GATE: điểm ≥ gateUpMin → lên nhánh; ≤ gateDownMax → xuống nhánh; giữa = giữ nguyên. */
+    @Column(name = "gate_up_min", precision = 5, scale = 2)
+    private java.math.BigDecimal gateUpMin;
+
+    @Column(name = "gate_down_max", precision = 5, scale = 2)
+    private java.math.BigDecimal gateDownMax;
+
+    /** PLACEMENT: điểm ≤ placementYeuMax → Yếu; ≤ placementTbMax → TB; còn lại → Khá. */
+    @Column(name = "placement_yeu_max", precision = 5, scale = 2)
+    private java.math.BigDecimal placementYeuMax;
+
+    @Column(name = "placement_tb_max", precision = 5, scale = 2)
+    private java.math.BigDecimal placementTbMax;
+
     @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = true;

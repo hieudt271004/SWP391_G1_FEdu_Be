@@ -176,7 +176,12 @@ CREATE TABLE IF NOT EXISTS learning_nodes (
                                               branch_name   VARCHAR(100),
                                               stage_order   INT, -- chặng thứ mấy (1..subjects.learningpath_length)
                                               level         INT, -- null = node chung; 1=yếu,2=tb,3=khá
-                                              test_kind     VARCHAR(20) DEFAULT 'NONE', -- NONE/GATE/PLACEMENT
+                                              test_kind     VARCHAR(20) DEFAULT 'NONE', -- NONE/GATE/PLACEMENT/FREE_CHOICE
+                                              applies_levels    VARCHAR(20),    -- mức làm test phân luồng (vd "1,2")
+                                              gate_up_min       DECIMAL(5,2),   -- GATE: >= -> lên nhánh
+                                              gate_down_max     DECIMAL(5,2),   -- GATE: <= -> xuống nhánh
+                                              placement_yeu_max DECIMAL(5,2),   -- PLACEMENT: <= -> Yếu
+                                              placement_tb_max  DECIMAL(5,2),   -- PLACEMENT: <= -> TB, còn lại Khá
                                               is_deleted    BOOLEAN DEFAULT FALSE,
                                               created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                               updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP

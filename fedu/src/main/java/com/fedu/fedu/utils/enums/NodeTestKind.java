@@ -10,5 +10,8 @@ public enum NodeTestKind {
     GATE,
 
     @JsonProperty("PLACEMENT")
-    PLACEMENT
+    PLACEMENT,
+
+    @JsonProperty("FREE_CHOICE")
+    FREE_CHOICE
 }

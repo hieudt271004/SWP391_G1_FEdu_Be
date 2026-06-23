@@ -26,6 +26,11 @@ public class LearningNodeResponse {
     private Integer stageOrder;
     private Integer level;
     private NodeTestKind testKind;
+    private String appliesLevels;
+    private java.math.BigDecimal gateUpMin;
+    private java.math.BigDecimal gateDownMax;
+    private java.math.BigDecimal placementYeuMax;
+    private java.math.BigDecimal placementTbMax;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -39,6 +39,12 @@ public class CreateLearningNodeRequest {
     /** Mức của node: null = node chung mọi mức; 1=yếu, 2=tb, 3=khá. */
     private Integer level;
 
-    /** Loại test: NONE/GATE/PLACEMENT (mặc định NONE). */
+    /** Loại test: NONE/GATE/PLACEMENT/FREE_CHOICE (mặc định NONE). */
     private NodeTestKind testKind;
+
+    private String appliesLevels;
+    private java.math.BigDecimal gateUpMin;
+    private java.math.BigDecimal gateDownMax;
+    private java.math.BigDecimal placementYeuMax;
+    private java.math.BigDecimal placementTbMax;
 }

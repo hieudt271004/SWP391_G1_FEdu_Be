@@ -1,13 +1,13 @@
 import { http } from './http';
 
 export type LearningPathLevel = 1 | 2 | 3;
-export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT';
+export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
 
 export interface CreateLearningPathRequest {
   subjectId: number;
   pathName: string;
   description?: string;
-  level: LearningPathLevel;
+  level?: LearningPathLevel;
 }
 
 export interface LearningPathResponse {
@@ -37,6 +37,11 @@ export interface LearningNodeResponse {
   isDeleted: boolean;
   level?: number | null;
   testKind?: NodeTestKind;
+  appliesLevels?: string | null;
+  gateUpMin?: number | null;
+  gateDownMax?: number | null;
+  placementYeuMax?: number | null;
+  placementTbMax?: number | null;
   stageOrder?: number | null;
   createdAt: string;
   updatedAt: string;
@@ -103,6 +108,11 @@ export interface CreateLearningNodeRequest {
   stageOrder?: number;
   level?: number | null;
   testKind?: NodeTestKind;
+  appliesLevels?: string | null;
+  gateUpMin?: number | null;
+  gateDownMax?: number | null;
+  placementYeuMax?: number | null;
+  placementTbMax?: number | null;
 }
 
 export interface UpdateLearningNodeRequest {
