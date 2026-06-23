@@ -10,13 +10,13 @@ interface LearningPathFlowProps {
   onNodeClick?: (node: LearningNodeResponse) => void;
 }
 
-const COL_X: Record<number, number> = { 0: 130, 1: 350, 2: 570 };
-const WIDTH = 700;
-const TOP = 40;
-const ROW_GAP = 150;
-const CIRCLE = 88;
-const SQUARE_W = 108;
-const SQUARE_H = 72;
+const COL_X: Record<number, number> = { 0: 80, 1: 260, 2: 440 };
+const WIDTH = 520;
+const TOP = 28;
+const ROW_GAP = 104;
+const CIRCLE = 64;
+const SQUARE_W = 82;
+const SQUARE_H = 52;
 
 function levelToCol(level?: number | null): number {
   if (level === 1) return 0;
@@ -101,7 +101,7 @@ export function LearningPathFlow({
 
     const derivedGates =
       gateNodeIds ??
-      new Set(usableEdges.filter((e) => e.minScore != null || e.maxScore != null).map((e) => e.fromNodeId));
+      new Set(visible.filter((n) => n.testKind === "GATE" || n.testKind === "PLACEMENT").map((n) => n.nodeId));
 
     let maxLayer = 0;
     const colCount = new Map<string, number>();
@@ -191,8 +191,8 @@ export function LearningPathFlow({
                 />
                 {label && (
                   <g transform={`translate(${(x1 + x2) / 2}, ${(y1 + y2) / 2})`}>
-                    <rect x={-22} y={-11} width={44} height={22} rx={6} fill="#eef2ff" stroke="#c7d2fe" />
-                    <text textAnchor="middle" dy={4} fontSize={11} fill="#4338ca">
+                    <rect x={-18} y={-9} width={36} height={18} rx={5} fill="#eef2ff" stroke="#c7d2fe" />
+                    <text textAnchor="middle" dy={3.5} fontSize={10} fill="#4338ca">
                       {label}
                     </text>
                   </g>
@@ -212,8 +212,8 @@ export function LearningPathFlow({
               onClick={() => onNodeClick?.(p.node)}
               title={p.node.title}
               className={[
-                "absolute flex flex-col items-center justify-center gap-1 border-2 px-2 text-center transition",
-                p.isGate ? "rounded-xl" : "rounded-full",
+                "absolute flex flex-col items-center justify-center gap-0.5 border-2 px-1.5 text-center transition",
+                p.isGate ? "rounded-lg" : "rounded-full",
                 style.border,
                 style.bg,
                 style.text,
@@ -223,9 +223,13 @@ export function LearningPathFlow({
               ].join(" ")}
               style={{ left: p.x - p.w / 2, top: p.y - p.h / 2, width: p.w, height: p.h }}
             >
-              {p.isGate && <span className="text-[10px] font-semibold uppercase tracking-wide">Test</span>}
+              {p.isGate && (
+                <span className="text-[9px] font-semibold uppercase tracking-wide">
+                  {p.node.testKind === "PLACEMENT" ? "Test NL" : "Test"}
+                </span>
+              )}
               <span className="line-clamp-2 text-[11px] leading-tight font-medium">{p.node.title}</span>
-              <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${style.chip}`}>{style.label}</span>
+              <span className={`rounded px-1 text-[9px] font-semibold ${style.chip}`}>{style.label}</span>
             </button>
           );
         })}

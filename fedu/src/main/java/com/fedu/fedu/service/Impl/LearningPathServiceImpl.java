@@ -150,6 +150,12 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .isRequired(tn.getIsRequired() != null ? tn.getIsRequired() : true)
                     .stageOrder(tn.getStageOrder())
                     .level(tn.getLevel())
+                    .testKind(tn.getTestKind())
+                    .appliesLevels(tn.getAppliesLevels())
+                    .gateUpMin(tn.getGateUpMin())
+                    .gateDownMax(tn.getGateDownMax())
+                    .placementYeuMax(tn.getPlacementYeuMax())
+                    .placementTbMax(tn.getPlacementTbMax())
                     .isDeleted(false)
                     .build();
             learningNodeRepository.save(cn);
@@ -345,6 +351,12 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .isRequired(request.getIsRequired() != null ? request.getIsRequired() : true)
                 .stageOrder(request.getStageOrder())
                 .level(request.getLevel())
+                .testKind(request.getTestKind() != null ? request.getTestKind() : com.fedu.fedu.utils.enums.NodeTestKind.NONE)
+                .appliesLevels(request.getAppliesLevels())
+                .gateUpMin(request.getGateUpMin())
+                .gateDownMax(request.getGateDownMax())
+                .placementYeuMax(request.getPlacementYeuMax())
+                .placementTbMax(request.getPlacementTbMax())
                 .isDeleted(false)
                 .build();
 
@@ -364,11 +376,19 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
 
         node.setTitle(request.getTitle());
-        node.setDescription(request.getDescription());
+        if (request.getDescription() != null) node.setDescription(request.getDescription());
         node.setNodeType(request.getNodeType());
-        node.setStatus(request.getStatus());
+        if (request.getStatus() != null) node.setStatus(request.getStatus());
         node.setDisplayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : node.getDisplayOrder());
         node.setIsRequired(request.getIsRequired() != null ? request.getIsRequired() : node.getIsRequired());
+        if (request.getStageOrder() != null) node.setStageOrder(request.getStageOrder());
+        if (request.getLevel() != null) node.setLevel(request.getLevel());
+        if (request.getTestKind() != null) node.setTestKind(request.getTestKind());
+        if (request.getAppliesLevels() != null) node.setAppliesLevels(request.getAppliesLevels());
+        if (request.getGateUpMin() != null) node.setGateUpMin(request.getGateUpMin());
+        if (request.getGateDownMax() != null) node.setGateDownMax(request.getGateDownMax());
+        if (request.getPlacementYeuMax() != null) node.setPlacementYeuMax(request.getPlacementYeuMax());
+        if (request.getPlacementTbMax() != null) node.setPlacementTbMax(request.getPlacementTbMax());
 
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
@@ -480,6 +500,12 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .isDeleted(node.getIsDeleted())
                 .stageOrder(node.getStageOrder())
                 .level(node.getLevel())
+                .testKind(node.getTestKind())
+                .appliesLevels(node.getAppliesLevels())
+                .gateUpMin(node.getGateUpMin())
+                .gateDownMax(node.getGateDownMax())
+                .placementYeuMax(node.getPlacementYeuMax())
+                .placementTbMax(node.getPlacementTbMax())
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
                 .build();

@@ -1,6 +1,7 @@
 package com.fedu.fedu.dto.res;
 
 import com.fedu.fedu.utils.enums.NodeStatus;
+import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import lombok.*;
 
@@ -24,6 +25,12 @@ public class LearningNodeResponse {
     private Boolean isDeleted;
     private Integer stageOrder;
     private Integer level;
+    private NodeTestKind testKind;
+    private String appliesLevels;
+    private java.math.BigDecimal gateUpMin;
+    private java.math.BigDecimal gateDownMax;
+    private java.math.BigDecimal placementYeuMax;
+    private java.math.BigDecimal placementTbMax;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
