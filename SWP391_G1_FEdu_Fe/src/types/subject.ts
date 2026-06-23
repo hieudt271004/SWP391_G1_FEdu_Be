@@ -15,6 +15,7 @@ export interface Subject {
   createdAt?: string;
   updatedAt?: string;
   status?: string;
+  learningpathLength?: number;
 }
 
 export interface SubjectRequest {
@@ -22,4 +23,5 @@ export interface SubjectRequest {
   subjectName: string;
   description?: string;
   status?: string;
+  learningpathLength?: number;
 }

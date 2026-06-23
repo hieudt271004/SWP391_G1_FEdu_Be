@@ -39,6 +39,7 @@ public class Test extends AbstractEntity<Long> {
     @Column(name = "order_index")
     private Integer orderIndex;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

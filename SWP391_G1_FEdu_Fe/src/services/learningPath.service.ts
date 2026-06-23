@@ -1,9 +1,13 @@
 import { http } from './http';
 
+export type LearningPathLevel = 1 | 2 | 3;
+export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
+
 export interface CreateLearningPathRequest {
   subjectId: number;
   pathName: string;
   description?: string;
+  level?: LearningPathLevel;
 }
 
 export interface LearningPathResponse {
@@ -12,6 +16,8 @@ export interface LearningPathResponse {
   pathName: string;
   description: string;
   createdById: number;
+  classroomSubjectId?: number | null;
+  level?: LearningPathLevel | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,11 +29,20 @@ export interface LearningNodeResponse {
   title: string;
   description: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  branchName?: string;
   displayOrder: number;
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  studentStatus?: 'LOCKED' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
+  testLocked?: boolean;
   isRequired: boolean;
   isDeleted: boolean;
+  level?: number | null;
+  testKind?: NodeTestKind;
+  appliesLevels?: string | null;
+  gateUpMin?: number | null;
+  gateDownMax?: number | null;
+  placementYeuMax?: number | null;
+  placementTbMax?: number | null;
+  stageOrder?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,7 +51,6 @@ export interface NodeEdgeResponse {
   edgeId: number;
   fromNodeId: number;
   toNodeId: number;
-  branchName?: string;
   minScore?: number;
   maxScore?: number;
 }
@@ -61,14 +75,25 @@ export interface PublishResultResponse {
   seededStudents: number;
 }
 
+export interface ClassroomPathDto {
+  level: number;
+  pathId: number;
+  nodes: LearningNodeResponse[];
+  edges: NodeEdgeResponse[];
+}
+
 export interface ClassroomGraphResponse {
-  classroomId: number;
-  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED';
+  classroomSubjectId: number;
+  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED' | 'NEED_PLACEMENT';
   pathId: number | null;
   publishedAt: string | null;
   nodes: LearningNodeResponse[];
   edges: NodeEdgeResponse[];
+  paths: ClassroomPathDto[] | null;
+  canCloneAll: boolean | null;
+  missingLevels: number[] | null;
   availableTemplates: AvailableTemplateResponse[] | null;
+  quizStartTestId: number | null;
 }
 
 export interface CreateLearningNodeRequest {
@@ -77,16 +102,31 @@ export interface CreateLearningNodeRequest {
   title: string;
   description?: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  branchName?: string;
   displayOrder: number;
   status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  isRequired?: boolean;
+  stageOrder?: number;
+  level?: number | null;
+  testKind?: NodeTestKind;
+  appliesLevels?: string | null;
+  gateUpMin?: number | null;
+  gateDownMax?: number | null;
+  placementYeuMax?: number | null;
+  placementTbMax?: number | null;
+}
+
+export interface UpdateLearningNodeRequest {
+  title: string;
+  description?: string;
+  nodeType: 'AT_HOME' | 'ON_CLASS';
+  status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  displayOrder?: number;
   isRequired?: boolean;
 }
 
 export interface CreateNodeEdgeRequest {
   fromNodeId: number;
   toNodeId: number;
-  branchName?: string;
   minScore?: number;
   maxScore?: number;
 }
@@ -140,6 +180,50 @@ export interface ReorderContentRequest {
 }
 
 
+export interface ScoreBandResponse {
+  bandId: number;
+  testId: number;
+  minScore: number;
+  maxScore: number;
+  targetLevel: number;
+}
+
+export interface PlacementQuizDetailsResponse {
+  testId: number;
+  title: string;
+  description?: string;
+  durationMinutes: number;
+  scoreBands: ScoreBandResponse[];
+  questionCount: number;
+}
+
+export interface TeacherAnswerRequest {
+  answerContent: string;
+  isCorrect: boolean;
+}
+
+export interface TeacherQuestionRequest {
+  questionContent: string;
+  questionType: 'SINGLE' | 'MULTIPLE' | 'ESSAY' | 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER';
+  score?: number;
+  answers?: TeacherAnswerRequest[];
+}
+
+export interface TeacherAnswerResponse {
+  answerId: number;
+  answerContent: string;
+  isCorrect: boolean;
+}
+
+export interface TeacherQuestionResponse {
+  questionId: number;
+  questionContent: string;
+  questionType: 'SINGLE' | 'MULTIPLE' | 'ESSAY' | 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER';
+  score: number;
+  answers: TeacherAnswerResponse[];
+}
+
+
 export const learningPathService = {
   getSubjectLearningPaths: (subjectId: number) =>
     http.get<LearningPathResponse[]>(`/teacher-manage/subjects/${subjectId}/learning-paths`),
@@ -147,18 +231,23 @@ export const learningPathService = {
     http.post<LearningPathResponse>('/teacher-manage/learning-paths', request),
   getLearningPathGraph: (pathId: number) =>
     http.get<LearningPathGraphResponse>(`/teacher-manage/learning-paths/${pathId}/graph`),
-  getClassroomGraph: (classroomId: number) =>
-    http.get<ClassroomGraphResponse>(`/teacher-manage/classrooms/${classroomId}/graph`),
-  cloneFromTemplate: (classroomId: number, templatePathId: number) =>
-    http.post<LearningPathResponse>(`/teacher-manage/classrooms/${classroomId}/clone-learning-path/${templatePathId}`),
-  publishClassroomPath: (classroomId: number, pathId: number) =>
-    http.post<PublishResultResponse>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}/publish`),
-  unpublishClassroomPath: (classroomId: number, pathId: number) =>
-    http.post<void>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}/unpublish`),
-  deleteDraftPath: (classroomId: number, pathId: number) =>
-    http.delete<void>(`/teacher-manage/classrooms/${classroomId}/learning-paths/${pathId}`),
+  getClassroomGraph: (classroomSubjectId: number) =>
+    http.get<ClassroomGraphResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/graph`),
+  // Admin read-only: xem graph lớp-môn (endpoint riêng cho ADMIN, không đụng /teacher-manage)
+  getAdminClassroomGraph: (classroomSubjectId: number) =>
+    http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
+  cloneFromTemplate: (classroomSubjectId: number) =>
+    http.post<LearningPathResponse[]>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path`),
+  publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
+    http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
+  unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>
+    http.post<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/unpublish`),
+  deleteDraftPath: (classroomSubjectId: number, pathId: number) =>
+    http.delete<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}`),
   createLearningNode: (request: CreateLearningNodeRequest) =>
     http.post<LearningNodeResponse>('/teacher-manage/learning-nodes', request),
+  updateLearningNode: (nodeId: number, request: UpdateLearningNodeRequest) =>
+    http.put<LearningNodeResponse>(`/teacher-manage/learning-nodes/${nodeId}`, request),
   deleteLearningNode: (nodeId: number) =>
     http.delete<void>(`/teacher-manage/learning-nodes/${nodeId}`),
   createNodeEdge: (request: CreateNodeEdgeRequest) =>
@@ -201,4 +290,38 @@ export const learningPathService = {
     http.delete<void>(`/admin/tests/${testId}`),
   reorderAdminNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/admin/learning-nodes/${nodeId}/reorder-content`, requests),
+
+  // Teacher node content endpoints
+  getTeacherNodeContent: (nodeId: number) =>
+    http.get<NodeContentResponse>(`/teacher-manage/learning-nodes/${nodeId}/content`),
+  addTeacherNodeMaterial: (nodeId: number, formData: FormData) =>
+    http.post<NodeMaterialResponse>(`/teacher-manage/learning-nodes/${nodeId}/materials`, formData, {
+      'Content-Type': 'multipart/form-data',
+    }),
+  deleteTeacherNodeMaterial: (materialId: number) =>
+    http.delete<void>(`/teacher-manage/materials/${materialId}`),
+  addTeacherNodeTest: (nodeId: number, request: CreateNodeTestRequest) =>
+    http.post<NodeTestResponse>(`/teacher-manage/learning-nodes/${nodeId}/tests`, request),
+  deleteTeacherNodeTest: (testId: number) =>
+    http.delete<void>(`/teacher-manage/tests/${testId}`),
+  reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
+    http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
+
+  // Teacher Placement & Question endpoints
+  getPlacementQuizDetails: (csId: number) =>
+    http.get<PlacementQuizDetailsResponse>(`/teacher-manage/classroom-subjects/${csId}/placement-quiz`),
+  createPlacementQuiz: (csId: number, request: { title: string; description?: string; durationMinutes: number }) =>
+    http.post<PlacementQuizDetailsResponse>(`/teacher-manage/classroom-subjects/${csId}/placement-quiz`, request),
+  updateScoreBands: (testId: number, bands: { minScore: number; maxScore: number; targetLevel: number }[]) =>
+    http.put<ScoreBandResponse[]>(`/teacher-manage/tests/${testId}/score-bands`, bands),
+  getPlacementQuestions: (testId: number) =>
+    http.get<TeacherQuestionResponse[]>(`/teacher-manage/tests/${testId}/questions`),
+  addPlacementQuestion: (testId: number, request: TeacherQuestionRequest) =>
+    http.post<TeacherQuestionResponse>(`/teacher-manage/tests/${testId}/questions`, request),
+  updatePlacementQuestion: (questionId: number, request: TeacherQuestionRequest) =>
+    http.put<TeacherQuestionResponse>(`/teacher-manage/test-questions/${questionId}`, request),
+  deletePlacementQuestion: (questionId: number) =>
+    http.delete<void>(`/teacher-manage/test-questions/${questionId}`),
+  getStudentLevelHistory: (csId: number, studentId: number) =>
+    http.get<any[]>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/level-history`),
 };

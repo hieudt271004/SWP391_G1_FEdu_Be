@@ -12,7 +12,6 @@ public class NodeEdgeResponse {
     private Long edgeId;
     private Long fromNodeId;
     private Long toNodeId;
-    private String branchName;
     private BigDecimal minScore;
     private BigDecimal maxScore;
 }

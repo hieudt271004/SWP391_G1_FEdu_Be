@@ -37,6 +37,7 @@ public class NodeReview extends AbstractEntity<Long> {
     @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

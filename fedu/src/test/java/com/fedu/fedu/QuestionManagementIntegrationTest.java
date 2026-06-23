@@ -53,17 +53,51 @@ public class QuestionManagementIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     private com.fedu.fedu.entity.Test quiz;
     private TestQuestion question1;
 
     @BeforeEach
     void setUp() {
-        Subject subject = Subject.builder()
-                .subjectCode("SWP391")
-                .subjectName("Software Development Project")
-                .isDeleted(false)
-                .build();
-        subjectRepository.save(subject);
+        // Clear all database tables via direct SQL to avoid flush order and FK constraint issues in shared DB
+        jdbcTemplate.execute("DELETE FROM ticket_comments");
+        jdbcTemplate.execute("DELETE FROM support_tickets");
+        jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
+        jdbcTemplate.execute("DELETE FROM classroom_subject_students");
+        jdbcTemplate.execute("DELETE FROM student_selected_answers");
+        jdbcTemplate.execute("DELETE FROM student_test_responses");
+        jdbcTemplate.execute("DELETE FROM student_test_attempts");
+        jdbcTemplate.execute("DELETE FROM test_answers");
+        jdbcTemplate.execute("DELETE FROM test_questions");
+        jdbcTemplate.execute("DELETE FROM tests");
+        jdbcTemplate.execute("DELETE FROM videos");
+        jdbcTemplate.execute("DELETE FROM files");
+        jdbcTemplate.execute("DELETE FROM node_materials");
+        jdbcTemplate.execute("DELETE FROM question_answers");
+        jdbcTemplate.execute("DELETE FROM node_questions");
+        jdbcTemplate.execute("DELETE FROM node_reviews");
+        jdbcTemplate.execute("DELETE FROM submissions");
+        jdbcTemplate.execute("DELETE FROM student_learning_routes");
+        jdbcTemplate.execute("DELETE FROM student_node_progress");
+        jdbcTemplate.execute("DELETE FROM node_edges");
+        jdbcTemplate.execute("DELETE FROM learning_nodes");
+        jdbcTemplate.execute("DELETE FROM learning_paths");
+        jdbcTemplate.execute("DELETE FROM classroom_subjects");
+        jdbcTemplate.execute("DELETE FROM classrooms");
+        jdbcTemplate.execute("DELETE FROM subjects");
+        jdbcTemplate.execute("DELETE FROM tokens");
+
+        Subject subject = subjectRepository.findAll().stream()
+                .filter(s -> "SWP391".equals(s.getSubjectCode()))
+                .findFirst()
+                .orElseGet(() -> subjectRepository.save(Subject.builder()
+                        .subjectCode("SWP391")
+                        .subjectName("Software Development Project")
+                        .status("published")
+                        .isDeleted(false)
+                        .build()));
 
         LearningPath path = LearningPath.builder()
                 .subject(subject)
@@ -107,7 +141,7 @@ public class QuestionManagementIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void testGetQuestions() throws Exception {
         mockMvc.perform(get("/admin/tests/" + quiz.getTestId() + "/questions"))
                 .andExpect(status().isOk())
@@ -119,7 +153,7 @@ public class QuestionManagementIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void testAddQuestion() throws Exception {
         QuestionRequest request = QuestionRequest.builder()
                 .questionContent("What is Spring Boot?")
@@ -146,7 +180,7 @@ public class QuestionManagementIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void testUpdateQuestion() throws Exception {
         QuestionRequest request = QuestionRequest.builder()
                 .questionContent("Updated question content?")
@@ -175,7 +209,7 @@ public class QuestionManagementIntegrationTest {
     }
 
     @Test
-    @WithMockUser(roles = "TEACHER")
+    @WithMockUser(roles = "ADMIN")
     void testDeleteQuestion() throws Exception {
         mockMvc.perform(delete("/admin/test-questions/" + question1.getQuestionId()))
                 .andExpect(status().isOk());

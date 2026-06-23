@@ -1,6 +1,7 @@
 package com.fedu.fedu.dto.req;
 
 import com.fedu.fedu.utils.enums.NodeStatus;
+import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -29,6 +30,21 @@ public class CreateLearningNodeRequest {
 
     private Boolean isRequired;
 
-    @jakarta.validation.constraints.Size(max = 100, message = "branchName must not exceed 100 characters")
-    private String branchName;
+
+
+    /** Chặng thứ mấy trong lộ trình (1..subject.learningpathLength). */
+    @jakarta.validation.constraints.Min(value = 1, message = "stageOrder phải >= 1")
+    private Integer stageOrder;
+
+    /** Mức của node: null = node chung mọi mức; 1=yếu, 2=tb, 3=khá. */
+    private Integer level;
+
+    /** Loại test: NONE/GATE/PLACEMENT/FREE_CHOICE (mặc định NONE). */
+    private NodeTestKind testKind;
+
+    private String appliesLevels;
+    private java.math.BigDecimal gateUpMin;
+    private java.math.BigDecimal gateDownMax;
+    private java.math.BigDecimal placementYeuMax;
+    private java.math.BigDecimal placementTbMax;
 }

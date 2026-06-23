@@ -7,9 +7,10 @@ interface SubjectForm {
   subjectCode: string;
   subjectName: string;
   description: string;
+  learningpathLength: string;
 }
 
-export function AddCoursePage() {
+export function AddSubjectPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
@@ -18,6 +19,7 @@ export function AddCoursePage() {
     subjectCode: "",
     subjectName: "",
     description: "",
+    learningpathLength: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEdit);
@@ -32,6 +34,7 @@ export function AddCoursePage() {
             subjectCode: data.subjectCode,
             subjectName: data.subjectName,
             description: data.description || "",
+            learningpathLength: data.learningpathLength ? String(data.learningpathLength) : "",
           });
         } catch (err: unknown) {
           setError(err instanceof Error ? err.message : "Tải thông tin môn học thất bại");
@@ -54,15 +57,19 @@ export function AddCoursePage() {
       setError("Mã môn học và tên môn học là bắt buộc.");
       return;
     }
+    const payload = {
+      ...form,
+      learningpathLength: form.learningpathLength.trim() ? Number(form.learningpathLength) : undefined,
+    };
     try {
       setSubmitting(true);
       setError(null);
       if (isEdit) {
-        await subjectService.update(Number(id), form);
+        await subjectService.update(Number(id), payload);
       } else {
-        await subjectService.create(form);
+        await subjectService.create(payload);
       }
-      navigate("/admin/courses");
+      navigate("/admin/subjects");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
     } finally {
@@ -80,7 +87,7 @@ export function AddCoursePage() {
     <div className="space-y-6 max-w-4xl">
       {/* Header & Breadcrumb */}
       <div className="flex items-center gap-4 mb-2">
-        <button onClick={() => navigate("/admin/courses")} className="p-2 rounded-xl hover:bg-gray-100 transition-colors" style={{ color: "#4b5563" }}>
+        <button onClick={() => navigate("/admin/subjects")} className="p-2 rounded-xl hover:bg-gray-100 transition-colors" style={{ color: "#4b5563" }}>
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
@@ -88,8 +95,8 @@ export function AddCoursePage() {
             {isEdit ? "Chỉnh sửa môn học" : "Thêm môn học mới"}
           </h1>
           <div className="flex items-center gap-2" style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-            <button type="button" onClick={() => navigate("/admin/courses")} style={{ background: "none", border: "none", color: "#4338ca", cursor: "pointer", fontWeight: 600 }}>
-              Quản lý môn học
+            <button type="button" onClick={() => navigate("/admin/subjects")} style={{ background: "none", border: "none", color: "#4338ca", cursor: "pointer", fontWeight: 600 }}>
+              Quản lý Môn học
             </button>
             <ChevronRight className="w-3 h-3" />
             <span style={{ color: "#4338ca", fontWeight: 600 }}>{isEdit ? "Chỉnh sửa" : "Thêm mới"}</span>
@@ -106,7 +113,7 @@ export function AddCoursePage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Mã môn học */}
+            {/* Mã khóa học */}
             <div>
               <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
                 Mã môn học <span style={{ color: "#ef4444" }}>*</span>
@@ -124,7 +131,7 @@ export function AddCoursePage() {
               />
             </div>
 
-            {/* Tên môn học */}
+            {/* Tên khóa học */}
             <div>
               <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
                 Tên môn học <span style={{ color: "#ef4444" }}>*</span>
@@ -135,6 +142,24 @@ export function AddCoursePage() {
                 onChange={(e) => handleChange("subjectName", e.target.value)}
                 placeholder="VD: Lập trình Web với React"
                 required
+                className="w-full px-4 py-3 rounded-xl outline-none transition-all"
+                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
+                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
+                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
+              />
+            </div>
+
+            {/* Số chặng */}
+            <div>
+              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
+                Số chặng (learningpathLength)
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={form.learningpathLength}
+                onChange={(e) => handleChange("learningpathLength", e.target.value)}
+                placeholder="VD: 5"
                 className="w-full px-4 py-3 rounded-xl outline-none transition-all"
                 style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
                 onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
@@ -174,7 +199,7 @@ export function AddCoursePage() {
           </button>
           <button
             type="button"
-            onClick={() => navigate("/admin/courses")}
+            onClick={() => navigate("/admin/subjects")}
             disabled={submitting}
             className="px-8 py-3 rounded-xl transition-colors hover:bg-red-50"
             style={{ backgroundColor: "#ffe5e5", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.9375rem", fontWeight: 600 }}

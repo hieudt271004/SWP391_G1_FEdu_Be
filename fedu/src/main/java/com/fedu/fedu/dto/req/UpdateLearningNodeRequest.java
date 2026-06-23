@@ -1,6 +1,7 @@
 package com.fedu.fedu.dto.req;
 
 import com.fedu.fedu.utils.enums.NodeStatus;
+import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,6 +24,13 @@ public class UpdateLearningNodeRequest {
 
     private Boolean isRequired;
 
-    @jakarta.validation.constraints.Size(max = 100, message = "branchName must not exceed 100 characters")
-    private String branchName;
+    private Integer stageOrder;
+    private Integer level;
+    private NodeTestKind testKind;
+
+    private String appliesLevels;
+    private java.math.BigDecimal gateUpMin;
+    private java.math.BigDecimal gateDownMax;
+    private java.math.BigDecimal placementYeuMax;
+    private java.math.BigDecimal placementTbMax;
 }

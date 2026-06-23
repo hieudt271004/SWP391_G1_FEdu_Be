@@ -38,6 +38,7 @@ public class Submission extends AbstractEntity<Long> {
     @Column(name = "file_url", columnDefinition = "TEXT")
     private String fileUrl;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "submission_status")
     private SubmissionStatus status = SubmissionStatus.PENDING;
@@ -55,6 +56,7 @@ public class Submission extends AbstractEntity<Long> {
     @Column(name = "graded_at")
     private LocalDateTime gradedAt;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 

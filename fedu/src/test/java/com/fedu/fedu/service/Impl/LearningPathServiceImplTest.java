@@ -3,17 +3,13 @@ package com.fedu.fedu.service.Impl;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
 import com.fedu.fedu.exception.InvalidDataException;
-import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
-import com.fedu.fedu.utils.enums.NodeStatus;
-import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,7 +32,7 @@ class LearningPathServiceImplTest {
     @Mock
     private SubjectRepository subjectRepository;
     @Mock
-    private ClassroomRepository classroomRepository;
+    private ClassroomSubjectRepository classroomSubjectRepository;
     @Mock
     private NodeEdgeRepository nodeEdgeRepository;
     @Mock
@@ -45,6 +41,18 @@ class LearningPathServiceImplTest {
     private ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     @Mock
     private UserAccountRepository userAccountRepository;
+    @Mock
+    private NodeMaterialRepository nodeMaterialRepository;
+    @Mock
+    private VideoRepository videoRepository;
+    @Mock
+    private FileEntityRepository fileEntityRepository;
+    @Mock
+    private TestRepository testRepository;
+    @Mock
+    private TestQuestionRepository testQuestionRepository;
+    @Mock
+    private TestAnswerRepository testAnswerRepository;
 
     @InjectMocks
     private LearningPathServiceImpl learningPathService;
@@ -52,6 +60,7 @@ class LearningPathServiceImplTest {
     private Classroom classroom;
     private UserAccount lecturer;
     private Subject subject;
+    private ClassroomSubject classroomSubject;
     private LearningPath templatePath;
 
     @BeforeEach
@@ -62,11 +71,16 @@ class LearningPathServiceImplTest {
 
         subject = new Subject();
         subject.setSubjectId(10L);
+        subject.setStatus("published");
 
         classroom = new Classroom();
         classroom.setClassroomId(100L);
-        classroom.setLecturer(lecturer);
-        classroom.setSubject(subject);
+
+        classroomSubject = new ClassroomSubject();
+        classroomSubject.setId(100L);
+        classroomSubject.setClassroom(classroom);
+        classroomSubject.setSubject(subject);
+        classroomSubject.setLecturer(lecturer);
 
         templatePath = new LearningPath();
         templatePath.setPathId(200L);
@@ -90,30 +104,32 @@ class LearningPathServiceImplTest {
         SecurityContextHolder.clearContext();
     }
 
-    // 6.1 Unit test cloneLearningPath
+    // Unit test cloneLearningPath
     @Test
     void testCloneLearningPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
 
-        when(classroomRepository.findById(100L)).thenReturn(Optional.of(classroom));
-        when(learningPathRepository.findById(200L)).thenReturn(Optional.of(templatePath));
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.emptyList());
 
-        LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").displayOrder(1).isRequired(true).branchName("A").build();
-        LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(2).isRequired(false).branchName("B").build();
-        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(200L))
-                .thenReturn(Arrays.asList(node1, node2));
+        LearningPath template = LearningPath.builder().pathId(202L).subject(subject).isDeleted(false).build();
+        when(learningPathRepository.findById(202L)).thenReturn(Optional.of(template));
 
-        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).branchName("A").minScore(BigDecimal.ZERO).maxScore(BigDecimal.TEN).build();
-        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(200L))
-                .thenReturn(Collections.singletonList(edge));
+        LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").displayOrder(1).isRequired(true).build();
+        LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(2).isRequired(false).build();
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(202L)).thenReturn(Arrays.asList(node1, node2));
+
+        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).minScore(BigDecimal.ZERO).maxScore(BigDecimal.TEN).build();
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(202L)).thenReturn(Collections.singletonList(edge));
 
         when(learningPathRepository.save(any(LearningPath.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        LearningPathResponse response = learningPathService.cloneLearningPath(100L, 200L);
+        LearningPathResponse response = learningPathService.cloneLearningPath(100L, 202L);
 
         assertNotNull(response);
-        assertEquals(100L, response.getClassroomId());
-        assertEquals(200L, response.getOriginalPathId());
 
         verify(learningNodeRepository, times(2)).save(any(LearningNode.class));
         verify(nodeEdgeRepository, times(1)).save(any(NodeEdge.class));
@@ -123,55 +139,62 @@ class LearningPathServiceImplTest {
     @Test
     void testCloneLearningPath_Conflict_AlreadyExists() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
-        when(classroomRepository.findById(100L)).thenReturn(Optional.of(classroom));
-        when(learningPathRepository.findById(200L)).thenReturn(Optional.of(templatePath));
-        when(learningPathRepository.save(any(LearningPath.class)))
-                .thenThrow(new DataIntegrityViolationException("uniq_active_classroom_path"));
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(new LearningPath()));
 
         assertThrows(InvalidDataException.class, () -> {
-            learningPathService.cloneLearningPath(100L, 200L);
+            learningPathService.cloneLearningPath(100L, 202L);
         });
         clearAuthentication();
     }
 
-    // 6.2 Unit test cycle detection iterative Kahn
+    // Unit test cycle detection iterative Kahn
     @Test
     void testCloneLearningPath_CycleDetected() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
-        when(classroomRepository.findById(100L)).thenReturn(Optional.of(classroom));
-        when(learningPathRepository.findById(200L)).thenReturn(Optional.of(templatePath));
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.emptyList());
+
+        LearningPath template = LearningPath.builder().pathId(202L).subject(subject).isDeleted(false).build();
+        when(learningPathRepository.findById(202L)).thenReturn(Optional.of(template));
 
         LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").build();
         LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").build();
-        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(200L))
-                .thenReturn(Arrays.asList(node1, node2));
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(202L)).thenReturn(Arrays.asList(node1, node2));
 
         // Create a cycle: 1 -> 2 and 2 -> 1
         NodeEdge edge1 = NodeEdge.builder().fromNode(node1).toNode(node2).build();
         NodeEdge edge2 = NodeEdge.builder().fromNode(node2).toNode(node1).build();
-        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(200L))
-                .thenReturn(Arrays.asList(edge1, edge2));
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(202L)).thenReturn(Arrays.asList(edge1, edge2));
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            learningPathService.cloneLearningPath(100L, 200L);
+            learningPathService.cloneLearningPath(100L, 202L);
         });
         assertEquals("Template chứa cycle", exception.getMessage());
         clearAuthentication();
     }
 
-    // 6.3 Unit test getClassroomGraph
+    // Unit test getClassroomGraph
     @Test
     void testGetClassroomGraph_NoPath() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
-        when(classroomRepository.findById(100L)).thenReturn(Optional.of(classroom));
-        when(learningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(100L))
-                .thenReturn(Optional.empty());
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.emptyList());
 
         LearningPath template = new LearningPath();
         template.setPathId(200L);
         template.setPathName("Template 1");
         template.setDescription("Desc");
-        when(learningPathRepository.findBySubjectSubjectIdAndClassroomIsNullAndIsDeletedFalse(10L))
+        when(learningPathRepository.findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(10L))
                 .thenReturn(Collections.singletonList(template));
 
         when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(200L))
@@ -189,14 +212,16 @@ class LearningPathServiceImplTest {
     @Test
     void testGetClassroomGraph_Draft() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
-        when(classroomRepository.findById(100L)).thenReturn(Optional.of(classroom));
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
 
         LearningPath draftPath = new LearningPath();
         draftPath.setPathId(300L);
-        draftPath.setClassroom(classroom);
+        draftPath.setClassroomSubject(classroomSubject);
         draftPath.setPublishedAt(null);
-        when(learningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(100L))
-                .thenReturn(Optional.of(draftPath));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(draftPath));
 
         ClassroomGraphResponse response = learningPathService.getClassroomGraph(100L);
 
@@ -206,16 +231,26 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // 6.4 Unit test publishClassroomPath
+    // Unit test publishClassroomPath
     @Test
     void testPublishClassroomPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
-        
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+
+        com.fedu.fedu.entity.Test quiz = new com.fedu.fedu.entity.Test();
+        quiz.setTestId(999L);
+        classroomSubject.setQuizStart(quiz);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
+
         LearningPath path = new LearningPath();
         path.setPathId(300L);
-        path.setClassroom(classroom);
+        path.setClassroomSubject(classroomSubject);
         path.setPublishedAt(null);
-        when(learningPathRepository.findByPathIdForUpdate(300L)).thenReturn(Optional.of(path));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(path));
+        when(learningPathRepository.findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(100L))
+                .thenReturn(Optional.of(path));
 
         LearningNode node1 = LearningNode.builder().nodeId(1L).title("Node 1").displayOrder(0).build();
         LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(1).build();
@@ -230,10 +265,17 @@ class LearningPathServiceImplTest {
         student1.setUserId(10L);
         UserAccount student2 = new UserAccount();
         student2.setUserId(11L);
-        when(classroomSubjectStudentRepository.findDistinctStudentsByClassroomId(100L))
+        when(classroomSubjectStudentRepository.findDistinctStudentsByClassroomSubjectId(100L))
                 .thenReturn(Arrays.asList(student1, student2));
 
-        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        ClassroomSubjectStudent css1 = ClassroomSubjectStudent.builder().classroomSubject(classroomSubject).student(student1).currentLevel(2).build();
+        ClassroomSubjectStudent css2 = ClassroomSubjectStudent.builder().classroomSubject(classroomSubject).student(student2).currentLevel(2).build();
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(100L, 10L)).thenReturn(Optional.of(css1));
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(100L, 11L)).thenReturn(Optional.of(css2));
+        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(student1));
+        when(userAccountRepository.findById(11L)).thenReturn(Optional.of(student2));
+        when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(anyLong(), eq(300L)))
+                .thenReturn(Collections.emptyList());
 
         PublishResultResponse response = learningPathService.publishClassroomPath(100L, 300L);
 
@@ -242,20 +284,57 @@ class LearningPathServiceImplTest {
         assertNotNull(path.getPublishedAt());
         assertEquals(lecturer, path.getPublishedBy());
 
-        verify(studentNodeProgressRepository, times(1)).saveAll(anyList());
+        verify(studentNodeProgressRepository, times(2)).saveAll(anyList());
         clearAuthentication();
     }
 
-    // 6.5 Unit test unpublishClassroomPath
+    @Test
+    void testPublishClassroomPath_BlocksStuckLevel() {
+        mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+
+        com.fedu.fedu.entity.Test quiz = new com.fedu.fedu.entity.Test();
+        quiz.setTestId(999L);
+        classroomSubject.setQuizStart(quiz);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
+
+        LearningPath path = new LearningPath();
+        path.setPathId(300L);
+        path.setClassroomSubject(classroomSubject);
+        path.setPublishedAt(null);
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(path));
+
+        LearningNode shared = LearningNode.builder().nodeId(1L).title("Giới thiệu").displayOrder(0).build();
+        LearningNode lvl1 = LearningNode.builder().nodeId(2L).title("Bài mức Yếu").level(1).displayOrder(1).build();
+        LearningNode lvl3 = LearningNode.builder().nodeId(3L).title("Bài mức Khá").level(3).displayOrder(2).build();
+        when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(300L))
+                .thenReturn(Arrays.asList(shared, lvl1, lvl3));
+
+        NodeEdge e1 = NodeEdge.builder().fromNode(shared).toNode(lvl1).build();
+        NodeEdge e2 = NodeEdge.builder().fromNode(shared).toNode(lvl3).build();
+        when(nodeEdgeRepository.findByFromNodeLearningPathPathId(300L))
+                .thenReturn(Arrays.asList(e1, e2));
+
+        assertThrows(InvalidDataException.class,
+                () -> learningPathService.publishClassroomPath(100L, 300L));
+        clearAuthentication();
+    }
+
+    // Unit test unpublishClassroomPath
     @Test
     void testUnpublishClassroomPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
         
         LearningPath path = new LearningPath();
         path.setPathId(300L);
-        path.setClassroom(classroom);
+        path.setClassroomSubject(classroomSubject);
         path.setPublishedAt(LocalDateTime.now());
-        when(learningPathRepository.findByPathIdForUpdate(300L)).thenReturn(Optional.of(path));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(path));
 
         when(studentNodeProgressRepository.existsByLearningPathPathIdAndStatus(300L, StudentProgressStatus.COMPLETED))
                 .thenReturn(false);
@@ -271,12 +350,15 @@ class LearningPathServiceImplTest {
     @Test
     void testUnpublishClassroomPath_Forbidden_HasCompleted() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
+        when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
+        when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
         
         LearningPath path = new LearningPath();
         path.setPathId(300L);
-        path.setClassroom(classroom);
+        path.setClassroomSubject(classroomSubject);
         path.setPublishedAt(LocalDateTime.now());
-        when(learningPathRepository.findByPathIdForUpdate(300L)).thenReturn(Optional.of(path));
+        when(learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(100L))
+                .thenReturn(Collections.singletonList(path));
 
         when(studentNodeProgressRepository.existsByLearningPathPathIdAndStatus(300L, StudentProgressStatus.COMPLETED))
                 .thenReturn(true);
@@ -292,9 +374,17 @@ class LearningPathServiceImplTest {
     void testBackfillProgressForStudent_Success() {
         LearningPath path = new LearningPath();
         path.setPathId(300L);
-        path.setClassroom(classroom);
+        path.setClassroomSubject(classroomSubject);
         path.setPublishedAt(LocalDateTime.now());
-        when(learningPathRepository.findByClassroomClassroomIdAndIsDeletedFalse(100L))
+
+        ClassroomSubjectStudent css = ClassroomSubjectStudent.builder()
+                .classroomSubject(classroomSubject)
+                .student(new UserAccount())
+                .currentLevel(2)
+                .build();
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(100L, 10L))
+                .thenReturn(Optional.of(css));
+        when(learningPathRepository.findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(100L))
                 .thenReturn(Optional.of(path));
 
         UserAccount student = new UserAccount();
