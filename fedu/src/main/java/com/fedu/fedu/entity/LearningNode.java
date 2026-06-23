@@ -1,6 +1,7 @@
 package com.fedu.fedu.entity;
 
 import com.fedu.fedu.utils.enums.NodeStatus;
+import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -54,6 +55,12 @@ public class LearningNode extends AbstractEntity<Long> {
     /** Mức của node: null = node chung mọi mức; 1=yếu, 2=tb, 3=khá = node thuộc nhánh mức cụ thể. */
     @Column(name = "level")
     private Integer level;
+
+    /** Loại test của node: NONE = không phải node test; GATE = test chốt chặn; PLACEMENT = test năng lực phân luồng. */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "test_kind")
+    private NodeTestKind testKind = NodeTestKind.NONE;
 
     @Builder.Default
     @Column(name = "is_deleted")

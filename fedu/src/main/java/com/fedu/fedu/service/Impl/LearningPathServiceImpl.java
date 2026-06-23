@@ -150,6 +150,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .isRequired(tn.getIsRequired() != null ? tn.getIsRequired() : true)
                     .stageOrder(tn.getStageOrder())
                     .level(tn.getLevel())
+                    .testKind(tn.getTestKind())
                     .isDeleted(false)
                     .build();
             learningNodeRepository.save(cn);
@@ -345,6 +346,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .isRequired(request.getIsRequired() != null ? request.getIsRequired() : true)
                 .stageOrder(request.getStageOrder())
                 .level(request.getLevel())
+                .testKind(request.getTestKind() != null ? request.getTestKind() : com.fedu.fedu.utils.enums.NodeTestKind.NONE)
                 .isDeleted(false)
                 .build();
 
@@ -480,6 +482,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .isDeleted(node.getIsDeleted())
                 .stageOrder(node.getStageOrder())
                 .level(node.getLevel())
+                .testKind(node.getTestKind())
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
                 .build();

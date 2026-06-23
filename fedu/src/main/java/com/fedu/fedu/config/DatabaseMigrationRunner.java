@@ -216,6 +216,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 // learning_nodes.stage_order, learning_nodes.level
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS stage_order INT");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS level INT");
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS test_kind VARCHAR(20) DEFAULT 'NONE'");
                 // classroom_subjects.id_quiz_start -> tests
                 statement.execute("ALTER TABLE classroom_subjects ADD COLUMN IF NOT EXISTS id_quiz_start BIGINT REFERENCES tests(test_id) ON DELETE SET NULL");
                 // classroom_subject_students.current_level (null = chưa làm placement)

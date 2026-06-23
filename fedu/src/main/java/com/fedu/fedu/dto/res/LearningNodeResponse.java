@@ -1,6 +1,7 @@
 package com.fedu.fedu.dto.res;
 
 import com.fedu.fedu.utils.enums.NodeStatus;
+import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import lombok.*;
 
@@ -24,6 +25,7 @@ public class LearningNodeResponse {
     private Boolean isDeleted;
     private Integer stageOrder;
     private Integer level;
+    private NodeTestKind testKind;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
