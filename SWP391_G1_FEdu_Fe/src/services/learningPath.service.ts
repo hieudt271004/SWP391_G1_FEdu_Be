@@ -1,6 +1,7 @@
 import { http } from './http';
 
 export type LearningPathLevel = 1 | 2 | 3;
+export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT';
 
 export interface CreateLearningPathRequest {
   subjectId: number;
@@ -35,6 +36,7 @@ export interface LearningNodeResponse {
   isRequired: boolean;
   isDeleted: boolean;
   level?: number | null;
+  testKind?: NodeTestKind;
   stageOrder?: number | null;
   createdAt: string;
   updatedAt: string;
@@ -100,6 +102,7 @@ export interface CreateLearningNodeRequest {
   isRequired?: boolean;
   stageOrder?: number;
   level?: number | null;
+  testKind?: NodeTestKind;
 }
 
 export interface UpdateLearningNodeRequest {

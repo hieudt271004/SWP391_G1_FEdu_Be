@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS learning_nodes (
                                               branch_name   VARCHAR(100),
                                               stage_order   INT, -- chặng thứ mấy (1..subjects.learningpath_length)
                                               level         INT, -- null = node chung; 1=yếu,2=tb,3=khá
+                                              test_kind     VARCHAR(20) DEFAULT 'NONE', -- NONE/GATE/PLACEMENT
                                               is_deleted    BOOLEAN DEFAULT FALSE,
                                               created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                               updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
