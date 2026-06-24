@@ -100,7 +100,6 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel);
     }
 
-    /** Parse "1,2" → {1,2}; bỏ giá trị rỗng/không hợp lệ. */
     private static Set<Integer> parseApplies(String s) {
         Set<Integer> out = new LinkedHashSet<>();
         if (s == null || s.isBlank()) {
@@ -119,11 +118,6 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         return out;
     }
 
-    /**
-     * Mở lại node nhánh của các chặng chưa hoàn thành theo mức mới:
-     * node nhánh khớp mức + đủ điều kiện tiên quyết → OPEN; node nhánh khác mức chưa xong → LOCKED.
-     * Node đã COMPLETED và node chung (level == null) giữ nguyên.
-     */
     private void reopenBranchNodesForLevel(Long classroomSubjectId, Long studentId, Integer newLevel) {
         LearningPath path = learningPathRepository
                 .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
@@ -139,8 +133,11 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
 
         for (StudentNodeProgress p : list) {
             LearningNode node = p.getLearningNode();
+            if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
+                continue; // node test — mở theo tiên quyết, không theo mức
+            }
             if (node.getLevel() == null) {
-                continue; // node chung
+                continue; // node học chung
             }
             if (p.getStatus() == StudentProgressStatus.COMPLETED) {
                 continue; // giữ lịch sử đã học
