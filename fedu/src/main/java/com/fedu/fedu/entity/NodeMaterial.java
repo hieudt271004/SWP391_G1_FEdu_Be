@@ -53,5 +53,5 @@ public class NodeMaterial extends AbstractEntity<Long> {
 
     @Builder.Default
     @Column(name = "is_deleted")
-    private Boolean isDeleted = true;
+    private Boolean isDeleted = false;
 }
