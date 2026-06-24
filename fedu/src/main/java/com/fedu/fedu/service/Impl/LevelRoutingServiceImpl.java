@@ -100,6 +100,32 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel);
     }
 
+    @Override
+    @Transactional
+    public void applyFreeChoiceRouting(Long classroomSubjectId, LearningNode freeChoiceNode, Long studentId) {
+        if (freeChoiceNode == null || freeChoiceNode.getTestKind() != NodeTestKind.FREE_CHOICE) {
+            return; // chỉ áp dụng cho node test tự do chọn
+        }
+        Integer target = freeChoiceNode.getLevel();
+        if (!LearningLevels.isValid(target)) {
+            return; // node free-choice phải gắn mức đích hợp lệ (1/2/3)
+        }
+        ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
+                .orElse(null);
+        if (css == null) {
+            return;
+        }
+        Integer current = css.getCurrentLevel();
+        if (Objects.equals(current, target)) {
+            return; // đã đúng mức, không cần đổi
+        }
+        css.setCurrentLevel(target);
+        classroomSubjectStudentRepository.save(css);
+        writeHistory(css, current, target, LevelChangeReason.FREE_CHOICE);
+        reopenBranchNodesForLevel(classroomSubjectId, studentId, target);
+    }
+
     private static Set<Integer> parseApplies(String s) {
         Set<Integer> out = new LinkedHashSet<>();
         if (s == null || s.isBlank()) {

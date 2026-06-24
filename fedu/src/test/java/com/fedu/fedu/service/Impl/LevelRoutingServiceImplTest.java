@@ -201,4 +201,36 @@ class LevelRoutingServiceImplTest {
         assertEquals(StudentProgressStatus.LOCKED, pYeu.getStatus()); // nhánh học Yếu khóa lại
         assertEquals(StudentProgressStatus.OPEN, pFcKha.getStatus()); // node test KHÔNG bị khóa theo mức
     }
+
+    // ── P2c: applyFreeChoiceRouting ───────────────────────────────────────────
+
+    @Test
+    void freeChoice_passSetsLevelToNodeTargetLevel() {
+        ClassroomSubjectStudent css = css(1); // Yếu
+        stubFind(css);
+
+        service.applyFreeChoiceRouting(CS_ID, testNode(300L, NodeTestKind.FREE_CHOICE, 3), STUDENT_ID);
+
+        assertEquals(3, css.getCurrentLevel()); // chọn & đạt bài Khá → lên Khá
+        verify(studentLevelHistoryRepository).save(any());
+    }
+
+    @Test
+    void freeChoice_alreadyAtTargetLevel_noChange() {
+        ClassroomSubjectStudent css = css(3);
+        stubFind(css);
+
+        service.applyFreeChoiceRouting(CS_ID, testNode(300L, NodeTestKind.FREE_CHOICE, 3), STUDENT_ID);
+
+        assertEquals(3, css.getCurrentLevel());
+        verify(studentLevelHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    void freeChoice_nonFreeChoiceNode_isIgnored() {
+        service.applyFreeChoiceRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID);
+
+        verifyNoInteractions(classroomSubjectStudentRepository);
+        verifyNoInteractions(studentLevelHistoryRepository);
+    }
 }
