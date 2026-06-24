@@ -17,8 +17,10 @@ public interface LearningPathRepository extends JpaRepository<LearningPath, Long
     // templates theo môn
     List<LearningPath> findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(Long subjectId);
 
-    // path của lớp-môn
-    Optional<LearningPath> findByClassroomSubjectIdAndIsDeletedFalse(Long classroomSubjectId);
+
+    List<LearningPath> findAllByClassroomSubjectIdAndIsDeletedFalse(Long classroomSubjectId);
+
+    Optional<LearningPath> findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(Long classroomSubjectId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from LearningPath p where p.pathId = :pathId")

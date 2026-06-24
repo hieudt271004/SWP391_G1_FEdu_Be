@@ -41,10 +41,6 @@ public class LearningPath extends AbstractEntity<Long> {
     @JoinColumn(name = "classroom_subject_id")
     private ClassroomSubject classroomSubject;   // null = template; có giá trị = bản clone của lớp-môn
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "level")
-    private com.fedu.fedu.utils.enums.LearningPathLevel level;  // chỉ set cho template
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_path_id")
     private LearningPath originalPath;

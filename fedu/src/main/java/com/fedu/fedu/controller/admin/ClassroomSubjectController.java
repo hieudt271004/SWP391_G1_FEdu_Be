@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.fedu.fedu.entity.UserAccount;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,9 +60,18 @@ public class ClassroomSubjectController {
     }
 
     @Operation(summary = "Danh sách lớp-môn mà 1 sinh viên đang học (theo studentId)")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STUDENT')")
     @GetMapping("/subjects/by-student/{studentId}")
-    public ResponseData<List<ClassroomSubjectResponse>> getClassroomSubjectsByStudent(@PathVariable Long studentId) {
+    public ResponseData<List<ClassroomSubjectResponse>> getClassroomSubjectsByStudent(
+            @PathVariable Long studentId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        boolean isStudentOnly = currentUser.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_STUDENT"))
+                && currentUser.getAuthorities().stream()
+                .noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_TEACHER"));
+        if (isStudentOnly && studentId != currentUser.getUserId()) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn chỉ được xem môn học của chính mình");
+        }
         return new ResponseData<>(HttpStatus.OK.value(), "OK",
                 classroomSubjectService.getClassroomSubjectsByStudent(studentId));
     }

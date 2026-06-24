@@ -33,6 +33,11 @@ public interface UserAccountService {
 
     void createUser(UserCreateRequest userCreateDTO);
 
+    /** Tạo nhanh 1 tài khoản role STUDENT (dùng cho import sinh viên bằng Excel). */
+    UserAccount createStudentAccount(String email, String firstName, String lastName,
+                                     com.fedu.fedu.utils.enums.Gender gender,
+                                     java.time.LocalDate dob, String phone, String rawPassword);
+
     void deleteByEmail(String email);
     
     UserResponse updateProfile(long userId, UserProfileRequest request);
@@ -42,4 +47,6 @@ public interface UserAccountService {
     void updateUser(long userId, UserUpdateRequest request);
 
     void resetAllPasswordsTo123456();
+
+    void createDefaultAdmin();
 }

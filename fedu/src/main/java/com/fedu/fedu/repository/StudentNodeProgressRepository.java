@@ -17,5 +17,5 @@ public interface StudentNodeProgressRepository extends JpaRepository<StudentNode
 
     List<StudentNodeProgress> findByStudentUserIdAndLearningPathPathId(Long userId, Long pathId);
 
-    void deleteByLearningNodeNodeId(Long nodeId);
+    void deleteByStudentUserIdAndLearningPathPathId(Long userId, Long pathId);
 }

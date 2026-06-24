@@ -1,0 +1,6 @@
+{
+  "files": ["SWP391_G1_FEdu_Fe/index.html"],
+  "insertBefore": "</body>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}

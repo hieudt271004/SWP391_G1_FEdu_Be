@@ -65,6 +65,14 @@ public class StudentNodeProgress extends AbstractEntity<Long> {
     @Column(name = "status", nullable = false)
     private StudentProgressStatus status = StudentProgressStatus.LOCKED;
 
+    /**
+     * Test của node bị khóa tạm thời: node đang OPEN nhưng học sinh phải hoàn thành
+     * nhánh phụ (làm lại) rồi mới được làm/làm lại test ở node này.
+     */
+    @Builder.Default
+    @Column(name = "test_locked", nullable = false)
+    private Boolean testLocked = false;
+
     @Column(name = "unlocked_at")
     private LocalDateTime unlockedAt;
 

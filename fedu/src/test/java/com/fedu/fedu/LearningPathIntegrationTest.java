@@ -95,37 +95,37 @@ public class LearningPathIntegrationTest {
     @BeforeEach
     void setUp() {
         transactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        // Clear all database tables via direct SQL to avoid flush order and FK constraint issues in shared DB
-        jdbcTemplate.execute("DELETE FROM ticket_comments");
-        jdbcTemplate.execute("DELETE FROM support_tickets");
-        jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
-        jdbcTemplate.execute("DELETE FROM classroom_subject_students");
-        jdbcTemplate.execute("DELETE FROM student_selected_answers");
-        jdbcTemplate.execute("DELETE FROM student_test_responses");
-        jdbcTemplate.execute("DELETE FROM student_test_attempts");
-        jdbcTemplate.execute("DELETE FROM test_answers");
-        jdbcTemplate.execute("DELETE FROM test_questions");
-        jdbcTemplate.execute("DELETE FROM tests");
-        jdbcTemplate.execute("DELETE FROM videos");
-        jdbcTemplate.execute("DELETE FROM files");
-        jdbcTemplate.execute("DELETE FROM node_materials");
-        jdbcTemplate.execute("DELETE FROM question_answers");
-        jdbcTemplate.execute("DELETE FROM node_questions");
-        jdbcTemplate.execute("DELETE FROM node_reviews");
-        jdbcTemplate.execute("DELETE FROM submissions");
-        jdbcTemplate.execute("DELETE FROM student_learning_routes");
-        jdbcTemplate.execute("DELETE FROM student_node_progress");
-        jdbcTemplate.execute("DELETE FROM node_edges");
-        jdbcTemplate.execute("DELETE FROM learning_nodes");
-        jdbcTemplate.execute("DELETE FROM learning_paths");
-        jdbcTemplate.execute("DELETE FROM classroom_subjects");
-        jdbcTemplate.execute("DELETE FROM classrooms");
-        jdbcTemplate.execute("DELETE FROM subjects");
-        jdbcTemplate.execute("DELETE FROM tokens");
-        jdbcTemplate.execute("DELETE FROM user_role");
-        jdbcTemplate.execute("DELETE FROM user_account");
-
         transactionTemplate.execute(status -> {
+            // Clear all database tables via direct SQL to avoid flush order and FK constraint issues in shared DB
+            jdbcTemplate.execute("DELETE FROM ticket_comments");
+            jdbcTemplate.execute("DELETE FROM support_tickets");
+            jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
+            jdbcTemplate.execute("DELETE FROM classroom_subject_students");
+            jdbcTemplate.execute("DELETE FROM student_selected_answers");
+            jdbcTemplate.execute("DELETE FROM student_test_responses");
+            jdbcTemplate.execute("DELETE FROM student_test_attempts");
+            jdbcTemplate.execute("DELETE FROM test_answers");
+            jdbcTemplate.execute("DELETE FROM test_questions");
+            jdbcTemplate.execute("DELETE FROM tests");
+            jdbcTemplate.execute("DELETE FROM videos");
+            jdbcTemplate.execute("DELETE FROM files");
+            jdbcTemplate.execute("DELETE FROM node_materials");
+            jdbcTemplate.execute("DELETE FROM question_answers");
+            jdbcTemplate.execute("DELETE FROM node_questions");
+            jdbcTemplate.execute("DELETE FROM node_reviews");
+            jdbcTemplate.execute("DELETE FROM submissions");
+            jdbcTemplate.execute("DELETE FROM student_learning_routes");
+            jdbcTemplate.execute("DELETE FROM student_node_progress");
+            jdbcTemplate.execute("DELETE FROM node_edges");
+            jdbcTemplate.execute("DELETE FROM learning_nodes");
+            jdbcTemplate.execute("DELETE FROM learning_paths");
+            jdbcTemplate.execute("DELETE FROM classroom_subjects");
+            jdbcTemplate.execute("DELETE FROM classrooms");
+            jdbcTemplate.execute("DELETE FROM subjects");
+            jdbcTemplate.execute("DELETE FROM tokens");
+            jdbcTemplate.execute("DELETE FROM user_role");
+            jdbcTemplate.execute("DELETE FROM user_account");
+
             // Create teacher A
             teacherA = userAccountRepository.save(UserAccount.builder()
                     .email("teacherA@fedu.edu.vn")
@@ -219,19 +219,19 @@ public class LearningPathIntegrationTest {
         });
     }
 
-    // 6.7 Integration test end-to-end: clone template -> publish -> assert SNP count = students x nodes; thêm student mới -> assert SNP backfilled chỉ cho student đó
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testEndToEndLearningPathFlow() throws Exception {
         // 1. Clone template
-        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
-                .orElse(null);
-        assertNull(clonedPath);
+        List<LearningPath> clonedPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId());
+        assertTrue(clonedPaths.isEmpty());
 
         learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
 
-        clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
-                .orElse(null);
+        clonedPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId());
+        assertEquals(1, clonedPaths.size());
+
+        LearningPath clonedPath = clonedPaths.get(0);
         assertNotNull(clonedPath);
         assertEquals(classroomSubjectA.getId(), clonedPath.getClassroomSubject().getId());
 
@@ -254,6 +254,7 @@ public class LearningPathIntegrationTest {
         ClassroomSubjectStudent enrollment = ClassroomSubjectStudent.builder()
                 .classroomSubject(classroomSubjectA)
                 .student(student)
+                .currentLevel(2)
                 .build();
         classroomSubjectStudentRepository.save(enrollment);
 
@@ -284,6 +285,16 @@ public class LearningPathIntegrationTest {
 
         classroomEnrollmentService.enrollStudent(classroomSubjectA.getId(), addRequest);
 
+        // Simulate student 2 resolving placement level and getting bound path
+        ClassroomSubjectStudent css2 = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectA.getId(), student2.getUserId())
+                .orElseThrow();
+        css2.setCurrentLevel(2);
+        classroomSubjectStudentRepository.save(css2);
+
+        // Call backfill explicitly
+        learningPathService.backfillProgressForStudent(classroomSubjectA.getId(), student2.getUserId());
+
         // Check SNP backfilled only for student 2
         List<StudentNodeProgress> student2Progress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(student2.getUserId(), clonedPath.getPathId());
         assertEquals(2, student2Progress.size());
@@ -297,7 +308,8 @@ public class LearningPathIntegrationTest {
             learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
             return null;
         });
-        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).orElseThrow();
+        LearningPath clonedPath = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
+                .get(0);
 
         int threadCount = 2;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -357,7 +369,8 @@ public class LearningPathIntegrationTest {
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void testRollbackEnrollmentWhenBackfillFails() {
         learningPathService.cloneLearningPath(classroomSubjectA.getId(), templatePath.getPathId());
-        LearningPath clonedPath = learningPathRepository.findByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId()).orElseThrow();
+        LearningPath clonedPath = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId())
+                .get(0);
         learningPathService.publishClassroomPath(classroomSubjectA.getId(), clonedPath.getPathId());
 
         UserAccount student = UserAccount.builder()

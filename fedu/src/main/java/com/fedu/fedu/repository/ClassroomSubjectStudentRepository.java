@@ -30,4 +30,10 @@ public interface ClassroomSubjectStudentRepository extends JpaRepository<Classro
     List<com.fedu.fedu.entity.UserAccount> findDistinctStudentsByClassroomSubjectId(@Param("csId") Long csId);
 
     boolean existsByClassroomSubject_IdAndStudent_UserId(Long classroomSubjectId, Long studentId);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cs FROM ClassroomSubjectStudent cs WHERE cs.classroomSubject.id = :classroomSubjectId AND cs.student.userId = :studentId")
+    Optional<ClassroomSubjectStudent> findByClassroomSubjectIdAndStudentIdForUpdate(
+            @Param("classroomSubjectId") Long classroomSubjectId,
+            @Param("studentId") Long studentId);
 }

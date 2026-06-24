@@ -31,9 +31,7 @@ public class NodeEdge {
     @JoinColumn(name = "to_node_id", nullable = false)
     private LearningNode toNode;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "branch_name")
-    private com.fedu.fedu.utils.enums.BranchType branchName;
+
 
     @Column(name = "min_score", precision = 5, scale = 2)
     private BigDecimal minScore;

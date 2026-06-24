@@ -14,6 +14,4 @@ public class CreateLearningPathRequest {
     @NotBlank(message = "pathName must not be blank")
     private String pathName;
     private String description;
-    @NotNull(message = "level (BASIC/ADVANCED) là bắt buộc")
-    private com.fedu.fedu.utils.enums.LearningPathLevel level;
 }
