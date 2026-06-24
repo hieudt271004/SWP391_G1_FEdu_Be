@@ -10,9 +10,11 @@
 ' =====================================================================
 !theme plain
 hide circle
-skinparam linetype ortho
+left to right direction
 skinparam shadowing false
 skinparam packageStyle rectangle
+skinparam nodesep 60
+skinparam ranksep 80
 
 ' ---------------------------------------------------------------------
 package "1. Auth & Users" #E8F0FE {

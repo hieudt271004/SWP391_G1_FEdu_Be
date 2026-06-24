@@ -156,7 +156,6 @@ CREATE TABLE IF NOT EXISTS learning_paths (
                                               description      TEXT,
                                               created_by       BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                               classroom_subject_id BIGINT REFERENCES classroom_subjects(id) ON DELETE CASCADE,
-                                              original_path_id BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL,
                                               is_deleted       BOOLEAN DEFAULT FALSE,
                                               published_at     TIMESTAMP NULL,
                                               published_by     BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,

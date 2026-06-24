@@ -6,7 +6,7 @@ import lombok.*;
 
 /**
  * Lộ trình học tập.
- classroomSubject != null && originalPath != null ⇒ bản clone cho 1 lớp-môn
+ * classroomSubject != null ⇒ bản clone cho 1 lớp-môn
  */
 @Getter
 @Setter
@@ -40,10 +40,6 @@ public class LearningPath extends AbstractEntity<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "classroom_subject_id")
     private ClassroomSubject classroomSubject;   // null = template; có giá trị = bản clone của lớp-môn
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "original_path_id")
-    private LearningPath originalPath;
 
     @Column(name = "published_at")
     private java.time.LocalDateTime publishedAt;
