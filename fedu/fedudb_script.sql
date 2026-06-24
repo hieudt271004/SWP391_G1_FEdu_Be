@@ -422,7 +422,7 @@ CREATE TABLE IF NOT EXISTS student_level_history (
     classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
     old_level            INT,
     new_level            INT NOT NULL,
-    reason               VARCHAR(50) NOT NULL, -- PLACEMENT | GATE
+    reason               VARCHAR(50) NOT NULL, -- PLACEMENT | GATE | RETAKE | FREE_CHOICE
     changed_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

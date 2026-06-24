@@ -125,6 +125,9 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (node.getTestKind() == NodeTestKind.GATE) {
             // Cổng phân luồng: định tuyến theo điểm (đổi mức + mở nhánh đúng mức), không pass/fail.
             routeGateNode(studentId, node, pathId, finalPercentage);
+        } else if (node.getTestKind() == NodeTestKind.FREE_CHOICE) {
+            // Test tự do chọn: đạt bài này → học theo nhánh của node (node.level).
+            routeFreeChoiceNode(studentId, node, pathId, passed);
         } else {
             // Node học thường: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại.
             routeAfterAttempt(studentId, node, pathId, passed);
@@ -153,10 +156,6 @@ public class StudentTestServiceImpl implements StudentTestService {
         return gradeAttempt(test, attempt, request);
     }
 
-    /**
-     * Chấm điểm một lượt thi: lưu từng câu trả lời, set điểm % và thời điểm nộp cho attempt.
-     * Dùng chung cho test theo node, bài phân loại (placement) và cổng test. Không định tuyến.
-     */
     BigDecimal gradeAttempt(com.fedu.fedu.entity.Test test, StudentTestAttempt attempt, AttemptSubmissionRequest request) {
         List<TestQuestion> questions = testQuestionRepository.findByTestTestId(test.getTestId());
         BigDecimal totalScore = BigDecimal.ZERO;
@@ -286,9 +285,8 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    // ── Định tuyến tiến độ sau mỗi lần nộp test ───────────────────────────────
-
-    /** Cạnh "rẽ nhánh phụ / trượt" = mang ngưỡng điểm (maxScore). */
+    // Định tuyến tiến độ sau mỗi lần nộp test
+    // Cạnh "rẽ nhánh phụ / trượt" = mang ngưỡng điểm (maxScore)
     private boolean isSubEdge(NodeEdge e) {
         return e.getMaxScore() != null;
     }
@@ -306,7 +304,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElse(null);
     }
 
-    /** Mọi test bắt buộc của node đã có ít nhất 1 lượt đạt? */
+    // Mọi test bắt buộc của node đã có ít nhất 1 lượt đạt?
     private boolean allNodeTestsPassed(Long studentId, LearningNode node) {
         List<com.fedu.fedu.entity.Test> nodeTests =
                 testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(node.getNodeId());
@@ -321,7 +319,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         return true;
     }
 
-    /** Mở 1 node nếu đang LOCKED (không xét điều kiện tiên quyết). */
+    // Mở 1 node nếu đang LOCKED (không xét điều kiện tiên quyết).
     private void openNode(Long studentId, LearningNode target, Long pathId) {
         StudentNodeProgress tp = getProgress(studentId, pathId, target.getNodeId());
         if (tp != null && tp.getStatus() == StudentProgressStatus.LOCKED) {
@@ -331,7 +329,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    /** Mở node kế nhánh chính nếu đủ điều kiện tiên quyết; node ON_CLASS chờ giáo viên mở. */
+    // Mở node kế nhánh chính nếu đủ điều kiện tiên quyết; node ON_CLASS chờ giáo viên mở
     private void openMainTargetIfEligible(Long studentId, LearningNode target, Long pathId) {
         // TODO: tự mở node ON_CLASS khi tới giờ buổi học (chưa có thuộc tính thời gian) — hiện chỉ giáo viên mở.
         if (target.getNodeType() == NodeType.ON_CLASS) return;
@@ -358,12 +356,6 @@ public class StudentTestServiceImpl implements StudentTestService {
             routeMainNode(studentId, node, pathId, passed);
         }
     }
-
-    /**
-     * Cổng phân luồng (GATE): KHÔNG pass/fail. Hoàn thành node cổng, đổi mức theo điểm
-     * (đổi mức sẽ tự mở nhánh đúng mức &amp; khóa nhánh sai mức), rồi mở node chặng sau khớp
-     * mức hiện tại — xử lý cả trường hợp điểm ở giữa (giữ nguyên mức).
-     */
     // package-private để unit-test trực tiếp lõi định tuyến cổng.
     void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage) {
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
@@ -386,6 +378,44 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
+    void routeFreeChoiceNode(Long studentId, LearningNode fcNode, Long pathId, boolean passed) {
+        if (!passed) {
+            return;
+        }
+        // Hoàn thành node free-choice đã chọn.
+        StudentNodeProgress gp = getProgress(studentId, pathId, fcNode.getNodeId());
+        if (gp != null) {
+            if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
+                gp.setStatus(StudentProgressStatus.COMPLETED);
+                gp.setCompletedAt(LocalDateTime.now());
+            }
+            gp.setTestLocked(false);
+            studentNodeProgressRepository.save(gp);
+        }
+        // Khóa 2 node free-choice còn lại cùng chặng — học sinh đã chọn nhánh.
+        List<StudentNodeProgress> all = studentNodeProgressRepository
+                .findByStudentUserIdAndLearningPathPathId(studentId, pathId);
+        for (StudentNodeProgress p : all) {
+            LearningNode n = p.getLearningNode();
+            if (!n.getNodeId().equals(fcNode.getNodeId())
+                    && n.getTestKind() == NodeTestKind.FREE_CHOICE
+                    && Objects.equals(n.getStageOrder(), fcNode.getStageOrder())
+                    && p.getStatus() != StudentProgressStatus.COMPLETED) {
+                p.setStatus(StudentProgressStatus.LOCKED);
+            }
+        }
+        studentNodeProgressRepository.saveAll(all);
+        // Đặt mức = nhánh đã chọn (đổi mức → mở nhánh đích, khóa nhánh mức cũ).
+        ClassroomSubject cs = fcNode.getLearningPath().getClassroomSubject();
+        if (cs != null) {
+            levelRoutingService.applyFreeChoiceRouting(cs.getId(), fcNode, studentId);
+        }
+        // 4) Mở node chặng sau khớp mức (xử lý cả khi mức không đổi).
+        for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(fcNode.getNodeId())) {
+            openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
+        }
+    }
+
     private void routeMainNode(Long studentId, LearningNode node, Long pathId, boolean passed) {
         StudentNodeProgress current = getProgress(studentId, pathId, node.getNodeId());
         if (current == null) return;
@@ -402,7 +432,7 @@ public class StudentTestServiceImpl implements StudentTestService {
             studentNodeProgressRepository.save(current);
 
             for (NodeEdge edge : outgoing) {
-                if (isSubEdge(edge)) continue; // đậu thì KHÔNG mở nhánh phụ
+                if (isSubEdge(edge)) continue; // đậu thì không mở nhánh phụ
                 openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
             }
         } else {

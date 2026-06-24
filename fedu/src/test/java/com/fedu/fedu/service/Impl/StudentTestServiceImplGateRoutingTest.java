@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -147,5 +148,58 @@ class StudentTestServiceImplGateRoutingTest {
         assertEquals(StudentProgressStatus.COMPLETED, gateProg.getStatus());
         verify(levelRoutingService).applyGateRouting(eq(CS_ID), eq(gate), eq(STUDENT_ID), eq(bd(85)));
         assertEquals(StudentProgressStatus.LOCKED, targetProg.getStatus()); // không mở vì khác mức
+    }
+
+    // ── P2c: routeFreeChoiceNode ──────────────────────────────────────────────
+
+    private LearningNode freeChoice(LearningPath path, long nodeId, int level) {
+        return LearningNode.builder()
+                .nodeId(nodeId)
+                .testKind(NodeTestKind.FREE_CHOICE)
+                .nodeType(NodeType.AT_HOME)
+                .level(level)
+                .stageOrder(2)
+                .learningPath(path)
+                .build();
+    }
+
+    @Test
+    void freeChoice_passed_completesNode_locksSibling_callsRouting_opensBranch() {
+        ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
+        LearningPath path = path(cs);
+        LearningNode fcKha = freeChoice(path, 300L, 3); // node tự do mức Khá đang chọn
+        LearningNode fcYeu = freeChoice(path, 301L, 1); // node tự do mức Yếu cùng nhóm
+        LearningNode branchKha = branch(path, 3);       // nhánh Khá (nodeId TARGET_ID)
+        NodeEdge edge = NodeEdge.builder().fromNode(fcKha).toNode(branchKha).build();
+
+        StudentNodeProgress pKha = progress(fcKha, path, StudentProgressStatus.IN_PROGRESS);
+        StudentNodeProgress pYeu = progress(fcYeu, path, StudentProgressStatus.OPEN);
+        StudentNodeProgress pBranch = progress(branchKha, path, StudentProgressStatus.LOCKED);
+        List<StudentNodeProgress> all = new ArrayList<>(List.of(pKha, pYeu, pBranch));
+
+        when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(STUDENT_ID, PATH_ID))
+                .thenReturn(all);
+        when(nodeEdgeRepository.findByFromNodeNodeId(300L)).thenReturn(List.of(edge));
+        when(nodeEdgeRepository.findByToNodeNodeId(TARGET_ID)).thenReturn(List.of(edge));
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
+                .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(3).build()));
+
+        service.routeFreeChoiceNode(STUDENT_ID, fcKha, PATH_ID, true);
+
+        assertEquals(StudentProgressStatus.COMPLETED, pKha.getStatus());  // node đã chọn hoàn thành
+        assertEquals(StudentProgressStatus.LOCKED, pYeu.getStatus());     // node tự do còn lại bị khóa
+        verify(levelRoutingService).applyFreeChoiceRouting(eq(CS_ID), eq(fcKha), eq(STUDENT_ID));
+        assertEquals(StudentProgressStatus.OPEN, pBranch.getStatus());    // nhánh Khá mở
+    }
+
+    @Test
+    void freeChoice_notPassed_doesNothing() {
+        LearningPath path = path(ClassroomSubject.builder().id(CS_ID).build());
+        LearningNode fcKha = freeChoice(path, 300L, 3);
+
+        service.routeFreeChoiceNode(STUDENT_ID, fcKha, PATH_ID, false);
+
+        verifyNoInteractions(studentNodeProgressRepository);
+        verifyNoInteractions(levelRoutingService);
     }
 }
