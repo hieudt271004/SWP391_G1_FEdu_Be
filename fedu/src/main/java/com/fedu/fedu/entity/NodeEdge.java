@@ -31,8 +31,7 @@ public class NodeEdge {
     @JoinColumn(name = "to_node_id", nullable = false)
     private LearningNode toNode;
 
-    @Column(name = "branch_name")
-    private String branchName;
+
 
     @Column(name = "min_score", precision = 5, scale = 2)
     private BigDecimal minScore;

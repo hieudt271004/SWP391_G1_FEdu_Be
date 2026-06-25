@@ -1,6 +1,5 @@
 package com.fedu.fedu.controller;
 
-import com.fedu.fedu.dto.req.AssignTeacherRequest;
 import com.fedu.fedu.dto.req.ClassroomRequest;
 import com.fedu.fedu.dto.res.ClassroomResponse;
 import com.fedu.fedu.dto.res.ResponseData;
@@ -29,17 +28,14 @@ public class ClassroomController {
 
     private final ClassroomService classroomService;
 
-    @Operation(summary = "Create new classroom",
-            description = "TEACHER creates class: lecturerId is automatically themselves. ADMIN can specify lecturerId.")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @Operation(summary = "Create new classroom (Admin only)")
+    @PreAuthorize("hasRole('ADMIN')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    public ResponseData<ClassroomResponse> createClassroom(
-            @Valid @RequestBody ClassroomRequest request,
-            @AuthenticationPrincipal UserAccount currentUser) {
-        log.info("Request create classroom: {} for subject: {}", request.getClassName(), request.getSubjectId());
-        ClassroomResponse response = classroomService.createClassroom(request, currentUser.getUserId());
-        return new ResponseData<>(HttpStatus.CREATED.value(), "Classroom created successfully", response);
+    public ResponseData<ClassroomResponse> createClassroom(@Valid @RequestBody ClassroomRequest request) {
+        log.info("Request create classroom: {}", request.getClassName());
+        return new ResponseData<>(HttpStatus.CREATED.value(), "Classroom created successfully",
+                classroomService.createClassroom(request));
     }
 
     @Operation(summary = "Get all classrooms (Admin only)")
@@ -113,14 +109,4 @@ public class ClassroomController {
         return new ResponseData<>(HttpStatus.OK.value(), "Classroom deleted successfully");
     }
 
-    @Operation(summary = "Assign / change teacher for classroom (Admin only)")
-    @PreAuthorize("hasRole('ADMIN')")
-    @PatchMapping("/{classroomId}/assign-teacher")
-    public ResponseData<ClassroomResponse> assignTeacher(
-            @PathVariable Long classroomId,
-            @Valid @RequestBody AssignTeacherRequest request) {
-        log.info("Request assign teacher id: {} to classroom id: {}", request.getTeacherId(), classroomId);
-        ClassroomResponse response = classroomService.assignTeacher(classroomId, request);
-        return new ResponseData<>(HttpStatus.OK.value(), "Teacher assigned successfully", response);
-    }
 }

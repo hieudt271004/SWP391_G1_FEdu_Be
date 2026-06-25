@@ -53,11 +53,6 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
-    public void verifyAccount(String email) {
-        // Method logic
-    }
-
-    @Override
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -65,16 +60,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
-    public void registerUser(UserAccount userAccount) {
-        // LoginHistory removed - no longer tracking last login separately
-    }
-
-    @Override
-    public void updateLastLogin(SignInRequest request) {
-        // LoginHistory removed - last login tracking has been removed
-    }
-
-    @Override
+    @Transactional
     public void createUser(UserCreateRequest userCreateDTO) {
         UserAccount userAccount = createUserAccount(userCreateDTO);
         userAccountRepository.save(userAccount);
@@ -102,6 +88,27 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public UserAccount createStudentAccount(String email, String firstName, String lastName,
+                                            com.fedu.fedu.utils.enums.Gender gender,
+                                            java.time.LocalDate dob, String phone, String rawPassword) {
+        UserAccount account = UserAccount.builder()
+                .email(email)
+                .password(passwordEncoder.encode(rawPassword))
+                .firstName(firstName)
+                .lastName(lastName)
+                .gender(gender)
+                .bod(dob)
+                .phone(phone)
+                .status(UserStatus.ACTIVE)
+                .isDeleted(false)
+                .build();
+        userAccountRepository.save(account);
+        assignUserRole(account, com.fedu.fedu.utils.enums.UserRole.STUDENT);
+        return account;
+    }
+
     private void assignUserRole(UserAccount userAccount, com.fedu.fedu.utils.enums.UserRole userRole) {
         // Mặc định USER nếu input null/invalid — KHÔNG bao giờ fallback về ADMIN
         com.fedu.fedu.utils.enums.UserRole targetRole =
@@ -125,6 +132,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
+    @Transactional
     public void save(RegisterRequest request) {
         // Check duplicate user
         if (userAccountRepository.existsByEmail(request.getEmail())) {
@@ -169,7 +177,10 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Override
     public List<String> getAllRoleByEmail(long userId) {
-        return userAccountRepository.findAllRoleByUserId(userId);
+        return userAccountRepository.findAllRoleByUserId(userId)
+                .stream()
+                .map(Enum::name)
+                .toList();
     }
     
     @Override
@@ -292,5 +303,51 @@ public class UserAccountServiceImpl implements UserAccountService {
         }
         userAccountRepository.saveAll(users);
         log.info("Reset {} user passwords to 123456 successfully", users.size());
+    }
+
+    @Override
+    @Transactional
+    public void createDefaultAdmin() {
+        log.info("---------- createDefaultAdmin ----------");
+        String adminEmail = "admin@gmail.com";
+        
+        UserAccount userAccount = userAccountRepository.findByEmail(adminEmail).orElse(null);
+        if (userAccount == null) {
+            userAccount = UserAccount.builder()
+                    .email(adminEmail)
+                    .password(passwordEncoder.encode("123456"))
+                    .status(UserStatus.ACTIVE)
+                    .firstName("System")
+                    .lastName("Admin")
+                    .isDeleted(false)
+                    .build();
+            userAccountRepository.save(userAccount);
+        } else {
+            userAccount.setPassword(passwordEncoder.encode("123456"));
+            userAccount.setStatus(UserStatus.ACTIVE);
+            userAccountRepository.save(userAccount);
+        }
+
+        Role adminRole = roleRepository.findByRoleName(com.fedu.fedu.utils.enums.UserRole.ADMIN)
+                .orElseThrow(() -> new IllegalStateException("Role ADMIN not found"));
+
+        boolean hasAdminRole = false;
+        if (userAccount.getUserRoles() != null) {
+            hasAdminRole = userAccount.getUserRoles().stream()
+                    .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+        }
+
+        if (!hasAdminRole) {
+            if (userAccount.getUserRoles() != null) {
+                userRoleRepository.deleteAll(userAccount.getUserRoles());
+            }
+            UserRole userRole = UserRole.builder()
+                    .role(adminRole)
+                    .userAccount(userAccount)
+                    .build();
+            userRoleRepository.save(userRole);
+            userAccount.setUserRoles(Collections.singletonList(userRole));
+        }
+        log.info("Admin user created/updated successfully with email admin@gmail.com and role ADMIN");
     }
 }

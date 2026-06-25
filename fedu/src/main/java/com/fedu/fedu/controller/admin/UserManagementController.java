@@ -4,7 +4,6 @@ import com.fedu.fedu.dto.req.UserCreateRequest;
 import com.fedu.fedu.dto.req.UserSetStatusRequest;
 import com.fedu.fedu.dto.req.UserUpdateRequest;
 import com.fedu.fedu.dto.res.ResponseData;
-import com.fedu.fedu.dto.res.ResponseError;
 import com.fedu.fedu.service.UserAccountService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
@@ -69,12 +68,7 @@ public class UserManagementController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @PutMapping("/users/{userId}")
     public ResponseData<Void> updateUser(@PathVariable long userId, @Valid @RequestBody UserUpdateRequest request) {
-        try {
-            userAccountService.updateUser(userId, request);
-            return new ResponseData<>(HttpStatus.OK.value(), "User updated successfully");
-        } catch (Exception e) {
-            log.error("Failed to update user {}: {}", userId, e.getMessage(), e);
-            return new ResponseError(HttpStatus.BAD_REQUEST.value(), "Failed to update user: " + e.getMessage());
-        }
+        userAccountService.updateUser(userId, request);
+        return new ResponseData<>(HttpStatus.OK.value(), "User updated successfully");
     }
 }

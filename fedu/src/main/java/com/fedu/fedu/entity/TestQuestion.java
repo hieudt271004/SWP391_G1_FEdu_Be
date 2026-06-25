@@ -35,10 +35,12 @@ public class TestQuestion extends AbstractEntity<Long> {
      * - SHORT_ANSWER: trả lời ngắn
      * - ESSAY: tự luận
      */
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "question_type", nullable = false)
     private QuestionType questionType = QuestionType.MULTIPLE_CHOICE;
 
+    @Builder.Default
     @Column(name = "score", precision = 5, scale = 2)
     private BigDecimal score = BigDecimal.ONE;
 }

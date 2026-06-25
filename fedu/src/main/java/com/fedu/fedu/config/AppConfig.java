@@ -50,6 +50,7 @@ public class AppConfig {
             "/auth/change-password",
             "/auth/refresh-token",
             "/auth/reset-all-passwords",
+            "/auth/setup-admin",
             "/public/about/**",
             "/uploads/**"
     };

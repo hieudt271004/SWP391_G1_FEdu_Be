@@ -1,4 +1,5 @@
 export interface Classroom {
+  classroomSubjectId?: number;
   classroomId: number;
   classroomCode: string;
   classroomName: string;

@@ -22,4 +22,10 @@ public interface ClassroomSubjectRepository extends JpaRepository<ClassroomSubje
     // Tìm tất cả lớp học của một giảng viên
     @Query("SELECT cs FROM ClassroomSubject cs WHERE cs.lecturer.userId = :lecturerId")
     List<ClassroomSubject> findByLecturerId(@Param("lecturerId") Long lecturerId);
+
+    boolean existsByIdAndLecturerUserId(Long classroomSubjectId, Long lecturerId);
+
+    boolean existsByClassroomClassroomIdAndLecturerUserId(Long classroomId, Long lecturerId);
+
+    Optional<ClassroomSubject> findByQuizStartTestId(Long testId);
 }

@@ -22,7 +22,7 @@ public interface LearningNodeRepository extends JpaRepository<LearningNode, Long
             WHERE p.subject.subjectId = :subjectId
             AND n.isDeleted = false
             AND p.isDeleted = false
-            AND p.classroom IS NULL
+            AND p.classroomSubject IS NULL
             ORDER BY p.pathId ASC
             """)
     List<LearningNode> findAllTemplateNodesBySubjectId(@Param("subjectId") Long subjectId);
@@ -32,10 +32,10 @@ public interface LearningNodeRepository extends JpaRepository<LearningNode, Long
             SELECT n
             FROM LearningNode n
             JOIN n.learningPath p
-            WHERE p.classroom.classroomId = :classroomId
+            WHERE p.classroomSubject.id = :classroomSubjectId
             AND n.isDeleted = false
             AND p.isDeleted = false
             ORDER BY p.pathId ASC
             """)
-    List<LearningNode> findAllClassroomNodesByClassroomId(@Param("classroomId") Long classroomId);
+    List<LearningNode> findAllClassroomNodesByClassroomId(@Param("classroomSubjectId") Long classroomSubjectId);
 }

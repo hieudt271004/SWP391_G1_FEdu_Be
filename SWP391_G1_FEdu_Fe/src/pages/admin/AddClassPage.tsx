@@ -1,14 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, ArrowLeft, Loader2 } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
-import { subjectService } from "../../services/subject.service";
-import { adminService, AdminUserResponse } from "../../services/admin.service";
 
 interface ClassForm {
   className: string;
-  subjectId: number;
-  lecturerId: number;
   semester: string;
   description: string;
   status?: string;
@@ -17,50 +13,30 @@ interface ClassForm {
 export function AddClassPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
   const isEdit = Boolean(id);
-
-  const defaultSubjectId = Number(searchParams.get("subjectId")) || 0;
 
   const [form, setForm] = useState<ClassForm>({
     className: "",
-    subjectId: defaultSubjectId,
-    lecturerId: 0,
     semester: "",
     description: "",
     status: "inactive",
   });
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [teachers, setTeachers] = useState<AdminUserResponse[]>([]);
-  
+
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isEdit) return;
     const fetchData = async () => {
       try {
-        const [subs, users] = await Promise.all([
-          subjectService.getAll(),
-          adminService.getAllUsers()
-        ]);
-        const teachs = users.filter((u: any) => u.roles?.includes("TEACHER"));
-        setTeachers(teachs);
-        
-        if (isEdit) {
-          const data = await classroomService.getById(Number(id));
-          setForm({
-            className: data.className || "",
-            subjectId: data.subjectId || 0,
-            lecturerId: data.lecturerId || 0,
-            semester: data.semester || "",
-            description: data.description || "",
-            status: data.status || "inactive",
-          });
-          setSubjects(subs.filter((s: any) => s.status === "published" || s.subjectId === data.subjectId));
-        } else {
-          setSubjects(subs.filter((s: any) => s.status === "published" || s.subjectId === defaultSubjectId));
-        }
+        const data = await classroomService.getById(Number(id));
+        setForm({
+          className: data.className || "",
+          semester: data.semester || "",
+          description: data.description || "",
+          status: data.status || "inactive",
+        });
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Tải dữ liệu thất bại");
       } finally {
@@ -70,15 +46,13 @@ export function AddClassPage() {
     fetchData();
   }, [id, isEdit]);
 
-  const handleChange = (
-    field: keyof ClassForm,
-    value: string | number
-  ) => setForm((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (field: keyof ClassForm, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.className.trim() || !form.subjectId || !form.lecturerId) {
-      setError("Tên lớp học, Môn học và Giảng viên là bắt buộc.");
+    if (!form.className.trim()) {
+      setError("Tên lớp học là bắt buộc.");
       return;
     }
     try {
@@ -88,8 +62,9 @@ export function AddClassPage() {
         await classroomService.update(Number(id), form);
         navigate("/admin/classes");
       } else {
+        // Tạo lớp = container rỗng. Gán môn + giảng viên ở trang chi tiết.
         const newClass = await classroomService.create(form);
-        navigate(`/admin/classes/${newClass.classroomId}?addStudent=true`);
+        navigate(`/admin/classes/${newClass.classroomId}?addSubject=true`);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
@@ -98,11 +73,12 @@ export function AddClassPage() {
     }
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
+      </div>
+    );
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -130,6 +106,12 @@ export function AddClassPage() {
           {error && (
             <div className="px-4 py-3 rounded-lg mb-6" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "0.875rem" }}>
               {error}
+            </div>
+          )}
+
+          {!isEdit && (
+            <div className="px-4 py-3 rounded-lg mb-6" style={{ backgroundColor: "#eef2ff", border: "1px solid #c7d2fe", color: "#4338ca", fontSize: "0.875rem" }}>
+              Sau khi tạo lớp, bạn sẽ thêm <strong>các môn học</strong> cho lớp (mỗi môn chọn giảng viên & danh sách sinh viên riêng).
             </div>
           )}
 
@@ -169,50 +151,6 @@ export function AddClassPage() {
               />
             </div>
 
-            {/* Môn học */}
-            <div>
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Thuộc môn học <span style={{ color: "#ef4444" }}>*</span>
-              </label>
-              <select
-                value={form.subjectId}
-                onChange={(e) => handleChange("subjectId", Number(e.target.value))}
-                required
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all cursor-pointer"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              >
-                <option value={0} disabled>-- Chọn môn học --</option>
-                {subjects.map(s => (
-                  <option key={s.subjectId} value={s.subjectId}>{s.subjectCode} - {s.subjectName}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Giảng viên */}
-            <div>
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Giảng viên phụ trách <span style={{ color: "#ef4444" }}>*</span>
-              </label>
-              <select
-                value={form.lecturerId}
-                onChange={(e) => handleChange("lecturerId", Number(e.target.value))}
-                required
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all cursor-pointer"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              >
-                <option value={0} disabled>-- Chọn giảng viên --</option>
-                {teachers.map(t => (
-                  <option key={t.userId} value={t.userId}>
-                    {t.firstName || ""} {t.lastName || ""} ({t.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-
             {/* Trạng thái lớp học (Chỉ hiển thị ở chế độ Edit) */}
             {isEdit && (
               <div>
@@ -222,12 +160,13 @@ export function AddClassPage() {
                 <select
                   value={form.status || "inactive"}
                   onChange={(e) => handleChange("status", e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl outline-none transition-all cursor-pointer"
+                  disabled={form.status === "inactive"}
+                  className="w-full px-4 py-3 rounded-xl outline-none transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
                   onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
                   onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
                 >
-                  <option value="inactive">Chưa bắt đầu</option>
+                  <option value="inactive">Chưa bắt đầu (Giảng viên sẽ kích hoạt)</option>
                   <option value="active">Đang hoạt động</option>
                   <option value="completed">Đã hoàn thành</option>
                 </select>

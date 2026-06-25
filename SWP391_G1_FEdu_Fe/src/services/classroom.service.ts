@@ -1,17 +1,18 @@
 import { http } from './http';
+import { apiClient } from './api.client';
+import type { ClassroomResponse, ClassroomRequest } from '../types/classroom';
 import type {
-  ClassroomResponse,
-  ClassroomRequest,
-  AssignTeacherRequest,
-} from '../types/classroom';
-import type { StudentInClass, AddStudentRequest } from '../types/student';
+  ClassroomSubjectResponse,
+  AddClassroomSubjectRequest,
+  ChangeLecturerRequest,
+} from '../types/classroomSubject';
+import type { StudentInClass, AddStudentRequest, ImportStudentsResult } from '../types/student';
 
 export const classroomService = {
-  // ─── Classroom CRUD ──────────────────────────────────────────────────────
+  // ─── Classroom CRUD (ADMIN) ────────────────────────────────────────────────
   getAll: () => http.get<ClassroomResponse[]>('/classrooms'),
 
-  getById: (id: number) =>
-    http.get<ClassroomResponse>(`/classrooms/${id}`),
+  getById: (id: number) => http.get<ClassroomResponse>(`/classrooms/${id}`),
 
   getBySubject: (subjectId: number) =>
     http.get<ClassroomResponse[]>(`/classrooms/subject/${subjectId}`),
@@ -22,6 +23,7 @@ export const classroomService = {
   getByStudent: (studentId: number) =>
     http.get<ClassroomResponse[]>(`/classrooms/student/${studentId}`),
 
+  // Tạo lớp = chỉ container (không kèm môn/GV). Gán môn qua addSubject().
   create: (req: ClassroomRequest) =>
     http.post<ClassroomResponse>('/classrooms', req),
 
@@ -30,21 +32,67 @@ export const classroomService = {
 
   delete: (id: number) => http.delete<void>(`/classrooms/${id}`),
 
-  assignTeacher: (classroomId: number, req: AssignTeacherRequest) =>
-    http.patch<ClassroomResponse>(
-      `/classrooms/${classroomId}/assign-teacher`,
+  // ─── Lớp-môn (ClassroomSubject) ──────────────────────────────────────────────
+  getSubjectsOfClassroom: (classroomId: number) =>
+    http.get<ClassroomSubjectResponse[]>(`/classrooms/${classroomId}/subjects`),
+
+  // Danh sách lớp-môn đang mở 1 môn (theo subjectId)
+  getClassroomsBySubject: (subjectId: number) =>
+    http.get<ClassroomSubjectResponse[]>(`/classrooms/subjects/by-subject/${subjectId}`),
+
+  // Danh sách lớp-môn mà 1 sinh viên đang học (theo studentId)
+  getClassroomSubjectsByStudent: (studentId: number) =>
+    http.get<ClassroomSubjectResponse[]>(`/classrooms/subjects/by-student/${studentId}`),
+
+  // Danh sách lớp-môn mà 1 giảng viên đang dạy (theo lecturerId)
+  getClassroomSubjectsByLecturer: (lecturerId: number) =>
+    http.get<ClassroomSubjectResponse[]>(`/classrooms/subjects/by-lecturer/${lecturerId}`),
+
+  addSubject: (classroomId: number, req: AddClassroomSubjectRequest) =>
+    http.post<ClassroomSubjectResponse>(`/classrooms/${classroomId}/subjects`, req),
+
+  changeLecturer: (classroomSubjectId: number, req: ChangeLecturerRequest) =>
+    http.patch<ClassroomSubjectResponse>(
+      `/classrooms/subjects/${classroomSubjectId}/lecturer`,
       req
     ),
 
-  // ─── Students ────────────────────────────────────────────────────────────
-  getStudents: (classroomId: number) =>
-    http.get<StudentInClass[]>(`/classrooms/${classroomId}/students`),
+  removeSubject: (classroomSubjectId: number) =>
+    http.delete<void>(`/classrooms/subjects/${classroomSubjectId}`),
 
-  addStudent: (classroomId: number, req: AddStudentRequest) =>
-    http.post<StudentInClass>(`/classrooms/${classroomId}/students`, req),
+  // ─── Roster theo lớp-môn (classroomSubjectId, KHÔNG phải classroomId) ────────
+  getStudents: (classroomSubjectId: number) =>
+    http.get<StudentInClass[]>(`/classroom-subjects/${classroomSubjectId}/students`),
 
-  removeStudent: (classroomId: number, studentId: number) =>
-    http.delete<void>(
-      `/classrooms/${classroomId}/students/${studentId}`
-    ),
+  addStudent: (classroomSubjectId: number, req: AddStudentRequest) =>
+    http.post<StudentInClass>(`/classroom-subjects/${classroomSubjectId}/students`, req),
+
+  removeStudent: (classroomSubjectId: number, studentId: number) =>
+    http.delete<void>(`/classroom-subjects/${classroomSubjectId}/students/${studentId}`),
+
+  // ─── Import sinh viên bằng Excel ─────────────────────────────────────────────
+  importStudents: (classroomSubjectId: number, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return http.post<ImportStudentsResult>(
+      `/classroom-subjects/${classroomSubjectId}/students/import`,
+      form,
+      { 'Content-Type': 'multipart/form-data' }
+    );
+  },
+
+  downloadImportTemplate: async (classroomSubjectId: number) => {
+    const res = await apiClient.get(
+      `/classroom-subjects/${classroomSubjectId}/students/import/template`,
+      { responseType: 'blob' }
+    );
+    const url = window.URL.createObjectURL(res.data as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'student_import_template.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

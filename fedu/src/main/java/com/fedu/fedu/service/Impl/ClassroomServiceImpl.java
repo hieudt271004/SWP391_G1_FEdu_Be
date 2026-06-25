@@ -1,19 +1,17 @@
 package com.fedu.fedu.service.Impl;
 
-import com.fedu.fedu.dto.req.AssignTeacherRequest;
 import com.fedu.fedu.dto.req.ClassroomRequest;
 import com.fedu.fedu.dto.res.ClassroomResponse;
+import com.fedu.fedu.dto.res.ClassroomSubjectResponse;
 import com.fedu.fedu.dto.res.SubjectResponse;
 import com.fedu.fedu.entity.Classroom;
 import com.fedu.fedu.entity.ClassroomSubject;
-import com.fedu.fedu.entity.Subject;
-import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.ClassroomRepository;
 import com.fedu.fedu.repository.ClassroomSubjectRepository;
 import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
-import com.fedu.fedu.repository.SubjectRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
+import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.service.ClassroomService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,41 +29,22 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final ClassroomRepository classroomRepository;
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final ClassroomSubjectRepository classroomSubjectRepository;
-    private final SubjectRepository subjectRepository;
     private final UserAccountRepository userAccountRepository;
 
     @Override
     @Transactional
-    public ClassroomResponse createClassroom(ClassroomRequest request, long currentUserId) {
-        log.info("Creating classroom '{}' for subject id: {}", request.getClassName(), request.getSubjectId());
-
-        Subject subject = subjectRepository.findBySubjectIdAndIsDeletedFalse(request.getSubjectId())
-                .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + request.getSubjectId()));
-
-        // TEACHER: lecturerId = themselves; ADMIN: can assign a different lecturerId
-        long resolvedLecturerId = (request.getLecturerId() != null) ? request.getLecturerId() : currentUserId;
-        UserAccount lecturer = userAccountRepository.findById(resolvedLecturerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Lecturer not found with id: " + resolvedLecturerId));
+    public ClassroomResponse createClassroom(ClassroomRequest request) {
+        log.info("Creating classroom '{}'", request.getClassName());
 
         Classroom classroom = Classroom.builder()
                 .className(request.getClassName().trim())
                 .semester(request.getSemester())
                 .description(request.getDescription())
-                .subject(subject)
-                .lecturer(lecturer)
                 .status(request.getStatus() != null ? request.getStatus() : "inactive")
                 .isDeleted(false)
                 .build();
+
         Classroom saved = classroomRepository.save(classroom);
-
-        // Tạo bản ghi ClassroomSubject để liên kết lớp - môn học - giảng viên
-        ClassroomSubject classroomSubject = ClassroomSubject.builder()
-                .classroom(saved)
-                .subject(subject)
-                .lecturer(lecturer)
-                .build();
-        classroomSubjectRepository.save(classroomSubject);
-
         log.info("Classroom created with id: {}", saved.getClassroomId());
         return toResponse(saved);
     }
@@ -74,56 +53,26 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Transactional
     public ClassroomResponse updateClassroom(Long classroomId, ClassroomRequest request) {
         log.info("Updating classroom id: {}", classroomId);
-
-        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
+        assertTeacherOwnsClassroom(classroomId);
+        Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
 
         classroom.setClassName(request.getClassName().trim());
         classroom.setSemester(request.getSemester());
         classroom.setDescription(request.getDescription());
-
         if (request.getStatus() != null) {
             classroom.setStatus(request.getStatus());
         }
 
-        // Cập nhật subject và lecturer trong ClassroomSubject và Classroom nếu cần
-        if (request.getSubjectId() != null || request.getLecturerId() != null) {
-            ClassroomSubject cs = classroomSubjectRepository
-                    .findByClassroomClassroomId(classroomId)
-                    .stream().findFirst().orElse(null);
-
-            if (cs == null) {
-                cs = ClassroomSubject.builder().classroom(classroom).build();
-            }
-
-            if (request.getSubjectId() != null) {
-                Subject newSubject = subjectRepository.findBySubjectIdAndIsDeletedFalse(request.getSubjectId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + request.getSubjectId()));
-                classroom.setSubject(newSubject);
-                cs.setSubject(newSubject);
-            }
-
-            if (request.getLecturerId() != null) {
-                UserAccount newLecturer = userAccountRepository.findById(request.getLecturerId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Lecturer not found with id: " + request.getLecturerId()));
-                classroom.setLecturer(newLecturer);
-                cs.setLecturer(newLecturer);
-            }
-            classroomSubjectRepository.save(cs);
-        }
-
-        Classroom updated = classroomRepository.save(classroom);
-        return toResponse(updated);
+        return toResponse(classroomRepository.save(classroom));
     }
 
     @Override
     @Transactional
     public void deleteClassroom(Long classroomId) {
-        log.info("Soft-deleting classroom id: {}", classroomId);
-
-        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
+        log.info("Deleting classroom id: {}", classroomId);
+        Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
-
         classroom.setIsDeleted(true);
         classroomRepository.save(classroom);
     }
@@ -131,7 +80,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public ClassroomResponse getClassroomById(Long classroomId) {
-        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
+        Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
         return toResponse(classroom);
     }
@@ -139,8 +88,8 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassroomResponse> getAllClassrooms() {
-        return classroomRepository.findAllActive()
-                .stream()
+        return classroomRepository.findAll().stream()
+                .filter(c -> !c.getIsDeleted())
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -155,11 +104,20 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     @Override
-    public List<ClassroomResponse> getClassroomsByLecturerId(Long lecturerId) {
+    @Transactional(readOnly = true)
+    public List<ClassroomSubjectResponse> getClassroomsByLecturerId(Long lecturerId) {
         return classroomSubjectRepository.findByLecturerId(lecturerId)
                 .stream()
-                .map(cs -> toResponse(cs.getClassroom()))
+                .map(this::toClassroomSubjectResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ClassroomSubjectResponse getClassroomSubjectById(Long classroomSubjectId) {
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found with id: " + classroomSubjectId));
+        return toClassroomSubjectResponse(cs);
     }
 
     @Override
@@ -181,36 +139,11 @@ public class ClassroomServiceImpl implements ClassroomService {
     }
 
     @Override
-    @Transactional
-    public ClassroomResponse assignTeacher(Long classroomId, AssignTeacherRequest request) {
-        log.info("Assigning teacher id: {} to classroom id: {}", request.getTeacherId(), classroomId);
-
-        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
-                .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
-
-        UserAccount teacher = userAccountRepository.findById(request.getTeacherId())
-                .orElseThrow(() -> new ResourceNotFoundException("Lecturer not found with id: " + request.getTeacherId()));
-
-        // Cập nhật lecturer trong bản ghi ClassroomSubject đầu tiên tìm được
-        List<ClassroomSubject> csList = classroomSubjectRepository.findByClassroomClassroomId(classroomId);
-        if (!csList.isEmpty()) {
-            ClassroomSubject cs = csList.get(0);
-            cs.setLecturer(teacher);
-            classroomSubjectRepository.save(cs);
-        }
-
-        return toResponse(classroom);
-    }
-
+    @Transactional(readOnly = true)
     public List<SubjectResponse> getSubjectsByLecturerId(Long lecturerId) {
         return classroomSubjectRepository.findByLecturerId(lecturerId)
                 .stream()
-                .map(cs -> SubjectResponse.builder()
-                        .subjectId(cs.getSubject().getSubjectId())
-                        .subjectCode(cs.getSubject().getSubjectCode())
-                        .subjectName(cs.getSubject().getSubjectName())
-                        .description(cs.getSubject().getDescription())
-                        .build())
+                .map(cs -> SubjectResponse.from(cs.getSubject()))
                 .distinct()
                 .collect(Collectors.toList());
     }
@@ -218,33 +151,70 @@ public class ClassroomServiceImpl implements ClassroomService {
     // ─── Mapper ──────────────────────────────────────────────────────────────
 
     private ClassroomResponse toResponse(Classroom classroom) {
-        int studentCount = classroomSubjectStudentRepository.findAllByClassroomId(classroom.getClassroomId()).size();
+        int subjectCount = classroomSubjectRepository
+                .findByClassroomClassroomId(classroom.getClassroomId()).size();
+        int studentCount = classroomSubjectStudentRepository
+                .findAllByClassroomId(classroom.getClassroomId()).size();
 
-        // Lấy thông tin subject và lecturer từ ClassroomSubject
-        List<ClassroomSubject> csList = classroomSubjectRepository.findByClassroomClassroomId(classroom.getClassroomId());
-        
-        ClassroomResponse.ClassroomResponseBuilder builder = ClassroomResponse.builder()
+        return ClassroomResponse.builder()
                 .classroomId(classroom.getClassroomId())
                 .className(classroom.getClassName())
                 .semester(classroom.getSemester())
                 .description(classroom.getDescription())
-                .studentCount(studentCount)
                 .status(classroom.getStatus())
+                .subjectCount(subjectCount)
+                .studentCount(studentCount)
                 .createdAt(classroom.getCreatedAt())
-                .updatedAt(classroom.getUpdatedAt());
+                .updatedAt(classroom.getUpdatedAt())
+                .build();
+    }
 
-        if (!csList.isEmpty()) {
-            ClassroomSubject cs = csList.get(0);
-            builder.subjectId(cs.getSubject().getSubjectId())
-                    .subjectCode(cs.getSubject().getSubjectCode())
-                    .subjectName(cs.getSubject().getSubjectName())
-                    .lecturerId(cs.getLecturer().getUserId())
-                    .lecturerEmail(cs.getLecturer().getEmail())
-                    .lecturerName(cs.getLecturer().getFirstName() + " " + cs.getLecturer().getLastName())
-                    .lecturerFirstName(cs.getLecturer().getFirstName())
-                    .lecturerLastName(cs.getLecturer().getLastName());
+    private ClassroomSubjectResponse toClassroomSubjectResponse(ClassroomSubject cs) {
+        Classroom classroom = cs.getClassroom();
+        com.fedu.fedu.entity.Subject subject = cs.getSubject();
+        com.fedu.fedu.entity.UserAccount lecturer = cs.getLecturer();
+
+        int studentCount = classroomSubjectStudentRepository
+                .findAllByClassroomSubjectId(cs.getId()).size();
+
+        String lecturerName = "";
+        if (lecturer != null) {
+            String last = lecturer.getLastName() != null ? lecturer.getLastName() : "";
+            String first = lecturer.getFirstName() != null ? lecturer.getFirstName() : "";
+            lecturerName = (last + " " + first).trim();
+            if (lecturerName.isEmpty()) {
+                lecturerName = lecturer.getEmail();
+            }
         }
 
-        return builder.build();
+        return ClassroomSubjectResponse.builder()
+                .classroomSubjectId(cs.getId())
+                .classroomId(classroom != null ? classroom.getClassroomId() : null)
+                .className(classroom != null ? classroom.getClassName() : null)
+                .subjectId(subject != null ? subject.getSubjectId() : null)
+                .subjectCode(subject != null ? subject.getSubjectCode() : null)
+                .subjectName(subject != null ? subject.getSubjectName() : null)
+                .lecturerId(lecturer != null ? lecturer.getUserId() : null)
+                .lecturerName(lecturerName)
+                .displayName(classroom != null && subject != null 
+                        ? classroom.getClassName() + " - " + subject.getSubjectCode() 
+                        : null)
+                .studentCount(studentCount)
+                .build();
+    }
+
+    private void assertTeacherOwnsClassroom(Long classroomId) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null) return; // test/seed
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (isAdmin) return;
+
+        UserAccount actor = userAccountRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Unauthorized"));
+        if (!classroomSubjectRepository.existsByClassroomClassroomIdAndLecturerUserId(classroomId, actor.getUserId())) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không giảng dạy lớp học này");
+        }
     }
 }

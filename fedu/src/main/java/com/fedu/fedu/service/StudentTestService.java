@@ -11,4 +11,7 @@ public interface StudentTestService {
     StudentTestAttempt startTestAttempt(Long testId, Long studentId);
     
     AttemptSubmissionResultResponse submitTestAttempt(Long testId, Long attemptId, Long studentId, AttemptSubmissionRequest request);
+
+    /** Chấm điểm một lượt thi và trả về điểm % (không định tuyến). Dùng cho bài phân loại. */
+    java.math.BigDecimal submitForGrading(Long testId, Long attemptId, Long studentId, AttemptSubmissionRequest request);
 }

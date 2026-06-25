@@ -24,6 +24,7 @@ public class TestAnswer extends AbstractEntity<Long> {
     @Column(name = "answer_content", nullable = false, columnDefinition = "TEXT")
     private String answerContent;
 
+    @Builder.Default
     @Column(name = "is_correct")
     private Boolean isCorrect = false;
 }
