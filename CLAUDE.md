@@ -59,7 +59,7 @@ Java 17 / Spring Boot 3.3 REST API, stateless JWT auth, layered:
 
 - Entities live in `entity/`, share `AbstractEntity` (`createdAt`/`updatedAt` via Hibernate timestamps).
 - Enums (in `utils/enums/`) are mapped with `@Enumerated(EnumType.STRING)` to varchar columns. Do **not** use `@JdbcTypeCode(NAMED_ENUM)` / `columnDefinition = "e_xxx"` — that approach was deliberately removed because named Postgres enum types require manual `CREATE TYPE` and break on fresh databases.
-- Soft deletes use an `isDeleted` boolean. Gotcha: `LearningNode.isDeleted` defaults to **`true`** (a freshly built node is soft-deleted unless explicitly set `false`), unlike most other entities which default to `false`.
+- Soft deletes use an `isDeleted` boolean defaulting to `false` across all entities (including `LearningNode` and `NodeMaterial`, whose defaults were previously `true` — a footgun now removed; every creation site already set `isDeleted(false)` explicitly).
 - Custom Bean Validation annotations are split between `dto/validator/` (annotations) and `utils/` (their validator implementations), e.g. `@EnumPattern`, `@PhoneNumber`, `@GenderSubset`.
 
 ### DTO conventions
