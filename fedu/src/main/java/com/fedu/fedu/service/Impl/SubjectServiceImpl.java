@@ -18,7 +18,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fedu.fedu.repository.LearningNodeRepository;
 import com.fedu.fedu.entity.LearningNode;
+import com.fedu.fedu.utils.enums.NodeTestKind;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -96,33 +103,60 @@ public class SubjectServiceImpl implements SubjectService {
         Subject subject = subjectRepository.findBySubjectIdAndIsDeletedFalse(subjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + subjectId));
 
-        java.util.List<com.fedu.fedu.entity.LearningPath> paths = learningPathRepository
+        List<LearningPath> paths = learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId);
         if (paths.isEmpty()) {
             throw new InvalidDataException("Môn học chưa có lộ trình mẫu nào — không thể xuất bản.");
         }
 
-        if (subject.getLearningpathLength() == null || subject.getLearningpathLength() <= 0) {
-            throw new InvalidDataException("Môn học chưa cấu hình số chặng (learningpathLength) hợp lệ.");
-        }
-
-        for (com.fedu.fedu.entity.LearningPath path : paths) {
+        int maxStages = 0;
+        for (LearningPath path : paths) {
             List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
-            long stageCount = nodes.stream()
-                    .map(LearningNode::getStageOrder)
-                    .filter(java.util.Objects::nonNull)
-                    .distinct().count();
-            long effective = stageCount > 0 ? stageCount : nodes.size();
-            if (effective != subject.getLearningpathLength()) {
-                throw new InvalidDataException(
-                        String.format("Lộ trình '%s' có %d chặng, chưa đúng với số chặng yêu cầu của môn học (%d).",
-                                path.getPathName(), effective, subject.getLearningpathLength())
-                );
+            if (nodes.isEmpty()) {
+                throw new InvalidDataException("Lộ trình '" + path.getPathName() + "' chưa có bài học nào.");
             }
+            validateStageDifferentiation(path, nodes);
+            int stageCount = (int) nodes.stream()
+                    .map(LearningNode::getStageOrder)
+                    .filter(Objects::nonNull)
+                    .distinct().count();
+            maxStages = Math.max(maxStages, stageCount);
         }
 
+        // Số chặng nay TÍNH RA từ node (không bắt khai báo trước), lưu lại để hiển thị.
+        subject.setLearningpathLength(maxStages > 0 ? maxStages : null);
         subject.setStatus("published");
         return SubjectResponse.from(subjectRepository.save(subject));
+    }
+
+    /**
+     * Trước khi xuất bản: với MỖI chặng, nếu có node HỌC phân hóa (level 1/2/3) thì
+     * phải đủ CẢ 3 mức Yếu(1) + TB(2) + Khá(3) — không cho thiếu mức. Chặng chỉ có node
+     * chung (level null) hoặc chỉ có node test thì bỏ qua.
+     */
+    private void validateStageDifferentiation(LearningPath path, List<LearningNode> nodes) {
+        Map<Integer, Set<Integer>> specificByStage = new HashMap<>();
+        for (LearningNode n : nodes) {
+            if (n.getStageOrder() == null) {
+                continue;
+            }
+            boolean isLearning = n.getTestKind() == null || n.getTestKind() == NodeTestKind.NONE;
+            if (isLearning && n.getLevel() != null) {
+                specificByStage.computeIfAbsent(n.getStageOrder(), k -> new HashSet<>()).add(n.getLevel());
+            }
+        }
+        for (Map.Entry<Integer, Set<Integer>> e : specificByStage.entrySet()) {
+            Set<Integer> levels = e.getValue();
+            if (!levels.contains(1) || !levels.contains(2) || !levels.contains(3)) {
+                List<String> missing = new ArrayList<>();
+                if (!levels.contains(1)) missing.add("Yếu");
+                if (!levels.contains(2)) missing.add("TB");
+                if (!levels.contains(3)) missing.add("Khá");
+                throw new InvalidDataException(String.format(
+                        "Lộ trình '%s' — chặng %d thiếu node mức: %s. Mỗi chặng phân hóa phải đủ cả Yếu, TB, Khá.",
+                        path.getPathName(), e.getKey(), String.join(", ", missing)));
+            }
+        }
     }
 
     @Override

@@ -315,30 +315,14 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
         }
 
-        // Validate stageOrder trong [1, subject.learningpathLength] và level node hợp lệ (null hoặc 1..3).
-        if (request.getStageOrder() != null) {
-            Integer length = learningPath.getSubject() != null
-                    ? learningPath.getSubject().getLearningpathLength() : null;
-            if (length != null && request.getStageOrder() > length) {
-                throw new InvalidDataException(
-                        "stageOrder phải trong [1, " + length + "] (số chặng của môn)");
-            }
+        // Validate stageOrder >= 1 và level node hợp lệ (null = node chung hoặc 1..3).
+        // (Bỏ ràng buộc theo subject.learningpathLength — số chặng nay TÍNH RA từ node lúc xuất bản,
+        //  và mỗi chặng có NHIỀU node nên không giới hạn tổng số node theo số chặng.)
+        if (request.getStageOrder() != null && request.getStageOrder() < 1) {
+            throw new InvalidDataException("stageOrder phải >= 1");
         }
         if (request.getLevel() != null && !com.fedu.fedu.utils.LearningLevels.isValid(request.getLevel())) {
             throw new InvalidDataException("level của node phải null (node chung) hoặc 1=yếu, 2=tb, 3=khá");
-        }
-
-        // Validate learningpathLength limit for template roadmaps (classroomSubject == null)
-        if (learningPath.getClassroomSubject() == null) {
-            Subject subject = learningPath.getSubject();
-            if (subject != null && subject.getLearningpathLength() != null) {
-                List<LearningNode> existingNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(learningPath.getPathId());
-                if (existingNodes.size() >= subject.getLearningpathLength()) {
-                    throw new InvalidDataException(
-                            "Không thể thêm bài học. Lộ trình đã đạt số bài học tối đa cấu hình cho môn học ("
-                            + subject.getLearningpathLength() + " bài học)");
-                }
-            }
         }
 
         LearningNode learningNode = LearningNode.builder()
