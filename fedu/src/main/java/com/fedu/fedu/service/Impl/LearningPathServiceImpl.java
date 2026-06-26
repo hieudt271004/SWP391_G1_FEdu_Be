@@ -502,6 +502,30 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .build();
     }
 
+    private boolean isPathPublishable(LearningPath path) {
+        List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
+        if (nodes.isEmpty()) {
+            return false;
+        }
+        Map<Integer, Set<Integer>> specificByStage = new HashMap<>();
+        for (LearningNode n : nodes) {
+            if (n.getStageOrder() == null) {
+                continue;
+            }
+            boolean isLearning = n.getTestKind() == null
+                    || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.NONE;
+            if (isLearning && n.getLevel() != null) {
+                specificByStage.computeIfAbsent(n.getStageOrder(), k -> new HashSet<>()).add(n.getLevel());
+            }
+        }
+        for (Set<Integer> levels : specificByStage.values()) {
+            if (!levels.contains(1) || !levels.contains(2) || !levels.contains(3)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public ClassroomGraphResponse getClassroomGraph(Long classroomSubjectId) {
@@ -512,8 +536,12 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
 
         if (paths.isEmpty()) {
+            // Chỉ liệt kê lộ trình ĐẠT điều kiện xuất bản — teacher không thấy/clone bản nháp.
             List<LearningPath> templates = learningPathRepository
-                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId());
+                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
+                    .stream()
+                    .filter(this::isPathPublishable)
+                    .collect(Collectors.toList());
 
             boolean subjectPublished = "published".equalsIgnoreCase(cs.getSubject().getStatus());
             boolean canClone = subjectPublished && !templates.isEmpty();

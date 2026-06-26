@@ -110,30 +110,29 @@ public class SubjectServiceImpl implements SubjectService {
         }
 
         int maxStages = 0;
+        boolean hasValidPath = false;
         for (LearningPath path : paths) {
             List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
-            if (nodes.isEmpty()) {
-                throw new InvalidDataException("Lộ trình '" + path.getPathName() + "' chưa có bài học nào.");
+            if (nodes.isEmpty()) continue; // bản nháp thì bỏ qua, không throw
+            try {
+                validateStageDifferentiation(path, nodes);
+            }catch (InvalidDataException e){
+                continue; // thiếu mức -> bỏ qua  không throw
             }
-            validateStageDifferentiation(path, nodes);
+            hasValidPath = true;
             int stageCount = (int) nodes.stream()
                     .map(LearningNode::getStageOrder)
                     .filter(Objects::nonNull)
                     .distinct().count();
             maxStages = Math.max(maxStages, stageCount);
         }
-
-        // Số chặng nay TÍNH RA từ node (không bắt khai báo trước), lưu lại để hiển thị.
+        if(!hasValidPath){
+            throw new InvalidDataException("Chưa có lộ trình nào đạt điều kiện xuất bản (cần có bài học và đủ 3 mức ở mỗi chặng phân hóa).");
+        }
         subject.setLearningpathLength(maxStages > 0 ? maxStages : null);
         subject.setStatus("published");
         return SubjectResponse.from(subjectRepository.save(subject));
     }
-
-    /**
-     * Trước khi xuất bản: với MỖI chặng, nếu có node HỌC phân hóa (level 1/2/3) thì
-     * phải đủ CẢ 3 mức Yếu(1) + TB(2) + Khá(3) — không cho thiếu mức. Chặng chỉ có node
-     * chung (level null) hoặc chỉ có node test thì bỏ qua.
-     */
     private void validateStageDifferentiation(LearningPath path, List<LearningNode> nodes) {
         Map<Integer, Set<Integer>> specificByStage = new HashMap<>();
         for (LearningNode n : nodes) {
