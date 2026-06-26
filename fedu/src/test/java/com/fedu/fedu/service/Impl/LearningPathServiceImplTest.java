@@ -272,8 +272,6 @@ class LearningPathServiceImplTest {
         ClassroomSubjectStudent css2 = ClassroomSubjectStudent.builder().classroomSubject(classroomSubject).student(student2).currentLevel(2).build();
         when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(100L, 10L)).thenReturn(Optional.of(css1));
         when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(100L, 11L)).thenReturn(Optional.of(css2));
-        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(student1));
-        when(userAccountRepository.findById(11L)).thenReturn(Optional.of(student2));
         when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(anyLong(), eq(300L)))
                 .thenReturn(Collections.emptyList());
 
@@ -386,10 +384,6 @@ class LearningPathServiceImplTest {
                 .thenReturn(Optional.of(css));
         when(learningPathRepository.findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(100L))
                 .thenReturn(Optional.of(path));
-
-        UserAccount student = new UserAccount();
-        student.setUserId(10L);
-        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(student));
 
         when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(10L, 300L))
                 .thenReturn(Collections.emptyList());

@@ -8,11 +8,8 @@ import java.time.LocalDateTime;
 
 /**
  * Lưu trữ tiến trình học tập và lộ trình (routing) của từng học sinh.
- *
  * - status:       tiến độ học của node đó (LOCKED / OPEN / IN_PROGRESS / COMPLETED)
  * - orderIndex:   thứ tự bài học trong lộ trình – dùng để route (điều hướng)
- * - status:       tiến độ học của node đó (LOCKED / OPEN / IN_PROGRESS / COMPLETED)
- *
  * UniqueConstraint (student_id, node_id, path_id):
  *   Đảm bảo 1 học sinh chỉ có 1 bản ghi progress cho mỗi (node, path).
  *   Tránh trùng khi học sinh học cùng node nhưng ở 2 lớp khác nhau.
@@ -24,7 +21,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "student_node_progress", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"student_id", "node_id", "path_id"})
+        @UniqueConstraint(columnNames = {"classroom_subject_student_id", "node_id", "path_id"})
 })
 public class StudentNodeProgress extends AbstractEntity<Long> {
 
@@ -33,9 +30,10 @@ public class StudentNodeProgress extends AbstractEntity<Long> {
     @Column(name = "progress_id")
     private Long progressId;
 
+    /** Ghi danh (lớp-môn × học sinh) mà progress này thuộc về — chứa luôn student + current_level. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false)
-    private UserAccount student;
+    @JoinColumn(name = "classroom_subject_student_id", nullable = false)
+    private ClassroomSubjectStudent classroomSubjectStudent;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "node_id", nullable = false)
@@ -64,14 +62,6 @@ public class StudentNodeProgress extends AbstractEntity<Long> {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private StudentProgressStatus status = StudentProgressStatus.LOCKED;
-
-    /**
-     * Test của node bị khóa tạm thời: node đang OPEN nhưng học sinh phải hoàn thành
-     * nhánh phụ (làm lại) rồi mới được làm/làm lại test ở node này.
-     */
-    @Builder.Default
-    @Column(name = "test_locked", nullable = false)
-    private Boolean testLocked = false;
 
     @Column(name = "unlocked_at")
     private LocalDateTime unlockedAt;

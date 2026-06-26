@@ -751,9 +751,6 @@ public class LearningPathServiceImpl implements LearningPathService {
             return;
         }
 
-        UserAccount student = userAccountRepository.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-
         if (!studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()).isEmpty()) {
             return;
         }
@@ -768,7 +765,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
             boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS && levelOk;
             progressList.add(StudentNodeProgress.builder()
-                    .student(student)
+                    .classroomSubjectStudent(css)
                     .learningNode(node)
                     .learningPath(path)
                     .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)

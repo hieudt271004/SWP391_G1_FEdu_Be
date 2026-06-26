@@ -116,9 +116,8 @@ class StudentTestServiceImplGateRoutingTest {
 
         service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(85));
 
-        // 1) node cổng hoàn thành + mở khóa test
+        // 1) node cổng hoàn thành
         assertEquals(StudentProgressStatus.COMPLETED, gateProg.getStatus());
-        assertFalse(gateProg.getTestLocked());
         // 2) gọi lõi đổi mức đúng tham số
         verify(levelRoutingService).applyGateRouting(eq(CS_ID), eq(gate), eq(STUDENT_ID), eq(bd(85)));
         // 3) nhánh đích khớp mức được mở

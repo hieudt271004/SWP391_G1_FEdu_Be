@@ -298,17 +298,16 @@ CREATE TABLE IF NOT EXISTS student_selected_answers (
 
 CREATE TABLE IF NOT EXISTS student_node_progress (
                                                      progress_id  BIGSERIAL PRIMARY KEY,
-                                                     student_id   BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                                     classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE, -- ghi danh (student + lớp-môn + current_level)
                                                      node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
                                                      path_id      BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
                                                      order_index  INT NOT NULL DEFAULT 0,
                                                      status       VARCHAR(50) NOT NULL DEFAULT 'LOCKED',
-                                                     test_locked  BOOLEAN NOT NULL DEFAULT FALSE,
                                                      unlocked_at  TIMESTAMP,
                                                      completed_at TIMESTAMP,
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                     UNIQUE(student_id, node_id, path_id)
+                                                     UNIQUE(classroom_subject_student_id, node_id, path_id)
 );
 
 CREATE TABLE IF NOT EXISTS submissions (
