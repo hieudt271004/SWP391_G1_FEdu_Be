@@ -188,10 +188,10 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Status check constraint dropped/verified successfully.");
             }
 
-            // Add test_locked column to student_node_progress (khóa test trong khi nợ nhánh phụ)
+            // test_locked đã bỏ (di sản cơ chế "nhánh phụ") — drop khỏi DB live nếu còn.
             try (Statement statement = connection.createStatement()) {
-                statement.execute("ALTER TABLE student_node_progress ADD COLUMN IF NOT EXISTS test_locked BOOLEAN NOT NULL DEFAULT FALSE");
-                log.info("Column 'test_locked' verified/added on 'student_node_progress'.");
+                statement.execute("ALTER TABLE student_node_progress DROP COLUMN IF EXISTS test_locked");
+                log.info("Column 'test_locked' dropped/verified from 'student_node_progress'.");
             }
 
             // Update old 'UNLOCKED' student progress status to 'OPEN'
@@ -209,7 +209,6 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Columns 'branch_name' dropped from 'learning_nodes' and 'node_edges' successfully.");
             }
 
-            // === Adaptive placement learning path: new columns/tables ===
             try (Statement statement = connection.createStatement()) {
                 // subjects.learningpath_length
                 statement.execute("ALTER TABLE subjects ADD COLUMN IF NOT EXISTS learningpath_length INT");
@@ -265,6 +264,34 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 );
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_slh_student_cs ON student_level_history(student_id, classroom_subject_id)");
                 log.info("Table 'student_level_history' verified/created.");
+            }
+
+            boolean hasSnpCssCol = false;
+            try (ResultSet rs = metaData.getColumns(null, null, "student_node_progress", "classroom_subject_student_id")) {
+                if (rs.next()) hasSnpCssCol = true;
+            }
+            if (!hasSnpCssCol) {
+                log.info("Migrating student_node_progress.student_id -> classroom_subject_student_id ...");
+                try (Statement st = connection.createStatement()) {
+                    st.execute("ALTER TABLE student_node_progress ADD COLUMN classroom_subject_student_id BIGINT");
+                    // Backfill theo (path -> classroom_subject) + student_id
+                    st.executeUpdate(
+                        "UPDATE student_node_progress snp SET classroom_subject_student_id = css.id " +
+                        "FROM classroom_subject_students css " +
+                        "JOIN learning_paths lp ON lp.classroom_subject_id = css.classroom_subject_id " +
+                        "WHERE lp.path_id = snp.path_id AND css.student_id = snp.student_id");
+                    int orphans = st.executeUpdate("DELETE FROM student_node_progress WHERE classroom_subject_student_id IS NULL");
+                    if (orphans > 0) {
+                        log.warn("Deleted {} orphan student_node_progress rows (no matching enrollment).", orphans);
+                    }
+                    st.execute("ALTER TABLE student_node_progress ALTER COLUMN classroom_subject_student_id SET NOT NULL");
+                    st.execute("ALTER TABLE student_node_progress ADD CONSTRAINT fk_snp_css " +
+                        "FOREIGN KEY (classroom_subject_student_id) REFERENCES classroom_subject_students(id) ON DELETE CASCADE");
+                    st.execute("ALTER TABLE student_node_progress DROP COLUMN student_id"); // kéo theo unique cũ
+                    st.execute("ALTER TABLE student_node_progress ADD CONSTRAINT uq_snp_css_node_path " +
+                        "UNIQUE (classroom_subject_student_id, node_id, path_id)");
+                    log.info("Migration successful: student_node_progress now links classroom_subject_student.");
+                }
             }
         } catch (Exception e) {
             log.error("Failed to run database migration: {}", e.getMessage(), e);

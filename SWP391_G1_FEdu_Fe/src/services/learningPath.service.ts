@@ -32,7 +32,6 @@ export interface LearningNodeResponse {
   displayOrder: number;
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
   studentStatus?: 'LOCKED' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
-  testLocked?: boolean;
   isRequired: boolean;
   isDeleted: boolean;
   level?: number | null;

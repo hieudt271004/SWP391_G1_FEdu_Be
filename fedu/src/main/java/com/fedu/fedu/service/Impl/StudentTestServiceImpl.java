@@ -279,21 +279,9 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (progress == null || progress.getStatus() == StudentProgressStatus.LOCKED) {
             throw new AccessDeniedException("Bài học này hiện đang bị khóa");
         }
-
-        if (Boolean.TRUE.equals(progress.getTestLocked())) {
-            throw new AccessDeniedException("Bài test đang khóa — hãy hoàn thành nhánh phụ trước khi làm lại");
-        }
     }
 
-    // Định tuyến tiến độ sau mỗi lần nộp test
-    // Cạnh "rẽ nhánh phụ / trượt" = mang ngưỡng điểm (maxScore)
-    private boolean isSubEdge(NodeEdge e) {
-        return e.getMaxScore() != null;
-    }
-
-    private boolean isSubNode(LearningNode node, List<NodeEdge> incoming) {
-        return incoming.stream().anyMatch(this::isSubEdge);
-    }
+    // Định tuyến tiến độ sau mỗi lần nộp test.
 
     private StudentNodeProgress getProgress(Long studentId, Long pathId, Long nodeId) {
         return studentNodeProgressRepository
@@ -349,12 +337,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     private void routeAfterAttempt(Long studentId, LearningNode node, Long pathId, boolean passed) {
-        List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(node.getNodeId());
-        if (isSubNode(node, incoming)) {
-            routeSubNode(studentId, node, pathId, passed, incoming);
-        } else {
-            routeMainNode(studentId, node, pathId, passed);
-        }
+        routeMainNode(studentId, node, pathId, passed);
     }
     // package-private để unit-test trực tiếp lõi định tuyến cổng.
     void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage) {
@@ -364,7 +347,6 @@ public class StudentTestServiceImpl implements StudentTestService {
                 gp.setStatus(StudentProgressStatus.COMPLETED);
                 gp.setCompletedAt(LocalDateTime.now());
             }
-            gp.setTestLocked(false);
             studentNodeProgressRepository.save(gp);
         }
 
@@ -389,7 +371,6 @@ public class StudentTestServiceImpl implements StudentTestService {
                 gp.setStatus(StudentProgressStatus.COMPLETED);
                 gp.setCompletedAt(LocalDateTime.now());
             }
-            gp.setTestLocked(false);
             studentNodeProgressRepository.save(gp);
         }
         // Khóa 2 node free-choice còn lại cùng chặng — học sinh đã chọn nhánh.
@@ -420,77 +401,18 @@ public class StudentTestServiceImpl implements StudentTestService {
         StudentNodeProgress current = getProgress(studentId, pathId, node.getNodeId());
         if (current == null) return;
 
-        List<NodeEdge> outgoing = nodeEdgeRepository.findByFromNodeNodeId(node.getNodeId());
-
         if (passed) {
             if (current.getStatus() != StudentProgressStatus.COMPLETED) {
                 if (!allNodeTestsPassed(studentId, node)) return;
                 current.setStatus(StudentProgressStatus.COMPLETED);
                 current.setCompletedAt(LocalDateTime.now());
+                studentNodeProgressRepository.save(current);
             }
-            current.setTestLocked(false);
-            studentNodeProgressRepository.save(current);
-
-            for (NodeEdge edge : outgoing) {
-                if (isSubEdge(edge)) continue; // đậu thì không mở nhánh phụ
+            for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(node.getNodeId())) {
                 openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
             }
-        } else {
-            NodeEdge subEdge = outgoing.stream().filter(this::isSubEdge).findFirst().orElse(null);
-            if (subEdge != null) {
-                // Trượt + có nhánh phụ → khóa test node này, mở node phụ #1
-                current.setTestLocked(true);
-                studentNodeProgressRepository.save(current);
-                openNode(studentId, subEdge.getToNode(), pathId);
-            }
-            // Không có nhánh phụ → được thi lại, giữ nguyên trạng thái.
         }
-    }
-
-    private void routeSubNode(Long studentId, LearningNode node, Long pathId, boolean passed, List<NodeEdge> incoming) {
-        StudentNodeProgress current = getProgress(studentId, pathId, node.getNodeId());
-        if (current == null) return;
-
-        NodeEdge parentEdge = incoming.stream().filter(this::isSubEdge).findFirst()
-                .orElse(incoming.stream().findFirst().orElse(null));
-        LearningNode parent = parentEdge != null ? parentEdge.getFromNode() : null;
-        boolean parentIsSub = parent != null
-                && isSubNode(parent, nodeEdgeRepository.findByToNodeNodeId(parent.getNodeId()));
-
-        if (!parentIsSub) {
-            // node phụ #1 — cổng thoát nhánh phụ
-            if (passed) {
-                current.setStatus(StudentProgressStatus.COMPLETED);
-                current.setCompletedAt(LocalDateTime.now());
-                studentNodeProgressRepository.save(current);
-                // Đạt phụ #1 → mở lại test node chính
-                if (parent != null) {
-                    StudentNodeProgress mainP = getProgress(studentId, pathId, parent.getNodeId());
-                    if (mainP != null) {
-                        mainP.setTestLocked(false);
-                        studentNodeProgressRepository.save(mainP);
-                    }
-                }
-            } else {
-                // Trượt phụ #1 → mở phụ #2 (luyện thêm) nếu có
-                NodeEdge subEdge = nodeEdgeRepository.findByFromNodeNodeId(node.getNodeId())
-                        .stream().filter(this::isSubEdge).findFirst().orElse(null);
-                if (subEdge != null) openNode(studentId, subEdge.getToNode(), pathId);
-            }
-        } else {
-            // node phụ #2 — làm xong thì quay lại làm phụ #1 (cổng thoát vẫn là đạt phụ #1)
-            if (passed) {
-                current.setStatus(StudentProgressStatus.COMPLETED);
-                current.setCompletedAt(LocalDateTime.now());
-                studentNodeProgressRepository.save(current);
-            }
-            StudentNodeProgress p1 = getProgress(studentId, pathId, parent.getNodeId());
-            if (p1 != null && p1.getStatus() != StudentProgressStatus.COMPLETED) {
-                p1.setStatus(StudentProgressStatus.OPEN);
-                p1.setUnlockedAt(LocalDateTime.now());
-                studentNodeProgressRepository.save(p1);
-            }
-        }
+        // Trượt → được thi lại, giữ nguyên trạng thái.
     }
 
     private boolean checkIncomingPrerequisites(Long studentId, LearningNode targetNode, Long pathId) {
