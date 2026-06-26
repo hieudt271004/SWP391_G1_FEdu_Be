@@ -156,9 +156,21 @@ export interface NodeTestResponse {
   orderIndex: number;
 }
 
+// Bài tập thực hành — thành phần của node (song song material/test)
+export interface NodeExerciseResponse {
+  exerciseId: number;
+  title: string;
+  instructions?: string;
+  allowText: boolean;
+  allowFile: boolean;
+  orderIndex: number;
+}
+
 export interface NodeContentResponse {
   materials: NodeMaterialResponse[];
   tests: NodeTestResponse[];
+  // BE luôn trả mảng (có thể rỗng); optional để không phá các nơi đang khởi tạo content thủ công.
+  exercises?: NodeExerciseResponse[];
 }
 
 export interface CreateNodeTestRequest {
@@ -168,9 +180,16 @@ export interface CreateNodeTestRequest {
   passingPercentage?: number;
 }
 
+export interface CreateNodeExerciseRequest {
+  title: string;
+  instructions?: string;
+  allowText?: boolean;
+  allowFile?: boolean;
+}
+
 export interface ReorderContentRequest {
   id: number;
-  type: 'MATERIAL' | 'TEST';
+  type: 'MATERIAL' | 'TEST' | 'EXERCISE';
   orderIndex: number;
 }
 
@@ -283,6 +302,10 @@ export const learningPathService = {
     http.post<NodeTestResponse>(`/admin/learning-nodes/${nodeId}/tests`, request),
   deleteAdminNodeTest: (testId: number) =>
     http.delete<void>(`/admin/tests/${testId}`),
+  addAdminNodeExercise: (nodeId: number, request: CreateNodeExerciseRequest) =>
+    http.post<NodeExerciseResponse>(`/admin/learning-nodes/${nodeId}/exercises`, request),
+  deleteAdminNodeExercise: (exerciseId: number) =>
+    http.delete<void>(`/admin/exercises/${exerciseId}`),
   reorderAdminNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/admin/learning-nodes/${nodeId}/reorder-content`, requests),
 
@@ -299,6 +322,10 @@ export const learningPathService = {
     http.post<NodeTestResponse>(`/teacher-manage/learning-nodes/${nodeId}/tests`, request),
   deleteTeacherNodeTest: (testId: number) =>
     http.delete<void>(`/teacher-manage/tests/${testId}`),
+  addTeacherNodeExercise: (nodeId: number, request: CreateNodeExerciseRequest) =>
+    http.post<NodeExerciseResponse>(`/teacher-manage/learning-nodes/${nodeId}/exercises`, request),
+  deleteTeacherNodeExercise: (exerciseId: number) =>
+    http.delete<void>(`/teacher-manage/exercises/${exerciseId}`),
   reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
 
