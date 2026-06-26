@@ -341,6 +341,7 @@ CREATE TABLE IF NOT EXISTS question_answers (
                                                 question_id BIGINT NOT NULL REFERENCES node_questions(question_id) ON DELETE CASCADE,
                                                 lecturer_id BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                 content     TEXT NOT NULL,
+                                                is_deleted  BOOLEAN DEFAULT FALSE,
                                                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                 updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
