@@ -129,8 +129,6 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                         "    edge_id BIGSERIAL PRIMARY KEY," +
                         "    from_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE," +
                         "    to_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE," +
-                        "    min_score DECIMAL(5,2)," +
-                        "    max_score DECIMAL(5,2)," +
                         "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                         "    UNIQUE(from_node_id, to_node_id)" +
                         ")"
@@ -192,6 +190,13 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE student_node_progress DROP COLUMN IF EXISTS test_locked");
                 log.info("Column 'test_locked' dropped/verified from 'student_node_progress'.");
+            }
+
+            // node_edges.min_score/max_score đã bỏ (di sản "nhánh phụ") — drop khỏi DB live nếu còn.
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE node_edges DROP COLUMN IF EXISTS min_score");
+                statement.execute("ALTER TABLE node_edges DROP COLUMN IF EXISTS max_score");
+                log.info("Columns 'min_score'/'max_score' dropped/verified from 'node_edges'.");
             }
 
             // Update old 'UNLOCKED' student progress status to 'OPEN'

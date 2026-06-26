@@ -50,8 +50,6 @@ export interface NodeEdgeResponse {
   edgeId: number;
   fromNodeId: number;
   toNodeId: number;
-  minScore?: number;
-  maxScore?: number;
 }
 
 export interface LearningPathGraphResponse {
@@ -126,8 +124,6 @@ export interface UpdateLearningNodeRequest {
 export interface CreateNodeEdgeRequest {
   fromNodeId: number;
   toNodeId: number;
-  minScore?: number;
-  maxScore?: number;
 }
 
 export interface NodeMaterialResponse {

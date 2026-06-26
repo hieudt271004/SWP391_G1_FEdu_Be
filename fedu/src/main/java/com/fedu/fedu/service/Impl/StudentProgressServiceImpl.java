@@ -105,8 +105,6 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                         .edgeId(e.getEdgeId())
                         .fromNodeId(e.getFromNode().getNodeId())
                         .toNodeId(e.getToNode().getNodeId())
-                        .minScore(e.getMinScore())
-                        .maxScore(e.getMaxScore())
                         .build())
                 .collect(Collectors.toList());
 

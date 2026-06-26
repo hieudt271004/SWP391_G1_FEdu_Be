@@ -167,8 +167,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             LearningNode t = nodeMap.get(te.getToNode().getNodeId());
             if (f != null && t != null) {
                 nodeEdgeRepository.save(NodeEdge.builder()
-                        .fromNode(f).toNode(t)
-                        .minScore(te.getMinScore()).maxScore(te.getMaxScore()).build());
+                        .fromNode(f).toNode(t).build());
             }
         }
         return mapToResponse(clonedPath);
@@ -500,8 +499,6 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .edgeId(e.getEdgeId())
                 .fromNodeId(e.getFromNode().getNodeId())
                 .toNodeId(e.getToNode().getNodeId())
-                .minScore(e.getMinScore())
-                .maxScore(e.getMaxScore())
                 .build();
     }
 

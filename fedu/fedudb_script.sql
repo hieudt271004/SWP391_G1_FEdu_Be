@@ -185,8 +185,6 @@ CREATE TABLE IF NOT EXISTS node_edges (
                                           edge_id      BIGSERIAL PRIMARY KEY,
                                           from_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
                                           to_node_id   BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
-                                          min_score    DECIMAL(5,2),
-                                          max_score    DECIMAL(5,2),
                                           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                           UNIQUE(from_node_id, to_node_id)
 );

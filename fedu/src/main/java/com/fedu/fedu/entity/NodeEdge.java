@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -30,14 +29,6 @@ public class NodeEdge {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "to_node_id", nullable = false)
     private LearningNode toNode;
-
-
-
-    @Column(name = "min_score", precision = 5, scale = 2)
-    private BigDecimal minScore;
-
-    @Column(name = "max_score", precision = 5, scale = 2)
-    private BigDecimal maxScore;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreationTimestamp

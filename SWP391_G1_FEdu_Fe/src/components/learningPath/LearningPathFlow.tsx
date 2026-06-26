@@ -48,15 +48,6 @@ interface Placed {
   dim: boolean;
 }
 
-function scoreLabel(e: NodeEdgeResponse): string | null {
-  const hasMin = e.minScore !== undefined && e.minScore !== null;
-  const hasMax = e.maxScore !== undefined && e.maxScore !== null;
-  if (hasMin && hasMax) return `${e.minScore}–${e.maxScore}`;
-  if (hasMin) return `≥ ${e.minScore}`;
-  if (hasMax) return `< ${e.maxScore}`;
-  return null;
-}
-
 export function LearningPathFlow({
   nodes,
   edges,
@@ -150,9 +141,6 @@ export function LearningPathFlow({
             <marker id="lpf-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
               <path d="M0 0 L8 3 L0 6 z" fill="#94a3b8" />
             </marker>
-            <marker id="lpf-arrow-route" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M0 0 L8 3 L0 6 z" fill="#6366f1" />
-            </marker>
           </defs>
           {visibleEdges.map((e) => {
             const s = posById.get(e.fromNodeId)!;
@@ -161,10 +149,7 @@ export function LearningPathFlow({
             const y1 = s.y + s.h / 2;
             const x2 = t.x;
             const y2 = t.y - t.h / 2;
-            const isRoute = e.minScore != null || e.maxScore != null;
-            const faded =
-              highlightLevel != null && (s.dim || t.dim);
-            const label = scoreLabel(e);
+            const faded = highlightLevel != null && (s.dim || t.dim);
             return (
               <g key={e.edgeId} opacity={faded ? 0.12 : 1}>
                 <line
@@ -172,19 +157,10 @@ export function LearningPathFlow({
                   y1={y1}
                   x2={x2}
                   y2={y2}
-                  stroke={isRoute ? "#6366f1" : "#94a3b8"}
+                  stroke="#94a3b8"
                   strokeWidth={2}
-                  strokeDasharray={isRoute ? "6 4" : undefined}
-                  markerEnd={`url(#${isRoute ? "lpf-arrow-route" : "lpf-arrow"})`}
+                  markerEnd="url(#lpf-arrow)"
                 />
-                {label && (
-                  <g transform={`translate(${(x1 + x2) / 2}, ${(y1 + y2) / 2})`}>
-                    <rect x={-18} y={-9} width={36} height={18} rx={5} fill="#eef2ff" stroke="#c7d2fe" />
-                    <text textAnchor="middle" dy={3.5} fontSize={10} fill="#4338ca">
-                      {label}
-                    </text>
-                  </g>
-                )}
               </g>
             );
           })}

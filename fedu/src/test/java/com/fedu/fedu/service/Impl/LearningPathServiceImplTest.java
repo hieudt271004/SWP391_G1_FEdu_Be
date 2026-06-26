@@ -122,7 +122,7 @@ class LearningPathServiceImplTest {
         LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(2).isRequired(false).build();
         when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(202L)).thenReturn(Arrays.asList(node1, node2));
 
-        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).minScore(BigDecimal.ZERO).maxScore(BigDecimal.TEN).build();
+        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).build();
         when(nodeEdgeRepository.findByFromNodeLearningPathPathId(202L)).thenReturn(Collections.singletonList(edge));
 
         when(learningPathRepository.save(any(LearningPath.class))).thenAnswer(inv -> inv.getArgument(0));
