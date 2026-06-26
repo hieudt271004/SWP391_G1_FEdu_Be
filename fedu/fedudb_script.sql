@@ -232,6 +232,21 @@ CREATE TABLE IF NOT EXISTS files (
                                      updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Bài tập thực hành: một THÀNH PHẦN của node (song song material/test).
+-- Học sinh làm tự luận (text) và/hoặc nộp file. order_index xếp xen material/test.
+CREATE TABLE IF NOT EXISTS node_exercises (
+                                              exercise_id  BIGSERIAL PRIMARY KEY,
+                                              node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                              title        VARCHAR(255) NOT NULL,
+                                              instructions TEXT,
+                                              allow_text   BOOLEAN DEFAULT TRUE,
+                                              allow_file   BOOLEAN DEFAULT TRUE,
+                                              order_index  INT,
+                                              is_deleted   BOOLEAN DEFAULT FALSE,
+                                              created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                              updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS tests (
                                      test_id            BIGSERIAL PRIMARY KEY,
                                      node_id            BIGINT REFERENCES learning_nodes(node_id) ON DELETE CASCADE, -- NULL: quiz phân loại (placement) không gắn node
@@ -311,6 +326,7 @@ CREATE TABLE IF NOT EXISTS student_node_progress (
 CREATE TABLE IF NOT EXISTS submissions (
                                            submission_id     BIGSERIAL PRIMARY KEY,
                                            node_id           BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                           exercise_id       BIGINT REFERENCES node_exercises(exercise_id) ON DELETE CASCADE,
                                            student_id        BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                            graded_by         BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                            title             VARCHAR(255),

@@ -53,6 +53,8 @@ class LearningPathServiceImplTest {
     private TestQuestionRepository testQuestionRepository;
     @Mock
     private TestAnswerRepository testAnswerRepository;
+    @Mock
+    private NodeExerciseRepository nodeExerciseRepository;
 
     @InjectMocks
     private LearningPathServiceImpl learningPathService;

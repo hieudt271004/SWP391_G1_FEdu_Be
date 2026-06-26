@@ -1,5 +1,6 @@
 package com.fedu.fedu.controller.admin;
 
+import com.fedu.fedu.dto.req.CreateNodeExerciseRequest;
 import com.fedu.fedu.dto.req.CreateNodeMaterialRequest;
 import com.fedu.fedu.dto.req.CreateNodeTestRequest;
 import com.fedu.fedu.dto.req.ReorderContentRequest;
@@ -80,7 +81,28 @@ public class AdminNodeContentController {
         return new ResponseData<>(HttpStatus.OK.value(), "Test deleted successfully");
     }
 
-    @Operation(summary = "Reorder materials and tests inside a learning node")
+    @Operation(summary = "Add practice exercise to a learning node")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/learning-nodes/{nodeId}/exercises")
+    public ResponseData<NodeExerciseResponse> addExercise(
+            @PathVariable Long nodeId,
+            @Valid @RequestBody CreateNodeExerciseRequest request) {
+        log.info("Admin adding exercise to node ID: {}, title: {}", nodeId, request.getTitle());
+        return new ResponseData<>(HttpStatus.CREATED.value(), "Exercise added successfully",
+                nodeContentService.addExercise(nodeId, request));
+    }
+
+    @Operation(summary = "Delete practice exercise from a node")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @DeleteMapping("/exercises/{exerciseId}")
+    public ResponseData<Void> deleteExercise(@PathVariable Long exerciseId) {
+        log.info("Admin deleting exercise ID: {}", exerciseId);
+        nodeContentService.deleteExercise(exerciseId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Exercise deleted successfully");
+    }
+
+    @Operation(summary = "Reorder materials, tests and exercises inside a learning node")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @PostMapping("/learning-nodes/{nodeId}/reorder-content")
     public ResponseData<Void> reorderContent(

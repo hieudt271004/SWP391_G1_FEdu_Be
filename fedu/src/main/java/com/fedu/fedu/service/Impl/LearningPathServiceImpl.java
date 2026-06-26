@@ -40,6 +40,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final TestRepository testRepository;
     private final TestQuestionRepository testQuestionRepository;
     private final TestAnswerRepository testAnswerRepository;
+    private final NodeExerciseRepository nodeExerciseRepository;
 
     // Learning Path (Template)
 
@@ -231,6 +232,18 @@ public class LearningPathServiceImpl implements LearningPathService {
                             .build());
                 }
             }
+        }
+        
+        for (NodeExercise ex : nodeExerciseRepository.findByLearningNodeNodeIdAndIsDeletedFalse(src.getNodeId())) {
+            nodeExerciseRepository.save(NodeExercise.builder()
+                    .learningNode(dst)
+                    .title(ex.getTitle())
+                    .instructions(ex.getInstructions())
+                    .allowText(ex.getAllowText())
+                    .allowFile(ex.getAllowFile())
+                    .orderIndex(ex.getOrderIndex())
+                    .isDeleted(false)
+                    .build());
         }
     }
 
