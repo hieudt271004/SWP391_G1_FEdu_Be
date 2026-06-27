@@ -117,6 +117,22 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Lớp-môn đã có lộ trình. Xóa draft/unpublish trước.");
         }
 
+        
+        if (templatePathId == null) {
+            List<LearningPath> candidates = learningPathRepository
+                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
+                    .stream()
+                    .filter(this::isPathPublishable)
+                    .collect(Collectors.toList());
+            if (candidates.isEmpty()) {
+                throw new InvalidDataException("Môn chưa có lộ trình mẫu đạt điều kiện để clone.");
+            }
+            if (candidates.size() > 1) {
+                throw new InvalidDataException("Môn có nhiều lộ trình mẫu — cần chọn lộ trình cụ thể để clone.");
+            }
+            templatePathId = candidates.get(0).getPathId();
+        }
+
         LearningPath template = learningPathRepository.findById(templatePathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path template not found"));
         if (template.getClassroomSubject() != null || Boolean.TRUE.equals(template.getIsDeleted())
@@ -309,7 +325,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .collect(Collectors.toList());
     }
 
-    // ── Learning Node ─────────────────────────────────────────────────────────
+    //  Learning Node
 
     @Override
     @Transactional
@@ -321,14 +337,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         LearningPath learningPath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
-        // Chỉ ADMIN (lộ trình gốc, classroomSubject == null) được tạo node loại "Trên lớp".
         if (request.getNodeType() == NodeType.ON_CLASS && learningPath.getClassroomSubject() != null) {
             throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
         }
 
-        // Validate stageOrder >= 1 và level node hợp lệ (null = node chung hoặc 1..3).
-        // (Bỏ ràng buộc theo subject.learningpathLength — số chặng nay TÍNH RA từ node lúc xuất bản,
-        //  và mỗi chặng có NHIỀU node nên không giới hạn tổng số node theo số chặng.)
         if (request.getStageOrder() != null && request.getStageOrder() < 1) {
             throw new InvalidDataException("stageOrder phải >= 1");
         }

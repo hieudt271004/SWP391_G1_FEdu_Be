@@ -6,8 +6,8 @@ import type {
   NodeEdgeResponse,
   NodeContentResponse,
 } from "../../services/learningPath.service";
-import { API_BASE_URL } from "../../services/api.client";
 import { uploadService } from "../../services/upload.service";
+import { MaterialPreview, VideoPreview } from "./MaterialPreview";
 import { LearningPathFlow } from "./LearningPathFlow";
 import { toast } from "sonner";
 
@@ -814,25 +814,14 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   ) : (
                     <ul className="space-y-1">
                       {(content?.materials ?? []).map((m) => (
-                        <li key={m.materialId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
-                          <a
-                            href={
-                              m.video?.videoUrl ??
-                              (m.file?.fileUrl
-                                ? m.file.fileUrl.startsWith("http")
-                                  ? m.file.fileUrl
-                                  : `${API_BASE_URL}${m.file.fileUrl}`
-                                : "#")
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                            className="truncate text-indigo-600 hover:underline"
-                          >
-                            {m.title}
-                          </a>
-                          <button onClick={() => removeMaterial(m.materialId)} className="shrink-0 text-xs text-rose-500 hover:underline">
-                            xóa
-                          </button>
+                        <li key={m.materialId} className="rounded-md bg-slate-50 p-2.5 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate font-medium text-slate-700">{m.title}</span>
+                            <button onClick={() => removeMaterial(m.materialId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                              xóa
+                            </button>
+                          </div>
+                          <MaterialPreview material={m} />
                         </li>
                       ))}
                       {(content?.materials ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có học liệu.</p>}
@@ -1135,46 +1124,6 @@ function ModalActions({ onCancel, onSave, saving }: { onCancel: () => void; onSa
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{children}</h4>;
-}
-
-// Nhận diện link video để nhúng xem trước: YouTube, Vimeo, hoặc file video trực tiếp.
-function getVideoEmbed(raw: string): { kind: "youtube" | "vimeo" | "file" | "none"; src: string } {
-  const url = (raw || "").trim();
-  if (!url) return { kind: "none", src: "" };
-  const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)([\w-]{11})/);
-  if (yt) return { kind: "youtube", src: `https://www.youtube.com/embed/${yt[1]}` };
-  const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
-  if (vm) return { kind: "vimeo", src: `https://player.vimeo.com/video/${vm[1]}` };
-  if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?.*)?$/i.test(url)) return { kind: "file", src: url };
-  return { kind: "none", src: "" };
-}
-
-function VideoPreview({ url }: { url: string }) {
-  const embed = getVideoEmbed(url);
-  if (embed.kind === "none") {
-    return (
-      <p className="text-[11px] text-amber-600">
-        Chưa xem trước được — hỗ trợ link YouTube, Vimeo hoặc file video (.mp4, .webm…).
-      </p>
-    );
-  }
-  return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-black">
-      <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
-        {embed.kind === "file" ? (
-          <video src={embed.src} controls className="absolute inset-0 h-full w-full" />
-        ) : (
-          <iframe
-            src={embed.src}
-            title="Xem trước video"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full"
-          />
-        )}
-      </div>
-    </div>
-  );
 }
 
 export default LearningPathManager;
