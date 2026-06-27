@@ -1,8 +1,45 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { http } from "../../../services/http";
+
+interface StatsData {
+  totalStudents: number;
+  totalTeachers: number;
+  totalClassrooms: number;
+  totalSubjects: number;
+}
 
 export function CTASection() {
   const navigate = useNavigate();
+  const [stats, setStats] = useState<StatsData>({
+    totalStudents: 500,
+    totalTeachers: 10,
+    totalClassrooms: 30,
+    totalSubjects: 20,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    http.get<StatsData>("/public/about/stats")
+      .then((data) => {
+        if (!isMounted) return;
+        if (data) {
+          setStats(data);
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.error("Lỗi lấy thống kê CTA từ DB, dùng dữ liệu mặc định:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const studentsLabel = `${stats.totalStudents}+`;
+  const subjectsLabel = `${stats.totalSubjects}+`;
+
   return (
     <section className="bg-[#030213] py-16 text-white font-sans">
       <div className="max-w-5xl mx-auto px-6">
@@ -36,9 +73,9 @@ export function CTASection() {
               </button>
             </div>
             <div className="mx-auto flex max-w-md flex-wrap justify-center gap-4 text-[10px] text-slate-500">
-              <span>500+ sinh viên tin dùng</span>
+              <span>{studentsLabel} sinh viên tin dùng</span>
               <span className="inline-block h-1 w-1 rounded-full bg-slate-700 mt-1.5" />
-              <span>95% đánh giá hài lòng</span>
+              <span>{subjectsLabel} môn học</span>
             </div>
           </div>
         </div>
