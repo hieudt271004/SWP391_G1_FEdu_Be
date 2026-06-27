@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, BookOpen, Mail, Lock, User, ArrowLeft } from "lucide-react";
 import { LeftPanel } from "../components/LeftPanel";
 import logo from "../../../assets/logo.png";
 import { emailRegex, RegField, defaultRegisterForm } from "../types";
 import { authService } from "../../../services/auth.service";
-
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -14,6 +13,13 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [reg, setReg] = useState(defaultRegisterForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const setRegField = (key: RegField) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setReg(prev => ({ ...prev, [key]: e.target.value }));
@@ -36,9 +42,11 @@ export function RegisterPage() {
       setLoading(true);
       try {
         await authService.register(reg.first, reg.last, reg.email, reg.pw, reg.confirm);
+        if (!isMountedRef.current) return;
         setReg(defaultRegisterForm);
         navigate("/login");
       } catch (error: any) {
+        if (!isMountedRef.current) return;
         const message = error?.message || "";
         if (message.toLowerCase().includes("email already exists")) {
           setErrors({ email: "Email này đã được đăng ký!" });
@@ -46,158 +54,161 @@ export function RegisterPage() {
           setErrors({ email: message || "Đăng ký thất bại, vui lòng thử lại!" });
         }
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     }
   };
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-screen w-full font-sans bg-[#030213]">
       <LeftPanel />
-      <div className="w-full lg:w-1/2 flex bg-white overflow-y-auto p-4 lg:p-8">
-        <div className="m-auto w-full max-w-md py-8">
+      <div className="w-full lg:w-1/2 flex bg-[#030213] text-white overflow-y-auto p-4 lg:p-8 relative">
+        {/* Glow backdrop */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
+        
+        <div className="m-auto w-full max-w-md py-8 relative">
 
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <img src={logo} alt="FEdu Logo" className="w-8 h-8 rounded-lg object-cover" />
-            <span style={{ fontSize: "1.125rem", fontWeight: 700, color: "#4338ca" }}>FEdu Learning</span>
+          <div className="lg:hidden flex items-center gap-2.5 mb-8">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-md shadow-blue-500/10">
+              <BookOpen className="w-4.5 h-4.5" />
+            </div>
+            <span className="text-base font-extrabold text-white tracking-tight">
+              FE<span className="bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent font-medium">du</span>
+            </span>
           </div>
 
           <button
             onClick={() => navigate("/login")}
-            className="flex items-center gap-1.5 mb-6"
-            style={{ color: "#6b7280", background: "none", border: "none", cursor: "pointer", fontSize: "0.875rem" }}
+            className="flex items-center gap-1.5 mb-6 text-slate-400 hover:text-white text-xs font-semibold bg-transparent border-none cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại đăng nhập
           </button>
 
-          <h1 className="mb-2" style={{ color: "#111827" }}>Tạo tài khoản</h1>
-          <p style={{ color: "#6b7280", fontSize: "0.875rem" }}>Đăng ký miễn phí và bắt đầu học ngay hôm nay!</p>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">Tạo tài khoản</h1>
+          <p className="text-xs text-slate-400">Đăng ký miễn phí và bắt đầu học ngay hôm nay!</p>
 
           <form className="mt-8 space-y-5" onSubmit={(e) => { e.preventDefault(); handleRegister(); }}>
 
             {/* Họ & Tên */}
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="reg-first" style={{ color: "#374151", fontSize: "0.875rem" }}>Họ</label>
-                <div className="relative mt-1.5">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#9ca3af" }} />
+              <div className="space-y-1.5">
+                <label htmlFor="reg-first" className="text-xs font-semibold text-slate-300">Họ</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     id="reg-first"
                     value={reg.first}
                     onChange={setRegField("first")}
                     type="text"
                     placeholder="Nguyễn"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border outline-none"
-                    style={{ borderColor: "#e5e7eb", backgroundColor: "#f9fafb", fontSize: "0.9375rem" }}
+                    className="w-full pl-10 pr-4 py-3 text-xs rounded-md border border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all duration-200"
                   />
                 </div>
-                {errors.first && <p style={{ color: "#ef4444", fontSize: "0.8125rem", marginTop: "0.25rem" }}>* {errors.first}</p>}
+                {errors.first && <p className="text-[11px] text-rose-400 mt-1">* {errors.first}</p>}
               </div>
-              <div>
-                <label htmlFor="reg-last" style={{ color: "#374151", fontSize: "0.875rem" }}>Tên</label>
-                <div className="relative mt-1.5">
+              <div className="space-y-1.5">
+                <label htmlFor="reg-last" className="text-xs font-semibold text-slate-300">Tên</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     id="reg-last"
                     value={reg.last}
                     onChange={setRegField("last")}
                     type="text"
                     placeholder="Văn A"
-                    className="w-full px-4 py-3 rounded-xl border outline-none"
-                    style={{ borderColor: "#e5e7eb", backgroundColor: "#f9fafb", fontSize: "0.9375rem" }}
+                    className="w-full pl-10 pr-4 py-3 text-xs rounded-md border border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all duration-200"
                   />
                 </div>
-                {errors.last && <p style={{ color: "#ef4444", fontSize: "0.8125rem", marginTop: "0.25rem" }}>* {errors.last}</p>}
+                {errors.last && <p className="text-[11px] text-rose-400 mt-1">* {errors.last}</p>}
               </div>
             </div>
 
             {/* Email */}
-            <div>
-              <label htmlFor="reg-email" style={{ color: "#374151", fontSize: "0.875rem" }}>Email</label>
-              <div className="relative mt-1.5">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#9ca3af" }} />
+            <div className="space-y-1.5">
+              <label htmlFor="reg-email" className="text-xs font-semibold text-slate-300">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   id="reg-email"
                   value={reg.email}
                   onChange={setRegField("email")}
                   type="email"
                   placeholder="example@email.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border outline-none"
-                  style={{ borderColor: "#e5e7eb", backgroundColor: "#f9fafb", fontSize: "0.9375rem" }}
+                  className="w-full pl-10 pr-4 py-3 text-xs rounded-md border border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all duration-200"
                 />
               </div>
-              {errors.email && <p style={{ color: "#ef4444", fontSize: "0.8125rem", marginTop: "0.25rem" }}>* {errors.email}</p>}
+              {errors.email && <p className="text-[11px] text-rose-400 mt-1">* {errors.email}</p>}
             </div>
 
             {/* Mật khẩu */}
-            <div>
-              <label htmlFor="reg-password" style={{ color: "#374151", fontSize: "0.875rem" }}>Mật khẩu</label>
-              <div className="relative mt-1.5">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#9ca3af" }} />
+            <div className="space-y-1.5">
+              <label htmlFor="reg-password" className="text-xs font-semibold text-slate-300">Mật khẩu</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   id="reg-password"
                   value={reg.pw}
                   onChange={setRegField("pw")}
                   type={showPassword ? "text" : "password"}
                   placeholder="Tối thiểu 8 ký tự"
-                  className="w-full pl-10 pr-11 py-3 rounded-xl border outline-none"
-                  style={{ borderColor: "#e5e7eb", backgroundColor: "#f9fafb", fontSize: "0.9375rem" }}
+                  className="w-full pl-10 pr-11 py-3 text-xs rounded-md border border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all duration-200"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                  style={{ color: "#9ca3af", background: "none", border: "none", cursor: "pointer" }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 bg-transparent border-none cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {errors.pw && <p style={{ color: "#ef4444", fontSize: "0.8125rem", marginTop: "0.25rem" }}>* {errors.pw}</p>}
+              {errors.pw && <p className="text-[11px] text-rose-400 mt-1">* {errors.pw}</p>}
             </div>
 
             {/* Xác nhận mật khẩu */}
-            <div>
-              <label htmlFor="reg-confirm" style={{ color: "#374151", fontSize: "0.875rem" }}>Xác nhận mật khẩu</label>
-              <div className="relative mt-1.5">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#9ca3af" }} />
+            <div className="space-y-1.5">
+              <label htmlFor="reg-confirm" className="text-xs font-semibold text-slate-300">Xác nhận mật khẩu</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   id="reg-confirm"
                   value={reg.confirm}
                   onChange={setRegField("confirm")}
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Nhập lại mật khẩu"
-                  className="w-full pl-10 pr-11 py-3 rounded-xl border outline-none"
-                  style={{ borderColor: "#e5e7eb", backgroundColor: "#f9fafb", fontSize: "0.9375rem" }}
+                  className="w-full pl-10 pr-11 py-3 text-xs rounded-md border border-white/10 bg-white/5 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-white/20 transition-all duration-200"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                  style={{ color: "#9ca3af", background: "none", border: "none", cursor: "pointer" }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 bg-transparent border-none cursor-pointer"
                 >
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {errors.confirm && <p style={{ color: "#ef4444", fontSize: "0.8125rem", marginTop: "0.25rem" }}>* {errors.confirm}</p>}
+              {errors.confirm && <p className="text-[11px] text-rose-400 mt-1">* {errors.confirm}</p>}
             </div>
 
             <div className="flex items-start gap-2">
               <input
                 id="terms"
                 type="checkbox"
+                className="w-4 h-4 mt-0.5 rounded border-white/10 bg-white/5 checked:bg-blue-600 cursor-pointer accent-blue-600 shrink-0"
                 checked={reg.terms}
                 onChange={e => {
                   setReg(prev => ({ ...prev, terms: e.target.checked }));
                   setErrors(prev => ({ ...prev, terms: "" }));
                 }}
               />
-              <label htmlFor="terms" style={{ color: "#6b7280", fontSize: "0.875rem", fontWeight: 400, lineHeight: 1.5 }}>
+              <label htmlFor="terms" className="text-slate-400 text-xs leading-relaxed select-none cursor-pointer">
                 Tôi đồng ý với{" "}
                 <a
                   href="/terms"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: "#4338ca", textDecoration: "none" }}
+                  className="text-white hover:underline font-semibold"
                 >
                   Điều khoản sử dụng
                 </a>{" "}và{" "}
@@ -205,29 +216,28 @@ export function RegisterPage() {
                   href="/privacy"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: "#4338ca", textDecoration: "none" }}
+                  className="text-white hover:underline font-semibold"
                 >
                   Chính sách bảo mật
                 </a>
               </label>
             </div>
-            {errors.terms && <p style={{ color: "#ef4444", fontSize: "0.8125rem", marginTop: "0.25rem" }}>* {errors.terms}</p>}
+            {errors.terms && <p className="text-[11px] text-rose-400 mt-1">* {errors.terms}</p>}
 
             {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl text-white transition-opacity hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
+              className="w-full py-3 rounded-md bg-white hover:bg-slate-100 disabled:bg-white/50 text-[#030213] text-xs font-semibold cursor-pointer transition-all duration-200"
             >
               {loading ? "Đang tạo..." : "Tạo tài khoản"}
             </button>
 
             {/* Divider */}
             <div className="relative flex items-center gap-3">
-              <div className="flex-1 h-px" style={{ backgroundColor: "#e5e7eb" }} />
-              <span style={{ color: "#9ca3af", fontSize: "0.8125rem" }}>hoặc đăng ký với</span>
-              <div className="flex-1 h-px" style={{ backgroundColor: "#e5e7eb" }} />
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-slate-500 text-[11px]">hoặc đăng ký với</span>
+              <div className="flex-1 h-px bg-white/10" />
             </div>
 
             {/* Social */}
@@ -237,21 +247,20 @@ export function RegisterPage() {
                   key={name}
                   type="button"
                   disabled={loading}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl border transition-colors hover:bg-gray-50"
-                  style={{ borderColor: "#e5e7eb", background: "white", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
+                  className="flex items-center justify-center gap-2 py-2.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  <span style={{ color, fontWeight: 700, fontSize: "0.875rem" }}>{name[0]}</span>
-                  <span style={{ color: "#374151", fontSize: "0.875rem" }}>{name}</span>
+                  <span style={{ color }} className="font-extrabold text-sm">{name[0]}</span>
+                  <span className="text-slate-300 text-xs font-semibold">{name}</span>
                 </button>
               ))}
             </div>
           </form>
 
-          <p className="text-center mt-6" style={{ color: "#6b7280", fontSize: "0.875rem" }}>
+          <p className="text-center mt-6 text-slate-400 text-xs">
             Đã có tài khoản?{" "}
             <button
               onClick={() => navigate("/login")}
-              style={{ color: "#4338ca", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
+              className="text-white hover:underline font-semibold bg-transparent border-none cursor-pointer"
             >
               Đăng nhập
             </button>

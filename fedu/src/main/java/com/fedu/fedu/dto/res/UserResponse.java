@@ -30,4 +30,6 @@ public class UserResponse {
     private String avatarUrl;
     private UserStatus status;
     private List<String> roles;
+    private java.time.LocalDateTime createdAt;
+    private java.time.LocalDateTime updatedAt;
 }
