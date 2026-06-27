@@ -19,9 +19,10 @@ export function TeacherDashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchDashboardData = async () => {
       if (!user?.userId) {
-        setLoading(false);
+        if (isMounted) setLoading(false);
         return;
       }
 
@@ -34,6 +35,8 @@ export function TeacherDashboardPage() {
           teacherService.getClassroomsByTeacher(user.userId),
         ]);
         
+        if (!isMounted) return;
+
         setSubjectCount(subjects?.length ?? 0);
         setClassCount(classroomsData?.length ?? 0);
         setClassrooms(classroomsData ?? []);
@@ -44,6 +47,8 @@ export function TeacherDashboardPage() {
             classroomsData.map(c => classroomService.getStudents(c.classroomSubjectId))
           );
           
+          if (!isMounted) return;
+
           const uniqueStudentIds = new Set<number>();
           studentLists.forEach(list => {
             if (Array.isArray(list)) {
@@ -59,14 +64,20 @@ export function TeacherDashboardPage() {
           setStudentCount(0);
         }
       } catch (err: any) {
+        if (!isMounted) return;
         console.error('Lỗi khi tải thông tin dashboard:', err);
         setError(err.response?.data?.message || 'Không thể tải dữ liệu thống kê');
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchDashboardData();
+    return () => {
+      isMounted = false;
+    };
   }, [user?.userId]);
 
   if (loading) {
