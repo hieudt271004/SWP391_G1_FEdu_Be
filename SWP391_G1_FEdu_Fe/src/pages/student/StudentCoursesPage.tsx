@@ -30,6 +30,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { classroomService } from '../../services/classroom.service';
 import { studentService } from '../../services/student.service';
+import { API_BASE_URL } from '../../services/api.client';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
 import {
@@ -498,9 +499,9 @@ export function StudentCoursesPage() {
                                             </a>
                                           )}
                                           {m.file && (
-                                            <a 
-                                              href={m.file.fileUrl} 
-                                              target="_blank" 
+                                            <a
+                                              href={m.file.fileUrl?.startsWith('http') ? m.file.fileUrl : `${API_BASE_URL}${m.file.fileUrl}`}
+                                              target="_blank"
                                               rel="noopener noreferrer"
                                               download
                                               className="h-7 px-3 text-[10px] border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-bold rounded-lg flex items-center gap-1 shrink-0"

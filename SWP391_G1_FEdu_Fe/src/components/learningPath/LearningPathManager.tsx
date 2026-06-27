@@ -7,6 +7,7 @@ import type {
   NodeContentResponse,
 } from "../../services/learningPath.service";
 import { API_BASE_URL } from "../../services/api.client";
+import { uploadService } from "../../services/upload.service";
 import { LearningPathFlow } from "./LearningPathFlow";
 import { toast } from "sonner";
 
@@ -570,8 +571,13 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
         fd.append("videoUrl", mVideoUrl.trim());
         fd.append("videoTitle", mTitle.trim());
       } else if (mFile) {
-        fd.append("file", mFile);
+        // Upload thẳng lên Cloudinary, chỉ lưu URL + public_id vào BE (không lưu file trên server)
+        const uploaded = await uploadService.uploadToCloudinary(mFile, "materials");
+        fd.append("fileUrl", uploaded.url);
         fd.append("fileName", mFile.name);
+        fd.append("fileType", mFile.type || uploaded.format || "");
+        fd.append("publicId", uploaded.publicId);
+        if (uploaded.resourceType) fd.append("resourceType", uploaded.resourceType);
       } else {
         toast.error("Chọn tệp tài liệu");
         setSaving(false);
@@ -584,8 +590,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       setMFile(null);
       setContent(await learningPathService.getAdminNodeContent(selectedNode.nodeId));
       await refresh();
-    } catch {
-      toast.error("Không thêm được học liệu");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Không thêm được học liệu");
     } finally {
       setSaving(false);
     }
@@ -840,7 +846,10 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                       <option value="file">Tệp tải lên</option>
                     </select>
                     {mType === "video" ? (
-                      <input className="lp-input" placeholder="https://…" value={mVideoUrl} onChange={(e) => setMVideoUrl(e.target.value)} />
+                      <>
+                        <input className="lp-input" placeholder="https://… (YouTube, Vimeo hoặc .mp4)" value={mVideoUrl} onChange={(e) => setMVideoUrl(e.target.value)} />
+                        {mVideoUrl.trim() && <VideoPreview url={mVideoUrl} />}
+                      </>
                     ) : (
                       <input type="file" className="lp-input" onChange={(e) => setMFile(e.target.files?.[0] ?? null)} />
                     )}
@@ -1126,6 +1135,46 @@ function ModalActions({ onCancel, onSave, saving }: { onCancel: () => void; onSa
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{children}</h4>;
+}
+
+// Nhận diện link video để nhúng xem trước: YouTube, Vimeo, hoặc file video trực tiếp.
+function getVideoEmbed(raw: string): { kind: "youtube" | "vimeo" | "file" | "none"; src: string } {
+  const url = (raw || "").trim();
+  if (!url) return { kind: "none", src: "" };
+  const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)([\w-]{11})/);
+  if (yt) return { kind: "youtube", src: `https://www.youtube.com/embed/${yt[1]}` };
+  const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vm) return { kind: "vimeo", src: `https://player.vimeo.com/video/${vm[1]}` };
+  if (/\.(mp4|webm|ogg|ogv|mov|m4v)(\?.*)?$/i.test(url)) return { kind: "file", src: url };
+  return { kind: "none", src: "" };
+}
+
+function VideoPreview({ url }: { url: string }) {
+  const embed = getVideoEmbed(url);
+  if (embed.kind === "none") {
+    return (
+      <p className="text-[11px] text-amber-600">
+        Chưa xem trước được — hỗ trợ link YouTube, Vimeo hoặc file video (.mp4, .webm…).
+      </p>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-black">
+      <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
+        {embed.kind === "file" ? (
+          <video src={embed.src} controls className="absolute inset-0 h-full w-full" />
+        ) : (
+          <iframe
+            src={embed.src}
+            title="Xem trước video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full"
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default LearningPathManager;
