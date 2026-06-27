@@ -184,8 +184,6 @@ CREATE TABLE IF NOT EXISTS node_edges (
                                           edge_id      BIGSERIAL PRIMARY KEY,
                                           from_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
                                           to_node_id   BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
-                                          min_score    DECIMAL(5,2),
-                                          max_score    DECIMAL(5,2),
                                           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                           UNIQUE(from_node_id, to_node_id)
 );
@@ -231,6 +229,21 @@ CREATE TABLE IF NOT EXISTS files (
                                      is_deleted  BOOLEAN DEFAULT FALSE,
                                      created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bài tập thực hành: một THÀNH PHẦN của node (song song material/test).
+-- Học sinh làm tự luận (text) và/hoặc nộp file. order_index xếp xen material/test.
+CREATE TABLE IF NOT EXISTS node_exercises (
+                                              exercise_id  BIGSERIAL PRIMARY KEY,
+                                              node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                              title        VARCHAR(255) NOT NULL,
+                                              instructions TEXT,
+                                              allow_text   BOOLEAN DEFAULT TRUE,
+                                              allow_file   BOOLEAN DEFAULT TRUE,
+                                              order_index  INT,
+                                              is_deleted   BOOLEAN DEFAULT FALSE,
+                                              created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                              updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS tests (
@@ -297,22 +310,22 @@ CREATE TABLE IF NOT EXISTS student_selected_answers (
 
 CREATE TABLE IF NOT EXISTS student_node_progress (
                                                      progress_id  BIGSERIAL PRIMARY KEY,
-                                                     student_id   BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                                     classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE, -- ghi danh (student + lớp-môn + current_level)
                                                      node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
                                                      path_id      BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
                                                      order_index  INT NOT NULL DEFAULT 0,
                                                      status       VARCHAR(50) NOT NULL DEFAULT 'LOCKED',
-                                                     test_locked  BOOLEAN NOT NULL DEFAULT FALSE,
                                                      unlocked_at  TIMESTAMP,
                                                      completed_at TIMESTAMP,
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                     UNIQUE(student_id, node_id, path_id)
+                                                     UNIQUE(classroom_subject_student_id, node_id, path_id)
 );
 
 CREATE TABLE IF NOT EXISTS submissions (
                                            submission_id     BIGSERIAL PRIMARY KEY,
                                            node_id           BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                           exercise_id       BIGINT REFERENCES node_exercises(exercise_id) ON DELETE CASCADE,
                                            student_id        BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                            graded_by         BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                            title             VARCHAR(255),
@@ -343,6 +356,7 @@ CREATE TABLE IF NOT EXISTS question_answers (
                                                 question_id BIGINT NOT NULL REFERENCES node_questions(question_id) ON DELETE CASCADE,
                                                 lecturer_id BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                 content     TEXT NOT NULL,
+                                                is_deleted  BOOLEAN DEFAULT FALSE,
                                                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                 updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

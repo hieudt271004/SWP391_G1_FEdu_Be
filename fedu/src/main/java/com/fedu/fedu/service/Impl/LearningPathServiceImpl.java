@@ -40,6 +40,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final TestRepository testRepository;
     private final TestQuestionRepository testQuestionRepository;
     private final TestAnswerRepository testAnswerRepository;
+    private final NodeExerciseRepository nodeExerciseRepository;
 
     // Learning Path (Template)
 
@@ -166,8 +167,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             LearningNode t = nodeMap.get(te.getToNode().getNodeId());
             if (f != null && t != null) {
                 nodeEdgeRepository.save(NodeEdge.builder()
-                        .fromNode(f).toNode(t)
-                        .minScore(te.getMinScore()).maxScore(te.getMaxScore()).build());
+                        .fromNode(f).toNode(t).build());
             }
         }
         return mapToResponse(clonedPath);
@@ -231,6 +231,18 @@ public class LearningPathServiceImpl implements LearningPathService {
                             .build());
                 }
             }
+        }
+        
+        for (NodeExercise ex : nodeExerciseRepository.findByLearningNodeNodeIdAndIsDeletedFalse(src.getNodeId())) {
+            nodeExerciseRepository.save(NodeExercise.builder()
+                    .learningNode(dst)
+                    .title(ex.getTitle())
+                    .instructions(ex.getInstructions())
+                    .allowText(ex.getAllowText())
+                    .allowFile(ex.getAllowFile())
+                    .orderIndex(ex.getOrderIndex())
+                    .isDeleted(false)
+                    .build());
         }
     }
 
@@ -314,30 +326,14 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
         }
 
-        // Validate stageOrder trong [1, subject.learningpathLength] và level node hợp lệ (null hoặc 1..3).
-        if (request.getStageOrder() != null) {
-            Integer length = learningPath.getSubject() != null
-                    ? learningPath.getSubject().getLearningpathLength() : null;
-            if (length != null && request.getStageOrder() > length) {
-                throw new InvalidDataException(
-                        "stageOrder phải trong [1, " + length + "] (số chặng của môn)");
-            }
+        // Validate stageOrder >= 1 và level node hợp lệ (null = node chung hoặc 1..3).
+        // (Bỏ ràng buộc theo subject.learningpathLength — số chặng nay TÍNH RA từ node lúc xuất bản,
+        //  và mỗi chặng có NHIỀU node nên không giới hạn tổng số node theo số chặng.)
+        if (request.getStageOrder() != null && request.getStageOrder() < 1) {
+            throw new InvalidDataException("stageOrder phải >= 1");
         }
         if (request.getLevel() != null && !com.fedu.fedu.utils.LearningLevels.isValid(request.getLevel())) {
             throw new InvalidDataException("level của node phải null (node chung) hoặc 1=yếu, 2=tb, 3=khá");
-        }
-
-        // Validate learningpathLength limit for template roadmaps (classroomSubject == null)
-        if (learningPath.getClassroomSubject() == null) {
-            Subject subject = learningPath.getSubject();
-            if (subject != null && subject.getLearningpathLength() != null) {
-                List<LearningNode> existingNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(learningPath.getPathId());
-                if (existingNodes.size() >= subject.getLearningpathLength()) {
-                    throw new InvalidDataException(
-                            "Không thể thêm bài học. Lộ trình đã đạt số bài học tối đa cấu hình cho môn học ("
-                            + subject.getLearningpathLength() + " bài học)");
-                }
-            }
         }
 
         LearningNode learningNode = LearningNode.builder()
@@ -514,9 +510,31 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .edgeId(e.getEdgeId())
                 .fromNodeId(e.getFromNode().getNodeId())
                 .toNodeId(e.getToNode().getNodeId())
-                .minScore(e.getMinScore())
-                .maxScore(e.getMaxScore())
                 .build();
+    }
+
+    private boolean isPathPublishable(LearningPath path) {
+        List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
+        if (nodes.isEmpty()) {
+            return false;
+        }
+        Map<Integer, Set<Integer>> specificByStage = new HashMap<>();
+        for (LearningNode n : nodes) {
+            if (n.getStageOrder() == null) {
+                continue;
+            }
+            boolean isLearning = n.getTestKind() == null
+                    || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.NONE;
+            if (isLearning && n.getLevel() != null) {
+                specificByStage.computeIfAbsent(n.getStageOrder(), k -> new HashSet<>()).add(n.getLevel());
+            }
+        }
+        for (Set<Integer> levels : specificByStage.values()) {
+            if (!levels.contains(1) || !levels.contains(2) || !levels.contains(3)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -529,8 +547,12 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
 
         if (paths.isEmpty()) {
+            // Chỉ liệt kê lộ trình ĐẠT điều kiện xuất bản — teacher không thấy/clone bản nháp.
             List<LearningPath> templates = learningPathRepository
-                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId());
+                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
+                    .stream()
+                    .filter(this::isPathPublishable)
+                    .collect(Collectors.toList());
 
             boolean subjectPublished = "published".equalsIgnoreCase(cs.getSubject().getStatus());
             boolean canClone = subjectPublished && !templates.isEmpty();
@@ -765,9 +787,6 @@ public class LearningPathServiceImpl implements LearningPathService {
             return;
         }
 
-        UserAccount student = userAccountRepository.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-
         if (!studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()).isEmpty()) {
             return;
         }
@@ -782,7 +801,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
             boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS && levelOk;
             progressList.add(StudentNodeProgress.builder()
-                    .student(student)
+                    .classroomSubjectStudent(css)
                     .learningNode(node)
                     .learningPath(path)
                     .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)

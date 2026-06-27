@@ -27,4 +27,8 @@ public class QuestionAnswer extends AbstractEntity<Long> {
 
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
+
+    @Builder.Default
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
 }

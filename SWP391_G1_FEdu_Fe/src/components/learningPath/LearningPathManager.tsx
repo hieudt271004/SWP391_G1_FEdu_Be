@@ -183,6 +183,11 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
   const [tPass, setTPass] = useState("80");
   const [eTitle, setETitle] = useState("");
   const [eDesc, setEDesc] = useState("");
+  // Form thêm bài tập thực hành
+  const [exTitle, setExTitle] = useState("");
+  const [exInstr, setExInstr] = useState("");
+  const [exAllowText, setExAllowText] = useState(true);
+  const [exAllowFile, setExAllowFile] = useState(true);
 
   const loadGraph = useCallback(async (pathId: number) => {
     const g = await learningPathService.getAdminTemplateGraph(pathId);
@@ -307,7 +312,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     try {
       setContent(await learningPathService.getAdminNodeContent(node.nodeId));
     } catch {
-      setContent({ materials: [], tests: [] });
+      setContent({ materials: [], tests: [], exercises: [] });
     } finally {
       setLoadingContent(false);
     }
@@ -320,6 +325,10 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     setMVideoUrl("");
     setMFile(null);
     setTTitle("");
+    setExTitle("");
+    setExInstr("");
+    setExAllowText(true);
+    setExAllowFile(true);
   };
 
   const saveNodeEdit = async () => {
@@ -627,6 +636,48 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     }
   };
 
+  const addExercise = async () => {
+    if (!selectedNode || !exTitle.trim()) {
+      toast.error("Nhập tiêu đề bài tập");
+      return;
+    }
+    if (!exAllowText && !exAllowFile) {
+      toast.error("Chọn ít nhất một hình thức nộp (tự luận hoặc file)");
+      return;
+    }
+    setSaving(true);
+    try {
+      await learningPathService.addAdminNodeExercise(selectedNode.nodeId, {
+        title: exTitle.trim(),
+        instructions: exInstr.trim() || undefined,
+        allowText: exAllowText,
+        allowFile: exAllowFile,
+      });
+      toast.success("Đã thêm bài tập");
+      setExTitle("");
+      setExInstr("");
+      setExAllowText(true);
+      setExAllowFile(true);
+      setContent(await learningPathService.getAdminNodeContent(selectedNode.nodeId));
+      await refresh();
+    } catch {
+      toast.error("Không thêm được bài tập");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeExercise = async (exerciseId: number) => {
+    if (!selectedNode) return;
+    try {
+      await learningPathService.deleteAdminNodeExercise(exerciseId);
+      setContent(await learningPathService.getAdminNodeContent(selectedNode.nodeId));
+      await refresh();
+    } catch {
+      toast.error("Không xóa được bài tập");
+    }
+  };
+
   if (loading) {
     return <div className="py-10 text-center text-sm text-slate-400">Đang tải lộ trình…</div>;
   }
@@ -757,7 +808,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   ) : (
                     <ul className="space-y-1">
                       {(content?.materials ?? []).map((m) => (
-                        <li key={m.materialId} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-sm">
+                        <li key={m.materialId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
                           <a
                             href={
                               m.video?.videoUrl ??
@@ -773,7 +824,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                           >
                             {m.title}
                           </a>
-                          <button onClick={() => removeMaterial(m.materialId)} className="text-xs text-rose-500 hover:underline">
+                          <button onClick={() => removeMaterial(m.materialId)} className="shrink-0 text-xs text-rose-500 hover:underline">
                             xóa
                           </button>
                         </li>
@@ -781,7 +832,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                       {(content?.materials ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có học liệu.</p>}
                     </ul>
                   )}
-                  <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-2">
+                  <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm học liệu</p>
                     <input className="lp-input" placeholder="Tiêu đề học liệu" value={mTitle} onChange={(e) => setMTitle(e.target.value)} />
                     <select className="lp-input" value={mType} onChange={(e) => setMType(e.target.value as "video" | "file")}>
                       <option value="video">Video (URL)</option>
@@ -792,7 +844,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                     ) : (
                       <input type="file" className="lp-input" onChange={(e) => setMFile(e.target.files?.[0] ?? null)} />
                     )}
-                    <button onClick={addMaterial} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+                    <button onClick={addMaterial} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
                       Thêm học liệu
                     </button>
                   </div>
@@ -803,14 +855,14 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   <SectionTitle>Bài test</SectionTitle>
                   <ul className="space-y-1">
                     {(content?.tests ?? []).map((t) => (
-                      <li key={t.testId} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-sm">
-                        <span>
+                      <li key={t.testId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
+                        <span className="truncate">
                           {t.title}
                           <span className="ml-2 text-xs text-slate-400">
                             {t.durationMinutes ?? "?"}′ · đạt {t.passingPercentage ?? 0}%
                           </span>
                         </span>
-                        <button onClick={() => removeTest(t.testId)} className="text-xs text-rose-500 hover:underline">
+                        <button onClick={() => removeTest(t.testId)} className="shrink-0 text-xs text-rose-500 hover:underline">
                           xóa
                         </button>
                       </li>
@@ -820,16 +872,74 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   {(content?.tests ?? []).length >= (isLearningNode(selectedNode) ? Infinity : 1) ? (
                     <p className="mt-2 text-xs text-slate-400">Mỗi node test chỉ có 1 bài test.</p>
                   ) : (
-                    <div className="mt-2 grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-lg border border-slate-200 p-2">
+                    <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài test</p>
                       <input className="lp-input" placeholder="Tiêu đề test" value={tTitle} onChange={(e) => setTTitle(e.target.value)} />
-                      <input className="lp-input w-16" type="number" value={tDuration} onChange={(e) => setTDuration(e.target.value)} title="Phút" />
-                      <input className="lp-input w-16" type="number" value={tPass} onChange={(e) => setTPass(e.target.value)} title="% đạt" />
-                      <button onClick={addTest} disabled={saving} className="rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-                        +
+                      <div className="flex items-center gap-2">
+                        <label className="flex-1 text-xs text-slate-500">
+                          Thời lượng (phút)
+                          <input className="lp-input mt-1" type="number" min={1} value={tDuration} onChange={(e) => setTDuration(e.target.value)} />
+                        </label>
+                        <label className="flex-1 text-xs text-slate-500">
+                          % đạt
+                          <input className="lp-input mt-1" type="number" min={0} max={100} value={tPass} onChange={(e) => setTPass(e.target.value)} />
+                        </label>
+                      </div>
+                      <button onClick={addTest} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                        Thêm bài test
                       </button>
                     </div>
                   )}
                 </section>
+
+                {isLearningNode(selectedNode) && (
+                <section>
+                  <SectionTitle>Thực hành</SectionTitle>
+                  {loadingContent ? (
+                    <p className="text-xs text-slate-400">Đang tải…</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {(content?.exercises ?? []).map((ex) => (
+                        <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-slate-700">{ex.title}</p>
+                            <div className="mt-0.5 flex flex-wrap gap-1">
+                              {ex.allowText && (
+                                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">Tự luận</span>
+                              )}
+                              {ex.allowFile && (
+                                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">Nộp file</span>
+                              )}
+                            </div>
+                          </div>
+                          <button onClick={() => removeExercise(ex.exerciseId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                            xóa
+                          </button>
+                        </li>
+                      ))}
+                      {(content?.exercises ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài tập.</p>}
+                    </ul>
+                  )}
+                  <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài tập</p>
+                    <input className="lp-input" placeholder="Tiêu đề bài tập" value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
+                    <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
+                    <div className="flex items-center gap-4 text-sm text-slate-600">
+                      <label className="flex cursor-pointer items-center gap-1.5">
+                        <input type="checkbox" checked={exAllowText} onChange={(e) => setExAllowText(e.target.checked)} />
+                        Tự luận
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-1.5">
+                        <input type="checkbox" checked={exAllowFile} onChange={(e) => setExAllowFile(e.target.checked)} />
+                        Nộp file
+                      </label>
+                    </div>
+                    <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                      Thêm bài tập
+                    </button>
+                  </div>
+                </section>
+                )}
               </div>
 
               <div className="border-t border-slate-100 p-4">
