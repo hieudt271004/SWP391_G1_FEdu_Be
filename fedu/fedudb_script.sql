@@ -225,6 +225,8 @@ CREATE TABLE IF NOT EXISTS files (
                                      file_url    TEXT NOT NULL,
                                      file_name   VARCHAR(255),
                                      file_type   VARCHAR(100),
+                                     public_id     VARCHAR(255), -- id asset trên Cloudinary (để xóa khi xóa material)
+                                     resource_type VARCHAR(20),  -- image/raw/video (Cloudinary resource_type)
                                      description TEXT,
                                      is_deleted  BOOLEAN DEFAULT FALSE,
                                      created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
