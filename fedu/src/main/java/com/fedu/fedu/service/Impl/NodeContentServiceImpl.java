@@ -9,6 +9,7 @@ import com.fedu.fedu.entity.*;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
+import com.fedu.fedu.service.CloudinaryService;
 import com.fedu.fedu.service.NodeContentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     private final FileEntityRepository fileEntityRepository;
     private final TestRepository testRepository;
     private final NodeExerciseRepository nodeExerciseRepository;
+    private final CloudinaryService cloudinaryService;
 
     private static final String UPLOAD_DIR = "uploads";
 
@@ -141,6 +143,8 @@ public class NodeContentServiceImpl implements NodeContentService {
                     .fileUrl(request.getFileUrl())
                     .fileName(request.getFileName() != null ? request.getFileName() : "Tài liệu học tập")
                     .fileType(request.getFileType() != null ? request.getFileType() : "Unknown")
+                    .publicId(request.getPublicId())
+                    .resourceType(request.getResourceType())
                     .description(request.getFileDescription())
                     .isDeleted(false)
                     .build();
@@ -183,9 +187,14 @@ public class NodeContentServiceImpl implements NodeContentService {
             videoRepository.save(v);
         }
 
-        // Soft-delete associated file components
+        // Soft-delete associated file components + xóa asset thật trên Cloudinary
         List<FileEntity> files = fileEntityRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(materialId);
         for (FileEntity f : files) {
+            // Chỉ xóa Cloudinary nếu file SỞ HỮU asset (publicId != null).
+            // File clone dùng chung URL nhưng publicId null → không xóa nhầm asset gốc.
+            if (f.getPublicId() != null && !f.getPublicId().isBlank()) {
+                cloudinaryService.delete(f.getPublicId(), f.getResourceType());
+            }
             f.setIsDeleted(true);
             fileEntityRepository.save(f);
         }
