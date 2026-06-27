@@ -33,7 +33,6 @@ import {
   Plus,
   X,
   Users,
-  GitFork,
   History,
   Eye,
   User,
@@ -686,7 +685,7 @@ export function ClassOverviewPage() {
     const colNodes = pathDto.nodes || [];
     const colEdges = pathDto.edges || [];
 
-    const isColSubNode = (n: any) => colEdges.some((e) => e.toNodeId === n.nodeId && e.maxScore !== null);
+    const isColSubNode = (_n: any) => false; // model mới không còn "nhánh phụ" (cạnh có max_score)
     const colSubDepth = (n: any, seen: Set<number> = new Set()): number => {
       if (!isColSubNode(n)) return 0;
       if (seen.has(n.nodeId)) return 1;
@@ -779,16 +778,6 @@ export function ClassOverviewPage() {
                 const isLoadingContent = !!loadingContents[node.nodeId];
 
                 const depth = colSubDepth(node);
-                const incomingEdges = colEdges.filter((e) => e.toNodeId === node.nodeId);
-                const incomingNodesInfo = incomingEdges.map((e) => {
-                  const fromNode = colNodes.find((n) => n.nodeId === e.fromNodeId);
-                  return {
-                    edgeId: e.edgeId,
-                    fromTitle: fromNode ? fromNode.title : `Node #${e.fromNodeId}`,
-                    minScore: e.minScore,
-                    maxScore: e.maxScore,
-                  };
-                });
 
                 return (
                   <div key={node.nodeId} className="w-full relative" style={{ marginLeft: `${depth * 28}px` }}>
@@ -833,16 +822,6 @@ export function ClassOverviewPage() {
                               <span className={`font-semibold text-xs ${node.status === "LOCKED" ? "text-slate-400" : "text-slate-800"}`}>
                                 {colNodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}
                               </span>
-                              {isColSubNode(node) && (
-                                <Badge variant="outline" className="text-[9px] py-0.2 px-1 hover:bg-transparent font-semibold bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-0.5">
-                                  <GitFork className="w-2.5 h-2.5" /> Nhánh phụ
-                                </Badge>
-                              )}
-                              {isColSubNode(node) && incomingNodesInfo.map((info) => info.maxScore !== null && (
-                                <Badge key={info.edgeId} variant="outline" className="text-[9px] py-0.2 px-1 hover:bg-transparent font-semibold bg-rose-50 text-rose-700 border-rose-200">
-                                  Nếu &lt; {info.maxScore}đ
-                                </Badge>
-                              ))}
                               <Badge variant="outline" className="text-[9px] py-0.2 px-1 hover:bg-transparent font-semibold bg-primary/10 text-primary border-primary/20">
                                 {node.nodeType === "ON_CLASS" ? "On Class" : "At Home"}
                               </Badge>

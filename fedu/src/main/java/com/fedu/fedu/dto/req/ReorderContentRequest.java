@@ -13,7 +13,7 @@ public class ReorderContentRequest {
     private Long id;
 
     @NotBlank(message = "Loại nội dung không được để trống")
-    private String type; // "MATERIAL" or "TEST"
+    private String type; // "MATERIAL", "TEST" or "EXERCISE"
 
     @NotNull(message = "Thứ tự không được để trống")
     private Integer orderIndex;

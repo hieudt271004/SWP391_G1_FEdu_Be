@@ -1,5 +1,6 @@
 package com.fedu.fedu.service.Impl;
 
+import com.fedu.fedu.dto.req.CreateNodeExerciseRequest;
 import com.fedu.fedu.dto.req.CreateNodeMaterialRequest;
 import com.fedu.fedu.dto.req.CreateNodeTestRequest;
 import com.fedu.fedu.dto.req.ReorderContentRequest;
@@ -8,6 +9,7 @@ import com.fedu.fedu.entity.*;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
+import com.fedu.fedu.service.CloudinaryService;
 import com.fedu.fedu.service.NodeContentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,8 @@ public class NodeContentServiceImpl implements NodeContentService {
     private final VideoRepository videoRepository;
     private final FileEntityRepository fileEntityRepository;
     private final TestRepository testRepository;
+    private final NodeExerciseRepository nodeExerciseRepository;
+    private final CloudinaryService cloudinaryService;
 
     private static final String UPLOAD_DIR = "uploads";
 
@@ -43,23 +47,12 @@ public class NodeContentServiceImpl implements NodeContentService {
 
         List<NodeMaterial> materials = nodeMaterialRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
         List<Test> tests = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
+        List<NodeExercise> exercises = nodeExerciseRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
 
-        // Check if any orderIndex is null and initialize them sequentially
-        boolean hasNullIndex = false;
-        for (NodeMaterial m : materials) {
-            if (m.getOrderIndex() == null) {
-                hasNullIndex = true;
-                break;
-            }
-        }
-        if (!hasNullIndex) {
-            for (Test t : tests) {
-                if (t.getOrderIndex() == null) {
-                    hasNullIndex = true;
-                    break;
-                }
-            }
-        }
+        // Khởi tạo order_index tuần tự nếu có item chưa có (thang dùng chung material/test/exercise)
+        boolean hasNullIndex = materials.stream().anyMatch(m -> m.getOrderIndex() == null)
+                || tests.stream().anyMatch(t -> t.getOrderIndex() == null)
+                || exercises.stream().anyMatch(e -> e.getOrderIndex() == null);
 
         if (hasNullIndex) {
             int nextIndex = 1;
@@ -79,19 +72,20 @@ public class NodeContentServiceImpl implements NodeContentService {
                     nextIndex = Math.max(nextIndex, t.getOrderIndex() + 1);
                 }
             }
+            for (NodeExercise e : exercises) {
+                if (e.getOrderIndex() == null) {
+                    e.setOrderIndex(nextIndex++);
+                    nodeExerciseRepository.save(e);
+                } else {
+                    nextIndex = Math.max(nextIndex, e.getOrderIndex() + 1);
+                }
+            }
         }
 
-        List<NodeMaterialResponse> materialResponses = materials.stream()
-                .map(this::mapToMaterialResponse)
-                .collect(Collectors.toList());
-
-        List<NodeTestResponse> testResponses = tests.stream()
-                .map(this::mapToTestResponse)
-                .collect(Collectors.toList());
-
         return NodeContentResponse.builder()
-                .materials(materialResponses)
-                .tests(testResponses)
+                .materials(materials.stream().map(this::mapToMaterialResponse).collect(Collectors.toList()))
+                .tests(tests.stream().map(this::mapToTestResponse).collect(Collectors.toList()))
+                .exercises(exercises.stream().map(this::mapToExerciseResponse).collect(Collectors.toList()))
                 .build();
     }
 
@@ -149,6 +143,8 @@ public class NodeContentServiceImpl implements NodeContentService {
                     .fileUrl(request.getFileUrl())
                     .fileName(request.getFileName() != null ? request.getFileName() : "Tài liệu học tập")
                     .fileType(request.getFileType() != null ? request.getFileType() : "Unknown")
+                    .publicId(request.getPublicId())
+                    .resourceType(request.getResourceType())
                     .description(request.getFileDescription())
                     .isDeleted(false)
                     .build();
@@ -191,9 +187,14 @@ public class NodeContentServiceImpl implements NodeContentService {
             videoRepository.save(v);
         }
 
-        // Soft-delete associated file components
+        // Soft-delete associated file components + xóa asset thật trên Cloudinary
         List<FileEntity> files = fileEntityRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(materialId);
         for (FileEntity f : files) {
+            // Chỉ xóa Cloudinary nếu file SỞ HỮU asset (publicId != null).
+            // File clone dùng chung URL nhưng publicId null → không xóa nhầm asset gốc.
+            if (f.getPublicId() != null && !f.getPublicId().isBlank()) {
+                cloudinaryService.delete(f.getPublicId(), f.getResourceType());
+            }
             f.setIsDeleted(true);
             fileEntityRepository.save(f);
         }
@@ -227,6 +228,35 @@ public class NodeContentServiceImpl implements NodeContentService {
 
         test.setIsDeleted(true);
         testRepository.save(test);
+    }
+
+    @Override
+    @Transactional
+    public NodeExerciseResponse addExercise(Long nodeId, CreateNodeExerciseRequest request) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+
+        NodeExercise exercise = NodeExercise.builder()
+                .learningNode(node)
+                .title(request.getTitle())
+                .instructions(request.getInstructions())
+                .allowText(request.getAllowText() != null ? request.getAllowText() : true)
+                .allowFile(request.getAllowFile() != null ? request.getAllowFile() : true)
+                .orderIndex(getNextOrderIndex(nodeId))
+                .isDeleted(false)
+                .build();
+
+        nodeExerciseRepository.save(exercise);
+        return mapToExerciseResponse(exercise);
+    }
+
+    @Override
+    @Transactional
+    public void deleteExercise(Long exerciseId) {
+        NodeExercise exercise = nodeExerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + exerciseId));
+        exercise.setIsDeleted(true);
+        nodeExerciseRepository.save(exercise);
     }
 
     // Mapping Helpers
@@ -278,6 +308,17 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .build();
     }
 
+    private NodeExerciseResponse mapToExerciseResponse(NodeExercise e) {
+        return NodeExerciseResponse.builder()
+                .exerciseId(e.getExerciseId())
+                .title(e.getTitle())
+                .instructions(e.getInstructions())
+                .allowText(e.getAllowText())
+                .allowFile(e.getAllowFile())
+                .orderIndex(e.getOrderIndex())
+                .build();
+    }
+
     @Override
     @Transactional
     public void reorderContent(Long nodeId, List<ReorderContentRequest> requests) {
@@ -295,6 +336,11 @@ public class NodeContentServiceImpl implements NodeContentService {
                         .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + req.getId()));
                 test.setOrderIndex(req.getOrderIndex());
                 testRepository.save(test);
+            } else if ("EXERCISE".equalsIgnoreCase(req.getType())) {
+                NodeExercise exercise = nodeExerciseRepository.findById(req.getId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + req.getId()));
+                exercise.setOrderIndex(req.getOrderIndex());
+                nodeExerciseRepository.save(exercise);
             }
         }
     }
@@ -302,6 +348,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     private int getNextOrderIndex(Long nodeId) {
         List<NodeMaterial> materials = nodeMaterialRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
         List<Test> tests = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
+        List<NodeExercise> exercises = nodeExerciseRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
 
         int max = 0;
         for (NodeMaterial m : materials) {
@@ -312,6 +359,11 @@ public class NodeContentServiceImpl implements NodeContentService {
         for (Test t : tests) {
             if (t.getOrderIndex() != null && t.getOrderIndex() > max) {
                 max = t.getOrderIndex();
+            }
+        }
+        for (NodeExercise e : exercises) {
+            if (e.getOrderIndex() != null && e.getOrderIndex() > max) {
+                max = e.getOrderIndex();
             }
         }
         return max + 1;

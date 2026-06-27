@@ -435,9 +435,7 @@ export function ClassManagementPage() {
       if (newNodePredecessor) {
         await learningPathService.createNodeEdge({
           fromNodeId: Number(newNodePredecessor),
-          toNodeId: createdNode.nodeId,
-          minScore: edgeMinScore ? Number(edgeMinScore) : undefined,
-          maxScore: edgeMaxScore ? Number(edgeMaxScore) : undefined
+          toNodeId: createdNode.nodeId
         });
       }
 

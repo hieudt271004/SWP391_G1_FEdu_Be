@@ -551,7 +551,6 @@ export function StudentDashboardPage() {
                                           </div>
                                           <Button
                                             onClick={() => navigate(`/student/tests/${t.testId}?csId=${selectedSubject?.classroomSubjectId}`)}
-                                            disabled={node.testLocked}
                                             className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
                                           >
                                             Vào thi <ArrowRight className="size-3" />

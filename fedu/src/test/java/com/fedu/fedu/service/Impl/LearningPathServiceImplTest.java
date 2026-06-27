@@ -53,6 +53,8 @@ class LearningPathServiceImplTest {
     private TestQuestionRepository testQuestionRepository;
     @Mock
     private TestAnswerRepository testAnswerRepository;
+    @Mock
+    private NodeExerciseRepository nodeExerciseRepository;
 
     @InjectMocks
     private LearningPathServiceImpl learningPathService;
@@ -122,7 +124,7 @@ class LearningPathServiceImplTest {
         LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").displayOrder(2).isRequired(false).build();
         when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(202L)).thenReturn(Arrays.asList(node1, node2));
 
-        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).minScore(BigDecimal.ZERO).maxScore(BigDecimal.TEN).build();
+        NodeEdge edge = NodeEdge.builder().edgeId(5L).fromNode(node1).toNode(node2).build();
         when(nodeEdgeRepository.findByFromNodeLearningPathPathId(202L)).thenReturn(Collections.singletonList(edge));
 
         when(learningPathRepository.save(any(LearningPath.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -272,8 +274,6 @@ class LearningPathServiceImplTest {
         ClassroomSubjectStudent css2 = ClassroomSubjectStudent.builder().classroomSubject(classroomSubject).student(student2).currentLevel(2).build();
         when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(100L, 10L)).thenReturn(Optional.of(css1));
         when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(100L, 11L)).thenReturn(Optional.of(css2));
-        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(student1));
-        when(userAccountRepository.findById(11L)).thenReturn(Optional.of(student2));
         when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(anyLong(), eq(300L)))
                 .thenReturn(Collections.emptyList());
 
@@ -386,10 +386,6 @@ class LearningPathServiceImplTest {
                 .thenReturn(Optional.of(css));
         when(learningPathRepository.findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(100L))
                 .thenReturn(Optional.of(path));
-
-        UserAccount student = new UserAccount();
-        student.setUserId(10L);
-        when(userAccountRepository.findById(10L)).thenReturn(Optional.of(student));
 
         when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(10L, 300L))
                 .thenReturn(Collections.emptyList());

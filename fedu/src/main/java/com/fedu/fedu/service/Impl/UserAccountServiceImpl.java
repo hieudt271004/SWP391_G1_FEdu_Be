@@ -241,6 +241,8 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .avatarUrl(userAccount.getAvatarUrl())
                 .status(userAccount.getStatus())
                 .roles(roles)
+                .createdAt(userAccount.getCreatedAt())
+                .updatedAt(userAccount.getUpdatedAt())
                 .build();
     }
 

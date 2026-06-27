@@ -59,6 +59,7 @@ export function DashboardPage() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadDashboardData() {
       try {
         setLoading(true);
@@ -66,6 +67,8 @@ export function DashboardPage() {
           adminService.getAllUsers(),
           subjectService.getAll()
         ]);
+
+        if (!isMounted) return;
 
         // 1. Calculate KPI Metrics
         const studentsList = users.filter(u => u.roles.includes("STUDENT"));
@@ -153,12 +156,18 @@ export function DashboardPage() {
         setActivities(activityList);
 
       } catch (err) {
+        if (!isMounted) return;
         console.error("Failed to load dashboard metrics", err);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
     loadDashboardData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Redesigned loading skeleton using the updated layout grid

@@ -19,7 +19,6 @@ public class LearningNodeResponse {
     private NodeType nodeType;
     private NodeStatus status;
     private String studentStatus;
-    private Boolean testLocked;
     private Integer displayOrder;
     private Boolean isRequired;
     private Boolean isDeleted;
