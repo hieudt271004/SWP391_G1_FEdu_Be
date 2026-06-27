@@ -78,7 +78,11 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
     @Transactional(readOnly = true)
     public List<ClassroomSubjectResponse> getClassroomSubjectsByStudent(long studentId) {
         return classroomSubjectStudentRepository.findAllByStudentId(studentId)
-                .stream().map(css -> toResponse(css.getClassroomSubject())).collect(Collectors.toList());
+                .stream().map(css -> {
+                    ClassroomSubjectResponse res = toResponse(css.getClassroomSubject());
+                    res.setIsSubmentor(css.getIsSubmentor());
+                    return res;
+                }).collect(Collectors.toList());
     }
 
     @Override

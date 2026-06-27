@@ -45,6 +45,15 @@ public class StudentSupportTicketController {
                 supportTicketService.createTicket(request, currentUser.getUserId()));
     }
 
+    @Operation(summary = "Học sinh xem danh sách câu hỏi hỗ trợ của mình trong lớp-môn")
+    @GetMapping
+    public ResponseData<List<SupportTicketResponse>> listMyTickets(
+            @RequestParam Long classroomSubjectId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        return new ResponseData<>(HttpStatus.OK.value(), "OK",
+                supportTicketService.listMyTickets(currentUser.getUserId(), classroomSubjectId));
+    }
+
     // ─── Sub-mentor ───────────────────────────────────────────────────────────
 
     @Operation(summary = "Sub-mentor xem danh sách ticket cần xử lý trong lớp-môn")

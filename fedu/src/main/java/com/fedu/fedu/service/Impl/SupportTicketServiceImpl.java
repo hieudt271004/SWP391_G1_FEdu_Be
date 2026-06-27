@@ -52,14 +52,28 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     @Transactional
     public SupportTicketResponse createTicket(CreateSupportTicketRequest request, Long studentUserId) {
         ClassroomSubjectStudent css = requireStudentEnrolled(request.getClassroomSubjectId(), studentUserId);
+
+        // Nếu học sinh chưa được gán cho bất kỳ sub-mentor nào trong lớp-môn, gửi thẳng lên giảng viên (SEND)
+        boolean hasSubmentor = !assignmentRepository.findByStudentCss_Id(css.getId()).isEmpty();
+        SupportTicketStatus initialStatus = hasSubmentor ? SupportTicketStatus.NONE : SupportTicketStatus.SEND;
+
         SupportTicket ticket = SupportTicket.builder()
                 .classroomSubjectStudent(css)
                 .messageStudent(request.getMessageStudent())
+                .status(initialStatus)
                 .build();
         ticket = ticketRepository.save(ticket);
-        log.info("Học sinh userId={} tạo ticket id={} trong lớp-môn id={}",
-                studentUserId, ticket.getTicketId(), request.getClassroomSubjectId());
+        log.info("Học sinh userId={} tạo ticket id={} trong lớp-môn id={}. Trạng thái khởi tạo: {}",
+                studentUserId, ticket.getTicketId(), request.getClassroomSubjectId(), initialStatus);
         return toResponse(ticket);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SupportTicketResponse> listMyTickets(Long studentUserId, Long classroomSubjectId) {
+        ClassroomSubjectStudent css = requireStudentEnrolled(classroomSubjectId, studentUserId);
+        return ticketRepository.findByClassroomSubjectStudent_IdAndIsDeletedFalseOrderByCreatedAtDesc(css.getId())
+                .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     // ─── Sub-mentor ───────────────────────────────────────────────────────────

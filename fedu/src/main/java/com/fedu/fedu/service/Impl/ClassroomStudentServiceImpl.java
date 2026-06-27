@@ -95,6 +95,8 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
                 .avatarUrl(s.getAvatarUrl())
                 .joinedAt(enrollment.getJoinedAt())
                 .currentLevel(enrollment.getCurrentLevel())
+                .classroomSubjectStudentId(enrollment.getId())
+                .isSubmentor(enrollment.getIsSubmentor())
                 .build();
     }
 }

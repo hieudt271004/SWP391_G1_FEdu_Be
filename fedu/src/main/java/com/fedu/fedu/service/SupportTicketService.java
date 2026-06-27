@@ -23,6 +23,15 @@ public interface SupportTicketService {
      */
     SupportTicketResponse createTicket(CreateSupportTicketRequest request, Long studentUserId);
 
+    /**
+     * Học sinh xem danh sách câu hỏi hỗ trợ của mình trong lớp-môn.
+     *
+     * @param studentUserId userId của học sinh
+     * @param classroomSubjectId ID lớp-môn
+     * @return danh sách ticket của học sinh
+     */
+    List<SupportTicketResponse> listMyTickets(Long studentUserId, Long classroomSubjectId);
+
     // ─── Sub-mentor ───────────────────────────────────────────────────────────
 
     /**

@@ -37,7 +37,10 @@ import {
   Eye,
   User,
   Mail,
-  TrendingUp
+  TrendingUp,
+  UserCheck,
+  UserMinus,
+  MessageSquare
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -65,6 +68,8 @@ interface Student {
   currentLevel?: number;
   assignedPathName?: string;
   rawUserId: number;
+  classroomSubjectStudentId?: number;
+  isSubmentor?: boolean;
 }
 
 export function ClassOverviewPage() {
@@ -104,7 +109,7 @@ export function ClassOverviewPage() {
   
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students'>('roadmap');
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
 
   // Placement Quiz states
   const [placementQuiz, setPlacementQuiz] = useState<any>(null);
@@ -146,6 +151,27 @@ export function ClassOverviewPage() {
   const [detailTab, setDetailTab] = useState<'info' | 'history'>('info');
   const [resettingPlacement, setResettingPlacement] = useState(false);
 
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Support & Peer Mentoring states
+  const [escalatedTickets, setEscalatedTickets] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [loadingSupport, setLoadingSupport] = useState(false);
+  const [isRespondModalOpen, setIsRespondModalOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [responseText, setResponseText] = useState('');
+  const [submittingResponse, setSubmittingResponse] = useState(false);
+  const [isAssignStudentModalOpen, setIsAssignStudentModalOpen] = useState(false);
+  const [selectedSubMentor, setSelectedSubMentor] = useState<Student | null>(null);
+  const [selectedStudentToAssign, setSelectedStudentToAssign] = useState<string>('');
+  const [submittingAssignment, setSubmittingAssignment] = useState(false);
+
   const handleResetPlacement = async (studentId: number) => {
     if (!window.confirm("Bạn có chắc chắn muốn hủy kết quả phân lớp của học sinh này? Toàn bộ tiến độ học tập trên lộ trình cũ của học sinh sẽ bị xóa và không thể khôi phục.")) {
       return;
@@ -153,13 +179,130 @@ export function ClassOverviewPage() {
     setResettingPlacement(true);
     try {
       await teacherService.cancelStudentPlacement(Number(classroomSubjectId), studentId);
-      toast.success("Đã hủy kết quả phân lớp học sinh thành công.");
-      setIsDetailOpen(false);
+      if (isMounted.current) {
+        toast.success("Đã hủy kết quả phân lớp học sinh thành công.");
+        setIsDetailOpen(false);
+      }
       fetchClassroomData();
     } catch (err: any) {
       toast.error(err?.message || "Hủy kết quả thất bại");
     } finally {
-      setResettingPlacement(false);
+      if (isMounted.current) {
+        setResettingPlacement(false);
+      }
+    }
+  };
+
+  const fetchSupportData = useCallback(async () => {
+    if (!classroomSubjectId) return;
+    if (isMounted.current) {
+      setLoadingSupport(true);
+    }
+    try {
+      const [ticketsList, assignmentsList] = await Promise.all([
+        teacherService.listEscalatedTickets(Number(classroomSubjectId)),
+        teacherService.listAssignments(Number(classroomSubjectId))
+      ]);
+      if (!isMounted.current) return;
+      setEscalatedTickets(ticketsList || []);
+      setAssignments(assignmentsList || []);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Không thể tải dữ liệu trợ giảng");
+    } finally {
+      if (isMounted.current) {
+        setLoadingSupport(false);
+      }
+    }
+  }, [classroomSubjectId]);
+
+  useEffect(() => {
+    if (activeTab === 'support') {
+      fetchSupportData();
+    }
+  }, [activeTab, fetchSupportData]);
+
+  const handleToggleSubMentor = async (student: Student) => {
+    if (!classroomSubjectId || !student.classroomSubjectStudentId) return;
+    const isCurrentlySub = !!student.isSubmentor;
+    const actionText = isCurrentlySub ? "tắt" : "bật";
+    
+    try {
+      if (isCurrentlySub) {
+        await teacherService.disableSubMentor(Number(classroomSubjectId), student.classroomSubjectStudentId);
+      } else {
+        await teacherService.enableSubMentor(Number(classroomSubjectId), student.classroomSubjectStudentId);
+      }
+      toast.success(`Đã ${actionText} cờ trợ giảng thành công cho ${student.fullName}`);
+      fetchClassroomData();
+      if (activeTab === 'support') {
+        fetchSupportData();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || `Thay đổi trạng thái trợ giảng thất bại`);
+    }
+  };
+
+  const handleCreateAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!classroomSubjectId || !selectedSubMentor || !selectedStudentToAssign) return;
+    if (isMounted.current) {
+      setSubmittingAssignment(true);
+    }
+    try {
+      await teacherService.createAssignment(Number(classroomSubjectId), {
+        subMentorCssId: selectedSubMentor.classroomSubjectStudentId!,
+        studentCssId: Number(selectedStudentToAssign)
+      });
+      if (isMounted.current) {
+        toast.success("Gán nhóm kèm cặp thành công");
+        setIsAssignStudentModalOpen(false);
+        setSelectedStudentToAssign('');
+      }
+      fetchSupportData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Gán nhóm thất bại");
+    } finally {
+      if (isMounted.current) {
+        setSubmittingAssignment(false);
+      }
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId: number) => {
+    if (!classroomSubjectId) return;
+    if (!window.confirm("Bạn có chắc chắn muốn gỡ học sinh này khỏi nhóm kèm cặp?")) return;
+    try {
+      await teacherService.deleteAssignment(Number(classroomSubjectId), assignmentId);
+      toast.success("Đã gỡ học sinh khỏi nhóm thành công");
+      fetchSupportData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Gỡ thất bại");
+    }
+  };
+
+  const handleRespondTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!classroomSubjectId || !selectedTicket || !responseText.trim()) return;
+    if (isMounted.current) {
+      setSubmittingResponse(true);
+    }
+    try {
+      await teacherService.respondAsTeacher(Number(classroomSubjectId), selectedTicket.ticketId, {
+        messageResponse: responseText.trim()
+      });
+      if (isMounted.current) {
+        toast.success("Đã trả lời câu hỏi thành công");
+        setIsRespondModalOpen(false);
+        setSelectedTicket(null);
+        setResponseText('');
+      }
+      fetchSupportData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Trả lời thất bại");
+    } finally {
+      if (isMounted.current) {
+        setSubmittingResponse(false);
+      }
     }
   };
 
@@ -455,6 +598,7 @@ export function ClassOverviewPage() {
       setClassroomStatus(fullClassroom.status || 'inactive');
       setParentClassroomId(fullClassroom.classroomId);
       
+      if (!isMounted.current) return;
       const formatted = (studentsData ?? []).map((item) => ({
         id: item.email?.split('@')[0].toUpperCase() || `ST${item.userId}`,
         fullName: (item.lastName || item.firstName)
@@ -465,14 +609,20 @@ export function ClassOverviewPage() {
         currentLevel: item.currentLevel,
         assignedPathName: item.assignedPathName,
         rawUserId: item.userId,
+        classroomSubjectStudentId: item.classroomSubjectStudentId,
+        isSubmentor: item.isSubmentor,
       }));
       setStudents(formatted);
       setGraphData(graph);
     } catch (err: any) {
       console.error('Error loading classroom overview:', err);
-      setError(err.response?.data?.message || 'Failed to load classroom data');
+      if (isMounted.current) {
+        setError(err.response?.data?.message || 'Failed to load classroom data');
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -1137,6 +1287,16 @@ export function ClassOverviewPage() {
         >
           Danh sách học sinh ({students.length})
         </button>
+        <button
+          onClick={() => setActiveTab('support')}
+          className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'support'
+              ? 'border-primary text-primary font-bold'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          Trợ giảng & Hỏi đáp
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -1437,7 +1597,14 @@ export function ClassOverviewPage() {
                     return (
                       <TableRow key={student.id} className="border-slate-100 hover:bg-slate-50/50">
                         <TableCell className="font-semibold text-slate-650">{student.id}</TableCell>
-                        <TableCell className="font-medium text-slate-700">{student.fullName}</TableCell>
+                        <TableCell className="font-medium text-slate-700">
+                          {student.fullName}
+                          {student.isSubmentor && (
+                            <Badge className="bg-emerald-50 border-emerald-200 text-emerald-800 text-[9px] font-bold ml-1.5 rounded-[6px] outline-none select-none">
+                              TRỢ GIẢNG
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={`text-[10px] font-bold border rounded-[6px] px-2 py-0.5 ${levelColor}`}>
                             {levelLabel}
@@ -1465,6 +1632,26 @@ export function ClassOverviewPage() {
                               className="h-7 text-xs text-primary hover:bg-primary/5 rounded-lg font-semibold flex items-center gap-1"
                             >
                               <History className="size-3.5" /> Lịch sử xếp lớp
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleSubMentor(student)}
+                              className={`h-7 text-xs rounded-lg font-semibold flex items-center gap-1 ${
+                                student.isSubmentor 
+                                  ? 'text-rose-600 hover:bg-rose-50' 
+                                  : 'text-emerald-650 hover:bg-emerald-50'
+                              }`}
+                            >
+                              {student.isSubmentor ? (
+                                <>
+                                  <UserMinus className="size-3.5" /> Hủy trợ giảng
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="size-3.5" /> Gán trợ giảng
+                                </>
+                              )}
                             </Button>
                           </div>
                         </TableCell>
@@ -1991,6 +2178,326 @@ export function ClassOverviewPage() {
               Đóng
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Tab Support: Trợ giảng & Hỏi đáp ─────────────────────────────────── */}
+      {activeTab === 'support' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Cột trái: Quản lý nhóm trợ giảng (2 cols) */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white">
+              <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-primary" />
+                  Danh sách Trợ giảng (Sub-mentors)
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="border border-slate-200 rounded-[6px] px-2 py-1.5 text-xs bg-white text-slate-700 outline-none"
+                    defaultValue=""
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      const selected = students.find(s => String(s.classroomSubjectStudentId) === val);
+                      if (selected) {
+                        await handleToggleSubMentor(selected);
+                      }
+                      e.target.value = "";
+                    }}
+                  >
+                    <option value="" disabled>-- Chỉ định trợ giảng mới --</option>
+                    {students
+                      .filter(s => !s.isSubmentor)
+                      .map(s => (
+                        <option key={s.id} value={s.classroomSubjectStudentId}>
+                          {s.fullName} ({s.id})
+                        </option>
+                      ))
+                    }
+                  </select>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {loadingSupport ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : students.filter(s => s.isSubmentor).length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs">Chưa có học sinh nào được chỉ định làm trợ giảng trong lớp này.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {students
+                      .filter(s => s.isSubmentor)
+                      .map(mentor => {
+                        const mentorAssignments = assignments.filter(
+                          a => a.subMentorCssId === mentor.classroomSubjectStudentId
+                        );
+
+                        return (
+                          <div
+                            key={mentor.id}
+                            className="border border-slate-250 rounded-xl p-4 bg-slate-50/20 space-y-3"
+                          >
+                            <div className="flex justify-between items-center pb-2 border-b border-slate-100 flex-wrap gap-2">
+                              <div>
+                                <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                                  <div className="size-2 rounded-full bg-emerald-500" />
+                                  {mentor.fullName}
+                                  <span className="text-[10px] text-slate-400 font-normal">({mentor.id})</span>
+                                </h4>
+                                <p className="text-xs text-slate-500">{mentor.email}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedSubMentor(mentor);
+                                    setIsAssignStudentModalOpen(true);
+                                  }}
+                                  className="h-7 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1 font-semibold"
+                                >
+                                  <Plus className="size-3.5" /> Thêm học sinh kèm
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleToggleSubMentor(mentor)}
+                                  className="h-7 text-xs border-slate-250 text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-1"
+                                >
+                                  <UserMinus className="size-3.5 text-rose-500" /> Hủy trợ giảng
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <span className="text-[10px] uppercase font-bold text-slate-400 block">Học sinh phụ trách ({mentorAssignments.length})</span>
+                              {mentorAssignments.length === 0 ? (
+                                <p className="text-xs text-slate-400 italic">Chưa gán học sinh nào vào nhóm kèm cặp của trợ giảng này.</p>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {mentorAssignments.map(a => (
+                                    <div
+                                      key={a.id}
+                                      className="flex items-center justify-between p-2 border border-slate-100 bg-white rounded-lg text-xs"
+                                    >
+                                      <div>
+                                        <p className="font-semibold text-slate-700">{a.studentName}</p>
+                                        <p className="text-[10px] text-slate-400">{a.studentEmail}</p>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteAssignment(a.id)}
+                                        className="h-6 w-6 p-0 text-slate-400 hover:text-rose-600 rounded-md"
+                                      >
+                                        <X className="size-3.5" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Cột phải: Hỏi đáp leo thang (1 col) */}
+          <div className="space-y-6">
+            <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white h-full flex flex-col justify-between">
+              <div>
+                <CardHeader className="border-b border-slate-100 pb-4">
+                  <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-primary" />
+                    Hỏi đáp leo thang ({escalatedTickets.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  {loadingSupport ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  ) : escalatedTickets.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                      <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-slate-650 mb-1">Hoàn thành!</p>
+                      <p className="text-[11px] text-slate-400 leading-normal px-4">Không có câu hỏi nào cần giải quyết hiện tại.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                      {escalatedTickets.map((ticket) => (
+                        <div
+                          key={ticket.ticketId}
+                          className="border border-slate-200 rounded-xl p-3 bg-rose-50/10 space-y-2 border-l-4 border-l-rose-500"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-bold text-slate-800 text-xs">{ticket.studentName}</p>
+                              <p className="text-[9px] text-slate-400">
+                                {new Date(ticket.createdAt).toLocaleString('vi-VN')}
+                              </p>
+                            </div>
+                            <Badge className="bg-rose-50 border-rose-200 text-rose-700 text-[9px] font-bold">
+                              LEO THANG
+                            </Badge>
+                          </div>
+                          <div className="p-2 border border-slate-100 bg-white rounded-lg text-xs text-slate-650 leading-relaxed font-mono whitespace-pre-wrap">
+                            {ticket.messageStudent}
+                          </div>
+                          <div className="flex justify-end pt-1">
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTicket(ticket);
+                                setResponseText('');
+                                setIsRespondModalOpen(true);
+                              }}
+                              className="h-7 text-xs bg-[#030213] hover:bg-slate-900 text-white rounded-lg font-bold"
+                            >
+                              Giải đáp ngay
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Gán học sinh kèm cặp */}
+      <Dialog open={isAssignStudentModalOpen} onOpenChange={setIsAssignStudentModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+              <UserCheck className="size-5 text-primary" /> Thêm học sinh kèm cặp
+            </DialogTitle>
+            <DialogDescription>
+              Giao phó học sinh cho trợ giảng <strong>{selectedSubMentor?.fullName}</strong> kèm cặp.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateAssignment}>
+            <div className="py-4 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 block">Chọn học sinh trong lớp:</label>
+                <select
+                  required
+                  value={selectedStudentToAssign}
+                  onChange={(e) => setSelectedStudentToAssign(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none"
+                >
+                  <option value="" disabled>-- Chọn học sinh --</option>
+                  {students
+                    .filter(s => {
+                      if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
+                      const isAssignedToThis = assignments.some(
+                        a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
+                      );
+                      return !isAssignedToThis;
+                    })
+                    .map(s => (
+                      <option key={s.id} value={s.classroomSubjectStudentId}>
+                        {s.fullName} ({s.id}) {s.isSubmentor ? "[Trợ giảng]" : ""}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+            </div>
+
+            <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAssignStudentModalOpen(false)}
+                className="h-9 rounded-xl text-xs border-slate-200"
+              >
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingAssignment}
+                className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold"
+              >
+                {submittingAssignment ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
+                Lưu phân công
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Giảng viên trả lời câu hỏi leo thang */}
+      <Dialog open={isRespondModalOpen} onOpenChange={setIsRespondModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+              <MessageSquare className="size-5 text-primary" /> Giải đáp câu hỏi học sinh
+            </DialogTitle>
+            <DialogDescription>
+              Câu hỏi này đã được chuyển tiếp lên từ Trợ giảng. Câu trả lời của bạn sẽ được lưu và ticket chuyển sang hoàn thành.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRespondTicket}>
+            <div className="py-4 space-y-4 text-xs">
+              <div className="space-y-1">
+                <span className="font-bold text-slate-600 block">Học sinh hỏi:</span>
+                <p className="font-semibold text-slate-800 text-sm leading-none">{selectedTicket?.studentName}</p>
+                <p className="text-[10px] text-slate-400">{selectedTicket?.studentEmail}</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <span className="font-bold text-slate-600 block">Nội dung câu hỏi:</span>
+                <div className="p-3 border border-slate-150 bg-slate-50/50 rounded-xl leading-relaxed font-mono whitespace-pre-wrap">
+                  {selectedTicket?.messageStudent}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-600 block">Giải đáp của giảng viên:</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={responseText}
+                  onChange={(e) => setResponseText(e.target.value)}
+                  placeholder="Nhập nội dung giải đáp chi tiết..."
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50 transition-colors"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsRespondModalOpen(false)}
+                className="h-9 rounded-xl text-xs border-slate-200"
+              >
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                disabled={submittingResponse}
+                className="h-9 rounded-xl text-xs bg-[#030213] hover:bg-slate-900 text-white font-semibold"
+              >
+                {submittingResponse ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
+                Gửi câu trả lời
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

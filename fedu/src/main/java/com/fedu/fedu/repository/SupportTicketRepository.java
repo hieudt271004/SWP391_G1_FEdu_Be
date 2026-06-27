@@ -13,7 +13,7 @@ import java.util.List;
 public interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
 
     /** Lấy tất cả ticket của một CSS (học sinh tạo). */
-    List<SupportTicket> findByClassroomSubjectStudent_IdAndIsDeletedFalse(Long classroomSubjectStudentId);
+    List<SupportTicket> findByClassroomSubjectStudent_IdAndIsDeletedFalseOrderByCreatedAtDesc(Long classroomSubjectStudentId);
 
     /**
      * Lấy ticket của các student-CSS mà sub-mentor đang phụ trách.
@@ -22,6 +22,7 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
     @Query("""
         SELECT t FROM SupportTicket t
         WHERE t.classroomSubjectStudent.id IN :studentCssIds
+          AND t.status = 'NONE'
           AND t.isDeleted = false
         ORDER BY t.createdAt DESC
         """)

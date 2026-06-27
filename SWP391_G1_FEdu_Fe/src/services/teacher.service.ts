@@ -3,6 +3,12 @@ import type { Subject } from '../types/subject';
 import type { ClassroomResponse } from '../types/classroom';
 import type { StudentInClass } from '../types/student';
 import type { ClassroomSubjectResponse } from '../types/classroomSubject';
+import type {
+  SubMentorStudentAssignmentResponse,
+  SubMentorStudentAssignmentRequest,
+  SupportTicketResponse,
+  RespondTicketRequest,
+} from '../types/submentor';
 
 export const teacherService = {
   getSubjectsByTeacher: (teacherId: number) =>
@@ -21,4 +27,26 @@ export const teacherService = {
     http.get<Subject>(`/subjects/${subjectId}`),
   cancelStudentPlacement: (csId: number, studentId: number) =>
     http.post<void>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/placement/cancel`),
+
+  // ─── Sub-mentor & Support Tickets ──────────────────────────────────────────
+  enableSubMentor: (classroomSubjectId: number, cssId: number) =>
+    http.post<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/sub-mentors/${cssId}/enable`),
+
+  disableSubMentor: (classroomSubjectId: number, cssId: number) =>
+    http.post<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/sub-mentors/${cssId}/disable`),
+
+  listAssignments: (classroomSubjectId: number) =>
+    http.get<SubMentorStudentAssignmentResponse[]>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/assignments`),
+
+  createAssignment: (classroomSubjectId: number, req: SubMentorStudentAssignmentRequest) =>
+    http.post<SubMentorStudentAssignmentResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/assignments`, req),
+
+  deleteAssignment: (classroomSubjectId: number, assignmentId: number) =>
+    http.delete<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/assignments/${assignmentId}`),
+
+  listEscalatedTickets: (classroomSubjectId: number) =>
+    http.get<SupportTicketResponse[]>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/tickets/escalated`),
+
+  respondAsTeacher: (classroomSubjectId: number, ticketId: number, req: RespondTicketRequest) =>
+    http.put<SupportTicketResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/tickets/${ticketId}/respond`, req),
 };
