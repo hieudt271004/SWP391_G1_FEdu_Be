@@ -36,4 +36,9 @@ public class ClassroomSubjectStudent extends AbstractEntity<Long> {
     /** Mức đang học: null = chưa làm placement quiz (bị chặn học); 1=yếu, 2=tb, 3=khá. */
     @Column(name = "current_level")
     private Integer currentLevel;
+
+    /** Cờ đánh dấu học sinh này là sub-mentor trong lớp-môn. Chỉ giảng viên phụ trách được bật/tắt. */
+    @Builder.Default
+    @Column(name = "is_submentor", nullable = false)
+    private Boolean isSubmentor = false;
 }

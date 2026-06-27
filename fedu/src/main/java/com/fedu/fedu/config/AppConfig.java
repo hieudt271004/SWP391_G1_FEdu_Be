@@ -65,7 +65,6 @@ public class AppConfig {
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/teacher/**").hasRole("TEACHER")
                                 .requestMatchers("/teacher-manage/**").hasRole("TEACHER")
-                                .requestMatchers("/student/sub-mentor/**").hasRole("SUB_MENTOR")
                                 .requestMatchers("/student/**").hasRole("STUDENT")
                                 .anyRequest().authenticated()
                 )
