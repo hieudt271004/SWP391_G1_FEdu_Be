@@ -20,4 +20,5 @@ public class StudentTestAttemptHistoryResponse {
     private String testDescription;
     private BigDecimal score;
     private LocalDateTime submittedAt;
+    private Integer tabOutCount;
 }

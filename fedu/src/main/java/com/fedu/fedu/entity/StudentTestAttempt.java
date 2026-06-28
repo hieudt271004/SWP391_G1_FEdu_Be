@@ -46,5 +46,10 @@ public class StudentTestAttempt extends AbstractEntity<Long> {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private com.fedu.fedu.utils.enums.AttemptStatus status = com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED;
+
+    /** Số lần học sinh rời khỏi tab khi đang làm bài (chống gian lận). */
+    @Builder.Default
+    @Column(name = "tab_out_count")
+    private Integer tabOutCount = 0;
     // created_at và updated_at kế thừa từ AbstractEntity
 }

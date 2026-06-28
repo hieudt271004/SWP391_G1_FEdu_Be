@@ -76,4 +76,15 @@ public class StudentTestController {
         List<StudentTestAttemptHistoryResponse> history = studentTestService.getStudentTestAttemptHistory(currentUser.getUserId());
         return new ResponseData<>(HttpStatus.OK.value(), "Lấy lịch sử làm bài thành công", history);
     }
+
+    @Operation(summary = "Ghi nhận một lần học sinh rời tab khi đang làm bài (chống gian lận)")
+    @PreAuthorize("hasRole('STUDENT')")
+    @PatchMapping("/tests/{testId}/attempts/{attemptId}/tab-out")
+    public ResponseData<Integer> recordTabOut(
+            @PathVariable Long testId,
+            @PathVariable Long attemptId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        int count = studentTestService.recordTabOut(testId, attemptId, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Đã ghi nhận rời tab", count);
+    }
 }

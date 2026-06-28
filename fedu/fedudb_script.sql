@@ -291,6 +291,7 @@ CREATE TABLE IF NOT EXISTS student_test_attempts (
                                                      status       VARCHAR(20) DEFAULT 'SUBMITTED', -- IN_PROGRESS | SUBMITTED | CANCELLED (placement cancel/retake)
                                                      started_at   TIMESTAMP,
                                                      submitted_at TIMESTAMP,
+                                                     tab_out_count INT DEFAULT 0, -- số lần học sinh rời tab khi làm bài (chống gian lận)
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
