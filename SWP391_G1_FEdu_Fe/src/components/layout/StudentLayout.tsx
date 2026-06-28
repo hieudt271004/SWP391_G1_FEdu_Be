@@ -19,8 +19,8 @@ export function StudentLayout() {
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="h-screen flex bg-gray-50 overflow-hidden">
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-600 to-violet-600">
@@ -35,7 +35,7 @@ export function StudentLayout() {
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -79,7 +79,7 @@ export function StudentLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto p-6">
           <Outlet />
         </div>

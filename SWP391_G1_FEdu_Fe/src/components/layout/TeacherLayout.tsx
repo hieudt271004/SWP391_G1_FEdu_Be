@@ -22,7 +22,7 @@ export function TeacherLayout() {
   return (
     <div className="h-screen flex bg-gray-50 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
         {/* Logo */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
@@ -83,7 +83,7 @@ export function TeacherLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto p-6">
           <Outlet />
         </div>

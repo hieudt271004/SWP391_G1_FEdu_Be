@@ -4,6 +4,7 @@ import com.fedu.fedu.dto.req.*;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.service.LearningPathService;
 import com.fedu.fedu.service.NodeContentService;
+import com.fedu.fedu.service.NodeEdgeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,6 +29,7 @@ public class LearningPathManagementController {
 
         private final LearningPathService learningPathService;
         private final NodeContentService nodeContentService;
+        private final NodeEdgeService nodeEdgeService;
 
         @Operation(summary = "Create learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
@@ -257,5 +259,24 @@ public class LearningPathManagementController {
             log.info("Teacher reordering content for node ID: {}, items count: {}", nodeId, requests.size());
             nodeContentService.reorderContent(nodeId, requests);
             return new ResponseData<>(HttpStatus.OK.value(), "Content reordered successfully");
+        }
+
+        @Operation(summary = "Create node edge connection (prerequisite link between nodes)")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @ResponseStatus(HttpStatus.CREATED)
+        @PostMapping("/node-edges")
+        public ResponseData<NodeEdgeResponse> createNodeEdge(@Valid @RequestBody CreateNodeEdgeRequest request) {
+            log.info("Teacher creating node edge from {} to {}", request.getFromNodeId(), request.getToNodeId());
+            return new ResponseData<>(HttpStatus.CREATED.value(), "Node edge created successfully",
+                    nodeEdgeService.createEdge(request));
+        }
+
+        @Operation(summary = "Delete node edge connection")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @DeleteMapping("/node-edges/{edgeId}")
+        public ResponseData<Void> deleteNodeEdge(@PathVariable Long edgeId) {
+            log.info("Teacher deleting node edge ID: {}", edgeId);
+            nodeEdgeService.deleteEdge(edgeId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Node edge deleted successfully");
         }
 }
