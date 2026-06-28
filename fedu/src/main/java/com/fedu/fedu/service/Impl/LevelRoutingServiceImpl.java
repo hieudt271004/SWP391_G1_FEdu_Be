@@ -5,6 +5,7 @@ import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LevelRoutingService;
 import com.fedu.fedu.utils.LearningLevels;
+import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.LevelChangeReason;
 import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
@@ -170,9 +171,7 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
             }
             if (node.getLevel().equals(newLevel)) {
                 List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(node.getNodeId());
-                boolean prereqMet = incoming.isEmpty() || incoming.stream()
-                        .filter(e -> e.getFromNode().getLevel() == null || e.getFromNode().getLevel().equals(newLevel))
-                        .allMatch(e -> statusByNode.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
+                boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusByNode, newLevel);
                 if (p.getStatus() == StudentProgressStatus.LOCKED && prereqMet) {
                     p.setStatus(StudentProgressStatus.OPEN);
                     p.setUnlockedAt(LocalDateTime.now());

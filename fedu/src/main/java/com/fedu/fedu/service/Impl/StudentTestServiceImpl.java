@@ -6,6 +6,7 @@ import com.fedu.fedu.entity.*;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.service.StudentTestService;
+import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.QuestionType;
@@ -439,18 +440,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                         (a, b) -> a
                 ));
 
-        for (NodeEdge edge : incomingEdges) {
-            LearningNode fromNode = edge.getFromNode();
-            if (fromNode.getLevel() != null && studentLevel != null && !fromNode.getLevel().equals(studentLevel)) {
-                continue;
-            }
-
-            StudentProgressStatus status = progressMap.get(fromNode.getNodeId());
-            if (status != StudentProgressStatus.COMPLETED) {
-                return false;
-            }
-        }
-        return true;
+        return NodeRoutingUtils.incomingPrereqMet(incomingEdges, progressMap, studentLevel);
     }
 
     @Override

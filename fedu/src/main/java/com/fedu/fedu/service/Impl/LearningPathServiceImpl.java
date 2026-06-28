@@ -10,6 +10,7 @@ import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
+import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.NodeStatus;
 import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
@@ -866,9 +867,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             Integer studentLevel = css.getCurrentLevel();
 
             // Tôn trọng điều kiện tiên quyết: chỉ mở cho học sinh đã hoàn thành các node trước (bỏ qua các node của level khác)
-            boolean prereqMet = incoming.stream()
-                    .filter(e -> e.getFromNode().getLevel() == null || e.getFromNode().getLevel().equals(studentLevel))
-                    .allMatch(e -> statusMap.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
+            boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusMap, studentLevel);
             if (!prereqMet) continue;
 
             target.setStatus(StudentProgressStatus.OPEN);
