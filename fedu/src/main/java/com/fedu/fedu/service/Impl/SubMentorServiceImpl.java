@@ -62,6 +62,10 @@ public class SubMentorServiceImpl implements SubMentorService {
         ClassroomSubjectStudent css = requireCssInClassroomSubject(classroomSubjectStudentId, classroomSubjectId);
         css.setIsSubmentor(true);
         classroomSubjectStudentRepository.save(css);
+        
+        // Xóa học sinh này khỏi danh sách được kèm cặp của các sub-mentor khác
+        assignmentRepository.deleteByStudentCss_Id(classroomSubjectStudentId);
+        
         log.info("Đã bật cờ sub-mentor cho CSS id={} trong lớp-môn id={}", classroomSubjectStudentId, classroomSubjectId);
     }
 
@@ -72,6 +76,10 @@ public class SubMentorServiceImpl implements SubMentorService {
         ClassroomSubjectStudent css = requireCssInClassroomSubject(classroomSubjectStudentId, classroomSubjectId);
         css.setIsSubmentor(false);
         classroomSubjectStudentRepository.save(css);
+        
+        // Xóa tất cả các học sinh mà sub-mentor này đang kèm cặp
+        assignmentRepository.deleteBySubMentorCss_Id(classroomSubjectStudentId);
+        
         log.info("Đã tắt cờ sub-mentor cho CSS id={} trong lớp-môn id={}", classroomSubjectStudentId, classroomSubjectId);
     }
 
@@ -93,6 +101,11 @@ public class SubMentorServiceImpl implements SubMentorService {
         if (!Boolean.TRUE.equals(subMentorCss.getIsSubmentor())) {
             throw new InvalidDataException("Học sinh với CSS id=" + request.getSubMentorCssId()
                     + " chưa được bật cờ sub-mentor");
+        }
+
+        // Sub-mentor không thể kèm cặp một sub-mentor khác cùng lớp
+        if (Boolean.TRUE.equals(studentCss.getIsSubmentor())) {
+            throw new InvalidDataException("Sub-mentor không thể kèm cặp một sub-mentor khác cùng lớp");
         }
 
         // Chống tự kèm

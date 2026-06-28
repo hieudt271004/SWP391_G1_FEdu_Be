@@ -2412,6 +2412,7 @@ export function ClassOverviewPage() {
                 <label className="text-xs font-bold text-slate-600 block">Chọn học sinh trong lớp:</label>
                 <div className="max-h-[250px] overflow-y-auto pr-2 space-y-2 py-2 border border-slate-200 rounded-xl bg-white p-2">
                   {students.filter(s => {
+                    if (s.isSubmentor) return false;
                     if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
                     const isAssignedToThis = assignments.some(
                       a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
@@ -2421,6 +2422,7 @@ export function ClassOverviewPage() {
                     <p className="text-xs text-slate-500 text-center py-4">Tất cả học sinh khả dụng đã được gán.</p>
                   ) : (
                     students.filter(s => {
+                      if (s.isSubmentor) return false;
                       if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
                       const isAssignedToThis = assignments.some(
                         a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
