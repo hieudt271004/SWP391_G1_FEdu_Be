@@ -13,6 +13,7 @@ export function TeacherLayout() {
     { icon: Home, label: 'Tổng quan', path: '/teacher/dashboard' },
     { icon: BookOpen, label: 'Thư viện Lộ trình', path: '/teacher/courses' },
     { icon: GraduationCap, label: 'Lớp học', path: '/teacher/classes' },
+    { icon: MessageSquare, label: 'Ticket hỗ trợ', path: '/teacher/tickets' },
     { icon: Settings, label: 'Cài đặt', path: '/teacher/profile' },
   ];
 
