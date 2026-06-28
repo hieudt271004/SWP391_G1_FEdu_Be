@@ -14,4 +14,6 @@ public interface StudentTestService {
 
     /** Chấm điểm một lượt thi và trả về điểm % (không định tuyến). Dùng cho bài phân loại. */
     java.math.BigDecimal submitForGrading(Long testId, Long attemptId, Long studentId, AttemptSubmissionRequest request);
+
+    java.util.List<com.fedu.fedu.dto.res.StudentTestAttemptHistoryResponse> getStudentTestAttemptHistory(Long studentId);
 }
