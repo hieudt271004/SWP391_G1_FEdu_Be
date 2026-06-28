@@ -146,39 +146,39 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div
-        className="relative w-full max-w-2xl rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "white" }}
+        className="relative w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto"
+        style={{ backgroundColor: "white", borderRadius: "10px", border: "1px solid rgba(0, 0, 0, 0.1)", fontFamily: "Outfit, sans-serif" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#111827" }}>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#030213" }}>
             {mode === "add" ? "Thêm người dùng mới" : "Chỉnh sửa thông tin"}
           </h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <X className="w-5 h-5" style={{ color: "#6b7280" }} />
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer">
+            <X className="w-5 h-5" style={{ color: "#717182" }} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="mb-4 px-4 py-3 rounded-lg" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "0.875rem" }}>
+            <div className="mb-4 px-4 py-3" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "0.875rem", borderRadius: "6px" }}>
               {error}
             </div>
           )}
 
           <div className="space-y-5">
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>Email *</label>
+              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem" }}>Email *</label>
               <input type="email" value={formData.email} onChange={(e) => handleChange("email", e.target.value)}
                 placeholder="example@email.com" required
-                className="w-full px-4 py-2.5 rounded-lg outline-none"
-                style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb", color: "#111827", fontSize: "0.9375rem" }}
+                className="w-full px-4 py-2.5 outline-none text-sm transition-all focus:ring-2 focus:ring-[#030213] focus:bg-white"
+                style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000" }}
               />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
+                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem" }}>
                   First Name *
                 </label>
                 <input
@@ -186,13 +186,13 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
                   value={formData.firstName}
                   onChange={(e) => handleChange("firstName", e.target.value)}
                   placeholder="First name"
-                  className="w-full px-4 py-2.5 rounded-lg outline-none"
-                  style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb", color: "#111827", fontSize: "0.9375rem" }}
+                  className="w-full px-4 py-2.5 outline-none text-sm transition-all focus:ring-2 focus:ring-[#030213] focus:bg-white"
+                  style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000" }}
                   required
                 />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
+                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem" }}>
                   Last Name *
                 </label>
                 <input
@@ -200,15 +200,15 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
                   value={formData.lastName}
                   onChange={(e) => handleChange("lastName", e.target.value)}
                   placeholder="Last name"
-                  className="w-full px-4 py-2.5 rounded-lg outline-none"
-                  style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb", color: "#111827", fontSize: "0.9375rem" }}
+                  className="w-full px-4 py-2.5 outline-none text-sm transition-all focus:ring-2 focus:ring-[#030213] focus:bg-white"
+                  style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000" }}
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
+              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem" }}>
                 Số điện thoại
               </label>
               <input
@@ -216,13 +216,13 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
                 value={formData.phone}
                 onChange={(e) => handleChange("phone", e.target.value)}
                 placeholder="+84 123 456 789"
-                className="w-full px-4 py-2.5 rounded-lg outline-none"
-                style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb", color: "#111827", fontSize: "0.9375rem" }}
+                className="w-full px-4 py-2.5 outline-none text-sm transition-all focus:ring-2 focus:ring-[#030213] focus:bg-white"
+                style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000" }}
               />
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
+              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem" }}>
                 Avatar URL
               </label>
               <input
@@ -230,36 +230,36 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
                 value={formData.avatarUrl}
                 onChange={(e) => handleChange("avatarUrl", e.target.value)}
                 placeholder="https://example.com/avatar.jpg"
-                className="w-full px-4 py-2.5 rounded-lg outline-none"
-                style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb", color: "#111827", fontSize: "0.9375rem" }}
+                className="w-full px-4 py-2.5 outline-none text-sm transition-all focus:ring-2 focus:ring-[#030213] focus:bg-white"
+                style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000" }}
               />
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>Mật khẩu (Password) *</label>
+              <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem" }}>Mật khẩu (Password) *</label>
               <input type="password" value={formData.password} onChange={(e) => handleChange("password", e.target.value)}
                 placeholder="Tối thiểu 8 ký tự" required={mode === "add"}
-                className="w-full px-4 py-2.5 rounded-lg outline-none"
-                style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb", color: "#111827", fontSize: "0.9375rem" }}
+                className="w-full px-4 py-2.5 outline-none text-sm transition-all focus:ring-2 focus:ring-[#030213] focus:bg-white"
+                style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000" }}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>Role (Vai trò)</label>
+                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem" }}>Role (Vai trò)</label>
                 <select value={formData.role} onChange={(e) => handleChange("role", e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg outline-none cursor-pointer"
-                  style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb", color: "#111827", fontSize: "0.9375rem" }}>
+                  className="w-full px-4 py-2.5 outline-none text-sm cursor-pointer transition-all focus:ring-2 focus:ring-[#030213]"
+                  style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000" }}>
                   <option value="STUDENT">Học viên</option>
                   <option value="TEACHER">Giảng viên</option>
                   <option value="ADMIN">Admin</option>
                 </select>
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>Status (Trạng thái)</label>
+                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem" }}>Status (Trạng thái)</label>
                 <select value={formData.status} onChange={(e) => handleChange("status", e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg outline-none cursor-pointer"
-                  style={{ backgroundColor: "#f3f4f6", border: "1px solid #e5e7eb", color: "#111827", fontSize: "0.9375rem" }}>
+                  className="w-full px-4 py-2.5 outline-none text-sm cursor-pointer transition-all focus:ring-2 focus:ring-[#030213]"
+                  style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000" }}>
                   <option value="ACTIVE">Hoạt động (ACTIVE)</option>
                   <option value="INACTIVE">Ngưng (INACTIVE)</option>
                   <option value="NONE">Khác (NONE)</option>
@@ -269,15 +269,16 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t" style={{ borderColor: "#e5e7eb" }}>
+          <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t" style={{ borderColor: "rgba(0, 0, 0, 0.1)" }}>
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2.5 rounded-xl transition-colors hover:bg-gray-100"
+              className="px-6 py-2.5 transition-colors hover:bg-gray-50 border-none bg-transparent"
               style={{
                 backgroundColor: "white",
-                border: "1px solid #e5e7eb",
-                color: "#374151",
+                border: "1px solid rgba(0, 0, 0, 0.1)",
+                borderRadius: "6px",
+                color: "#000000",
                 fontWeight: 600,
                 fontSize: "0.875rem",
                 cursor: "pointer",
@@ -286,8 +287,8 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
               Hủy
             </button>
             <button type="submit" disabled={submitting}
-              className="px-6 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90 flex items-center gap-2"
-              style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: submitting ? "not-allowed" : "pointer", fontSize: "0.875rem", fontWeight: 600, opacity: submitting ? 0.6 : 1 }}>
+              className="px-6 py-2.5 text-white transition-colors hover:bg-[#1c1b2d] flex items-center gap-2 border-none"
+              style={{ backgroundColor: "#030213", borderRadius: "6px", cursor: submitting ? "not-allowed" : "pointer", fontSize: "0.875rem", fontWeight: 600, opacity: submitting ? 0.6 : 1 }}>
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {mode === "add" ? "Thêm người dùng" : "Lưu thay đổi"}
             </button>

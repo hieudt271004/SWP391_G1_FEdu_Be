@@ -19,8 +19,9 @@ public class Test extends AbstractEntity<Long> {
     @Column(name = "test_id")
     private Long testId;
 
+    /** null = quiz phân loại (placement) — không gắn vào node học nào. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "node_id", nullable = false)
+    @JoinColumn(name = "node_id")
     private LearningNode learningNode;
 
     @Column(name = "title", nullable = false)
@@ -39,6 +40,7 @@ public class Test extends AbstractEntity<Long> {
     @Column(name = "order_index")
     private Integer orderIndex;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

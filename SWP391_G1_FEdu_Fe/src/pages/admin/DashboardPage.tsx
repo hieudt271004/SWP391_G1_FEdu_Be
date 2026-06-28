@@ -59,6 +59,7 @@ export function DashboardPage() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadDashboardData() {
       try {
         setLoading(true);
@@ -66,6 +67,8 @@ export function DashboardPage() {
           adminService.getAllUsers(),
           subjectService.getAll()
         ]);
+
+        if (!isMounted) return;
 
         // 1. Calculate KPI Metrics
         const studentsList = users.filter(u => u.roles.includes("STUDENT"));
@@ -153,194 +156,215 @@ export function DashboardPage() {
         setActivities(activityList);
 
       } catch (err) {
+        if (!isMounted) return;
         console.error("Failed to load dashboard metrics", err);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
     loadDashboardData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Loading skeleton screen matching Bento grid layout shapes exactly
+  // Redesigned loading skeleton using the updated layout grid
   if (loading) {
     return (
-      <div className="space-y-8 animate-pulse p-1">
+      <div className="space-y-6 animate-pulse p-1">
         {/* Header Skeleton */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
           <div className="space-y-2">
-            <div className="h-8 w-64 bg-slate-100 rounded-lg" />
-            <div className="h-4 w-96 bg-slate-50 rounded" />
+            <div className="h-6 w-48 bg-muted/60 rounded-md" />
+            <div className="h-4 w-80 bg-muted/40 rounded" />
           </div>
-          <div className="h-7 w-32 bg-slate-100 rounded-full" />
+          <div className="h-8 w-28 bg-muted/60 rounded-lg" />
         </div>
 
-        {/* Bento KPIs Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="md:col-span-2 h-36 bg-slate-50 border border-slate-100 rounded-2xl" />
-          <div className="h-36 bg-slate-50 border border-slate-100 rounded-2xl" />
-          <div className="h-36 bg-slate-50 border border-slate-100 rounded-2xl" />
-          <div className="h-36 bg-slate-50 border border-slate-100 rounded-2xl" />
+        {/* KPIs Grid Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="h-[120px] bg-muted/20 border border-border/40 rounded-xl p-5 flex flex-col justify-between">
+              <div className="flex justify-between items-center">
+                <div className="h-3 w-20 bg-muted/50 rounded" />
+                <div className="w-8 h-8 bg-muted/50 rounded-lg" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-7 w-16 bg-muted/60 rounded" />
+                <div className="h-3 w-28 bg-muted/40 rounded" />
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Main Grid Skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-96 bg-slate-50 border border-slate-100 rounded-2xl" />
-          <div className="h-96 bg-slate-50 border border-slate-100 rounded-2xl" />
+          <div className="lg:col-span-2 h-[380px] bg-muted/20 border border-border/40 rounded-xl p-5" />
+          <div className="h-[380px] bg-muted/20 border border-border/40 rounded-xl p-5" />
         </div>
 
         {/* Quick Actions Skeleton */}
-        <div className="h-44 bg-slate-50 border border-slate-100 rounded-2xl" />
+        <div className="h-[120px] bg-muted/20 border border-border/40 rounded-xl p-5" />
       </div>
     );
   }
 
+  // Custom Recharts Tooltip for a premium, high-contrast visual
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card border border-border p-3 rounded-lg shadow-sm">
+          <p className="text-xs font-semibold text-foreground">{label}</p>
+          <p className="text-xs font-medium text-primary mt-1 dark:text-indigo-400">
+            {payload[0].name}: <span className="font-bold text-foreground">{payload[0].value} học viên</span>
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="space-y-8 max-w-[1400px] mx-auto p-1">
+    <div className="space-y-6 max-w-[1400px] mx-auto p-1 font-sans">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-100 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
         <div className="space-y-1">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tighter leading-none font-sans">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Tổng quan hệ thống
           </h1>
-          <p className="text-sm text-slate-500 max-w-[65ch] leading-relaxed mt-2">
+          <p className="text-xs text-muted-foreground">
             Xem báo cáo nhanh và quản lý toàn diện các hoạt động đào tạo của hệ thống FEdu.
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200/60 text-xs font-semibold text-slate-600 shadow-sm self-start md:self-auto">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
-          </span>
-          Hệ thống trực tuyến
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {/* Mock Time Filter Selector */}
+          <div className="bg-card border border-border/80 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground shadow-xs hover:bg-accent/40 active:bg-accent/60 transition-all duration-200 cursor-pointer flex items-center gap-1.5">
+            6 tháng qua
+          </div>
+          {/* Status Indicator */}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/40 border border-border/60 text-xs font-medium text-muted-foreground shadow-2xs">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+            </span>
+            Trực tuyến
+          </div>
         </div>
       </div>
 
-      {/* Bento Grid KPIs Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Main Hero Card (2x1 Bento span) */}
-        <div className="md:col-span-2 bg-slate-50/50 border border-slate-200/80 p-6 rounded-2xl relative overflow-hidden group shadow-xs">
-          <div className="space-y-4 relative z-10 flex flex-col justify-between h-full">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 text-[10px] text-indigo-700 font-bold uppercase tracking-wider border border-indigo-100/50">
-                <Sparkles className="w-3 h-3" /> Học viên tích cực
-              </div>
-              <h3 className="text-sm font-semibold text-slate-400 mt-3 uppercase tracking-wider">Tổng Học viên</h3>
-            </div>
-            <div>
-              <h2 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight font-sans tabular-nums">
-                {stats.students}
-              </h2>
-              <p className="text-xs text-slate-500 mt-2">Tài khoản học viên đã đăng ký trên hệ thống</p>
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Total Students */}
+        <div className="bg-card border border-border/60 p-5 rounded-xl hover:border-border hover:bg-accent/5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between min-h-[120px]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground tracking-wide">Tổng Học viên</span>
+            <div className="p-2 bg-muted/60 rounded-lg text-muted-foreground/90">
+              <Users className="w-4 h-4 text-foreground/80" />
             </div>
           </div>
-          {/* Subtle Decorative Background Element */}
-          <div className="absolute right-6 bottom-4 opacity-5 text-indigo-950 pointer-events-none transition-transform group-hover:scale-110 duration-500">
-            <Users className="w-36 h-36" />
+          <div className="mt-4">
+            <h3 className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
+              {stats.students}
+            </h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Tài khoản học viên đã đăng ký</p>
           </div>
         </div>
 
         {/* KPI 2: Total Teachers */}
-        <div className="bg-white border border-slate-100 hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100/40 p-6 rounded-2xl transition-all duration-300 group flex flex-col justify-between h-full">
-          <div className="flex items-start justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng Giảng viên</span>
-            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center transition-transform group-hover:scale-105 duration-300">
-              <GraduationCap className="w-5 h-5 text-indigo-600" />
+        <div className="bg-card border border-border/60 p-5 rounded-xl hover:border-border hover:bg-accent/5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between min-h-[120px]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground tracking-wide">Tổng Giảng viên</span>
+            <div className="p-2 bg-muted/60 rounded-lg text-muted-foreground/90">
+              <GraduationCap className="w-4 h-4 text-foreground/80" />
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-extrabold text-slate-800 tracking-tight font-sans tabular-nums">
+            <h3 className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
               {stats.teachers}
             </h3>
-            <p className="text-xs text-slate-400 mt-1">Đội ngũ giảng dạy</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Đội ngũ giảng dạy trực tuyến</p>
           </div>
         </div>
 
         {/* KPI 3: Total Courses */}
-        <div className="bg-white border border-slate-100 hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100/40 p-6 rounded-2xl transition-all duration-300 group flex flex-col justify-between h-full">
-          <div className="flex items-start justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Số Môn học</span>
-            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center transition-transform group-hover:scale-105 duration-300">
-              <BookOpen className="w-5 h-5 text-indigo-600" />
+        <div className="bg-card border border-border/60 p-5 rounded-xl hover:border-border hover:bg-accent/5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between min-h-[120px]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground tracking-wide">Số Môn học</span>
+            <div className="p-2 bg-muted/60 rounded-lg text-muted-foreground/90">
+              <BookOpen className="w-4 h-4 text-foreground/80" />
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-extrabold text-slate-800 tracking-tight font-sans tabular-nums">
+            <h3 className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
               {stats.courses}
             </h3>
-            <p className="text-xs text-slate-400 mt-1">Chương trình môn học</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Chương trình môn học hiện có</p>
           </div>
         </div>
 
         {/* KPI 4: Active Ratio */}
-        <div className="bg-white border border-slate-100 hover:border-slate-200 hover:shadow-lg hover:shadow-slate-100/40 p-6 rounded-2xl transition-all duration-300 group flex flex-col justify-between h-full">
-          <div className="flex items-start justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tỷ lệ Hoạt động</span>
-            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center transition-transform group-hover:scale-105 duration-300">
-              <UserCheck className="w-5 h-5 text-indigo-600" />
+        <div className="bg-card border border-border/60 p-5 rounded-xl hover:border-border hover:bg-accent/5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between min-h-[120px]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground tracking-wide">Tỷ lệ Hoạt động</span>
+            <div className="p-2 bg-muted/60 rounded-lg text-muted-foreground/90">
+              <UserCheck className="w-4 h-4 text-foreground/80" />
             </div>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-extrabold text-slate-800 tracking-tight font-sans tabular-nums">
+            <h3 className="text-2xl font-bold text-foreground tracking-tight tabular-nums">
               {stats.activeRatio}
             </h3>
-            <p className="text-xs text-slate-400 mt-1">Trạng thái Active</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Trạng thái người dùng Active</p>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Visual Trend Chart + Recent Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Grid: Trend Chart + Recent Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Trend Area Chart (2/3 width) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between min-h-[380px]">
-          <div className="flex items-start justify-between mb-6">
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-slate-900 tracking-tight">Xu hướng đăng ký Học viên</h3>
-              <p className="text-xs text-slate-400">Số lượng học viên mới tham gia trong 6 tháng qua</p>
+        <div className="lg:col-span-2 bg-card rounded-xl p-5 border border-border/60 flex flex-col justify-between min-h-[380px]">
+          <div className="flex items-start justify-between mb-4">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-semibold text-foreground">Xu hướng đăng ký Học viên</h3>
+              <p className="text-xs text-muted-foreground">Số lượng học viên mới tham gia trong 6 tháng qua</p>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-50 border border-slate-200/60 text-[11px] text-slate-600 font-semibold">
-              <Activity className="w-3.5 h-3.5 text-indigo-600" />
-              Báo cáo thời gian thực
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/30 border border-border/50 text-[10px] text-muted-foreground font-medium">
+              <Activity className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+              Báo cáo tự động
             </div>
           </div>
 
           <div className="h-72 w-full flex-1 mt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 5, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorStudentsRedesign" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.12}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.08}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.3} />
                 <XAxis 
                   dataKey="month" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#64748b', fontSize: 11, fontFamily: 'Outfit' }} 
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'Outfit' }} 
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#64748b', fontSize: 11, fontFamily: 'Outfit' }} 
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'Outfit' }} 
                   allowDecimals={false}
                 />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
-                    borderRadius: '12px', 
-                    border: '1px solid #e2e8f0',
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.05)',
-                    fontFamily: 'Outfit'
-                  }}
-                  labelStyle={{ fontWeight: 'bold', color: '#0f172a' }}
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Area 
                   type="monotone" 
                   dataKey="count" 
                   name="Học viên mới"
-                  stroke="#4f46e5" 
-                  strokeWidth={3} 
+                  stroke="var(--primary)" 
+                  strokeWidth={2} 
                   fillOpacity={1} 
                   fill="url(#colorStudentsRedesign)" 
                 />
@@ -350,37 +374,51 @@ export function DashboardPage() {
         </div>
 
         {/* Recent Registered Members Feed (1/3 width) */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs flex flex-col justify-between min-h-[380px]">
-          <div className="flex items-center justify-between mb-6">
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-slate-900 tracking-tight">Đăng ký gần đây</h3>
-              <p className="text-xs text-slate-400">Danh sách 5 thành viên mới nhất</p>
+        <div className="bg-card rounded-xl p-5 border border-border/60 flex flex-col justify-between min-h-[380px]">
+          <div className="flex items-center justify-between mb-4">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-semibold text-foreground">Đăng ký gần đây</h3>
+              <p className="text-xs text-muted-foreground">Danh sách 5 thành viên mới nhất</p>
             </div>
-            <Clock className="w-4 h-4 text-slate-400 animate-pulse" />
+            <Clock className="w-3.5 h-3.5 text-muted-foreground/80" />
           </div>
 
-          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+          <div className="space-y-3.5 flex-1 overflow-y-auto pr-1">
             {activities.length > 0 ? (
-              activities.map((activity, idx) => (
-                <div key={idx} className="flex items-center gap-3.5 p-2 rounded-xl hover:bg-slate-50/80 transition-colors duration-200 border border-transparent hover:border-slate-100">
-                  <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200/50 flex items-center justify-center font-bold text-slate-700 text-sm shrink-0 shadow-2xs">
-                    {activity.name.slice(0, 1).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <h4 className="text-sm font-semibold text-slate-800 truncate leading-snug">{activity.name}</h4>
-                      <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap font-sans">{activity.time}</span>
+              activities.map((activity, idx) => {
+                // Determine style of role badge based on roles
+                let badgeStyle = "bg-muted/80 text-foreground/80 border-border/40";
+                if (activity.role === "Quản trị viên") {
+                  badgeStyle = "bg-red-50 text-red-700 border-red-100 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30";
+                } else if (activity.role === "Giảng viên") {
+                  badgeStyle = "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/30";
+                } else if (activity.role === "Học viên") {
+                  badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30";
+                } else if (activity.role === "Trợ giảng") {
+                  badgeStyle = "bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-900/30";
+                }
+
+                return (
+                  <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/40 transition-colors duration-200 border border-transparent hover:border-border/30">
+                    <div className="w-8 h-8 rounded-full bg-accent border border-border/50 text-accent-foreground flex items-center justify-center font-semibold text-xs shrink-0">
+                      {activity.name.slice(0, 1).toUpperCase()}
                     </div>
-                    <p className="text-xs text-slate-400 truncate leading-snug">{activity.email}</p>
-                    <span className="inline-block mt-1 text-[9px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100/40 tracking-wide">
-                      {activity.role}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <h4 className="text-xs font-semibold text-foreground truncate">{activity.name}</h4>
+                        <span className="text-[10px] text-muted-foreground/75 whitespace-nowrap">{activity.time}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate">{activity.email}</p>
+                      <span className={`inline-block mt-1 text-[9px] font-medium px-2 py-0.5 rounded-full border ${badgeStyle}`}>
+                        {activity.role}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 py-10 gap-2">
-                <Clock className="w-8 h-8 text-slate-200" />
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-10 gap-2">
+                <Clock className="w-6 h-6 text-muted/60" />
                 <span className="text-xs">Chưa có hoạt động mới</span>
               </div>
             )}
@@ -389,67 +427,67 @@ export function DashboardPage() {
       </div>
 
       {/* Tactile Quick Actions Panel */}
-      <div className="bg-slate-50/30 border border-slate-100 p-6 rounded-2xl shadow-2xs">
-        <h3 className="text-lg font-bold text-slate-900 tracking-tight mb-4">Thao tác nhanh</h3>
+      <div className="bg-card border border-border/60 p-5 rounded-xl">
+        <h3 className="text-sm font-semibold text-foreground mb-4">Thao tác nhanh</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
             onClick={() => navigate("/admin/users")}
-            className="flex items-center justify-between p-4 rounded-xl bg-white border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/5 hover:shadow-sm active:scale-[0.98] active:translate-y-[0.5px] transition-all duration-200 group text-left cursor-pointer"
+            className="flex items-center justify-between p-4 rounded-xl bg-card border border-border/80 hover:border-primary/30 hover:bg-accent/30 transition-all duration-200 group text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-50/50 text-indigo-600 flex items-center justify-center group-hover:scale-105 duration-200 border border-indigo-100/20">
-                <Plus className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center border border-border/40 text-foreground group-hover:scale-102 transition-transform duration-200">
+                <Plus className="w-4.5 h-4.5" />
               </div>
-              <div className="space-y-0.5">
-                <h4 className="text-sm font-bold text-slate-800">Quản lý User</h4>
-                <p className="text-[11px] text-slate-400">Tài khoản thành viên</p>
+              <div>
+                <h4 className="text-xs font-semibold text-foreground">Quản lý User</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Tài khoản thành viên</p>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 duration-200" />
+            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-foreground group-hover:translate-x-0.5 transition-all duration-200" />
           </button>
 
           <button
-            onClick={() => navigate("/admin/courses")}
-            className="flex items-center justify-between p-4 rounded-xl bg-white border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/5 hover:shadow-sm active:scale-[0.98] active:translate-y-[0.5px] transition-all duration-200 group text-left cursor-pointer"
+            onClick={() => navigate("/admin/subjects")}
+            className="flex items-center justify-between p-4 rounded-xl bg-card border border-border/80 hover:border-primary/30 hover:bg-accent/30 transition-all duration-200 group text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-50/50 text-indigo-600 flex items-center justify-center group-hover:scale-105 duration-200 border border-indigo-100/20">
-                <BookOpen className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center border border-border/40 text-foreground group-hover:scale-102 transition-transform duration-200">
+                <BookOpen className="w-4.5 h-4.5" />
               </div>
-              <div className="space-y-0.5">
-                <h4 className="text-sm font-bold text-slate-800">Tạo Môn học</h4>
-                <p className="text-[11px] text-slate-400">Môn học đào tạo</p>
+              <div>
+                <h4 className="text-xs font-semibold text-foreground">Tạo Môn học</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Môn học đào tạo</p>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 duration-200" />
+            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-foreground group-hover:translate-x-0.5 transition-all duration-200" />
           </button>
 
           <button
             onClick={() => navigate("/admin/classes")}
-            className="flex items-center justify-between p-4 rounded-xl bg-white border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/5 hover:shadow-sm active:scale-[0.98] active:translate-y-[0.5px] transition-all duration-200 group text-left cursor-pointer"
+            className="flex items-center justify-between p-4 rounded-xl bg-card border border-border/80 hover:border-primary/30 hover:bg-accent/30 transition-all duration-200 group text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-indigo-50/50 text-indigo-600 flex items-center justify-center group-hover:scale-105 duration-200 border border-indigo-100/20">
-                <GraduationCap className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center border border-border/40 text-foreground group-hover:scale-102 transition-transform duration-200">
+                <GraduationCap className="w-4.5 h-4.5" />
               </div>
-              <div className="space-y-0.5">
-                <h4 className="text-sm font-bold text-slate-800">Quản lý Lớp</h4>
-                <p className="text-[11px] text-slate-400">Phân công lớp học</p>
+              <div>
+                <h4 className="text-xs font-semibold text-foreground">Quản lý Lớp</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Phân công lớp học</p>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 duration-200" />
+            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-foreground group-hover:translate-x-0.5 transition-all duration-200" />
           </button>
 
           <div
-            className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/50 opacity-60 cursor-not-allowed"
+            className="flex items-center justify-between p-4 rounded-xl border border-border/40 bg-muted/20 opacity-50 cursor-not-allowed select-none"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center border border-slate-200/30">
-                <FileText className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-lg bg-muted/60 flex items-center justify-center border border-border/30 text-muted-foreground">
+                <FileText className="w-4.5 h-4.5" />
               </div>
-              <div className="space-y-0.5">
-                <h4 className="text-sm font-bold text-slate-500">Xem Báo cáo</h4>
-                <p className="text-[11px] text-slate-400">Doanh thu (Sắp ra mắt)</p>
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground">Xem Báo cáo</h4>
+                <p className="text-[10px] text-muted-foreground/80 mt-0.5">Doanh thu (Sắp ra mắt)</p>
               </div>
             </div>
           </div>
@@ -458,3 +496,4 @@ export function DashboardPage() {
     </div>
   );
 }
+

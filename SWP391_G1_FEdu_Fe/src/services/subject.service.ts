@@ -11,5 +11,9 @@ export const subjectService = {
   update: (id: number, req: SubjectRequest) =>
     http.put<Subject>(`/subjects/${id}`, req),
 
+  publish: (id: number) => http.patch<Subject>(`/subjects/${id}/publish`, {}),
+
+  unpublish: (id: number) => http.patch<Subject>(`/subjects/${id}/unpublish`, {}),
+
   delete: (id: number) => http.delete<void>(`/subjects/${id}`),
 };

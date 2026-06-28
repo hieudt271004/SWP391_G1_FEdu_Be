@@ -1,54 +1,124 @@
 import { http } from './http';
 
+export type LearningPathLevel = 1 | 2 | 3;
+export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
+
 export interface CreateLearningPathRequest {
   subjectId: number;
   pathName: string;
   description?: string;
-}
-
-export interface UpdateLearningPathRequest {
-  pathName: string;
-  description?: string;
+  level?: LearningPathLevel;
 }
 
 export interface LearningPathResponse {
   pathId: number;
   subjectId: number;
   pathName: string;
-  description?: string;
-  isPublished: boolean;
-  createdAt?: string;
+  description: string;
+  createdById: number;
+  classroomSubjectId?: number | null;
+  level?: LearningPathLevel | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LearningNodeResponse {
+  nodeId: number;
+  learningPathId?: number;
+  classroomPathId?: number;
+  title: string;
+  description: string;
+  nodeType: 'AT_HOME' | 'ON_CLASS';
+  displayOrder: number;
+  status: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  studentStatus?: 'LOCKED' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
+  isRequired: boolean;
+  isDeleted: boolean;
+  level?: number | null;
+  testKind?: NodeTestKind;
+  appliesLevels?: string | null;
+  gateUpMin?: number | null;
+  gateDownMax?: number | null;
+  placementYeuMax?: number | null;
+  placementTbMax?: number | null;
+  stageOrder?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NodeEdgeResponse {
+  edgeId: number;
+  fromNodeId: number;
+  toNodeId: number;
+}
+
+export interface LearningPathGraphResponse {
+  pathId: number;
+  pathName: string;
+  description: string;
+  nodes: LearningNodeResponse[];
+  edges: NodeEdgeResponse[];
+}
+
+export interface AvailableTemplateResponse {
+  pathId: number;
+  pathName: string;
+  description: string;
+  nodeCount: number;
+  lastUpdatedAt: string;
+}
+
+export interface PublishResultResponse {
+  seededStudents: number;
+}
+
+export interface ClassroomPathDto {
+  level: number;
+  pathId: number;
+  nodes: LearningNodeResponse[];
+  edges: NodeEdgeResponse[];
+}
+
+export interface ClassroomGraphResponse {
+  classroomSubjectId: number;
+  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED' | 'NEED_PLACEMENT';
+  pathId: number | null;
+  publishedAt: string | null;
+  nodes: LearningNodeResponse[];
+  edges: NodeEdgeResponse[];
+  paths: ClassroomPathDto[] | null;
+  canCloneAll: boolean | null;
+  missingLevels: number[] | null;
+  availableTemplates: AvailableTemplateResponse[] | null;
+  quizStartTestId: number | null;
 }
 
 export interface CreateLearningNodeRequest {
-  classroomPathId: number;
+  learningPathId?: number;
+  classroomPathId?: number;
   title: string;
   description?: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
   displayOrder: number;
-  status: 'LOCKED' | 'OPEN' | 'PASSED';
-  isRequired: boolean;
+  status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  isRequired?: boolean;
+  stageOrder?: number;
+  level?: number | null;
+  testKind?: NodeTestKind;
+  appliesLevels?: string | null;
+  gateUpMin?: number | null;
+  gateDownMax?: number | null;
+  placementYeuMax?: number | null;
+  placementTbMax?: number | null;
 }
 
 export interface UpdateLearningNodeRequest {
   title: string;
   description?: string;
   nodeType: 'AT_HOME' | 'ON_CLASS';
-  displayOrder: number;
-  status: 'LOCKED' | 'OPEN' | 'PASSED';
-  isRequired: boolean;
-}
-
-export interface LearningNodeResponse {
-  nodeId: number;
-  classroomPathId: number;
-  title: string;
-  description?: string;
-  nodeType: 'AT_HOME' | 'ON_CLASS';
-  displayOrder: number;
-  status: 'LOCKED' | 'OPEN' | 'PASSED';
-  isRequired: boolean;
-  testKind?: 'PLACEMENT' | 'REGULAR';
+  status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
+  displayOrder?: number;
+  isRequired?: boolean;
 }
 
 export interface CreateNodeEdgeRequest {
@@ -56,88 +126,73 @@ export interface CreateNodeEdgeRequest {
   toNodeId: number;
 }
 
-export interface NodeEdgeResponse {
-  edgeId: number;
-  fromNodeId: number;
-  toNodeId: number;
-  minScore: number;
-  maxScore: number;
-}
-
-export interface CreateNodeMaterialRequest {
-  title: string;
-  materialType: 'VIDEO' | 'FILE';
-  requiredToPass: boolean;
-  videoUrl?: string;
-  fileUrl?: string;
-}
-
 export interface NodeMaterialResponse {
   materialId: number;
-  nodeId: number;
   title: string;
-  materialType: 'VIDEO' | 'FILE';
-  requiredToPass: boolean;
+  required: boolean;
   video?: {
     videoId: number;
     videoUrl: string;
+    title?: string;
+    durationSeconds?: number;
+    description?: string;
   };
   file?: {
     fileId: number;
-    fileName: string;
     fileUrl: string;
-    fileType: string;
+    fileName?: string;
+    fileType?: string;
+    description?: string;
   };
-}
-
-export interface CreateNodeTestRequest {
-  title: string;
-  durationMinutes: number;
-  passingPercentage: number;
+  orderIndex: number;
 }
 
 export interface NodeTestResponse {
   testId: number;
-  nodeId: number;
-  title: string;
-  durationMinutes: number;
-  passingPercentage: number;
-}
-
-export interface CreateNodeExerciseRequest {
   title: string;
   description?: string;
-  requiredToPass: boolean;
+  durationMinutes?: number;
+  passingPercentage?: number;
+  orderIndex: number;
 }
 
+// Bài tập thực hành — thành phần của node (song song material/test)
 export interface NodeExerciseResponse {
   exerciseId: number;
-  nodeId: number;
   title: string;
-  description?: string;
-  requiredToPass: boolean;
-}
-
-export interface ReorderContentRequest {
-  contentType: 'MATERIAL' | 'TEST' | 'EXERCISE';
-  contentId: number;
-  displayOrder: number;
+  instructions?: string;
+  allowText: boolean;
+  allowFile: boolean;
+  orderIndex: number;
 }
 
 export interface NodeContentResponse {
   materials: NodeMaterialResponse[];
   tests: NodeTestResponse[];
-  exercises: NodeExerciseResponse[];
+  // BE luôn trả mảng (có thể rỗng); optional để không phá các nơi đang khởi tạo content thủ công.
+  exercises?: NodeExerciseResponse[];
 }
 
-export interface PlacementQuizDetailsResponse {
-  testId: number;
+export interface CreateNodeTestRequest {
   title: string;
   description?: string;
-  durationMinutes: number;
-  passingPercentage: number;
-  scoreBands: ScoreBandResponse[];
+  durationMinutes?: number;
+  passingPercentage?: number;
 }
+
+export interface CreateNodeExerciseRequest {
+  title: string;
+  instructions?: string;
+  allowText?: boolean;
+  allowFile?: boolean;
+}
+
+export interface ReorderContentRequest {
+  id: number;
+  type: 'MATERIAL' | 'TEST' | 'EXERCISE';
+  orderIndex: number;
+}
+
 
 export interface ScoreBandResponse {
   bandId: number;
@@ -147,64 +202,62 @@ export interface ScoreBandResponse {
   targetLevel: number;
 }
 
+export interface PlacementQuizDetailsResponse {
+  testId: number;
+  title: string;
+  description?: string;
+  durationMinutes: number;
+  scoreBands: ScoreBandResponse[];
+  questionCount: number;
+}
+
+export interface TeacherAnswerRequest {
+  answerContent: string;
+  isCorrect: boolean;
+}
+
 export interface TeacherQuestionRequest {
   questionContent: string;
-  questionType: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY';
-  score: number;
-  answers: {
-    answerContent: string;
-    isCorrect: boolean;
-  }[];
+  questionType: 'SINGLE' | 'MULTIPLE' | 'ESSAY' | 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER';
+  score?: number;
+  answers?: TeacherAnswerRequest[];
+}
+
+export interface TeacherAnswerResponse {
+  answerId: number;
+  answerContent: string;
+  isCorrect: boolean;
 }
 
 export interface TeacherQuestionResponse {
   questionId: number;
   questionContent: string;
-  questionType: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY';
+  questionType: 'SINGLE' | 'MULTIPLE' | 'ESSAY' | 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER';
   score: number;
-  answers: {
-    answerId: number;
-    answerContent: string;
-    isCorrect: boolean;
-  }[];
+  answers: TeacherAnswerResponse[];
 }
 
-export interface StudentAttemptResponse {
-  attemptId: number;
-  studentName: string;
-  studentEmail: string;
-  score: number;
-  startedAt: string;
-  submittedAt: string;
-  status: 'STARTED' | 'SUBMITTED';
-}
 
 export const learningPathService = {
-  // Path template endpoints
-  getLearningPath: (subjectId: number) =>
-    http.get<LearningPathResponse>(`/teacher-manage/subjects/${subjectId}/learning-path`),
+  getSubjectLearningPaths: (subjectId: number) =>
+    http.get<LearningPathResponse[]>(`/teacher-manage/subjects/${subjectId}/learning-paths`),
   createLearningPath: (request: CreateLearningPathRequest) =>
     http.post<LearningPathResponse>('/teacher-manage/learning-paths', request),
-  updateLearningPath: (pathId: number, request: UpdateLearningPathRequest) =>
-    http.put<LearningPathResponse>(`/teacher-manage/learning-paths/${pathId}`, request),
-  deleteLearningPath: (pathId: number) =>
-    http.delete<void>(`/teacher-manage/learning-paths/${pathId}`),
-  getLearningPathById: (pathId: number) =>
-    http.get<LearningPathResponse>(`/teacher-manage/learning-paths/${pathId}`),
-  getLearningPathsBySubjectId: (subjectId: number) =>
-    http.get<LearningPathResponse[]>(`/teacher-manage/subjects/${subjectId}/learning-paths`),
-  
-  // Publish/Clone actions
-  publishLearningPath: (pathId: number) =>
-    http.post<void>(`/teacher-manage/learning-paths/${pathId}/publish`),
-  cloneFromTemplate: (classroomSubjectId: number, templatePathId: number) =>
-    http.post<LearningPathResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-template/${templatePathId}`),
-  deleteDraftPath: (classroomSubjectId: number) =>
-    http.delete<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-path-draft`),
-
-  // Node endpoints
-  getLearningNodes: (pathId: number) =>
-    http.get<LearningNodeResponse[]>(`/teacher-manage/learning-paths/${pathId}/nodes`),
+  getLearningPathGraph: (pathId: number) =>
+    http.get<LearningPathGraphResponse>(`/teacher-manage/learning-paths/${pathId}/graph`),
+  getClassroomGraph: (classroomSubjectId: number) =>
+    http.get<ClassroomGraphResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/graph`),
+  // Admin read-only: xem graph lớp-môn (endpoint riêng cho ADMIN, không đụng /teacher-manage)
+  getAdminClassroomGraph: (classroomSubjectId: number) =>
+    http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
+  cloneFromTemplate: (classroomSubjectId: number) =>
+    http.post<LearningPathResponse[]>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path`),
+  publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
+    http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
+  unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>
+    http.post<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/unpublish`),
+  deleteDraftPath: (classroomSubjectId: number, pathId: number) =>
+    http.delete<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}`),
   createLearningNode: (request: CreateLearningNodeRequest) =>
     http.post<LearningNodeResponse>('/teacher-manage/learning-nodes', request),
   updateLearningNode: (nodeId: number, request: UpdateLearningNodeRequest) =>
@@ -223,15 +276,11 @@ export const learningPathService = {
     http.put<LearningPathResponse>(`/admin/learning-paths/${pathId}`, request),
   deleteAdminTemplate: (pathId: number) =>
     http.delete<void>(`/admin/learning-paths/${pathId}`),
-  publishAdminTemplate: (pathId: number) =>
-    http.post<void>(`/admin/learning-paths/${pathId}/publish`),
-
-  // Admin node endpoints
-  getAdminNodes: (pathId: number) =>
-    http.get<LearningNodeResponse[]>(`/admin/learning-paths/${pathId}/nodes`),
+  getAdminTemplateGraph: (pathId: number) =>
+    http.get<LearningPathGraphResponse>(`/admin/learning-paths/${pathId}/graph`),
   createAdminNode: (request: CreateLearningNodeRequest) =>
     http.post<LearningNodeResponse>('/admin/learning-nodes', request),
-  updateAdminNode: (nodeId: number, request: UpdateLearningNodeRequest) =>
+  updateAdminNode: (nodeId: number, request: Partial<CreateLearningNodeRequest>) =>
     http.put<LearningNodeResponse>(`/admin/learning-nodes/${nodeId}`, request),
   deleteAdminNode: (nodeId: number) =>
     http.delete<void>(`/admin/learning-nodes/${nodeId}`),

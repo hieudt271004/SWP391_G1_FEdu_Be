@@ -1,0 +1,398 @@
+@startuml FEdu-ERD-Overview
+' =====================================================================
+'  FEdu — ERD tổng quát (overview)
+'  Nguồn chuẩn: fedu/fedudb_script.sql  (ddl-auto = none)
+'  Cập nhật: 2026-06-24
+'  Ghi chú:
+'    - Chỉ hiển thị TÊN thuộc tính (đã bỏ kiểu dữ liệu).
+'    - [PK] = khóa chính, [FK] = khóa ngoại.
+'    - Nhóm tô vàng (#FFF2CC) = lõi phân luồng.
+' =====================================================================
+!theme plain
+hide circle
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam nodesep 60
+skinparam ranksep 80
+
+' ---------------------------------------------------------------------
+package "1. Auth & Users" #E8F0FE {
+  entity "user_account" as user_account {
+    user_id [PK]
+    --
+    email
+    password
+    first_name / last_name
+    avatar_url
+    status
+    gender
+    bod
+    phone
+    is_deleted
+  }
+  entity "roles" as roles {
+    role_id [PK]
+    --
+    role_name
+  }
+  entity "user_role" as user_role {
+    user_role_id [PK]
+    --
+    user_id [FK]
+    role_id [FK]
+  }
+  entity "permissions" as permissions {
+    permission_id [PK]
+    --
+    permission_name
+    description
+  }
+  entity "role_permission" as role_permission {
+    role_permission_id [PK]
+    --
+    role_id [FK]
+    permission_id [FK]
+  }
+  entity "tokens" as tokens {
+    id [PK]
+    --
+    user_id [FK]
+    access_token / refresh_token / reset_token
+    expired_at
+    is_revoked
+  }
+}
+
+' ---------------------------------------------------------------------
+package "2. Academic structure" #E6F4EA {
+  entity "subjects" as subjects {
+    subject_id [PK]
+    --
+    subject_code
+    subject_name
+    description
+    learningpath_length
+    created_by [FK]
+    status
+    is_deleted
+  }
+  entity "classrooms" as classrooms {
+    classroom_id [PK]
+    --
+    class_name
+    semester
+    description
+    is_deleted
+  }
+  entity "classroom_subjects" as classroom_subjects {
+    id [PK]
+    --
+    classroom_id [FK]
+    subject_id [FK]
+    lecturer_id [FK]
+    id_quiz_start [FK]
+  }
+  entity "classroom_subject_students" as css {
+    id [PK]
+    --
+    classroom_subject_id [FK]
+    student_id [FK]
+    current_level
+    joined_at
+  }
+  entity "classroom_sub_mentor" as classroom_sub_mentor {
+    id [PK]
+    --
+    classroom_subject_id [FK]
+    sub_mentor_id [FK]
+    assigned_at
+  }
+}
+
+' ---------------------------------------------------------------------
+package "3. Learning graph (lộ trình)" #FFF2CC {
+  entity "learning_paths" as learning_paths {
+    path_id [PK]
+    --
+    subject_id [FK]
+    path_name
+    description
+    created_by [FK]
+    classroom_subject_id [FK]
+    original_path_id [FK]
+    published_at
+    published_by [FK]
+    is_deleted
+  }
+  entity "learning_nodes" as learning_nodes {
+    node_id [PK]
+    --
+    path_id [FK]
+    title
+    description
+    node_type
+    node_status
+    display_order
+    is_required
+    stage_order
+    level
+    test_kind
+    applies_levels
+    gate_up_min / gate_down_max
+    placement_yeu_max / placement_tb_max
+    is_deleted
+  }
+  entity "node_edges" as node_edges {
+    edge_id [PK]
+    --
+    from_node_id [FK]
+    to_node_id [FK]
+    min_score / max_score
+  }
+  entity "student_learning_routes" as student_learning_routes {
+    id [PK]
+    --
+    student_id [FK]
+    edge_id [FK]
+    assigned_by [FK]
+    assigned_at
+  }
+}
+
+' ---------------------------------------------------------------------
+package "4. Node content" #F3E8FD {
+  entity "node_materials" as node_materials {
+    material_id [PK]
+    --
+    node_id [FK]
+    title
+    required
+    order_index
+    is_deleted
+  }
+  entity "videos" as videos {
+    video_id [PK]
+    --
+    material_id [FK]
+    video_url
+    title
+    duration_seconds
+  }
+  entity "files" as files {
+    file_id [PK]
+    --
+    material_id [FK]
+    file_url
+    file_name
+    file_type
+  }
+}
+
+' ---------------------------------------------------------------------
+package "5. Tests & attempts" #FCE8E6 {
+  entity "tests" as tests {
+    test_id [PK]
+    --
+    node_id [FK]
+    title
+    duration_minutes
+    passing_percentage
+    order_index
+    is_deleted
+  }
+  entity "test_questions" as test_questions {
+    question_id [PK]
+    --
+    test_id [FK]
+    question_content
+    question_type
+    score
+  }
+  entity "test_answers" as test_answers {
+    answer_id [PK]
+    --
+    question_id [FK]
+    answer_content
+    is_correct
+  }
+  entity "student_test_attempts" as sta {
+    attempt_id [PK]
+    --
+    test_id [FK]
+    student_id [FK]
+    score
+    status
+    started_at / submitted_at
+  }
+  entity "student_test_responses" as str {
+    response_id [PK]
+    --
+    attempt_id [FK]
+    question_id [FK]
+    selected_answer_id [FK]
+    response_text
+    is_correct
+  }
+  entity "student_selected_answers" as ssa {
+    response_id [PK, FK]
+    answer_id [PK, FK]
+  }
+}
+
+' ---------------------------------------------------------------------
+package "6. Adaptive routing (phân luồng)" #FFF2CC {
+  entity "quiz_score_bands" as quiz_score_bands {
+    band_id [PK]
+    --
+    test_id [FK]
+    min_score / max_score
+    target_level
+  }
+  entity "student_node_progress" as snp {
+    progress_id [PK]
+    --
+    student_id [FK]
+    node_id [FK]
+    path_id [FK]
+    order_index
+    status
+    test_locked
+    unlocked_at / completed_at
+  }
+  entity "student_level_history" as slh {
+    id [PK]
+    --
+    student_id [FK]
+    classroom_subject_id [FK]
+    old_level
+    new_level
+    reason
+    changed_at
+  }
+}
+
+' ---------------------------------------------------------------------
+package "7. Interaction & support" #EAF2F8 {
+  entity "submissions" as submissions {
+    submission_id [PK]
+    --
+    node_id [FK]
+    student_id [FK]
+    graded_by [FK]
+    title
+    file_url
+    submission_status
+    grade
+    feedback
+  }
+  entity "node_questions" as node_questions {
+    question_id [PK]
+    --
+    node_id [FK]
+    student_id [FK]
+    content
+  }
+  entity "question_answers" as question_answers {
+    answer_id [PK]
+    --
+    question_id [FK]
+    lecturer_id [FK]
+    content
+  }
+  entity "node_reviews" as node_reviews {
+    review_id [PK]
+    --
+    node_id [FK]
+    student_id [FK]
+    rating
+    content
+  }
+  entity "support_tickets" as support_tickets {
+    ticket_id [PK]
+    --
+    classroom_subject_id [FK]
+    created_by [FK]
+    assigned_to [FK]
+    title
+    ticket_status
+    ticket_level
+  }
+  entity "ticket_comments" as ticket_comments {
+    comment_id [PK]
+    --
+    ticket_id [FK]
+    user_id [FK]
+    content
+  }
+}
+
+' ===================== Relationships =================================
+user_account ||--o{ user_role
+roles        ||--o{ user_role
+roles        ||--o{ role_permission
+permissions  ||--o{ role_permission
+user_account ||--o{ tokens
+user_account ||--o{ subjects
+
+classrooms          ||--o{ classroom_subjects
+subjects            ||--o{ classroom_subjects
+user_account        ||--o{ classroom_subjects : lecturer
+tests               ||--o| classroom_subjects : quiz_start
+classroom_subjects  ||--o{ css
+user_account        ||--o{ css : student
+classroom_subjects  ||--o{ classroom_sub_mentor
+user_account        ||--o{ classroom_sub_mentor : sub_mentor
+
+subjects           ||--o{ learning_paths
+classroom_subjects ||--o{ learning_paths : clone
+user_account       ||--o{ learning_paths : created/published
+learning_paths     ||--o{ learning_paths : original
+learning_paths     ||--o{ learning_nodes
+learning_nodes     ||--o{ node_edges : from
+learning_nodes     ||--o{ node_edges : to
+node_edges         ||--o{ student_learning_routes
+user_account       ||--o{ student_learning_routes : student
+
+learning_nodes ||--o{ node_materials
+node_materials ||--o{ videos
+node_materials ||--o{ files
+
+learning_nodes ||--o{ tests
+tests          ||--o{ test_questions
+test_questions ||--o{ test_answers
+tests          ||--o{ sta
+user_account   ||--o{ sta : student
+sta            ||--o{ str
+test_questions ||--o{ str
+test_answers   ||--o| str : selected
+str            ||--o{ ssa
+test_answers   ||--o{ ssa
+
+tests          ||--o{ quiz_score_bands
+user_account   ||--o{ snp : student
+learning_nodes ||--o{ snp
+learning_paths ||--o{ snp
+user_account       ||--o{ slh : student
+classroom_subjects ||--o{ slh
+
+learning_nodes ||--o{ submissions
+user_account   ||--o{ submissions : student/grader
+learning_nodes ||--o{ node_questions
+user_account   ||--o{ node_questions : student
+node_questions ||--o{ question_answers
+user_account   ||--o{ question_answers : lecturer
+learning_nodes ||--o{ node_reviews
+user_account   ||--o{ node_reviews : student
+classroom_subjects ||--o{ support_tickets
+user_account   ||--o{ support_tickets : creator/assignee
+support_tickets ||--o{ ticket_comments
+user_account   ||--o{ ticket_comments
+
+legend right
+  Nhóm tô vàng (#FFF2CC) = bảng lõi phân luồng (placement/gate/level).
+  [PK] = khóa chính, [FK] = khóa ngoại (đã bỏ kiểu dữ liệu, chỉ còn tên thuộc tính).
+  Quan hệ: ||--o{ = 1 — nhiều ; ||--o| = 1 — 0..1.
+endlegend
+
+@enduml

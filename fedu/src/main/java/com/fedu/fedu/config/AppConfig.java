@@ -50,6 +50,7 @@ public class AppConfig {
             "/auth/change-password",
             "/auth/refresh-token",
             "/auth/reset-all-passwords",
+            "/auth/setup-admin",
             "/public/about/**",
             "/uploads/**"
     };
@@ -64,7 +65,6 @@ public class AppConfig {
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/teacher/**").hasRole("TEACHER")
                                 .requestMatchers("/teacher-manage/**").hasRole("TEACHER")
-                                .requestMatchers("/student/sub-mentor/**").hasRole("SUB_MENTOR")
                                 .requestMatchers("/student/**").hasRole("STUDENT")
                                 .anyRequest().authenticated()
                 )

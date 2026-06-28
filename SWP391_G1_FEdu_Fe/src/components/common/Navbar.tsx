@@ -15,31 +15,31 @@ export function Navbar() {
   const { isAuthenticated } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-sm">
+    <header className="sticky top-0 z-50 bg-[#030213]/90 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-2.5 shrink-0"
+          className="flex items-center gap-2.5 shrink-0 cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-2xl flex items-center justify-center bg-blue-600 shadow-lg shadow-blue-500/20">
-            <BookOpen className="w-4 h-4 text-white" />
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-md shadow-blue-500/10 group-hover:scale-105 transition-all duration-300">
+            <BookOpen className="w-4.5 h-4.5" />
           </div>
-          <div className="text-left">
-            <div className="text-lg font-extrabold text-slate-900 tracking-tight">
-              F<span className="text-blue-700">Edu</span>
+          <div className="text-left font-sans">
+            <div className="text-base font-extrabold text-white tracking-tight">
+              FE<span className="bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent font-medium">du</span>
             </div>
           </div>
         </button>
-        <nav className="hidden md:flex items-center gap-3">
+        <nav className="hidden md:flex items-center gap-1.5">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.label}
               to={link.to}
               className={({ isActive }) =>
-                `px-4 py-2 rounded-2xl text-base font-medium transition-colors ${
+                `px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                   isActive
-                    ? "text-blue-600 bg-blue-50 font-semibold"
-                    : "text-slate-700 hover:bg-slate-100"
+                    ? "text-white bg-white/10 border border-white/10"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
                 }`
               }
             >
@@ -54,13 +54,13 @@ export function Navbar() {
             <>
               <button
                 onClick={() => navigate("/login")}
-                className="px-4 py-2 rounded-2xl text-slate-700 text-sm font-medium hover:bg-slate-100 transition-colors"
+                className="px-3.5 py-1.5 rounded-md text-slate-300 hover:text-white hover:bg-white/5 text-xs font-semibold transition-colors cursor-pointer"
               >
                 Đăng nhập
               </button>
               <button
                 onClick={() => navigate("/register")}
-                className="px-5 py-2 rounded-2xl text-white text-sm font-semibold bg-blue-600 hover:bg-blue-700 transition-colors"
+                className="px-4 py-1.5 rounded-md bg-white hover:bg-slate-100 text-[#030213] text-xs font-semibold transition-colors cursor-pointer"
               >
                 Đăng ký
               </button>
@@ -68,25 +68,25 @@ export function Navbar() {
           )}
         </div>
         <button
-          className="md:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-700"
+          className="md:hidden p-2 rounded-md hover:bg-white/5 text-slate-300 hover:text-white cursor-pointer"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
         </button>
       </div>
       {mobileOpen && (
-        <div className="md:hidden px-6 pb-4 space-y-3 border-t border-slate-200 bg-white">
+        <div className="md:hidden px-6 pb-4 space-y-3 border-t border-white/10 bg-[#030213]">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.label}
               to={link.to}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
-                `block w-full text-left px-4 py-2.5 rounded-lg text-[15px] transition-colors ${
+                `block w-full text-left px-3.5 py-2 rounded-md text-xs transition-colors ${
                   isActive
-                    ? "text-blue-600 bg-blue-50 font-semibold"
-                    : "text-slate-700 hover:bg-slate-100"
+                    ? "text-white bg-white/10 font-semibold border border-white/10"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
                 }`
               }
             >
@@ -100,13 +100,13 @@ export function Navbar() {
               <>
                 <button
                   onClick={() => navigate("/login")}
-                  className="w-full py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 text-base font-medium hover:bg-slate-50 transition-colors"
+                  className="w-full py-2 rounded-md border border-white/10 bg-white/5 text-slate-300 text-xs font-semibold hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   Đăng nhập
                 </button>
                 <button
                   onClick={() => navigate("/register")}
-                  className="w-full py-3 rounded-2xl bg-blue-600 text-white text-base font-semibold hover:bg-blue-700 transition-colors"
+                  className="w-full py-2 rounded-md bg-white text-[#030213] text-xs font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Đăng ký
                 </button>

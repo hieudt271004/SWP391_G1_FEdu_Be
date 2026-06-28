@@ -25,11 +25,12 @@ import { PrivacyPage } from '../pages/auth/privacy/PrivacyPage';
 import { DashboardPage } from '../pages/admin/DashboardPage';
 import { UserManagementPage } from '../pages/admin/UserManagementPage';
 import { UserDetailPage } from '../pages/admin/UserDetailPage';
-import { CourseManagementPage } from '../pages/admin/CourseManagementPage';
-import { AddCoursePage } from '../pages/admin/AddCoursePage';
-import { CourseDetailPage } from '../pages/admin/CourseDetailPage';
+import { SubjectManagementPage } from '../pages/admin/SubjectManagementPage';
+import { AddSubjectPage } from '../pages/admin/AddSubjectPage';
+import { SubjectDetailPage } from '../pages/admin/SubjectDetailPage';
 import { ClassListPage } from '../pages/admin/ClassListPage';
 import { ClassDetailPage } from '../pages/admin/ClassDetailPage';
+import { ClassroomSubjectDetailPage } from '../pages/admin/ClassroomSubjectDetailPage';
 import { AddClassPage } from '../pages/admin/AddClassPage';
 
 // Teacher pages
@@ -44,6 +45,13 @@ import { TeacherTicketsPage } from '../pages/teacher/tickets/TeacherTicketsPage'
 
 // Common pages
 import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
+
+// Student pages
+import { StudentDashboardPage } from '../pages/student/StudentDashboardPage';
+import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
+import { NodeTestPage } from '../pages/student/tests/NodeTestPage';
+import { PlacementPage } from '../pages/student/tests/PlacementPage';
+import { LevelHistoryPage } from '../pages/student/tests/LevelHistoryPage';
 
 
 // Removed UserDetailPageWrapper, using UserDetailPage directly
@@ -79,7 +87,11 @@ export function AppRoutes() {
                     </RoleRoute>
                 }
             >
-                <Route path="/student/dashboard" element={<div>Student Dashboard placeholder</div>} />
+                <Route path="/student/dashboard" element={<StudentDashboardPage />} />
+                <Route path="/student/courses" element={<StudentCoursesPage />} />
+                <Route path="/student/tests/:testId" element={<NodeTestPage />} />
+                <Route path="/student/classroom-subjects/:csId/placement" element={<PlacementPage />} />
+                <Route path="/student/classroom-subjects/:csId/level-history" element={<LevelHistoryPage />} />
             </Route>
 
             <Route
@@ -95,8 +107,8 @@ export function AppRoutes() {
                 <Route path="/teacher/courses/:subjectId" element={<CourseClassroomsPage />} />
                 <Route path="/teacher/classes" element={<TeacherClassesPage />} />
                 <Route path="/teacher/tickets" element={<TeacherTicketsPage />} />
-                <Route path="/teacher/classrooms/:classroomId" element={<ClassOverviewPage />} />
-                <Route path="/teacher/classrooms/:classroomId/manage" element={<ClassManagementPage />} />
+                <Route path="/teacher/classroom-subjects/:classroomSubjectId" element={<ClassOverviewPage />} />
+                <Route path="/teacher/classroom-subjects/:classroomSubjectId/manage" element={<ClassManagementPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
             </Route>
@@ -132,15 +144,16 @@ export function AppRoutes() {
                 <Route path="/admin/users/:id" element={<UserDetailPage onBack={() => window.history.back()} />} />
 
                 {/* Course management */}
-                <Route path="/admin/courses" element={<CourseManagementPage />} />
-                <Route path="/admin/courses/add" element={<AddCoursePage />} />
-                <Route path="/admin/courses/:id/edit" element={<AddCoursePage />} />
-                <Route path="/admin/courses/:id" element={<CourseDetailPage />} />
+                <Route path="/admin/subjects" element={<SubjectManagementPage />} />
+                <Route path="/admin/subjects/add" element={<AddSubjectPage />} />
+                <Route path="/admin/subjects/:id/edit" element={<AddSubjectPage />} />
+                <Route path="/admin/subjects/:id" element={<SubjectDetailPage />} />
 
                 {/* Class management */}
                 <Route path="/admin/classes" element={<ClassListPage />} />
                 <Route path="/admin/classes/add" element={<AddClassPage />} />
                 <Route path="/admin/classes/:id/edit" element={<AddClassPage />} />
+                <Route path="/admin/classes/:classroomId/subjects/:csId" element={<ClassroomSubjectDetailPage />} />
                 <Route path="/admin/classes/:id" element={<ClassDetailPage />} />
             </Route>
             {/* ─────────────────────────────────────────────────────── */}

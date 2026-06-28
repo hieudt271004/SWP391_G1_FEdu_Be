@@ -23,4 +23,7 @@ public class CreateNodeMaterialRequest {
     private String fileName;
     private String fileType;
     private String fileDescription;
+    // Cloudinary: id asset + resource_type (để quản lý vòng đời file)
+    private String publicId;
+    private String resourceType;
 }

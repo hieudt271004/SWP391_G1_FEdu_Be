@@ -37,43 +37,43 @@ export function UserMenu() {
   };
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="relative font-sans">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-100 transition-colors"
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-white/5 text-slate-300 hover:text-white transition-colors cursor-pointer"
       >
         {user.avatarUrl ? (
           <img
             src={user.avatarUrl}
             alt={fullName}
-            className="w-8 h-8 rounded-full object-cover"
+            className="w-8 h-8 rounded-full object-cover border border-white/10"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
+          <div className="w-8 h-8 rounded-md bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-blue-500/10">
             {initials || "U"}
           </div>
         )}
 
-        <span className="hidden md:block text-sm font-medium text-gray-700 max-w-[120px] truncate">
+        <span className="hidden md:block text-xs font-semibold text-slate-300 max-w-[120px] truncate">
           {user.firstName}
         </span>
 
         <ChevronDown
-          className={`w-4 h-4 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-          // User info
-          <div className="px-4 py-3 border-b border-gray-100">
-            <div className="font-semibold text-gray-900 truncate">{fullName}</div>
-            <div className="text-xs text-gray-500 truncate">{user.email}</div>
-            <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="absolute right-0 mt-2 w-64 bg-[#030213] rounded-md shadow-xl border border-white/10 overflow-hidden z-50">
+          {/* User info */}
+          <div className="px-4 py-3 border-b border-white/10 bg-white/5">
+            <div className="font-semibold text-xs text-white truncate">{fullName}</div>
+            <div className="text-[10px] text-slate-400 truncate mt-0.5">{user.email}</div>
+            <div className="mt-2.5 flex flex-wrap gap-1">
               {user.roles.map((role) => (
                 <span
                   key={role}
-                  className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700"
+                  className="inline-block px-2 py-0.5 rounded-sm text-[8px] font-bold bg-white/10 text-slate-300 border border-white/10 uppercase tracking-wider"
                 >
                   {role}
                 </span>
@@ -81,29 +81,29 @@ export function UserMenu() {
             </div>
           </div>
 
-          <div className="py-1">
+          <div className="py-1 bg-[#030213]">
             <button
               onClick={() => handleNavigate("/student/profile")}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-slate-300 hover:text-white hover:bg-white/5 text-left transition-colors cursor-pointer"
             >
-              <UserIcon className="w-4 h-4 text-gray-500" />
-              Hồ sơ
+              <UserIcon className="w-3.5 h-3.5 text-slate-400" />
+              Hồ sơ của tôi
             </button>
             <button
               onClick={() => handleNavigate("/student/dashboard")}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-slate-300 hover:text-white hover:bg-white/5 text-left transition-colors cursor-pointer"
             >
-              <BookOpen className="w-4 h-4 text-gray-500" />
+              <BookOpen className="w-3.5 h-3.5 text-slate-400" />
               Môn học của tôi
             </button>
           </div>
 
-          <div className="border-t border-gray-100 py-1">
+          <div className="border-t border-white/10 py-1 bg-[#030213]">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-500/10 text-left transition-colors cursor-pointer"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
               Đăng xuất
             </button>
           </div>

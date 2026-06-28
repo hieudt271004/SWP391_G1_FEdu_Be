@@ -1,5 +1,6 @@
 package com.fedu.fedu.dto.req;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
 import lombok.Data;
@@ -17,4 +18,7 @@ public class SubjectRequest {
     private String description;
 
     private String status;
+
+    @Min(value = 1, message = "Learning path length must be at least 1")
+    private Integer learningpathLength;
 }

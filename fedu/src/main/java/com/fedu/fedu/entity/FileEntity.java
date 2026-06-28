@@ -34,9 +34,18 @@ public class FileEntity extends AbstractEntity<Long> {
     @Column(name = "file_type")
     private String fileType;
 
+    // id asset trên Cloudinary; null = file không thuộc Cloudinary.
+    @Column(name = "public_id")
+    private String publicId;
+
+    // Cloudinary resource_type: image / raw / video — cần để gọi destroy đúng loại
+    @Column(name = "resource_type")
+    private String resourceType;
+
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 }

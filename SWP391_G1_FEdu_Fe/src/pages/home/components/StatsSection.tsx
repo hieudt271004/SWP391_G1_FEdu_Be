@@ -18,73 +18,67 @@ export function StatsSection() {
   });
 
   useEffect(() => {
+    let isMounted = true;
     http.get<StatsData>("/public/about/stats")
       .then((data) => {
+        if (!isMounted) return;
         if (data) {
           setStats(data);
         }
       })
       .catch((err) => {
+        if (!isMounted) return;
         console.error("Lỗi lấy dữ liệu thống kê từ DB, sử dụng dữ liệu mặc định:", err);
       });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const statsItems = [
     {
       icon: Users,
-      value: stats.totalStudents > 0 ? `${stats.totalStudents}+` : "0",
-      label: "Sinh viên",
-      bg: "bg-blue-50",
-      color: "text-blue-700",
+      value: `${stats.totalStudents}+`,
+      label: "Sinh viên tin dùng",
     },
     {
       icon: BookOpen,
-      value: stats.totalSubjects > 0 ? `${stats.totalSubjects}` : "0",
-      label: "Môn học",
-      bg: "bg-blue-50",
-      color: "text-blue-700",
+      value: `${stats.totalSubjects}+`,
+      label: "Môn học được giảng dạy",
     },
     {
       icon: GraduationCap,
-      value: stats.totalClassrooms > 0 ? `${stats.totalClassrooms}` : "0",
-      label: "Lớp học hiện hành",
-      bg: "bg-blue-50",
-      color: "text-blue-700",
+      value: `${stats.totalClassrooms}+`,
+      label: "Lớp học đã mở",
     },
     {
       icon: Sparkles,
       value: "95%",
       label: "Đánh giá tích cực",
-      bg: "bg-amber-50",
-      color: "text-amber-600",
     },
   ];
 
   return (
-    <section className="bg-slate-50 py-20">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="mb-10 text-center">
-          <div className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500 mb-3">
-            Kết quả FEdu
-          </div>
-          <h2 className="text-3xl font-extrabold text-slate-900 md:text-4xl">
-            Những con số tạo nên niềm tin
-          </h2>
+    <section className="bg-[#030213] border-y border-white/10 py-16 font-sans text-white relative overflow-hidden">
+      <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-blue-500/5 blur-[80px] pointer-events-none" />
+      
+      <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-10 items-center relative">
+        <div className="space-y-3">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kết quả FEdu</span>
+          <h2 className="text-2xl font-bold text-white leading-tight">Những con số<br />tạo nên niềm tin</h2>
         </div>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4">
           {statsItems.map((stat) => {
             const Icon = stat.icon;
             return (
-              <div
-                key={stat.label}
-                className="rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-              >
-                <div className={`mx-auto mb-5 inline-flex h-14 w-14 items-center justify-center rounded-3xl ${stat.bg}`}>
-                  <Icon className={`h-7 w-7 ${stat.color}`} />
+              <div key={stat.label} className="p-5 rounded-md border border-white/10 bg-white/5 flex items-center gap-4 hover:border-white/20 transition-all duration-300">
+                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-white/10 text-white shrink-0 border border-white/5">
+                  <Icon className="h-4.5 w-4.5" />
                 </div>
-                <div className="text-3xl font-extrabold text-slate-900 mb-2">{stat.value}</div>
-                <div className="text-sm text-slate-500">{stat.label}</div>
+                <div>
+                  <div className="text-xl font-bold text-white tracking-tight leading-none">{stat.value}</div>
+                  <div className="text-[10px] font-medium text-slate-400 mt-2.5 leading-none">{stat.label}</div>
+                </div>
               </div>
             );
           })}

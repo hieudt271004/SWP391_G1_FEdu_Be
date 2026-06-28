@@ -1,0 +1,224 @@
+' =====================================================================
+'  FEdu — PLAN tối ưu phân luồng (placement / gate / free-choice)
+'  Tạo: 2026-06-24   — để review trước khi code
+'  File gồm 4 sơ đồ (mỗi @startuml render 1 ảnh):
+'    (1) Luồng HIỆN TẠI + vấn đề
+'    (2) Luồng ĐỀ XUẤT (P0 + P1)
+'    (3) State machine tiến độ node (mô hình routing)
+'    (4) Thay đổi cấu trúc đề xuất (P1/P2/P3)
+'  Mức ưu tiên:  P0 = sửa bug (an toàn)  |  P1 = tối ưu query
+'                P2 = làm tường minh cạnh |  P3 = refactor tất định
+' =====================================================================
+
+' ====================================================================
+' (1) HIỆN TẠI — submitTestAttempt: query khuếch đại + thiếu idempotency
+' ====================================================================
+@startuml 1-current-flow
+title (1) HIỆN TẠI — nộp bài & phân luồng (các vấn đề)
+autonumber
+skinparam shadowing false
+actor Student
+participant "StudentTestController" as Ctrl
+participant "StudentTestServiceImpl" as STS
+participant "LevelRoutingServiceImpl" as LRS
+database "PostgreSQL" as DB
+
+Student -> Ctrl : POST submit(testId, attemptId)
+Ctrl -> STS : submitTestAttempt(...)
+STS -> DB : findById test, findById attempt
+note over STS #FFCDD2
+  <b>P0 — THIẾU kiểm tra AttemptStatus</b>
+  Không chặn nộp lại attempt đã SUBMITTED.
+  Nộp lại ⇒ chấm lại + trùng StudentTestResponse
+  + chạy lại routing. Với GATE: đổi mức ±1 LẶP
+  và ghi thêm StudentLevelHistory mỗi lần.
+end note
+
+STS -> DB : gradeAttempt: load questions
+loop mỗi câu hỏi
+  STS -> DB : save StudentTestResponse (lưu từng dòng)
+end
+
+alt node.testKind == GATE
+  STS -> STS : routeGateNode()
+  STS -> DB : getProgress() = load TẤT CẢ progress
+  STS -> LRS : applyGateRouting()
+  LRS -> DB : load progress + css + history
+  LRS -> DB : reopenBranchNodesForLevel()
+  loop mỗi node nhánh
+    LRS -> DB : findByToNodeNodeId(node)
+  end
+else node thường
+  STS -> STS : routeMainNode()/routeSubNode()
+  STS -> DB : getProgress() (lặp lại)
+  STS -> STS : openMainTargetIfEligible()
+  STS -> DB : checkIncomingPrerequisites() = load TẤT CẢ progress (lại)
+end
+
+note over STS, DB #FFCDD2
+  <b>P1 — KHUẾCH ĐẠI QUERY</b>
+  1 lần nộp: ~5–10 lần load full progress-list
+  + N+1 trên node_edges (mỗi node 1 query).
+  getProgress() load cả list rồi lọc 1 node trong RAM.
+end note
+@enduml
+
+
+' ====================================================================
+' (2) ĐỀ XUẤT — context nạp 1 lần + idempotency guard
+' ====================================================================
+@startuml 2-proposed-flow
+title (2) ĐỀ XUẤT — load-once context + chặn double-submit
+autonumber
+skinparam shadowing false
+actor Student
+participant "StudentTestController" as Ctrl
+participant "StudentTestServiceImpl" as STS
+participant "RoutingContext\n(in-memory)" as CTX
+participant "LevelRoutingServiceImpl" as LRS
+database "PostgreSQL" as DB
+
+Student -> Ctrl : POST submit(testId, attemptId)
+Ctrl -> STS : submitTestAttempt(...)
+STS -> DB : findById test, findById attempt
+
+group P0 — Idempotency (sửa bug, ~vài dòng)
+  STS -> STS : assertInProgress(attempt)
+  note right of STS #C8E6C9
+    if status != IN_PROGRESS
+      throw InvalidDataException
+    Áp cho submitTestAttempt /
+    submitForGrading / submitPlacement.
+  end note
+end
+
+group P1 — Nạp context 1 lần
+  STS -> DB : load progressList + edges(path) MỘT lần
+  STS -> CTX : build( Map<nodeId, progress>,\n outgoing/incoming edge maps, level )
+  note right of CTX #C8E6C9
+    Truyền CTX qua mọi hàm route*/open/checkPrereq
+    thay vì để mỗi hàm tự query lại.
+    Bỏ N+1: getProgress/checkPrereq/reopen
+    đọc trên CTX, không chạm DB.
+  end note
+end
+
+STS -> STS : gradeAttempt(ctx) — gom saveAll(responses)
+STS -> STS : route theo testKind (GATE / FREE_CHOICE / NONE)
+STS -> LRS : applyGate/FreeChoice(ctx)  '' đổi mức trên css
+STS -> STS : recomputeOpenState(ctx)  '' (xem P3)
+STS -> DB : saveAll(progress) — 1 lần
+
+note over STS, DB #C8E6C9
+  Mục tiêu: ~2–3 query / lần nộp (thay vì chục).
+  Routing thành thao tác thuần trên context.
+end note
+@enduml
+
+
+' ====================================================================
+' (3) STATE MACHINE — vòng đời StudentNodeProgress (mô hình routing)
+' ====================================================================
+@startuml 3-progress-state
+title (3) Tiến độ node học sinh — state machine (cần đồng thuận trước khi refactor)
+skinparam shadowing false
+state "LOCKED" as L
+state "OPEN" as O
+state "IN_PROGRESS" as P
+state "COMPLETED" as C
+
+[*] --> L : backfill sau placement\n(entry node mức HS ⇒ OPEN)
+[*] --> O : entry node, đúng mức, AT_HOME
+
+L --> O : đủ tiên quyết (cạnh chính COMPLETED)\nhoặc GV mở ON_CLASS\nhoặc đổi mức mở nhánh mới
+O --> P : start làm bài / học
+P --> C : đậu test + allNodeTestsPassed
+O --> C : node không test, hoàn thành
+C --> [*]
+
+O --> L : đổi mức (gate/free-choice)\nkhóa nhánh mức cũ chưa xong
+P --> L : đổi mức — khóa nhánh mức cũ
+
+note right of P #FFF3CD
+  <b>test_locked</b> (cờ phụ, không phải state):
+  - trượt + có nhánh phụ ⇒ test_locked=true,
+    mở nhánh phụ #1
+  - đạt nhánh phụ #1 ⇒ test_locked=false
+    (được làm lại test node chính)
+end note
+
+note bottom of C #FFF3CD
+  COMPLETED là chốt: reopen-by-level
+  KHÔNG hạ trạng thái node đã hoàn thành.
+end note
+@enduml
+
+
+' ====================================================================
+' (4) CẤU TRÚC ĐỀ XUẤT — class diagram (P1/P2/P3)
+' ====================================================================
+@startuml 4-proposed-structure
+title (4) Thay đổi cấu trúc đề xuất
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+
+class StudentTestServiceImpl {
+  +submitTestAttempt() : guard P0
+  -gradeAttempt(ctx)
+  -route(ctx, node, kind)
+}
+
+class RoutingContext <<P1 new>> #C8E6C9 {
+  -Map<Long,StudentNodeProgress> byNode
+  -Map<Long,List<NodeEdge>> outgoing
+  -Map<Long,List<NodeEdge>> incoming
+  -int level
+  +progress(nodeId)
+  +outEdges(nodeId)
+  +inEdges(nodeId)
+  +dirty() : Set<progress>
+}
+note right of RoutingContext #C8E6C9
+  Nạp 1 lần từ:
+  - findByStudentUserIdAndLearningPathPathId
+  - findByFromNodeLearningPathPathId (edges)
+  Mọi route*/open/checkPrereq đọc ở đây.
+end note
+
+class NodeEdge {
+  +minScore : BigDecimal
+  +maxScore : BigDecimal
+  +edgeKind : EdgeKind <<P2 new>>
+}
+enum EdgeKind <<P2 new>> #FFE0B2 {
+  MAIN
+  REMEDIAL
+}
+note bottom of EdgeKind #FFE0B2
+  P2: thay quy ước ngầm "maxScore != null ⇒ nhánh phụ"
+  bằng cột tường minh edge_kind (cập nhật fedudb_script.sql).
+end note
+
+class NodeProgressRecalculator <<P3 optional>> #D1C4E9 {
+  +recompute(ctx) : void
+}
+note bottom of NodeProgressRecalculator #D1C4E9
+  P3: hàm THUẦN tính lại OPEN/LOCKED cho toàn path
+  từ trạng thái hiện tại (giống deterministic
+  computeDesiredEdges/rewireAll ở editor).
+  Thay "đột biến tăng dần" rải rác ⇒ dễ unit-test,
+  hết edge-case kẹt khi đổi mức giữa chừng.
+end note
+
+class LevelRoutingServiceImpl {
+  +applyGateRouting(ctx)
+  +applyFreeChoiceRouting(ctx)
+  -reopenBranchNodesForLevel(ctx)  '' bỏ N+1
+}
+
+StudentTestServiceImpl --> RoutingContext : build & pass
+StudentTestServiceImpl --> LevelRoutingServiceImpl
+LevelRoutingServiceImpl ..> RoutingContext : reads/writes
+StudentTestServiceImpl ..> NodeProgressRecalculator : (P3)
+NodeEdge --> EdgeKind
+@enduml

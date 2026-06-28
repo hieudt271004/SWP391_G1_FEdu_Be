@@ -27,14 +27,8 @@ GRANT ALL ON SCHEMA public TO public;
 
 --------------------------------------------------------------------------------------------
 
-CREATE TYPE e_role AS ENUM ('ADMIN', 'TEACHER', 'STUDENT', 'SUB_MENTOR', 'USER');
-CREATE TYPE e_user_status AS ENUM ('ACTIVE', 'INACTIVE', 'NONE');
-CREATE TYPE e_gender AS ENUM ('MALE', 'FEMALE', 'OTHER');
-CREATE TYPE e_node_type AS ENUM ('AT_HOME', 'ON_CLASS');
-CREATE TYPE e_node_status AS ENUM ('LOCKED', 'OPEN', 'HIDDEN');
-CREATE TYPE e_submission_status AS ENUM ('PENDING', 'SUBMITTED', 'LATE', 'GRADED');
-CREATE TYPE e_ticket_status AS ENUM ('OPEN', 'PROCESSING', 'RESOLVED', 'CLOSED');
-CREATE TYPE e_ticket_level AS ENUM ('SUB_MENTOR', 'LECTURER');
+-- Enum lưu dạng VARCHAR (entity map @Enumerated(EnumType.STRING)); KHÔNG dùng Postgres named enum
+-- (named enum cần CREATE TYPE thủ công, vỡ trên DB mới). Giá trị hợp lệ ghi ở comment từng cột.
 
 CREATE TABLE IF NOT EXISTS user_account (
                                             user_id    BIGSERIAL PRIMARY KEY,
@@ -44,8 +38,8 @@ CREATE TABLE IF NOT EXISTS user_account (
                                             first_name VARCHAR(255) NOT NULL,
                                             avatar_url TEXT,
                                             is_deleted BOOLEAN DEFAULT FALSE,
-                                            status     e_user_status NOT NULL DEFAULT 'ACTIVE',
-                                            gender     e_gender,
+                                            status     VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE/INACTIVE/NONE
+                                            gender     VARCHAR(10), -- MALE/FEMALE/OTHER
                                             bod        DATE,
                                             phone      VARCHAR(50),
                                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -54,7 +48,7 @@ CREATE TABLE IF NOT EXISTS user_account (
 
 CREATE TABLE IF NOT EXISTS roles (
                                      role_id    BIGSERIAL PRIMARY KEY,
-                                     role_name  e_role NOT NULL UNIQUE,
+                                     role_name  VARCHAR(20) NOT NULL UNIQUE, -- ADMIN/TEACHER/STUDENT/SUB_MENTOR/USER
                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -99,8 +93,10 @@ CREATE TABLE IF NOT EXISTS subjects (
                                         subject_code VARCHAR(50) UNIQUE NOT NULL,
                                         subject_name VARCHAR(255) NOT NULL,
                                         description  TEXT,
+                                        learningpath_length INT,
                                         created_by   BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                         is_deleted   BOOLEAN DEFAULT FALSE,
+                                        status       VARCHAR(50) NOT NULL DEFAULT 'draft',
                                         created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                         updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -110,6 +106,7 @@ CREATE TABLE IF NOT EXISTS classrooms (
                                           class_name   VARCHAR(255) NOT NULL UNIQUE,
                                           semester     VARCHAR(50),
                                           description  TEXT,
+                                          status       VARCHAR(50) NOT NULL DEFAULT 'inactive',
                                           is_deleted   BOOLEAN DEFAULT FALSE,
                                           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                           updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -120,6 +117,7 @@ CREATE TABLE IF NOT EXISTS classroom_subjects (
                                                   classroom_id BIGINT NOT NULL REFERENCES classrooms(classroom_id) ON DELETE CASCADE,
                                                   subject_id   BIGINT NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
                                                   lecturer_id  BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                                  id_quiz_start BIGINT, -- FK -> tests(test_id) added after tests table
                                                   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                   updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                   UNIQUE(classroom_id, subject_id)
@@ -129,20 +127,24 @@ CREATE TABLE IF NOT EXISTS classroom_subject_students (
                                                           id                   BIGSERIAL PRIMARY KEY,
                                                           classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
                                                           student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                                          current_level        INT,
+                                                          is_submentor         BOOLEAN NOT NULL DEFAULT FALSE,
                                                           joined_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           UNIQUE(classroom_subject_id, student_id)
 );
 
-CREATE TABLE IF NOT EXISTS classroom_sub_mentor (
-                                                    id                   BIGSERIAL PRIMARY KEY,
-                                                    classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
-                                                    sub_mentor_id        BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-                                                    assigned_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                    updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                    UNIQUE(classroom_subject_id, sub_mentor_id)
+-- Bảng ánh xạ sub-mentor (CSS) → học sinh (CSS) trong cùng lớp-môn (peer mentoring)
+CREATE TABLE IF NOT EXISTS sub_mentor_student_assignment (
+    id                   BIGSERIAL PRIMARY KEY,
+    sub_mentor_css_id    BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
+    student_css_id       BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
+    assigned_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(sub_mentor_css_id, student_css_id),
+    CHECK (sub_mentor_css_id <> student_css_id)
 );
 
 CREATE TABLE IF NOT EXISTS learning_paths (
@@ -151,8 +153,7 @@ CREATE TABLE IF NOT EXISTS learning_paths (
                                               path_name        VARCHAR(255) NOT NULL,
                                               description      TEXT,
                                               created_by       BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
-                                              classroom_id     BIGINT REFERENCES classrooms(classroom_id) ON DELETE CASCADE,
-                                              original_path_id BIGINT REFERENCES learning_paths(path_id) ON DELETE SET NULL,
+                                              classroom_subject_id BIGINT REFERENCES classroom_subjects(id) ON DELETE CASCADE,
                                               is_deleted       BOOLEAN DEFAULT FALSE,
                                               published_at     TIMESTAMP NULL,
                                               published_by     BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
@@ -165,11 +166,18 @@ CREATE TABLE IF NOT EXISTS learning_nodes (
                                               path_id       BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
                                               title         VARCHAR(255) NOT NULL,
                                               description   TEXT,
-                                              node_type     e_node_type NOT NULL,
-                                              node_status   e_node_status NOT NULL DEFAULT 'LOCKED',
+                                              node_type     VARCHAR(20) NOT NULL, -- AT_HOME/ON_CLASS
+                                              node_status   VARCHAR(20) NOT NULL DEFAULT 'LOCKED', -- LOCKED/OPEN/HIDDEN
                                               display_order INT NOT NULL DEFAULT 0,
                                               is_required   BOOLEAN NOT NULL DEFAULT TRUE,
-                                              branch_name   VARCHAR(100),
+                                              stage_order   INT, -- chặng thứ mấy (1..subjects.learningpath_length)
+                                              level         INT, -- null = node chung; 1=yếu,2=tb,3=khá
+                                              test_kind     VARCHAR(20) DEFAULT 'NONE', -- NONE/GATE/PLACEMENT/FREE_CHOICE
+                                              applies_levels    VARCHAR(20),    -- mức làm test phân luồng (vd "1,2")
+                                              gate_up_min       DECIMAL(5,2),   -- GATE: >= -> lên nhánh
+                                              gate_down_max     DECIMAL(5,2),   -- GATE: <= -> xuống nhánh
+                                              placement_yeu_max DECIMAL(5,2),   -- PLACEMENT: <= -> Yếu
+                                              placement_tb_max  DECIMAL(5,2),   -- PLACEMENT: <= -> TB, còn lại Khá
                                               is_deleted    BOOLEAN DEFAULT FALSE,
                                               created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                               updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -179,9 +187,6 @@ CREATE TABLE IF NOT EXISTS node_edges (
                                           edge_id      BIGSERIAL PRIMARY KEY,
                                           from_node_id BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
                                           to_node_id   BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
-                                          branch_name  VARCHAR(100),
-                                          min_score    DECIMAL(5,2),
-                                          max_score    DECIMAL(5,2),
                                           created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                           UNIQUE(from_node_id, to_node_id)
 );
@@ -223,15 +228,32 @@ CREATE TABLE IF NOT EXISTS files (
                                      file_url    TEXT NOT NULL,
                                      file_name   VARCHAR(255),
                                      file_type   VARCHAR(100),
+                                     public_id     VARCHAR(255), -- id asset trên Cloudinary (để xóa khi xóa material)
+                                     resource_type VARCHAR(20),  -- image/raw/video (Cloudinary resource_type)
                                      description TEXT,
                                      is_deleted  BOOLEAN DEFAULT FALSE,
                                      created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Bài tập thực hành: một THÀNH PHẦN của node (song song material/test).
+-- Học sinh làm tự luận (text) và/hoặc nộp file. order_index xếp xen material/test.
+CREATE TABLE IF NOT EXISTS node_exercises (
+                                              exercise_id  BIGSERIAL PRIMARY KEY,
+                                              node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                              title        VARCHAR(255) NOT NULL,
+                                              instructions TEXT,
+                                              allow_text   BOOLEAN DEFAULT TRUE,
+                                              allow_file   BOOLEAN DEFAULT TRUE,
+                                              order_index  INT,
+                                              is_deleted   BOOLEAN DEFAULT FALSE,
+                                              created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                              updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS tests (
                                      test_id            BIGSERIAL PRIMARY KEY,
-                                     node_id            BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                     node_id            BIGINT REFERENCES learning_nodes(node_id) ON DELETE CASCADE, -- NULL: quiz phân loại (placement) không gắn node
                                      title              VARCHAR(255) NOT NULL,
                                      description        TEXT,
                                      duration_minutes   INT,
@@ -266,6 +288,7 @@ CREATE TABLE IF NOT EXISTS student_test_attempts (
                                                      test_id      BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
                                                      student_id   BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                      score        DECIMAL(5,2),
+                                                     status       VARCHAR(20) DEFAULT 'SUBMITTED', -- IN_PROGRESS | SUBMITTED | CANCELLED (placement cancel/retake)
                                                      started_at   TIMESTAMP,
                                                      submitted_at TIMESTAMP,
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -292,7 +315,7 @@ CREATE TABLE IF NOT EXISTS student_selected_answers (
 
 CREATE TABLE IF NOT EXISTS student_node_progress (
                                                      progress_id  BIGSERIAL PRIMARY KEY,
-                                                     student_id   BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                                     classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE, -- ghi danh (student + lớp-môn + current_level)
                                                      node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
                                                      path_id      BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
                                                      order_index  INT NOT NULL DEFAULT 0,
@@ -301,18 +324,19 @@ CREATE TABLE IF NOT EXISTS student_node_progress (
                                                      completed_at TIMESTAMP,
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                     UNIQUE(student_id, node_id, path_id)
+                                                     UNIQUE(classroom_subject_student_id, node_id, path_id)
 );
 
 CREATE TABLE IF NOT EXISTS submissions (
                                            submission_id     BIGSERIAL PRIMARY KEY,
                                            node_id           BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                           exercise_id       BIGINT REFERENCES node_exercises(exercise_id) ON DELETE CASCADE,
                                            student_id        BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                            graded_by         BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
                                            title             VARCHAR(255),
                                            content           TEXT,
                                            file_url          TEXT,
-                                           submission_status e_submission_status DEFAULT 'PENDING',
+                                           submission_status VARCHAR(20) DEFAULT 'PENDING', -- PENDING/SUBMITTED/LATE/GRADED
                                            grade             DECIMAL(5,2),
                                            feedback          TEXT,
                                            is_deleted        BOOLEAN DEFAULT FALSE,
@@ -337,6 +361,7 @@ CREATE TABLE IF NOT EXISTS question_answers (
                                                 question_id BIGINT NOT NULL REFERENCES node_questions(question_id) ON DELETE CASCADE,
                                                 lecturer_id BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                 content     TEXT NOT NULL,
+                                                is_deleted  BOOLEAN DEFAULT FALSE,
                                                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                 updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -353,27 +378,16 @@ CREATE TABLE IF NOT EXISTS node_reviews (
                                             UNIQUE(student_id, node_id)
 );
 
+-- Support ticket theo mô hình peer-mentoring: student → sub-mentor → (leo thang) → lecturer
 CREATE TABLE IF NOT EXISTS support_tickets (
-                                               ticket_id            BIGSERIAL PRIMARY KEY,
-                                               classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
-                                               created_by           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-                                               assigned_to          BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
-                                               title                VARCHAR(255) NOT NULL,
-                                               description          TEXT NOT NULL,
-                                               ticket_status        e_ticket_status DEFAULT 'OPEN',
-                                               ticket_level         e_ticket_level DEFAULT 'SUB_MENTOR',
-                                               is_deleted           BOOLEAN DEFAULT FALSE,
-                                               created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                               updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS ticket_comments (
-                                               comment_id BIGSERIAL PRIMARY KEY,
-                                               ticket_id  BIGINT NOT NULL REFERENCES support_tickets(ticket_id) ON DELETE CASCADE,
-                                               user_id    BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-                                               content    TEXT NOT NULL,
-                                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ticket_id                      BIGSERIAL PRIMARY KEY,
+    classroom_subject_student_id   BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
+    message_student                TEXT NOT NULL,
+    message_response               TEXT,
+    status                         VARCHAR(20) NOT NULL DEFAULT 'NONE', -- NONE / DONE / SEND
+    is_deleted                     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at                     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at                     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO roles(role_name) VALUES ('ADMIN') ON CONFLICT (role_name) DO NOTHING;
@@ -382,8 +396,41 @@ INSERT INTO roles(role_name) VALUES ('STUDENT') ON CONFLICT (role_name) DO NOTHI
 INSERT INTO roles(role_name) VALUES ('SUB_MENTOR') ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO roles(role_name) VALUES ('USER') ON CONFLICT (role_name) DO NOTHING;
 
+-- Adaptive placement learning path: tests.node_id nullable (placement quiz không gắn node)
+ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL;
+
+-- FK classroom_subjects.id_quiz_start -> tests (added after tests table exists)
+ALTER TABLE classroom_subjects
+    ADD CONSTRAINT fk_classroom_subjects_quiz_start
+    FOREIGN KEY (id_quiz_start) REFERENCES tests(test_id) ON DELETE SET NULL;
+
+-- Khoảng điểm quiz (placement + cổng test) do giảng viên cấu hình
+CREATE TABLE IF NOT EXISTS quiz_score_bands (
+    band_id      BIGSERIAL PRIMARY KEY,
+    test_id      BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
+    min_score    DECIMAL(5,2) NOT NULL,
+    max_score    DECIMAL(5,2) NOT NULL,
+    target_level INT NOT NULL, -- 1=yếu, 2=tb, 3=khá
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Lịch sử thay đổi mức năng lực của học sinh
+CREATE TABLE IF NOT EXISTS student_level_history (
+    id                   BIGSERIAL PRIMARY KEY,
+    student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+    classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
+    old_level            INT,
+    new_level            INT NOT NULL,
+    reason               VARCHAR(50) NOT NULL, -- PLACEMENT | GATE | RETAKE | FREE_CHOICE
+    changed_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance and uniqueness
-CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_path ON learning_paths(classroom_id) WHERE classroom_id IS NOT NULL AND is_deleted = FALSE;
+-- Mỗi lớp-môn chỉ có TỐI ĐA 1 lộ trình clone đang hoạt động (mô hình 1-path; cột level đã bỏ).
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_path ON learning_paths(classroom_subject_id) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE;
 CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id);
 CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id);
 CREATE INDEX IF NOT EXISTS idx_snp_path_status ON student_node_progress(path_id, status);
+CREATE INDEX IF NOT EXISTS idx_quiz_score_bands_test ON quiz_score_bands(test_id);
+CREATE INDEX IF NOT EXISTS idx_slh_student_cs ON student_level_history(student_id, classroom_subject_id);

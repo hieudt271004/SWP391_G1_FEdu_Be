@@ -29,7 +29,7 @@ export function AdminLayout() {
   const menuItems = [
     { icon: Home, label: "Tổng quan", path: "/admin/dashboard" },
     { icon: Users, label: "Quản lý Người dùng", path: "/admin/users" },
-    { icon: BookOpen, label: "Quản lý Môn học", path: "/admin/courses" },
+    { icon: BookOpen, label: "Quản lý Môn học", path: "/admin/subjects" },
     { icon: GraduationCap, label: "Quản lý Lớp học", path: "/admin/classes" },
   ];
 
@@ -58,7 +58,7 @@ export function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50 overflow-hidden relative">
+    <div className="min-h-screen flex bg-white overflow-hidden relative" style={{ fontFamily: "Outfit, sans-serif" }}>
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -71,18 +71,18 @@ export function AdminLayout() {
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50 w-64
-          bg-slate-900 text-slate-300 flex flex-col shrink-0
+          bg-[#030213] text-slate-300 flex flex-col shrink-0
           transform transition-transform duration-300 ease-in-out
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
         {/* Logo */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={logo} alt="FEdu Logo" className="w-10 h-10 rounded-lg object-cover" />
             <div>
               <div className="text-sm font-bold text-white leading-tight">
-                F<span className="text-indigo-400">Edu</span> Learning
+                F<span style={{ color: "#ececf0" }}>Edu</span> Learning
               </div>
               <div className="text-[10px] text-slate-500">Admin Portal</div>
             </div>
@@ -113,11 +113,12 @@ export function AdminLayout() {
                   navigate(item.path);
                   setSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer border-0 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 transition-all duration-200 cursor-pointer border-0 ${
                   active
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10 font-bold"
-                    : "hover:bg-slate-800 hover:text-white font-medium"
+                    ? "bg-[#1c1b2d] text-white font-bold"
+                    : "hover:bg-[#1c1b2d]/50 hover:text-white font-medium"
                 }`}
+                style={{ borderRadius: "6px" }}
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 <span className="text-sm">{item.label}</span>
@@ -130,7 +131,7 @@ export function AdminLayout() {
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
         {/* Topbar */}
-        <header className="shrink-0 px-6 py-4 bg-white border-b border-slate-200 shadow-sm z-30">
+        <header className="shrink-0 px-6 py-4 bg-white border-b border-black/10 z-30">
           <div className="flex items-center justify-between gap-4">
             {/* Left side: Hamburger menu + Search */}
             <div className="flex items-center gap-3 flex-1">
@@ -141,12 +142,12 @@ export function AdminLayout() {
                 <Menu className="w-5 h-5" />
               </button>
 
-              <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-full max-w-md flex-1">
-                <Search className="w-4 h-4 shrink-0 text-slate-400" />
+              <div className="hidden sm:flex items-center gap-2 px-4 py-2 transition-all focus-within:ring-2 focus-within:ring-[#030213] focus-within:bg-white max-w-md flex-1" style={{ backgroundColor: "#ececf0", borderRadius: "6px" }}>
+                <Search className="w-4 h-4 shrink-0 text-[#717182]" />
                 <input
                   type="text"
                   placeholder="Tìm kiếm..."
-                  className="flex-1 bg-transparent outline-none text-sm text-slate-800"
+                  className="flex-1 bg-transparent outline-none text-sm text-[#000000]"
                 />
               </div>
             </div>
@@ -163,8 +164,8 @@ export function AdminLayout() {
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                    <span className="text-indigo-600 font-semibold text-sm">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#ececf0", border: "1px solid rgba(0, 0, 0, 0.1)" }}>
+                    <span className="font-semibold text-sm" style={{ color: "#030213" }}>
                       {getInitials(user)}
                     </span>
                   </div>
@@ -183,11 +184,11 @@ export function AdminLayout() {
 
                 {/* Dropdown Menu Overlay */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-64 rounded-xl shadow-xl bg-white border border-slate-200 overflow-hidden z-50">
+                  <div className="absolute right-0 top-full mt-2 w-64 shadow-xl bg-white border border-black/10 overflow-hidden z-50" style={{ borderRadius: "10px" }}>
                     {/* User Info Header */}
-                    <div className="p-4 border-b border-slate-100 bg-slate-50">
+                    <div className="p-4 border-b border-black/5 bg-white">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#030213" }}>
                           <span className="text-white text-lg font-semibold">
                             {getInitials(user)}
                           </span>
@@ -201,21 +202,21 @@ export function AdminLayout() {
                           </div>
                         </div>
                       </div>
-                      <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-indigo-50 text-[11px] text-indigo-600 font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 mr-1.5" />
+                      <div className="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold" style={{ backgroundColor: "#ececf0", color: "#030213", borderRadius: "6px" }}>
+                        <span className="w-1.5 h-1.5 rounded-full mr-1.5" style={{ backgroundColor: "#030213" }} />
                         Quản trị viên
                       </div>
                     </div>
 
                     {/* Actions Menu */}
                     <div className="py-1.5">
-                      <button className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 hover:bg-slate-50 text-sm transition-colors text-left border-0 cursor-pointer">
+                      <button className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 hover:bg-gray-50 text-sm transition-colors text-left border-0 cursor-pointer bg-transparent">
                         <UserCircle className="w-4 h-4 text-slate-400" />
                         Thông tin cá nhân
                       </button>
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-rose-600 hover:bg-rose-50 text-sm font-medium transition-colors text-left border-0 cursor-pointer"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-rose-600 hover:bg-rose-50 text-sm font-medium transition-colors text-left border-0 cursor-pointer bg-transparent"
                       >
                         <LogOut className="w-4 h-4" />
                         Đăng xuất
@@ -229,7 +230,7 @@ export function AdminLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-slate-50">
+        <main className="flex-1 overflow-auto bg-white" style={{ borderLeft: "1px solid rgba(0, 0, 0, 0.1)" }}>
           <div className="max-w-7xl mx-auto p-6">
             <Outlet />
           </div>

@@ -5,6 +5,8 @@ import { Button } from '../../components/ui/button';
 import { BookOpen, GraduationCap, Loader2, AlertCircle, Users, ArrowRight, Clock, Plus, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { teacherService } from '../../services/teacher.service';
+import { classroomService } from '../../services/classroom.service';
+import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 
 export function TeacherDashboardPage() {
   const navigate = useNavigate();
@@ -12,14 +14,15 @@ export function TeacherDashboardPage() {
   const [subjectCount, setSubjectCount] = useState<number>(0);
   const [classCount, setClassCount] = useState<number>(0);
   const [studentCount, setStudentCount] = useState<number>(0);
-  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [classrooms, setClassrooms] = useState<ClassroomSubjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchDashboardData = async () => {
       if (!user?.userId) {
-        setLoading(false);
+        if (isMounted) setLoading(false);
         return;
       }
 
@@ -32,6 +35,8 @@ export function TeacherDashboardPage() {
           teacherService.getClassroomsByTeacher(user.userId),
         ]);
         
+        if (!isMounted) return;
+
         setSubjectCount(subjects?.length ?? 0);
         setClassCount(classroomsData?.length ?? 0);
         setClassrooms(classroomsData ?? []);
@@ -39,9 +44,11 @@ export function TeacherDashboardPage() {
         // Fetch student lists in parallel to calculate total unique students
         if (classroomsData && classroomsData.length > 0) {
           const studentLists = await Promise.all(
-            classroomsData.map(c => teacherService.getStudentsInClassroom(c.classroomId))
+            classroomsData.map(c => classroomService.getStudents(c.classroomSubjectId))
           );
           
+          if (!isMounted) return;
+
           const uniqueStudentIds = new Set<number>();
           studentLists.forEach(list => {
             if (Array.isArray(list)) {
@@ -57,21 +64,27 @@ export function TeacherDashboardPage() {
           setStudentCount(0);
         }
       } catch (err: any) {
+        if (!isMounted) return;
         console.error('Lỗi khi tải thông tin dashboard:', err);
         setError(err.response?.data?.message || 'Không thể tải dữ liệu thống kê');
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchDashboardData();
-  }, [user]);
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.userId]);
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-2">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-        <span className="text-sm text-gray-500">Đang tải thông tin tổng quan...</span>
+        <Loader2 className="w-8 h-8 animate-spin text-[#030213]" />
+        <span className="text-sm text-[#717182]">Đang tải thông tin tổng quan...</span>
       </div>
     );
   }
@@ -80,10 +93,10 @@ export function TeacherDashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <AlertCircle className="w-10 h-10 text-red-500" />
-        <p className="text-gray-700">{error}</p>
+        <p className="text-[#030213]">{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          className="px-4 py-2 bg-[#030213] text-white rounded-[6px] hover:bg-[#1c1b2d] transition-colors text-sm font-medium"
         >
           Thử lại
         </button>
@@ -92,29 +105,23 @@ export function TeacherDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Hero Banner with Floating Shapes & Glassmorphism */}
-      <div className="relative overflow-hidden rounded-2xl bg-slate-950 p-6 text-white shadow-xl border border-slate-800/50">
-        {/* Floating gradient background shapes */}
-        <div className="absolute -right-10 -top-10 h-72 w-72 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 opacity-40 blur-3xl animate-float-slow" />
-        <div className="absolute -left-10 -bottom-10 h-72 w-72 rounded-full bg-gradient-to-br from-pink-500 to-violet-600 opacity-30 blur-3xl animate-float-slower" />
-        
-        <div className="relative z-10 backdrop-blur-md bg-white/5 border border-white/10 rounded-xl p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 p-[2px] shadow-[0_0_20px_rgba(99,102,241,0.3)]">
-              <div className="h-full w-full bg-slate-900 rounded-2xl flex items-center justify-center text-3xl overflow-hidden">
-                {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-                ) : (
-                  "👨‍🏫"
-                )}
-              </div>
+    <div className="space-y-6 font-sans">
+      {/* Welcome Hero Banner */}
+      <div className="rounded-[10px] bg-[#030213] p-6 text-white border border-[#030213]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="h-16 w-16 rounded-[6px] border border-white/20 overflow-hidden bg-white/10 flex items-center justify-center text-3xl shrink-0">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+              ) : (
+                "👨‍🏫"
+              )}
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-indigo-100 to-indigo-200">
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
                 Chào mừng trở lại, {user?.lastName || 'Giảng viên'} {user?.firstName || ''}!
               </h1>
-              <p className="text-indigo-200/80 text-sm mt-1 font-medium">
+              <p className="text-slate-350 text-sm mt-1 font-normal">
                 Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Chúc bạn một ngày làm việc hiệu quả!
               </p>
             </div>
@@ -122,7 +129,7 @@ export function TeacherDashboardPage() {
           <div className="flex items-center gap-3">
             <Button 
               onClick={() => navigate('/teacher/classes')} 
-              className="bg-white/10 hover:bg-white/20 text-white border border-white/15 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all hover:scale-[1.03] active:scale-[0.98] shadow-md shadow-black/10"
+              className="bg-white hover:bg-slate-100 text-[#030213] rounded-[6px] px-4 py-2 text-xs font-medium transition-colors border border-transparent shadow-none"
             >
               Lớp học của tôi
             </Button>
@@ -133,19 +140,19 @@ export function TeacherDashboardPage() {
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Subjects Card */}
-        <Card className="backdrop-blur-md bg-white/60 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(99,102,241,0.15)] hover:border-indigo-500/30 hover:-translate-y-1 transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-400">Môn học đang dạy</CardTitle>
-            <div className="p-2.5 bg-gradient-to-br from-indigo-500/10 to-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/10">
+        <Card className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[10px] shadow-none flex flex-col justify-between">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-5 pt-5">
+            <CardTitle className="text-sm font-semibold text-[#717182]">Môn học đang dạy</CardTitle>
+            <div className="p-2 bg-[#ececf0] text-[#030213] rounded-[6px]">
               <BookOpen className="w-5 h-5" />
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 pt-1">
-            <div className="text-4xl font-black text-slate-800 dark:text-white tracking-tight">{subjectCount}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Các môn học được phân công giảng dạy trong học kỳ này.</p>
+          <CardContent className="space-y-4 pt-4 px-5 pb-5">
+            <div className="text-3xl font-bold text-[#030213] tracking-tight">{subjectCount}</div>
+            <p className="text-xs text-[#717182] font-normal">Các môn học được phân công giảng dạy trong học kỳ này.</p>
             <Button
               variant="outline"
-              className="w-full text-indigo-600 dark:text-indigo-400 border-indigo-200/80 dark:border-indigo-900/50 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 hover:text-indigo-700 transition-all font-semibold rounded-xl"
+              className="w-full text-[#030213] border-[rgba(0,0,0,0.1)] hover:bg-[#ececf0] transition-colors font-medium rounded-[6px] text-xs h-9"
               onClick={() => navigate('/teacher/courses')}
             >
               Quản lý môn học
@@ -154,19 +161,19 @@ export function TeacherDashboardPage() {
         </Card>
 
         {/* Classes Card */}
-        <Card className="backdrop-blur-md bg-white/60 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(16,185,129,0.15)] hover:border-emerald-500/30 hover:-translate-y-1 transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-400">Lớp học phụ trách</CardTitle>
-            <div className="p-2.5 bg-gradient-to-br from-emerald-500/10 to-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/10">
+        <Card className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[10px] shadow-none flex flex-col justify-between">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-5 pt-5">
+            <CardTitle className="text-sm font-semibold text-[#717182]">Lớp học phụ trách</CardTitle>
+            <div className="p-2 bg-[#ececf0] text-[#030213] rounded-[6px]">
               <GraduationCap className="w-5 h-5" />
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 pt-1">
-            <div className="text-4xl font-black text-slate-800 dark:text-white tracking-tight">{classCount}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Các lớp học trực tiếp đang phụ trách giảng dạy.</p>
+          <CardContent className="space-y-4 pt-4 px-5 pb-5">
+            <div className="text-3xl font-bold text-[#030213] tracking-tight">{classCount}</div>
+            <p className="text-xs text-[#717182] font-normal">Các lớp học trực tiếp đang phụ trách giảng dạy.</p>
             <Button
               variant="outline"
-              className="w-full text-emerald-600 dark:text-emerald-400 border-emerald-200/80 dark:border-emerald-900/50 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 hover:text-emerald-700 transition-all font-semibold rounded-xl"
+              className="w-full text-[#030213] border-[rgba(0,0,0,0.1)] hover:bg-[#ececf0] transition-colors font-medium rounded-[6px] text-xs h-9"
               onClick={() => navigate('/teacher/classes')}
             >
               Quản lý lớp học
@@ -175,25 +182,19 @@ export function TeacherDashboardPage() {
         </Card>
 
         {/* Students Card */}
-        <Card className="backdrop-blur-md bg-white/60 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(245,158,11,0.15)] hover:border-amber-500/30 hover:-translate-y-1 transition-all duration-300 sm:col-span-2 lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <div className="flex items-center">
-              <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-400">Tổng số học viên</CardTitle>
-              <span className="relative flex h-2 w-2 ml-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-            </div>
-            <div className="p-2.5 bg-gradient-to-br from-amber-500/10 to-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/10">
+        <Card className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[10px] shadow-none flex flex-col justify-between sm:col-span-2 lg:col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-5 pt-5">
+            <CardTitle className="text-sm font-semibold text-[#717182]">Tổng số học viên</CardTitle>
+            <div className="p-2 bg-[#ececf0] text-[#030213] rounded-[6px]">
               <Users className="w-5 h-5" />
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 pt-1">
-            <div className="text-4xl font-black text-slate-800 dark:text-white tracking-tight">{studentCount}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Học sinh không trùng lặp trong danh sách tất cả các lớp.</p>
+          <CardContent className="space-y-4 pt-4 px-5 pb-5">
+            <div className="text-3xl font-bold text-[#030213] tracking-tight">{studentCount}</div>
+            <p className="text-xs text-[#717182] font-normal">Học sinh không trùng lặp trong danh sách tất cả các lớp.</p>
             <div className="pt-2">
-              <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full" style={{ width: '70%' }} />
+              <div className="h-2 w-full bg-[#ececf0] rounded-[6px] overflow-hidden">
+                <div className="bg-[#030213] h-full rounded-[6px]" style={{ width: '70%' }} />
               </div>
             </div>
           </CardContent>
@@ -203,50 +204,54 @@ export function TeacherDashboardPage() {
       {/* Classroom Quick-Access Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-white">Lớp học hoạt động gần đây</h2>
-          <Button variant="ghost" onClick={() => navigate('/teacher/classes')} className="text-indigo-600 dark:text-indigo-400 text-sm hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 font-semibold rounded-xl">
+          <h2 className="text-lg font-semibold text-[#030213]">Lớp học hoạt động gần đây</h2>
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/teacher/classes')} 
+            className="text-[#030213] text-sm hover:bg-[#ececf0] font-medium rounded-[6px] h-9 px-3"
+          >
             Xem tất cả <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
         {classrooms.length === 0 ? (
-          <div className="text-center py-12 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Bạn chưa có lớp học nào đang hoạt động.</p>
+          <div className="text-center py-12 bg-white border border-dashed border-[rgba(0,0,0,0.1)] rounded-[10px]">
+            <p className="text-[#717182] text-sm font-normal">Bạn chưa có lớp học nào đang hoạt động.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {classrooms.slice(0, 3).map((cls) => (
-              <Card key={cls.classroomId} className="group backdrop-blur-md bg-white/60 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(99,102,241,0.1)] hover:border-indigo-500/20 transition-all duration-300 flex flex-col justify-between rounded-2xl">
-                <CardHeader className="pb-2">
+              <Card key={cls.classroomSubjectId} className="bg-white border border-[rgba(0,0,0,0.1)] rounded-[10px] shadow-none flex flex-col justify-between">
+                <CardHeader className="pb-2 px-5 pt-5">
                   <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-sm border border-emerald-100/10">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="px-2 py-0.5 bg-[#ececf0] text-[#030213] text-xs font-semibold rounded-[6px] flex items-center gap-1.5 border border-[rgba(0,0,0,0.05)]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                       Active
                     </span>
-                    <span className="text-xs text-slate-450 dark:text-slate-400 flex items-center gap-1 font-medium bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-md border border-slate-200/10">
+                    <span className="text-xs text-[#717182] flex items-center gap-1 font-normal">
                       <Clock className="w-3.5 h-3.5" />
-                      {cls.semester || 'Summer 2026'}
+                      {"Summer 2026"}
                     </span>
                   </div>
-                  <CardTitle className="text-base font-extrabold text-slate-850 dark:text-white mt-3 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <CardTitle className="text-base font-bold text-[#030213] mt-3">
                     {cls.className}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0 pb-4 text-slate-500 dark:text-slate-400 text-xs space-y-3">
-                  <p className="font-medium">Môn học ID: <span className="font-bold text-slate-700 dark:text-slate-300">{cls.subjectId}</span></p>
+                <CardContent className="pt-0 pb-4 px-5 text-[#717182] text-xs space-y-3">
+                  <p className="font-normal">Môn học: <span className="font-semibold text-[#030213]">{cls.subjectName} ({cls.subjectCode})</span></p>
                   <div className="space-y-1 pt-1">
-                    <div className="flex items-center justify-between text-xs font-medium">
-                      <span className="text-slate-400 dark:text-slate-500">Tiến độ lớp học</span>
-                      <span className="font-bold text-indigo-650 dark:text-indigo-400">80%</span>
+                    <div className="flex items-center justify-between text-xs font-normal">
+                      <span className="text-[#717182]">Tiến độ lớp học</span>
+                      <span className="font-semibold text-[#030213]">80%</span>
                     </div>
-                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-full rounded-full" style={{ width: '80%' }} />
+                    <div className="h-2 w-full bg-[#ececf0] rounded-[6px] overflow-hidden">
+                      <div className="bg-[#030213] h-full rounded-[6px]" style={{ width: '80%' }} />
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="pt-3 pb-3 border-t border-slate-100/30 dark:border-slate-800/30">
+                <CardFooter className="pt-3 pb-3 px-5 border-t border-[rgba(0,0,0,0.1)]">
                   <Button
-                    className="w-full bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-indigo-650 hover:to-purple-650 hover:text-white hover:shadow-lg hover:shadow-indigo-500/20 border-0 transition-all font-semibold rounded-xl py-2.5 hover:scale-[1.02] active:scale-[0.98] shadow-none"
-                    onClick={() => navigate(`/teacher/classrooms/${cls.classroomId}`)}
+                    className="w-full bg-[#030213] hover:bg-[#1c1b2d] text-white rounded-[6px] py-2.5 text-xs font-medium transition-colors border-0 shadow-none h-9"
+                    onClick={() => navigate(`/teacher/classroom-subjects/${cls.classroomSubjectId}`)}
                   >
                     Vào lớp học
                   </Button>
@@ -260,42 +265,51 @@ export function TeacherDashboardPage() {
       {/* Shortcuts and Help center */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-white">Công cụ giảng dạy nhanh</h2>
+          <h2 className="text-lg font-semibold text-[#030213]">Công cụ giảng dạy nhanh</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card className="p-5 backdrop-blur-md bg-white/60 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(99,102,241,0.1)] hover:border-indigo-500/20 hover:scale-[1.02] transition-all duration-300 cursor-pointer flex flex-row items-center gap-4 group rounded-2xl" onClick={() => navigate('/teacher/classes')}>
-              <div className="p-3 bg-gradient-to-br from-indigo-500/10 to-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl group-hover:from-indigo-600 group-hover:to-purple-600 group-hover:text-white transition-all duration-300 border border-indigo-500/10">
+            <Card 
+              className="p-5 bg-white border border-[rgba(0,0,0,0.1)] rounded-[10px] shadow-none hover:border-[#030213]/30 transition-colors duration-200 cursor-pointer flex flex-row items-center gap-4 group" 
+              onClick={() => navigate('/teacher/classes')}
+            >
+              <div className="p-3 bg-[#ececf0] text-[#030213] rounded-[6px] group-hover:bg-[#030213] group-hover:text-white transition-colors duration-200">
                 <Plus className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-800 dark:text-white text-sm">Tạo lớp học mới</h3>
-                <p className="text-xs text-slate-450 dark:text-slate-400 mt-1 font-medium">Mở danh sách và thêm lớp mới</p>
+                <h3 className="font-semibold text-[#030213] text-sm">Tạo lớp học mới</h3>
+                <p className="text-xs text-[#717182] mt-1 font-normal">Mở danh sách và thêm lớp mới</p>
               </div>
             </Card>
-            <Card className="p-5 backdrop-blur-md bg-white/60 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(139,92,246,0.1)] hover:border-purple-500/20 hover:scale-[1.02] transition-all duration-300 cursor-pointer flex flex-row items-center gap-4 group rounded-2xl" onClick={() => navigate('/teacher/courses')}>
-              <div className="p-3 bg-gradient-to-br from-purple-500/10 to-purple-500/20 text-purple-600 dark:text-purple-400 rounded-xl group-hover:from-purple-600 group-hover:to-indigo-600 group-hover:text-white transition-all duration-300 border border-purple-500/10">
+            <Card 
+              className="p-5 bg-white border border-[rgba(0,0,0,0.1)] rounded-[10px] shadow-none hover:border-[#030213]/30 transition-colors duration-200 cursor-pointer flex flex-row items-center gap-4 group" 
+              onClick={() => navigate('/teacher/courses')}
+            >
+              <div className="p-3 bg-[#ececf0] text-[#030213] rounded-[6px] group-hover:bg-[#030213] group-hover:text-white transition-colors duration-200">
                 <BookOpen className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-800 dark:text-white text-sm">Xem giáo trình</h3>
-                <p className="text-xs text-slate-450 dark:text-slate-400 mt-1 font-medium">Quản lý nội dung môn học</p>
+                <h3 className="font-semibold text-[#030213] text-sm">Xem giáo trình</h3>
+                <p className="text-xs text-[#717182] mt-1 font-normal">Quản lý nội dung môn học</p>
               </div>
             </Card>
           </div>
         </div>
         
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-white">Trung tâm hỗ trợ</h2>
-          <Card className="p-5 backdrop-blur-md bg-amber-50/20 dark:bg-amber-950/10 border border-amber-200/30 dark:border-amber-900/20 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.05)] hover:border-amber-500/30 transition-colors flex flex-col justify-between rounded-2xl h-[122px] sm:h-auto">
+          <h2 className="text-lg font-semibold text-[#030213]">Trung tâm hỗ trợ</h2>
+          <Card className="p-5 bg-white border border-[rgba(0,0,0,0.1)] rounded-[10px] shadow-none flex flex-col justify-between h-[122px] sm:h-auto">
             <div className="flex gap-3">
-              <div className="p-2 bg-gradient-to-br from-amber-500/10 to-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/10 h-10 w-10 flex items-center justify-center shrink-0">
+              <div className="p-2 bg-[#ececf0] text-[#030213] rounded-[6px] h-10 w-10 flex items-center justify-center shrink-0">
                 <HelpCircle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-800 dark:text-white text-sm">Gặp khó khăn?</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium leading-relaxed">Liên hệ với Quản trị viên hoặc xem tài liệu hướng dẫn sử dụng hệ thống.</p>
+                <h3 className="font-semibold text-[#030213] text-sm">Gặp khó khăn?</h3>
+                <p className="text-xs text-[#717182] mt-1 font-normal leading-relaxed">Liên hệ với Quản trị viên hoặc xem tài liệu hướng dẫn sử dụng hệ thống.</p>
               </div>
             </div>
-            <Button variant="link" className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-750 dark:hover:text-indigo-300 p-0 h-auto justify-start mt-3 font-bold transition-colors">
+            <Button 
+              variant="link" 
+              className="text-xs text-[#030213] hover:text-[#1c1b2d] p-0 h-auto justify-start mt-3 font-semibold transition-colors decoration-transparent"
+            >
               Xem tài liệu hướng dẫn →
             </Button>
           </Card>

@@ -12,11 +12,15 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClassroomGraphResponse {
-    private Long classroomId;
+    private Long classroomSubjectId;
     private String state;
     private Long pathId;
     private LocalDateTime publishedAt;
     private List<LearningNodeResponse> nodes;
     private List<NodeEdgeResponse> edges;
+    private List<ClassroomPathDto> paths;
+    private Boolean canCloneAll;
+    private List<Integer> missingLevels;
     private List<AvailableTemplateResponse> availableTemplates;
+    private Long quizStartTestId;
 }

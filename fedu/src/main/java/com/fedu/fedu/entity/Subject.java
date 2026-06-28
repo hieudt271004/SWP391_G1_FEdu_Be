@@ -27,11 +27,16 @@ public class Subject extends AbstractEntity<Long> {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    /** Số chặng (stage) của lộ trình. Giới hạn stage_order của node thuộc môn. */
+    @Column(name = "learningpath_length")
+    private Integer learningpathLength;
+
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private UserAccount createdBy;
 
+    @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
 

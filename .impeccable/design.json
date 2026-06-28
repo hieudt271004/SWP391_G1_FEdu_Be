@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-17T20:41:00Z",
+  "title": "Design System: FEdu LMS",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Midnight Navy",
+        "canonical": "#030213",
+        "tonalRamp": ["#010107", "#02010d", "#030213", "#1c1b2d", "#38364e", "#565471", "#787698", "#e6e6ec"]
+      },
+      "neutral-bg": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#121212", "#242424", "#484848", "#8c8c8c", "#cccccc", "#e6e6e6", "#f5f5f5", "#ffffff"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Gray",
+        "canonical": "#ececf0"
+      },
+      "muted-fg": {
+        "role": "neutral",
+        "displayName": "Muted Foreground",
+        "canonical": "#717182"
+      },
+      "accent": {
+        "role": "accent",
+        "displayName": "Light Accent",
+        "canonical": "#e9ebef"
+      }
+    },
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 4px 12px rgba(0,0,0,0.08)",
+        "purpose": "Diffuse floating overlay shadow under dropdowns and modals."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Exponential deceleration curve for smooth page actions."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Used for high-priority actions.",
+      "html": "<button class=\"ds-btn-primary\">Xác nhận</button>",
+      "css": ".ds-btn-primary { background: #030213; color: #ffffff; padding: 8px 16px; font-size: 12px; font-weight: 500; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease; } .ds-btn-primary:hover { background: #1c1b2d; } .ds-btn-primary:focus-visible { outline: 2px solid #030213; outline-offset: 2px; }"
+    },
+    {
+      "name": "KPI Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Clean border-only statistics display card.",
+      "html": "<div class=\"ds-kpi-card\"><div class=\"ds-kpi-header\"><span class=\"ds-kpi-label\">Tổng học viên</span></div><div class=\"ds-kpi-body\"><h3 class=\"ds-kpi-val\">1,240</h3><p class=\"ds-kpi-sub\">Học viên đăng ký</p></div></div>",
+      "css": ".ds-kpi-card { background: #ffffff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 20px; transition: border-color 0.2s ease; } .ds-kpi-card:hover { border-color: rgba(3,2,19,0.3); } .ds-kpi-label { font-size: 11px; color: #717182; text-transform: uppercase; font-weight: 500; } .ds-kpi-val { font-size: 24px; font-weight: 700; color: #030213; margin: 8px 0 2px 0; } .ds-kpi-sub { font-size: 11px; color: #717182; margin: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Academic Command Center",
+    "overview": "The FEdu Design System is a highly structured, professional, and task-focused visual workspace designed for educational administrators, teachers, and students.",
+    "keyCharacteristics": ["Restrained & Authoritative", "High-Density", "Clean Structure"],
+    "rules": [
+      {
+        "name": "The 10% Accent Rule",
+        "body": "Accent colors and high-contrast indicators must occupy no more than 10% of any screen surface.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "All main dashboard sections and stats cards are flat at rest.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use border border-border/60 to divide sections.",
+      "Do keep text sizes fixed and rely on grid wrappers for responsive scaling."
+    ],
+    "donts": [
+      "Don't use decorative gradients behind headers.",
+      "Don't use container rounding values larger than 12px.",
+      "Don't combine card borders with heavy shadows."
+    ]
+  }
+}
