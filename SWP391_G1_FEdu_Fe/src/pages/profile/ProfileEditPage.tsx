@@ -160,6 +160,15 @@ export function ProfileEditPage() {
 
   const fullName = `${profileData.firstName} ${profileData.lastName}`.trim();
   const initials = fullName ? ((profileData.firstName[0] || '') + (profileData.lastName[0] || '')).toUpperCase() : '??';
+  
+  const getRoleDisplayName = () => {
+    if (user?.roles.includes('TEACHER')) return 'Giảng viên';
+    if (user?.roles.includes('STUDENT')) return 'Học viên';
+    if (user?.roles.includes('ADMIN')) return 'Admin';
+    if (user?.roles.includes('SUB_MENTOR')) return 'Sub Mentor';
+    return 'User';
+  };
+  const roleName = getRoleDisplayName();
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in transition-all duration-500">
@@ -181,11 +190,11 @@ export function ProfileEditPage() {
             </div>
           </div>
           
-          <h2 className="mt-4 text-xl font-bold text-slate-800">{fullName || 'Giảng viên'}</h2>
+          <h2 className="mt-4 text-xl font-bold text-slate-800">{fullName || roleName}</h2>
           <p className="text-sm text-slate-400 mt-1 flex items-center gap-1.5"><Mail className="size-4" />{profileData.email}</p>
           
           <span className="mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100/50">
-            Giảng viên
+            {roleName}
           </span>
           
           <Button 

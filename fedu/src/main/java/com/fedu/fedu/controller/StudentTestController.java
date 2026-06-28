@@ -4,8 +4,10 @@ import com.fedu.fedu.dto.req.AttemptSubmissionRequest;
 import com.fedu.fedu.dto.res.AttemptSubmissionResultResponse;
 import com.fedu.fedu.dto.res.ResponseData;
 import com.fedu.fedu.dto.res.StudentTestDetailsResponse;
+import com.fedu.fedu.dto.res.StudentTestAttemptHistoryResponse;
 import com.fedu.fedu.entity.StudentTestAttempt;
 import com.fedu.fedu.entity.UserAccount;
+import java.util.List;
 import com.fedu.fedu.service.StudentTestService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -63,5 +65,15 @@ public class StudentTestController {
         AttemptSubmissionResultResponse result = studentTestService.submitTestAttempt(
                 testId, attemptId, currentUser.getUserId(), request);
         return new ResponseData<>(HttpStatus.OK.value(), "Test attempt graded successfully", result);
+    }
+
+    @Operation(summary = "Lấy lịch sử làm bài kiểm tra của học sinh")
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/tests/attempts/history")
+    public ResponseData<List<StudentTestAttemptHistoryResponse>> getTestHistory(
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Student ID {} requests test attempt history", currentUser.getUserId());
+        List<StudentTestAttemptHistoryResponse> history = studentTestService.getStudentTestAttemptHistory(currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Lấy lịch sử làm bài thành công", history);
     }
 }

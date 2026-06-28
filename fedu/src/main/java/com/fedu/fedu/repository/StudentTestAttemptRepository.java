@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface StudentTestAttemptRepository extends JpaRepository<StudentTestAttempt, Long> {
     List<StudentTestAttempt> findByStudentUserIdAndTestTestId(Long studentId, Long testId);
     Optional<StudentTestAttempt> findFirstByStudentUserIdAndTestTestIdOrderBySubmittedAtDesc(Long studentId, Long testId);
+    List<StudentTestAttempt> findByStudentUserIdOrderBySubmittedAtDesc(Long studentId);
 }

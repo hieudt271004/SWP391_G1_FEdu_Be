@@ -78,6 +78,16 @@ export interface LevelHistoryEntry {
   changedAt: string;
 }
 
+export interface StudentTestAttemptHistoryResponse {
+  attemptId: number;
+  testId: number;
+  classroomSubjectName: string;
+  testTitle: string;
+  testDescription: string;
+  score: number;
+  submittedAt: string;
+}
+
 export const studentService = {
   // Đồ thị lộ trình của một lớp-môn (kèm tiến độ học của SV hiện tại)
   getClassroomSubjectGraph: (classroomSubjectId: number) =>
@@ -101,6 +111,9 @@ export const studentService = {
       `/student/tests/${testId}/attempts/${attemptId}/submit`,
       body
     ),
+
+  getTestHistory: () =>
+    http.get<StudentTestAttemptHistoryResponse[]>('/student/tests/attempts/history'),
 
   // ── Placement quiz (thi phân loại đầu vào) ───────────────────────────────
   getPlacementQuiz: (csId: number) =>

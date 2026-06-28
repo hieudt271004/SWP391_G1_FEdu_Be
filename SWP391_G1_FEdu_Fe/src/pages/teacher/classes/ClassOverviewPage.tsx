@@ -40,7 +40,9 @@ import {
   TrendingUp,
   UserCheck,
   UserMinus,
-  MessageSquare
+  MessageSquare,
+  Save,
+  UserPlus
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -111,6 +113,31 @@ export function ClassOverviewPage() {
 
   const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
 
+  const handleConfirmAssignSubMentors = async () => {
+    if (assignSubMentorIds.length === 0 || !classroomSubjectId) return;
+    try {
+      setLoadingSupport(true);
+      for (const id of assignSubMentorIds) {
+        await teacherService.enableSubMentor(Number(classroomSubjectId), id);
+      }
+      toast.success(`Đã chỉ định ${assignSubMentorIds.length} trợ giảng thành công`);
+      setIsAssignSubMentorModalOpen(false);
+      setAssignSubMentorIds([]);
+      fetchClassroomData();
+      if (activeTab === 'support') {
+        fetchSupportData();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || `Chỉ định trợ giảng thất bại`);
+    } finally {
+      setLoadingSupport(false);
+    }
+  };
+
+  // Support Tab functions
+  const [isAssignSubMentorModalOpen, setIsAssignSubMentorModalOpen] = useState(false);
+  const [assignSubMentorIds, setAssignSubMentorIds] = useState<number[]>([]);
+
   // Placement Quiz states
   const [placementQuiz, setPlacementQuiz] = useState<any>(null);
   const [loadingPlacement, setLoadingPlacement] = useState(false);
@@ -169,7 +196,7 @@ export function ClassOverviewPage() {
   const [submittingResponse, setSubmittingResponse] = useState(false);
   const [isAssignStudentModalOpen, setIsAssignStudentModalOpen] = useState(false);
   const [selectedSubMentor, setSelectedSubMentor] = useState<Student | null>(null);
-  const [selectedStudentToAssign, setSelectedStudentToAssign] = useState<string>('');
+  const [selectedStudentsToAssign, setSelectedStudentsToAssign] = useState<number[]>([]);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
 
   const handleResetPlacement = async (studentId: number) => {
@@ -244,19 +271,21 @@ export function ClassOverviewPage() {
 
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!classroomSubjectId || !selectedSubMentor || !selectedStudentToAssign) return;
+    if (!classroomSubjectId || !selectedSubMentor || selectedStudentsToAssign.length === 0) return;
     if (isMounted.current) {
       setSubmittingAssignment(true);
     }
     try {
-      await teacherService.createAssignment(Number(classroomSubjectId), {
-        subMentorCssId: selectedSubMentor.classroomSubjectStudentId!,
-        studentCssId: Number(selectedStudentToAssign)
-      });
+      for (const studentId of selectedStudentsToAssign) {
+        await teacherService.createAssignment(Number(classroomSubjectId), {
+          subMentorCssId: selectedSubMentor.classroomSubjectStudentId!,
+          studentCssId: studentId
+        });
+      }
       if (isMounted.current) {
-        toast.success("Gán nhóm kèm cặp thành công");
+        toast.success(`Đã gán ${selectedStudentsToAssign.length} học sinh thành công`);
         setIsAssignStudentModalOpen(false);
-        setSelectedStudentToAssign('');
+        setSelectedStudentsToAssign([]);
       }
       fetchSupportData();
     } catch (err: any) {
@@ -2193,29 +2222,18 @@ export function ClassOverviewPage() {
                   Danh sách Trợ giảng (Sub-mentors)
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <select
-                    className="border border-slate-200 rounded-[6px] px-2 py-1.5 text-xs bg-white text-slate-700 outline-none"
-                    defaultValue=""
-                    onChange={async (e) => {
-                      const val = e.target.value;
-                      if (!val) return;
-                      const selected = students.find(s => String(s.classroomSubjectStudentId) === val);
-                      if (selected) {
-                        await handleToggleSubMentor(selected);
-                      }
-                      e.target.value = "";
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setAssignSubMentorIds([]);
+                      setIsAssignSubMentorModalOpen(true);
                     }}
+                    className="border-slate-200 text-slate-700 hover:bg-slate-50 gap-2"
                   >
-                    <option value="" disabled>-- Chỉ định trợ giảng mới --</option>
-                    {students
-                      .filter(s => !s.isSubmentor)
-                      .map(s => (
-                        <option key={s.id} value={s.classroomSubjectStudentId}>
-                          {s.fullName} ({s.id})
-                        </option>
-                      ))
-                    }
-                  </select>
+                    <UserPlus className="w-4 h-4" />
+                    Chỉ định trợ giảng mới
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
@@ -2392,28 +2410,46 @@ export function ClassOverviewPage() {
             <div className="py-4 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-600 block">Chọn học sinh trong lớp:</label>
-                <select
-                  required
-                  value={selectedStudentToAssign}
-                  onChange={(e) => setSelectedStudentToAssign(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none"
-                >
-                  <option value="" disabled>-- Chọn học sinh --</option>
-                  {students
-                    .filter(s => {
+                <div className="max-h-[250px] overflow-y-auto pr-2 space-y-2 py-2 border border-slate-200 rounded-xl bg-white p-2">
+                  {students.filter(s => {
+                    if (s.isSubmentor) return false;
+                    if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
+                    const isAssignedToThis = assignments.some(
+                      a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
+                    );
+                    return !isAssignedToThis;
+                  }).length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-4">Tất cả học sinh khả dụng đã được gán.</p>
+                  ) : (
+                    students.filter(s => {
+                      if (s.isSubmentor) return false;
                       if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
                       const isAssignedToThis = assignments.some(
                         a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
                       );
                       return !isAssignedToThis;
-                    })
-                    .map(s => (
-                      <option key={s.id} value={s.classroomSubjectStudentId}>
-                        {s.fullName} ({s.id}) {s.isSubmentor ? "[Trợ giảng]" : ""}
-                      </option>
+                    }).map(s => (
+                      <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                          checked={selectedStudentsToAssign.includes(s.classroomSubjectStudentId!)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedStudentsToAssign(prev => [...prev, s.classroomSubjectStudentId!]);
+                            } else {
+                              setSelectedStudentsToAssign(prev => prev.filter(id => id !== s.classroomSubjectStudentId!));
+                            }
+                          }}
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{s.fullName}</p>
+                          <p className="text-xs text-slate-500">{s.id} {s.isSubmentor ? " [Trợ giảng]" : ""}</p>
+                        </div>
+                      </label>
                     ))
-                  }
-                </select>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -2421,14 +2457,17 @@ export function ClassOverviewPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsAssignStudentModalOpen(false)}
+                onClick={() => {
+                  setIsAssignStudentModalOpen(false);
+                  setSelectedStudentsToAssign([]);
+                }}
                 className="h-9 rounded-xl text-xs border-slate-200"
               >
                 Hủy
               </Button>
               <Button
                 type="submit"
-                disabled={submittingAssignment}
+                disabled={submittingAssignment || selectedStudentsToAssign.length === 0}
                 className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold"
               >
                 {submittingAssignment ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
@@ -2498,6 +2537,68 @@ export function ClassOverviewPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAssignSubMentorModalOpen} onOpenChange={setIsAssignSubMentorModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+              <UserPlus className="size-5 text-primary" /> Chỉ định trợ giảng
+            </DialogTitle>
+            <DialogDescription>
+              Chọn các học sinh để cấp quyền trợ giảng trong lớp này.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 py-2">
+            {students.filter(s => !s.isSubmentor).length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-4">Không có học sinh nào khả dụng.</p>
+            ) : (
+              students.filter(s => !s.isSubmentor).map(s => (
+                <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                    checked={assignSubMentorIds.includes(s.classroomSubjectStudentId!)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setAssignSubMentorIds(prev => [...prev, s.classroomSubjectStudentId!]);
+                      } else {
+                        setAssignSubMentorIds(prev => prev.filter(id => id !== s.classroomSubjectStudentId!));
+                      }
+                    }}
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{s.fullName}</p>
+                    <p className="text-xs text-slate-500">{s.id}</p>
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+
+          <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsAssignSubMentorModalOpen(false);
+                setAssignSubMentorIds([]);
+              }}
+              className="h-9 rounded-xl text-xs border-slate-200"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleConfirmAssignSubMentors}
+              className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold flex items-center gap-1.5"
+              disabled={assignSubMentorIds.length === 0 || loadingSupport}
+            >
+              <Save className="size-3.5" />
+              Lưu thay đổi
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -51,6 +51,7 @@ import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
 import { NodeTestPage } from '../pages/student/tests/NodeTestPage';
 import { PlacementPage } from '../pages/student/tests/PlacementPage';
 import { LevelHistoryPage } from '../pages/student/tests/LevelHistoryPage';
+import { StudentSubmissionsPage } from '../pages/student/submissions/StudentSubmissionsPage';
 
 
 // Removed UserDetailPageWrapper, using UserDetailPage directly
@@ -91,6 +92,8 @@ export function AppRoutes() {
                 <Route path="/student/tests/:testId" element={<NodeTestPage />} />
                 <Route path="/student/classroom-subjects/:csId/placement" element={<PlacementPage />} />
                 <Route path="/student/classroom-subjects/:csId/level-history" element={<LevelHistoryPage />} />
+                <Route path="/student/submissions" element={<StudentSubmissionsPage />} />
+                <Route path="/student/profile" element={<ProfileEditPage />} />
             </Route>
 
             <Route

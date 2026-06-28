@@ -37,6 +37,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     private final NodeEdgeRepository nodeEdgeRepository;
     private final UserAccountRepository userAccountRepository;
     private final com.fedu.fedu.service.LevelRoutingService levelRoutingService;
+    private final ClassroomSubjectRepository classroomSubjectRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -431,5 +432,40 @@ public class StudentTestServiceImpl implements StudentTestService {
             }
         }
         return true;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StudentTestAttemptHistoryResponse> getStudentTestAttemptHistory(Long studentId) {
+        List<StudentTestAttempt> attempts = studentTestAttemptRepository.findByStudentUserIdOrderBySubmittedAtDesc(studentId);
+        
+        return attempts.stream().map(a -> {
+            com.fedu.fedu.entity.Test t = a.getTest();
+            String csName = "N/A";
+            
+            if (t.getLearningNode() != null) {
+                LearningPath path = t.getLearningNode().getLearningPath();
+                if (path != null && path.getClassroomSubject() != null) {
+                    ClassroomSubject cs = path.getClassroomSubject();
+                    csName = cs.getClassroom().getClassName() + " - " + cs.getSubject().getSubjectName();
+                }
+            } else {
+                Optional<ClassroomSubject> csOpt = classroomSubjectRepository.findByQuizStartTestId(t.getTestId());
+                if (csOpt.isPresent()) {
+                    ClassroomSubject cs = csOpt.get();
+                    csName = cs.getClassroom().getClassName() + " - " + cs.getSubject().getSubjectName();
+                }
+            }
+            
+            return StudentTestAttemptHistoryResponse.builder()
+                    .attemptId(a.getAttemptId())
+                    .testId(t.getTestId())
+                    .classroomSubjectName(csName)
+                    .testTitle(t.getTitle())
+                    .testDescription(t.getDescription())
+                    .score(a.getScore())
+                    .submittedAt(a.getSubmittedAt())
+                    .build();
+        }).collect(Collectors.toList());
     }
 }
