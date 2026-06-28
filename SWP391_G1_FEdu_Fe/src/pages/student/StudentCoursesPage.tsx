@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
@@ -20,18 +20,21 @@ import {
   User, 
   Mail, 
   ChevronRight, 
-  ChevronDown, 
-  PlayCircle,
-  FileDown,
+  ChevronDown,
   BookMarked,
   Search,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare,
+  Check,
+  Send,
+  ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { classroomService } from '../../services/classroom.service';
 import { studentService } from '../../services/student.service';
-import { API_BASE_URL } from '../../services/api.client';
+import { MaterialPreview } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
+import type { SupportTicketResponse } from '../../types/submentor';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
 import {
   Dialog,
@@ -61,6 +64,67 @@ export function StudentCoursesPage() {
   const [expandedNodeId, setExpandedNodeId] = useState<number | null>(null);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [loadingNodeContent, setLoadingNodeContent] = useState<Record<number, boolean>>({});
+
+  // Sub-mentor Support Modal State
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [subMentorSubject, setSubMentorSubject] = useState<ClassroomSubjectResponse | null>(null);
+
+  const handleOpenSupport = (subject: ClassroomSubjectResponse) => {
+    setSubMentorSubject(subject);
+    setIsSupportModalOpen(true);
+  };
+
+  // Student Support Ticket creation State
+  const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState<ClassroomSubjectResponse | null>(null);
+  const [ticketQuestion, setTicketQuestion] = useState('');
+  const [submittingTicket, setSubmittingTicket] = useState(false);
+  const [ticketModalTab, setTicketModalTab] = useState<'ask' | 'history'>('ask');
+  const [myTickets, setMyTickets] = useState<SupportTicketResponse[]>([]);
+  const [loadingMyTickets, setLoadingMyTickets] = useState(false);
+
+  const fetchMyTickets = async (csId: number) => {
+    try {
+      setLoadingMyTickets(true);
+      const tickets = await studentService.listMyTickets(csId);
+      setMyTickets(tickets || []);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Không thể tải danh sách câu hỏi của bạn");
+    } finally {
+      setLoadingMyTickets(false);
+    }
+  };
+
+  const handleOpenCreateTicket = (subject: ClassroomSubjectResponse) => {
+    setTicketSubject(subject);
+    setTicketQuestion('');
+    setTicketModalTab('ask');
+    setIsCreateTicketOpen(true);
+    fetchMyTickets(subject.classroomSubjectId);
+  };
+
+  const handleCreateTicketSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ticketSubject || !ticketQuestion.trim()) {
+      toast.error("Vui lòng nhập nội dung câu hỏi");
+      return;
+    }
+    try {
+      setSubmittingTicket(true);
+      await studentService.createSupportTicket({
+        classroomSubjectId: ticketSubject.classroomSubjectId,
+        messageStudent: ticketQuestion.trim()
+      });
+      toast.success("Đã gửi câu hỏi hỗ trợ thành công. Trợ giảng trong lớp sẽ phản hồi sớm nhất có thể!");
+      setTicketQuestion('');
+      setTicketModalTab('history');
+      fetchMyTickets(ticketSubject.classroomSubjectId);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Không thể gửi câu hỏi hỗ trợ");
+    } finally {
+      setSubmittingTicket(false);
+    }
+  };
 
   useEffect(() => {
     const fetchCoursesData = async () => {
@@ -172,12 +236,16 @@ export function StudentCoursesPage() {
     }
   };
 
-  const filteredSubjects = subjects.filter(
-    (c) =>
-      c.subjectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.className.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSubjects = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return subjects;
+    return subjects.filter(
+      (c) =>
+        c.subjectName.toLowerCase().includes(query) ||
+        c.subjectCode.toLowerCase().includes(query) ||
+        c.className.toLowerCase().includes(query)
+    );
+  }, [subjects, searchQuery]);
 
   if (loading) {
     return (
@@ -271,9 +339,16 @@ export function StudentCoursesPage() {
                   <div>
                     <div className="flex justify-between items-start">
                       <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Lớp: {c.className}</span>
-                      <Badge variant="outline" className={`text-[9px] font-extrabold border rounded-[6px] px-2 py-0.5 ${getLvlColor(currentLevel)}`}>
-                        {getLvlLabel(currentLevel)}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        {c.isSubmentor && (
+                          <Badge className="text-[9px] font-extrabold bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-50 rounded-[6px] px-2 py-0.5 shadow-none">
+                            Trợ giảng
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className={`text-[9px] font-extrabold border rounded-[6px] px-2 py-0.5 ${getLvlColor(currentLevel)}`}>
+                          {getLvlLabel(currentLevel)}
+                        </Badge>
+                      </div>
                     </div>
                     <h3 className="font-extrabold text-slate-800 text-base leading-snug mt-1.5 truncate" title={c.subjectName}>
                       {c.subjectName}
@@ -329,22 +404,50 @@ export function StudentCoursesPage() {
                       >
                         <Play className="size-3.5 fill-current" /> Bắt đầu kiểm tra phân loại
                       </Button>
+                      <Button
+                        onClick={() => handleOpenCreateTicket(c)}
+                        variant="outline"
+                        className="w-full border-slate-200 text-slate-700 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1.5"
+                      >
+                        <AlertTriangle className="size-3.5 mr-0.5 text-amber-600" /> Gửi câu hỏi hỗ trợ
+                      </Button>
                     </div>
                   ) : (
-                    <div className="w-full flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/level-history`)}
-                        className="flex-1 text-[#030213] border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3 h-9"
-                      >
-                        <History className="size-3.5 mr-1" /> Lịch sử mức
-                      </Button>
-                      <Button
-                        onClick={() => handleOpenRoadmap(c)}
-                        className="flex-1 bg-[#030213] hover:bg-[#1c1b2d] text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1 shadow-xs"
-                      >
-                        <TrendingUp className="size-3.5" /> Lộ trình học
-                      </Button>
+                    <div className="w-full space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/level-history`)}
+                          className="flex-1 text-[#030213] border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3 h-9"
+                        >
+                          <History className="size-3.5 mr-1" /> Lịch sử mức
+                        </Button>
+                        <Button
+                          onClick={() => handleOpenRoadmap(c)}
+                          className="flex-1 bg-[#030213] hover:bg-[#1c1b2d] text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1 shadow-xs"
+                        >
+                          <TrendingUp className="size-3.5" /> Lộ trình học
+                        </Button>
+                      </div>
+                      
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          onClick={() => handleOpenCreateTicket(c)}
+                          variant="outline"
+                          className="w-full border-slate-200 text-slate-700 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1.5"
+                        >
+                          <AlertTriangle className="size-3.5 mr-0.5 text-amber-600" /> Gửi câu hỏi hỗ trợ
+                        </Button>
+                        
+                        {c.isSubmentor && (
+                          <Button
+                            onClick={() => handleOpenSupport(c)}
+                            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <MessageSquare className="size-3.5" /> Thao tác Trợ giảng
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardFooter>
@@ -474,41 +577,16 @@ export function StudentCoursesPage() {
                                     </h5>
                                     <div className="space-y-2 pl-0.5">
                                       {nodeContents[node.nodeId].materials.map((m) => (
-                                        <div key={m.materialId} className="flex items-center justify-between p-2.5 border border-slate-100 bg-white rounded-xl gap-4">
-                                          <div className="flex-1 space-y-0.5">
+                                        <div key={m.materialId} className="p-2.5 border border-slate-100 bg-white rounded-xl">
+                                          <div className="flex items-center justify-between gap-3">
                                             <span className="font-bold text-slate-750 block">{m.title}</span>
-                                            {m.video && (
-                                              <span className="text-[10px] text-slate-400 block font-medium">
-                                                Thời lượng: {Math.round((m.video.durationSeconds || 0) / 60)} phút (Video bài giảng)
+                                            {m.video?.durationSeconds ? (
+                                              <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                                                {Math.round((m.video.durationSeconds || 0) / 60)} phút
                                               </span>
-                                            )}
-                                            {m.file && (
-                                              <span className="text-[10px] text-slate-400 block font-medium">
-                                                Tệp tải xuống ({m.file.fileType || 'PDF/Tài liệu'})
-                                              </span>
-                                            )}
+                                            ) : null}
                                           </div>
-                                          {m.video && (
-                                            <a 
-                                              href={m.video.videoUrl} 
-                                              target="_blank" 
-                                              rel="noopener noreferrer"
-                                              className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
-                                            >
-                                              <PlayCircle className="size-3.5 fill-current" /> Xem bài giảng
-                                            </a>
-                                          )}
-                                          {m.file && (
-                                            <a
-                                              href={m.file.fileUrl?.startsWith('http') ? m.file.fileUrl : `${API_BASE_URL}${m.file.fileUrl}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              download
-                                              className="h-7 px-3 text-[10px] border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-bold rounded-lg flex items-center gap-1 shrink-0"
-                                            >
-                                              <FileDown className="size-3.5" /> Tải tài liệu
-                                            </a>
-                                          )}
+                                          <MaterialPreview material={m} />
                                         </div>
                                       ))}
                                     </div>
@@ -570,6 +648,330 @@ export function StudentCoursesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Sub-mentor Support Modal */}
+      <SubMentorSupportModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+        subject={subMentorSubject}
+      />
+
+      {/* Ask Support Ticket Modal */}
+      <Dialog open={isCreateTicketOpen} onOpenChange={setIsCreateTicketOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-white shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+              <AlertTriangle className="size-5 text-amber-600" /> Hỗ trợ & Hỏi đáp môn học
+            </DialogTitle>
+            <DialogDescription>
+              Môn học: <span className="font-semibold text-slate-700">{ticketSubject?.displayName || ticketSubject?.subjectName}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Tabs Group */}
+          <div className="flex border-b border-slate-100 bg-slate-50/50 p-1 gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setTicketModalTab('ask')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                ticketModalTab === 'ask'
+                  ? 'bg-white text-slate-800 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Đặt câu hỏi mới
+            </button>
+            <button
+              type="button"
+              onClick={() => setTicketModalTab('history')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                ticketModalTab === 'history'
+                  ? 'bg-white text-slate-800 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Lịch sử hỏi đáp
+              {myTickets.length > 0 && (
+                <span className="bg-rose-500 text-white font-extrabold text-[9px] min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full">
+                  {myTickets.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto min-h-[300px]">
+            {ticketModalTab === 'ask' ? (
+              <form onSubmit={handleCreateTicketSubmit} className="h-full flex flex-col justify-between">
+                <div className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 block">Nội dung câu hỏi của bạn</label>
+                    <textarea
+                      value={ticketQuestion}
+                      onChange={(e) => setTicketQuestion(e.target.value)}
+                      placeholder="Hãy mô tả chi tiết vấn đề hoặc câu hỏi của bạn để Trợ giảng có thể hỗ trợ tốt nhất..."
+                      className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white placeholder-slate-400 text-slate-800"
+                      rows={5}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter className="p-4 border-t border-slate-100 shrink-0 sm:justify-end bg-white gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => setIsCreateTicketOpen(false)} 
+                    className="text-slate-600 border-slate-200 hover:bg-slate-100 rounded-xl text-xs py-2 px-4 font-semibold"
+                  >
+                    Hủy
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={submittingTicket}
+                    className="bg-[#030213] hover:bg-[#1c1b2d] text-white font-bold rounded-xl text-xs py-2 px-4 shadow-sm flex items-center gap-1.5"
+                  >
+                    {submittingTicket ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="size-3.5" />
+                    )}
+                    Gửi câu hỏi
+                  </Button>
+                </DialogFooter>
+              </form>
+            ) : (
+              <div className="p-6 space-y-4 bg-slate-50/30 h-full min-h-[300px]">
+                {loadingMyTickets ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-2">
+                    <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                    <span className="text-[11px] text-slate-500 font-medium">Đang tải lịch sử câu hỏi...</span>
+                  </div>
+                ) : myTickets.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-white p-6 shadow-xs">
+                    <MessageSquare className="w-8 h-8 text-slate-350 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-650">Bạn chưa gửi câu hỏi nào trong môn học này.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {myTickets.map((t) => {
+                      const isDone = t.status === 'DONE';
+                      const isSend = t.status === 'SEND';
+                      return (
+                        <Card key={t.ticketId} className="bg-white border border-slate-150 shadow-xs rounded-xl overflow-hidden p-4 space-y-3">
+                          <div className="flex justify-between items-start">
+                            <span className="text-[9px] text-slate-400 font-semibold">
+                              Gửi lúc: {new Date(t.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+                            </span>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[9px] font-bold rounded-[6px] px-1.5 py-0.5 ${
+                                isDone 
+                                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
+                                  : isSend
+                                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                                    : 'text-slate-600 bg-slate-50 border-slate-200'
+                              }`}
+                            >
+                              {isDone ? 'Đã giải đáp' : isSend ? 'Chờ giảng viên' : 'Chờ trợ giảng'}
+                            </Badge>
+                          </div>
+
+                          <div className="text-xs text-slate-850 font-medium">
+                            <span className="font-bold text-slate-400 block mb-0.5 text-[9px] uppercase tracking-wider">Câu hỏi của bạn:</span>
+                            {t.messageStudent}
+                          </div>
+
+                          {t.messageResponse ? (
+                            <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl text-xs text-slate-700 font-medium space-y-1">
+                              <span className="font-extrabold text-emerald-800 flex items-center gap-1 text-[10px]">
+                                <Check className="size-3.5" /> Giải đáp từ trợ giảng/giảng viên:
+                              </span>
+                              <p className="text-slate-650 whitespace-pre-wrap">{t.messageResponse}</p>
+                            </div>
+                          ) : (
+                            <div className="p-2.5 bg-slate-50 border border-slate-150 border-dashed rounded-xl text-[10.5px] text-slate-400 text-center font-medium italic">
+                              Đang chờ phản hồi...
+                            </div>
+                          )}
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+interface SubMentorSupportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  subject: ClassroomSubjectResponse | null;
+}
+
+export function SubMentorSupportModal({ isOpen, onClose, subject }: SubMentorSupportModalProps) {
+  const [assignedTickets, setAssignedTickets] = useState<SupportTicketResponse[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [responseTexts, setResponseTexts] = useState<Record<number, string>>({});
+  const [submittingResponse, setSubmittingResponse] = useState<number | null>(null);
+
+  const fetchAssignedTickets = async (csId: number) => {
+    try {
+      setLoadingTickets(true);
+      const tickets = await studentService.listAssignedTickets(csId);
+      setAssignedTickets(tickets || []);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Không thể tải danh sách câu hỏi cần hỗ trợ");
+    } finally {
+      setLoadingTickets(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && subject) {
+      setAssignedTickets([]);
+      setResponseTexts({});
+      fetchAssignedTickets(subject.classroomSubjectId);
+    }
+  }, [isOpen, subject]);
+
+  const handleRespondTicket = async (ticketId: number, text: string) => {
+    if (!text.trim()) {
+      toast.error("Vui lòng nhập câu trả lời");
+      return;
+    }
+    try {
+      setSubmittingResponse(ticketId);
+      await studentService.respondSupportTicket(ticketId, { messageResponse: text.trim() });
+      toast.success("Giải đáp câu hỏi thành công");
+      setAssignedTickets(prev => prev.filter(t => t.ticketId !== ticketId));
+      setResponseTexts(prev => {
+        const next = { ...prev };
+        delete next[ticketId];
+        return next;
+      });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Không thể gửi câu trả lời");
+    } finally {
+      setSubmittingResponse(null);
+    }
+  };
+
+  const handleEscalateTicket = async (ticketId: number) => {
+    if (!window.confirm("Bạn có chắc chắn muốn chuyển tiếp câu hỏi này lên Giảng viên lớp học?")) return;
+    try {
+      await studentService.escalateSupportTicket(ticketId);
+      toast.success("Chuyển tiếp câu hỏi lên Giảng viên thành công");
+      setAssignedTickets(prev => prev.filter(t => t.ticketId !== ticketId));
+      setResponseTexts(prev => {
+        const next = { ...prev };
+        delete next[ticketId];
+        return next;
+      });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Không thể chuyển tiếp câu hỏi");
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4 border-b border-slate-100 shrink-0 bg-white">
+          <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+            <MessageSquare className="size-5 text-teal-600" /> Phòng Trợ giảng & Hỗ trợ học tập
+          </DialogTitle>
+          <DialogDescription>
+            Hỗ trợ nhóm học tập lớp môn: <span className="font-semibold text-slate-700">{subject?.displayName || subject?.subjectName}</span>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
+          {loadingTickets ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+              <span className="text-xs text-slate-500 font-medium">Đang tải danh sách câu hỏi cần hỗ trợ...</span>
+            </div>
+          ) : assignedTickets.length === 0 ? (
+            <div className="text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-white p-6 shadow-xs">
+              <MessageSquare className="w-10 h-10 text-slate-350 mx-auto mb-2" />
+              <p className="text-xs font-bold text-slate-650">Hiện tại không có câu hỏi nào cần bạn hỗ trợ.</p>
+              <p className="text-[10px] text-slate-400 mt-1">Các câu hỏi từ học sinh bạn phụ trách sẽ xuất hiện ở đây.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h4 className="font-bold text-[10px] text-slate-400 uppercase tracking-wider">
+                Câu hỏi chờ giải quyết ({assignedTickets.length})
+              </h4>
+              {assignedTickets.map((ticket) => {
+                const currentResponse = responseTexts[ticket.ticketId] || '';
+                return (
+                  <Card key={ticket.ticketId} className="bg-white border border-slate-150 shadow-xs rounded-xl overflow-hidden">
+                    <div className="p-4 space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Học sinh</span>
+                          <span className="font-bold text-slate-700 text-xs mt-0.5 block">
+                            {ticket.studentName || 'Học sinh'} ({ticket.studentEmail})
+                          </span>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] font-bold text-amber-700 bg-amber-50 border-amber-200">
+                          Chờ trợ giảng
+                        </Badge>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-700 border border-slate-100 font-medium">
+                        {ticket.messageStudent}
+                      </div>
+
+                      {/* Answering layout directly visible */}
+                      <div className="space-y-3 pt-1">
+                        <textarea
+                          value={currentResponse}
+                          onChange={(e) => setResponseTexts(prev => ({ ...prev, [ticket.ticketId]: e.target.value }))}
+                          placeholder="Nhập câu trả lời giải đáp chi tiết cho học sinh..."
+                          className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white placeholder-slate-400 text-slate-800"
+                          rows={2}
+                        />
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleEscalateTicket(ticket.ticketId)}
+                            className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-xl text-xs h-8 font-semibold flex items-center gap-1"
+                          >
+                            <ShieldAlert className="size-3.5" /> Không xử lý được (Chuyển GV)
+                          </Button>
+                          <Button
+                            onClick={() => handleRespondTicket(ticket.ticketId, currentResponse)}
+                            disabled={submittingResponse === ticket.ticketId}
+                            className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs h-8 font-bold flex items-center gap-1.5 shadow-xs"
+                          >
+                            {submittingResponse === ticket.ticketId ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <Check className="size-3.5" />
+                              )}
+                            Gửi giải đáp
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="p-4 border-t border-slate-100 shrink-0 sm:justify-end bg-white">
+          <Button type="button" onClick={onClose} className="bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs py-2 px-4 shadow-sm">
+            Đóng
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

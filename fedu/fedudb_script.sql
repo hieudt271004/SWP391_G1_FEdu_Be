@@ -128,20 +128,23 @@ CREATE TABLE IF NOT EXISTS classroom_subject_students (
                                                           classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
                                                           student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                           current_level        INT,
+                                                          is_submentor         BOOLEAN NOT NULL DEFAULT FALSE,
                                                           joined_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                           UNIQUE(classroom_subject_id, student_id)
 );
 
-CREATE TABLE IF NOT EXISTS classroom_sub_mentor (
-                                                    id                   BIGSERIAL PRIMARY KEY,
-                                                    classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
-                                                    sub_mentor_id        BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-                                                    assigned_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                    updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                    UNIQUE(classroom_subject_id, sub_mentor_id)
+-- Bảng ánh xạ sub-mentor (CSS) → học sinh (CSS) trong cùng lớp-môn (peer mentoring)
+CREATE TABLE IF NOT EXISTS sub_mentor_student_assignment (
+    id                   BIGSERIAL PRIMARY KEY,
+    sub_mentor_css_id    BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
+    student_css_id       BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
+    assigned_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(sub_mentor_css_id, student_css_id),
+    CHECK (sub_mentor_css_id <> student_css_id)
 );
 
 CREATE TABLE IF NOT EXISTS learning_paths (
@@ -375,27 +378,16 @@ CREATE TABLE IF NOT EXISTS node_reviews (
                                             UNIQUE(student_id, node_id)
 );
 
+-- Support ticket theo mô hình peer-mentoring: student → sub-mentor → (leo thang) → lecturer
 CREATE TABLE IF NOT EXISTS support_tickets (
-                                               ticket_id            BIGSERIAL PRIMARY KEY,
-                                               classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
-                                               created_by           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-                                               assigned_to          BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL,
-                                               title                VARCHAR(255) NOT NULL,
-                                               description          TEXT NOT NULL,
-                                               ticket_status        VARCHAR(20) DEFAULT 'OPEN', -- OPEN/PROCESSING/RESOLVED/CLOSED
-                                               ticket_level         VARCHAR(20) DEFAULT 'SUB_MENTOR', -- SUB_MENTOR/LECTURER
-                                               is_deleted           BOOLEAN DEFAULT FALSE,
-                                               created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                               updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS ticket_comments (
-                                               comment_id BIGSERIAL PRIMARY KEY,
-                                               ticket_id  BIGINT NOT NULL REFERENCES support_tickets(ticket_id) ON DELETE CASCADE,
-                                               user_id    BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-                                               content    TEXT NOT NULL,
-                                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ticket_id                      BIGSERIAL PRIMARY KEY,
+    classroom_subject_student_id   BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
+    message_student                TEXT NOT NULL,
+    message_response               TEXT,
+    status                         VARCHAR(20) NOT NULL DEFAULT 'NONE', -- NONE / DONE / SEND
+    is_deleted                     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at                     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at                     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO roles(role_name) VALUES ('ADMIN') ON CONFLICT (role_name) DO NOTHING;

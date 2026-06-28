@@ -71,7 +71,7 @@ public class LearningPathManagementController {
         @ResponseStatus(HttpStatus.CREATED)
         @PostMapping("/classroom-subjects/{classroomSubjectId}/clone-learning-path")
         public ResponseData<LearningPathResponse> cloneLearningPath(@PathVariable Long classroomSubjectId,
-                                                                    @RequestParam Long templatePathId) {
+                                                                    @RequestParam(required = false) Long templatePathId) {
             return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path cloned successfully",
                     learningPathService.cloneLearningPath(classroomSubjectId, templatePathId));
         }

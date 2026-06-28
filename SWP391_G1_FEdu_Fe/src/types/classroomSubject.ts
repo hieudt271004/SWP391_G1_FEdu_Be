@@ -11,6 +11,7 @@ export interface ClassroomSubjectResponse {
   lecturerName: string;
   displayName: string; // "Tên lớp - Mã môn", vd "SE1801 - PRJ301"
   studentCount: number;
+  isSubmentor?: boolean;
 }
 
 export interface AddClassroomSubjectRequest {

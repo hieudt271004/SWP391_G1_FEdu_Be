@@ -117,16 +117,18 @@ entity "classroom_subject_students" as classroom_subject_students {
   --
   * classroom_subject_id : BIGINT [FK]
   * student_id : BIGINT [FK]
+  current_level : INT
+  is_submentor : BOOLEAN
   joined_at : TIMESTAMP
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
-entity "classroom_sub_mentor" as classroom_sub_mentor {
+entity "sub_mentor_student_assignment" as sub_mentor_student_assignment {
   * id : BIGSERIAL [PK]
   --
-  * classroom_subject_id : BIGINT [FK]
-  * sub_mentor_id : BIGINT [FK]
+  * sub_mentor_css_id : BIGINT [FK]
+  * student_css_id : BIGINT [FK]
   assigned_at : TIMESTAMP
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
@@ -329,24 +331,11 @@ entity "node_reviews" as node_reviews {
 entity "support_tickets" as support_tickets {
   * ticket_id : BIGSERIAL [PK]
   --
-  * classroom_subject_id : BIGINT [FK]
-  * created_by : BIGINT [FK]
-  assigned_to : BIGINT [FK]
-  * title : VARCHAR(255)
-  * description : TEXT
-  ticket_status : e_ticket_status
-  ticket_level : e_ticket_level
+  * classroom_subject_student_id : BIGINT [FK]
+  * message_student : TEXT
+  message_response : TEXT
+  * status : VARCHAR(20)
   is_deleted : BOOLEAN
-  created_at : TIMESTAMP
-  updated_at : TIMESTAMP
-}
-
-entity "ticket_comments" as ticket_comments {
-  * comment_id : BIGSERIAL [PK]
-  --
-  * ticket_id : BIGINT [FK]
-  * user_id : BIGINT [FK]
-  * content : TEXT
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
@@ -363,8 +352,9 @@ subjects ||--o{ classroom_subjects
 user_account ||--o{ classroom_subjects
 classroom_subjects ||--o{ classroom_subject_students
 user_account ||--o{ classroom_subject_students
-classroom_subjects ||--o{ classroom_sub_mentor
-user_account ||--o{ classroom_sub_mentor
+classroom_subject_students ||--o{ sub_mentor_student_assignment : "sub_mentor_css"
+classroom_subject_students ||--o{ sub_mentor_student_assignment : "student_css"
+classroom_subject_students ||--o{ support_tickets
 subjects ||--o{ learning_paths
 classrooms ||--o{ learning_paths
 user_account ||--o{ learning_paths
@@ -395,11 +385,6 @@ node_questions ||--o{ question_answers
 user_account ||--o{ question_answers
 learning_nodes ||--o{ node_reviews
 user_account ||--o{ node_reviews
-classroom_subjects ||--o{ support_tickets
-user_account ||--o{ support_tickets
-user_account ||--o{ support_tickets
-support_tickets ||--o{ ticket_comments
-user_account ||--o{ ticket_comments
 
 @enduml
 ```
@@ -444,5 +429,5 @@ user_account ||--o{ ticket_comments
 * **`node_questions`**: Discussions or questions posted by students regarding a specific lesson.
 * **`question_answers`**: Official answers written by the teacher.
 * **`node_reviews`**: Ratings (1 to 5 stars) and qualitative feedback from students.
-* **`support_tickets`**: Ticketing system for help requests, triaged to `SUB_MENTOR` first, then escalated to `LECTURER` if needed.
-* **`ticket_comments`**: Discussion threads between students and support staff inside a ticket.
+* **`support_tickets`**: Peer-mentoring support tickets. Student sends a question (NONE), sub-mentor responds (DONE) or escalates to lecturer (SEND), lecturer resolves (DONE).
+* **`sub_mentor_student_assignment`**: Maps a sub-mentor CSS to student CSSes in the same class-subject for peer mentoring.

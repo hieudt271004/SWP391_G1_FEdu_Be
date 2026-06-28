@@ -8,6 +8,8 @@ export interface StudentInClass {
   joinedAt?: string;
   currentLevel?: number;
   assignedPathName?: string;
+  classroomSubjectStudentId?: number;
+  isSubmentor?: boolean;
 }
 
 export interface AddStudentRequest {
