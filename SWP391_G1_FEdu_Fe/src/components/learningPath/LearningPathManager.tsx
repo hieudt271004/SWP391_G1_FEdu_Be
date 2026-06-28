@@ -182,9 +182,133 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
   const [tTitle, setTTitle] = useState("");
   const [tDuration, setTDuration] = useState("15");
   const [tPass, setTPass] = useState("80");
+  const [numQuestions, setNumQuestions] = useState("0");
+  const [builderQuestions, setBuilderQuestions] = useState<any[]>([]);
+  const [activeQuestionIdx, setActiveQuestionIdx] = useState(0);
+
+  const handleNumQuestionsChange = (val: string) => {
+    setNumQuestions(val);
+    const n = Math.max(0, parseInt(val, 10) || 0);
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      if (next.length < n) {
+        for (let i = next.length; i < n; i++) {
+          next.push({
+            questionType: 'MULTIPLE_CHOICE',
+            questionContent: '',
+            answers: [
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false }
+            ]
+          });
+        }
+      } else if (next.length > n) {
+        next.splice(n);
+      }
+      return next;
+    });
+    if (activeQuestionIdx >= n && n > 0) {
+      setActiveQuestionIdx(n - 1);
+    }
+  };
+
+  const updateQuestionField = (idx: number, field: string, value: any) => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      if (next[idx]) {
+        next[idx] = { ...next[idx], [field]: value };
+      }
+      return next;
+    });
+  };
+
+  const updateAnswerField = (qIdx: number, aIdx: number, field: string, value: any) => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      const q = next[qIdx];
+      if (q && q.answers && q.answers[aIdx]) {
+        const nextAnswers = [...q.answers];
+        nextAnswers[aIdx] = { ...nextAnswers[aIdx], [field]: value };
+        if (field === 'isCorrect' && value === true && q.questionType === 'MULTIPLE_CHOICE') {
+          nextAnswers.forEach((ans: any, i: number) => {
+            if (i !== aIdx) ans.isCorrect = false;
+          });
+        }
+        next[qIdx] = { ...q, answers: nextAnswers };
+      }
+      return next;
+    });
+  };
+
+  const handleQuestionTypeChange = (idx: number, type: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'ESSAY') => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      if (next[idx]) {
+        if (type === 'ESSAY') {
+          next[idx] = {
+            ...next[idx],
+            questionType: 'ESSAY',
+            answers: [{ answerContent: '', isCorrect: true }]
+          };
+        } else if (type === 'MULTIPLE_SELECT') {
+          next[idx] = {
+            ...next[idx],
+            questionType: 'MULTIPLE_SELECT',
+            answers: [
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false }
+            ]
+          };
+        } else {
+          next[idx] = {
+            ...next[idx],
+            questionType: 'MULTIPLE_CHOICE',
+            answers: [
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false },
+              { answerContent: '', isCorrect: false }
+            ]
+          };
+        }
+      }
+      return next;
+    });
+  };
+
+  const addAnswerOption = (qIdx: number) => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      const q = next[qIdx];
+      if (q && q.answers) {
+        next[qIdx] = {
+          ...q,
+          answers: [...q.answers, { answerContent: '', isCorrect: false }]
+        };
+      }
+      return next;
+    });
+  };
+
+  const removeAnswerOption = (qIdx: number, aIdx: number) => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      const q = next[qIdx];
+      if (q && q.answers && q.answers.length > 2) {
+        const nextAnswers = [...q.answers];
+        nextAnswers.splice(aIdx, 1);
+        next[qIdx] = { ...q, answers: nextAnswers };
+      }
+      return next;
+    });
+  };
+
   const [eTitle, setETitle] = useState("");
   const [eDesc, setEDesc] = useState("");
-  // Form thêm bài tập thực hành
   const [exTitle, setExTitle] = useState("");
   const [exInstr, setExInstr] = useState("");
   const [exAllowText, setExAllowText] = useState(true);
@@ -311,7 +435,41 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     setContent(null);
     setLoadingContent(true);
     try {
-      setContent(await learningPathService.getAdminNodeContent(node.nodeId));
+      const data = await learningPathService.getAdminNodeContent(node.nodeId);
+      setContent(data);
+
+      if (node.testKind === "PLACEMENT" && data.tests && data.tests.length > 0) {
+        const activeTest = data.tests[0];
+        setTTitle(activeTest.title);
+        setTDuration(String(activeTest.durationMinutes || 15));
+        setTPass(String(activeTest.passingPercentage || 0));
+        
+        try {
+          const qList = await learningPathService.getAdminTestQuestions(activeTest.testId);
+          setNumQuestions(String(qList.length));
+          setBuilderQuestions(qList.map((q) => ({
+            questionType: q.questionType === 'ESSAY' ? 'ESSAY' : (q.questionType === 'MULTIPLE_SELECT' ? 'MULTIPLE_SELECT' : 'MULTIPLE_CHOICE'),
+            questionContent: q.questionContent,
+            answers: q.answers.map((a) => ({
+              answerContent: a.answerContent,
+              isCorrect: a.isCorrect
+            }))
+          })));
+          setActiveQuestionIdx(0);
+        } catch (qErr) {
+          console.error("Failed to load questions", qErr);
+          setNumQuestions("0");
+          setBuilderQuestions([]);
+          setActiveQuestionIdx(0);
+        }
+      } else {
+        setTTitle("");
+        setTDuration("15");
+        setTPass("0");
+        setNumQuestions("0");
+        setBuilderQuestions([]);
+        setActiveQuestionIdx(0);
+      }
     } catch {
       setContent({ materials: [], tests: [], exercises: [] });
     } finally {
@@ -354,6 +512,85 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     }
   };
 
+  const saveSidebarPlacementTest = async () => {
+    if (!selectedNode) return;
+    if (!tTitle.trim()) {
+      toast.error("Nhập tiêu đề bài test");
+      return;
+    }
+    const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
+    
+    // Validate questions
+    for (let i = 0; i < numQ; i++) {
+      const q = builderQuestions[i];
+      if (!q) continue;
+      if (!q.questionContent.trim()) {
+        toast.error(`Câu hỏi ${i + 1} không được để trống nội dung`);
+        return;
+      }
+      if (q.questionType === 'MULTIPLE_CHOICE' || q.questionType === 'MULTIPLE_SELECT') {
+        const correctAnswers = q.answers.filter((a: any) => a.isCorrect);
+        if (correctAnswers.length === 0) {
+          toast.error(`Câu hỏi ${i + 1} phải có ít nhất 1 đáp án đúng`);
+          return;
+        }
+        for (let j = 0; j < q.answers.length; j++) {
+          if (!q.answers[j].answerContent.trim()) {
+            toast.error(`Đáp án ${String.fromCharCode(65 + j)} của câu hỏi ${i + 1} không được để trống`);
+            return;
+          }
+        }
+      } else if (q.questionType === 'ESSAY') {
+        if (!q.answers[0] || !q.answers[0].answerContent.trim()) {
+          toast.error(`Câu hỏi tự luận ${i + 1} phải nhập câu trả lời mẫu/hướng dẫn chấm`);
+          return;
+        }
+      }
+    }
+
+    setSaving(true);
+    try {
+      // 1. If test already exists, delete it first
+      if (content?.tests && content.tests.length > 0) {
+        const oldTestId = content.tests[0].testId;
+        await learningPathService.deleteAdminNodeTest(oldTestId);
+      }
+
+      // 2. Create new test
+      const testRes = await learningPathService.addAdminNodeTest(selectedNode.nodeId, {
+        title: tTitle.trim(),
+        durationMinutes: Number(tDuration) || 15,
+        passingPercentage: 0,
+      });
+
+      const createdTestId = testRes.testId;
+
+      // 3. Create questions sequentially
+      for (let i = 0; i < numQ; i++) {
+        const q = builderQuestions[i];
+        if (!q) continue;
+        await learningPathService.addAdminTestQuestion(createdTestId, {
+          questionContent: q.questionContent.trim(),
+          questionType: q.questionType,
+          score: 1.0,
+          answers: q.answers.map((a: any) => ({
+            answerContent: a.answerContent.trim(),
+            isCorrect: a.isCorrect
+          }))
+        });
+      }
+
+      toast.success("Đã cập nhật bài test thành công");
+      setContent(await learningPathService.getAdminNodeContent(selectedNode.nodeId));
+      await refresh();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.response?.data?.message || "Không lưu được bài test");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Tính lại toàn bộ cạnh từ tập node hiện tại rồi đồng bộ, sau đó nạp lại graph.
   const rewireAll = async (pathId: number) => {
     const g = await learningPathService.getAdminTemplateGraph(pathId);
@@ -362,7 +599,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
   };
 
   const submitAddNode = async () => {
-    if (!path || !nTitle.trim()) {
+    if (!path) return;
+    if (!nTitle.trim()) {
       toast.error("Nhập tiêu đề bài học");
       return;
     }
@@ -370,6 +608,16 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       toast.error("Node đầu tiên của lộ trình phải là Test năng lực.");
       return;
     }
+
+    const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
+
+    if (nKind === "PLACEMENT") {
+      if (!tDuration || Number(tDuration) <= 0) {
+        toast.error("Thời lượng bài test phải lớn hơn 0");
+        return;
+      }
+    }
+
     const stageNodes = nodes.filter((n) => (n.stageOrder ?? 0) === nStage);
     const stageHasPlacement = stageNodes.some(isPlacementNode);
     let lvl: number | null;
@@ -475,7 +723,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           });
         }
       } else {
-        await learningPathService.createAdminNode({
+        const res = await learningPathService.createAdminNode({
           learningPathId: path.pathId,
           title: nTitle.trim(),
           description: nDesc.trim() || undefined,
@@ -491,6 +739,31 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           stageOrder: nStage,
           level: lvl,
         });
+
+        // Create test and questions sequentially if node is PLACEMENT
+        if (nKind === "PLACEMENT") {
+          const testRes = await learningPathService.addAdminNodeTest(res.nodeId, {
+            title: nTitle.trim(),
+            durationMinutes: Number(tDuration) || 15,
+            passingPercentage: 0,
+          });
+
+          const createdTestId = testRes.testId;
+
+          for (let i = 0; i < numQ; i++) {
+            await learningPathService.addAdminTestQuestion(createdTestId, {
+              questionContent: `Câu hỏi ${i + 1}`,
+              questionType: "MULTIPLE_CHOICE",
+              score: 1.0,
+              answers: [
+                { answerContent: "Đáp án A", isCorrect: true },
+                { answerContent: "Đáp án B", isCorrect: false },
+                { answerContent: "Đáp án C", isCorrect: false },
+                { answerContent: "Đáp án D", isCorrect: false }
+              ]
+            });
+          }
+        }
       }
       await rewireAll(path.pathId);
       toast.success("Đã thêm bài học");
@@ -505,8 +778,13 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       setNDownMax("");
       setNYeuMax("");
       setNTbMax("");
-    } catch {
-      toast.error("Không thêm được bài học");
+      setTDuration("15");
+      setNumQuestions("0");
+      setBuilderQuestions([]);
+      setActiveQuestionIdx(0);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.response?.data?.message || "Không thêm được bài học");
     } finally {
       setSaving(false);
     }
@@ -756,7 +1034,13 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
             {path.description && <p className="text-sm text-slate-500">{path.description}</p>}
           </div>
           <button
-            onClick={() => setShowAddNode(true)}
+            onClick={() => {
+              setTDuration("15");
+              setNumQuestions("0");
+              setBuilderQuestions([]);
+              setActiveQuestionIdx(0);
+              setShowAddNode(true);
+            }}
             className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + Thêm bài học
@@ -806,137 +1090,329 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   </div>
                 </section>
 
-                {isLearningNode(selectedNode) && (
-                <section>
-                  <SectionTitle>Học liệu</SectionTitle>
-                  {loadingContent ? (
-                    <p className="text-xs text-slate-400">Đang tải…</p>
-                  ) : (
-                    <ul className="space-y-1">
-                      {(content?.materials ?? []).map((m) => (
-                        <li key={m.materialId} className="rounded-md bg-slate-50 p-2.5 text-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="truncate font-medium text-slate-700">{m.title}</span>
-                            <button onClick={() => removeMaterial(m.materialId)} className="shrink-0 text-xs text-rose-500 hover:underline">
-                              xóa
-                            </button>
-                          </div>
-                          <MaterialPreview material={m} />
-                        </li>
-                      ))}
-                      {(content?.materials ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có học liệu.</p>}
-                    </ul>
-                  )}
-                  <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm học liệu</p>
-                    <input className="lp-input" placeholder="Tiêu đề học liệu" value={mTitle} onChange={(e) => setMTitle(e.target.value)} />
-                    <select className="lp-input" value={mType} onChange={(e) => setMType(e.target.value as "video" | "file")}>
-                      <option value="video">Video (URL)</option>
-                      <option value="file">Tệp tải lên</option>
-                    </select>
-                    {mType === "video" ? (
-                      <>
-                        <input className="lp-input" placeholder="https://… (YouTube, Vimeo hoặc .mp4)" value={mVideoUrl} onChange={(e) => setMVideoUrl(e.target.value)} />
-                        {mVideoUrl.trim() && <VideoPreview url={mVideoUrl} />}
-                      </>
-                    ) : (
-                      <input type="file" className="lp-input" onChange={(e) => setMFile(e.target.files?.[0] ?? null)} />
-                    )}
-                    <button onClick={addMaterial} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
-                      Thêm học liệu
-                    </button>
-                  </div>
-                </section>
-                )}
-
-                <section>
-                  <SectionTitle>Bài test</SectionTitle>
-                  <ul className="space-y-1">
-                    {(content?.tests ?? []).map((t) => (
-                      <li key={t.testId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
-                        <span className="truncate">
-                          {t.title}
-                          <span className="ml-2 text-xs text-slate-400">
-                            {t.durationMinutes ?? "?"}′ · đạt {t.passingPercentage ?? 0}%
-                          </span>
-                        </span>
-                        <button onClick={() => removeTest(t.testId)} className="shrink-0 text-xs text-rose-500 hover:underline">
-                          xóa
-                        </button>
-                      </li>
-                    ))}
-                    {(content?.tests ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài test.</p>}
-                  </ul>
-                  {(content?.tests ?? []).length >= (isLearningNode(selectedNode) ? Infinity : 1) ? (
-                    <p className="mt-2 text-xs text-slate-400">Mỗi node test chỉ có 1 bài test.</p>
-                  ) : (
-                    <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài test</p>
-                      <input className="lp-input" placeholder="Tiêu đề test" value={tTitle} onChange={(e) => setTTitle(e.target.value)} />
-                      <div className="flex items-center gap-2">
-                        <label className="flex-1 text-xs text-slate-500">
-                          Thời lượng (phút)
-                          <input className="lp-input mt-1" type="number" min={1} value={tDuration} onChange={(e) => setTDuration(e.target.value)} />
-                        </label>
-                        <label className="flex-1 text-xs text-slate-500">
-                          % đạt
-                          <input className="lp-input mt-1" type="number" min={0} max={100} value={tPass} onChange={(e) => setTPass(e.target.value)} />
-                        </label>
+                {selectedNode.testKind === 'PLACEMENT' ? (
+                  <section>
+                    <SectionTitle>Cấu hình bài test năng lực</SectionTitle>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Tiêu đề bài test</label>
+                        <input 
+                          className="lp-input" 
+                          placeholder="Tiêu đề test" 
+                          value={tTitle} 
+                          onChange={(e) => setTTitle(e.target.value)} 
+                        />
                       </div>
-                      <button onClick={addTest} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
-                        Thêm bài test
-                      </button>
-                    </div>
-                  )}
-                </section>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng (phút)</label>
+                          <input 
+                            type="number" 
+                            min={1} 
+                            className="lp-input mt-1" 
+                            value={tDuration} 
+                            onChange={(e) => setTDuration(e.target.value)} 
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
+                          <input 
+                            type="number" 
+                            min={0} 
+                            className="lp-input mt-1" 
+                            value={numQuestions} 
+                            onChange={(e) => handleNumQuestionsChange(e.target.value)} 
+                          />
+                        </div>
+                      </div>
 
-                {isLearningNode(selectedNode) && (
-                <section>
-                  <SectionTitle>Thực hành</SectionTitle>
-                  {loadingContent ? (
-                    <p className="text-xs text-slate-400">Đang tải…</p>
-                  ) : (
-                    <ul className="space-y-1">
-                      {(content?.exercises ?? []).map((ex) => (
-                        <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-slate-700">{ex.title}</p>
-                            <div className="mt-0.5 flex flex-wrap gap-1">
-                              {ex.allowText && (
-                                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">Tự luận</span>
-                              )}
-                              {ex.allowFile && (
-                                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">Nộp file</span>
+                      {Number(numQuestions) > 0 && (
+                        <div className="space-y-3 border-t border-slate-100 pt-3">
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                            {Array.from({ length: Math.max(0, parseInt(numQuestions, 10) || 0) }).map((_, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setActiveQuestionIdx(idx)}
+                                className={`size-7 shrink-0 rounded-md text-xs font-bold transition-all border ${
+                                  activeQuestionIdx === idx
+                                    ? "bg-slate-800 text-white border-slate-800"
+                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                }`}
+                              >
+                                {idx + 1}
+                              </button>
+                            ))}
+                          </div>
+
+                          {builderQuestions[activeQuestionIdx] && (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                  Câu hỏi {activeQuestionIdx + 1}
+                                </span>
+                                <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-md">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_CHOICE')}
+                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                      builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE'
+                                        ? "bg-white text-slate-800 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                    }`}
+                                  >
+                                    Một đáp án
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_SELECT')}
+                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                      builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT'
+                                        ? "bg-white text-slate-800 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                    }`}
+                                  >
+                                    Nhiều đáp án
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'ESSAY')}
+                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                      builderQuestions[activeQuestionIdx].questionType === 'ESSAY'
+                                        ? "bg-white text-slate-800 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                    }`}
+                                  >
+                                    Tự luận
+                                  </button>
+                                </div>
+                              </div>
+
+                              <textarea
+                                className="lp-input text-xs w-full"
+                                placeholder="Nhập đề / nội dung câu hỏi..."
+                                rows={2}
+                                value={builderQuestions[activeQuestionIdx].questionContent}
+                                onChange={(e) => updateQuestionField(activeQuestionIdx, 'questionContent', e.target.value)}
+                              />
+
+                              {builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ||
+                              builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT' ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                                    <span>
+                                      ĐÁP ÁN ({builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'Chọn 1 đáp án đúng' : 'Chọn nhiều đáp án đúng'})
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => addAnswerOption(activeQuestionIdx)}
+                                      className="text-indigo-600 hover:underline text-[10px]"
+                                    >
+                                      + Thêm đáp án
+                                    </button>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {builderQuestions[activeQuestionIdx].answers.map((ans: any, aIdx: number) => (
+                                      <div key={aIdx} className="flex items-center gap-2">
+                                        <span className="font-semibold text-[10px] text-slate-400 shrink-0 w-3">
+                                          {String.fromCharCode(65 + aIdx)}
+                                        </span>
+                                        <input
+                                          type="text"
+                                          placeholder={`Đáp án ${String.fromCharCode(65 + aIdx)}`}
+                                          className="lp-input flex-1 py-1 px-2 text-xs"
+                                          value={ans.answerContent}
+                                          onChange={(e) => updateAnswerField(activeQuestionIdx, aIdx, 'answerContent', e.target.value)}
+                                        />
+                                        <input
+                                          type={builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
+                                          name={`correct-ans-sidebar-${activeQuestionIdx}`}
+                                          checked={!!ans.isCorrect}
+                                          onChange={(e) => {
+                                            if (builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE') {
+                                              builderQuestions[activeQuestionIdx].answers.forEach((_: any, i: number) => {
+                                                updateAnswerField(activeQuestionIdx, i, 'isCorrect', i === aIdx);
+                                              });
+                                            } else {
+                                              updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
+                                            }
+                                          }}
+                                          className="h-3.5 w-3.5 text-indigo-600 cursor-pointer"
+                                        />
+                                        {builderQuestions[activeQuestionIdx].answers.length > 2 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => removeAnswerOption(activeQuestionIdx, aIdx)}
+                                            className="text-red-500 hover:text-red-700 text-xs px-1"
+                                          >
+                                            ×
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  <span className="text-[10px] font-bold text-slate-500 block">CÂU TRẢ LỜI MẪU / HƯỚNG DẪN CHẤM</span>
+                                  <textarea
+                                    className="lp-input text-xs w-full"
+                                    placeholder="Nhập câu trả lời mẫu cho tự luận..."
+                                    rows={3}
+                                    value={builderQuestions[activeQuestionIdx].answers[0]?.answerContent || ""}
+                                    onChange={(e) => updateAnswerField(activeQuestionIdx, 0, 'answerContent', e.target.value)}
+                                  />
+                                </div>
                               )}
                             </div>
-                          </div>
-                          <button onClick={() => removeExercise(ex.exerciseId)} className="shrink-0 text-xs text-rose-500 hover:underline">
-                            xóa
-                          </button>
-                        </li>
-                      ))}
-                      {(content?.exercises ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài tập.</p>}
-                    </ul>
-                  )}
-                  <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài tập</p>
-                    <input className="lp-input" placeholder="Tiêu đề bài tập" value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
-                    <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
-                    <div className="flex items-center gap-4 text-sm text-slate-600">
-                      <label className="flex cursor-pointer items-center gap-1.5">
-                        <input type="checkbox" checked={exAllowText} onChange={(e) => setExAllowText(e.target.checked)} />
-                        Tự luận
-                      </label>
-                      <label className="flex cursor-pointer items-center gap-1.5">
-                        <input type="checkbox" checked={exAllowFile} onChange={(e) => setExAllowFile(e.target.checked)} />
-                        Nộp file
-                      </label>
+                          )}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={saveSidebarPlacementTest}
+                        disabled={saving}
+                        className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 mt-2"
+                      >
+                        Lưu bài test
+                      </button>
                     </div>
-                    <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
-                      Thêm bài tập
-                    </button>
-                  </div>
-                </section>
+                  </section>
+                ) : (
+                  <>
+                    {isLearningNode(selectedNode) && (
+                      <section>
+                        <SectionTitle>Học liệu</SectionTitle>
+                        {loadingContent ? (
+                          <p className="text-xs text-slate-400">Đang tải…</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {(content?.materials ?? []).map((m) => (
+                              <li key={m.materialId} className="rounded-md bg-slate-50 p-2.5 text-sm">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate font-medium text-slate-700">{m.title}</span>
+                                  <button onClick={() => removeMaterial(m.materialId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                                    xóa
+                                  </button>
+                                </div>
+                                <MaterialPreview material={m} />
+                              </li>
+                            ))}
+                            {(content?.materials ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có học liệu.</p>}
+                          </ul>
+                        )}
+                        <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm học liệu</p>
+                          <input className="lp-input" placeholder="Tiêu đề học liệu" value={mTitle} onChange={(e) => setMTitle(e.target.value)} />
+                          <select className="lp-input" value={mType} onChange={(e) => setMType(e.target.value as "video" | "file")}>
+                            <option value="video">Video (URL)</option>
+                            <option value="file">Tệp tải lên</option>
+                          </select>
+                          {mType === "video" ? (
+                            <>
+                              <input className="lp-input" placeholder="https://… (YouTube, Vimeo hoặc .mp4)" value={mVideoUrl} onChange={(e) => setMVideoUrl(e.target.value)} />
+                              {mVideoUrl.trim() && <VideoPreview url={mVideoUrl} />}
+                            </>
+                          ) : (
+                            <input type="file" className="lp-input" onChange={(e) => setMFile(e.target.files?.[0] ?? null)} />
+                          )}
+                          <button onClick={addMaterial} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                            Thêm học liệu
+                          </button>
+                        </div>
+                      </section>
+                    )}
+
+                    <section>
+                      <SectionTitle>Bài test</SectionTitle>
+                      <ul className="space-y-1">
+                        {(content?.tests ?? []).map((t) => (
+                          <li key={t.testId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
+                            <span className="truncate">
+                              {t.title}
+                              <span className="ml-2 text-xs text-slate-400">
+                                {t.durationMinutes ?? "?"}′ · đạt {t.passingPercentage ?? 0}%
+                              </span>
+                            </span>
+                            <button onClick={() => removeTest(t.testId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                              xóa
+                            </button>
+                          </li>
+                        ))}
+                        {(content?.tests ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài test.</p>}
+                      </ul>
+                      {(content?.tests ?? []).length >= (isLearningNode(selectedNode) ? Infinity : 1) ? (
+                        <p className="mt-2 text-xs text-slate-400">Mỗi node test chỉ có 1 bài test.</p>
+                      ) : (
+                        <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài test</p>
+                          <input className="lp-input" placeholder="Tiêu đề test" value={tTitle} onChange={(e) => setTTitle(e.target.value)} />
+                          <div className="flex items-center gap-2">
+                            <label className="flex-1 text-xs text-slate-500">
+                              Thời lượng (phút)
+                              <input className="lp-input mt-1" type="number" min={1} value={tDuration} onChange={(e) => setTDuration(e.target.value)} />
+                            </label>
+                            <label className="flex-1 text-xs text-slate-500">
+                              % đạt
+                              <input className="lp-input mt-1" type="number" min={0} max={100} value={tPass} onChange={(e) => setTPass(e.target.value)} />
+                            </label>
+                          </div>
+                          <button onClick={addTest} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                            Thêm bài test
+                          </button>
+                        </div>
+                      )}
+                    </section>
+
+                    {isLearningNode(selectedNode) && (
+                      <section>
+                        <SectionTitle>Thực hành</SectionTitle>
+                        {loadingContent ? (
+                          <p className="text-xs text-slate-400">Đang tải…</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {(content?.exercises ?? []).map((ex) => (
+                              <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-slate-700">{ex.title}</p>
+                                  <div className="mt-0.5 flex flex-wrap gap-1">
+                                    {ex.allowText && (
+                                      <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">Tự luận</span>
+                                    )}
+                                    {ex.allowFile && (
+                                      <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">Nộp file</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <button onClick={() => removeExercise(ex.exerciseId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                                  xóa
+                                </button>
+                              </li>
+                            ))}
+                            {(content?.exercises ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài tập.</p>}
+                          </ul>
+                        )}
+                        <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài tập</p>
+                          <input className="lp-input" placeholder="Tiêu đề bài tập" value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
+                          <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
+                          <div className="flex items-center gap-4 text-sm text-slate-600">
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input type="checkbox" checked={exAllowText} onChange={(e) => setExAllowText(e.target.checked)} />
+                              Tự luận
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input type="checkbox" checked={exAllowFile} onChange={(e) => setExAllowFile(e.target.checked)} />
+                              Nộp file
+                            </label>
+                          </div>
+                          <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                            Thêm bài tập
+                          </button>
+                        </div>
+                      </section>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1034,6 +1510,32 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                       <input type="number" className="lp-input" value={nTbMax} onChange={(e) => setNTbMax(e.target.value)} placeholder="vd 70" />
                     </Field>
                   </div>
+                  
+                  {/* Inline Test Configuration */}
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <Field label="Thời lượng làm test (phút)">
+                      <input 
+                        type="number" 
+                        min={1} 
+                        className="lp-input" 
+                        value={tDuration} 
+                        onChange={(e) => setTDuration(e.target.value)} 
+                        placeholder="vd 15" 
+                      />
+                    </Field>
+                    <Field label="Số lượng câu hỏi">
+                      <input 
+                        type="number" 
+                        min={0} 
+                        className="lp-input" 
+                        value={numQuestions} 
+                        onChange={(e) => handleNumQuestionsChange(e.target.value)} 
+                        placeholder="vd 5" 
+                      />
+                    </Field>
+                  </div>
+
+
                 </>
               )}
               {nKind === "GATE" && (
@@ -1055,7 +1557,17 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               )}
             </>
           )}
-          <ModalActions onCancel={() => setShowAddNode(false)} onSave={submitAddNode} saving={saving} />
+          <ModalActions
+            onCancel={() => {
+              setShowAddNode(false);
+              setTDuration("15");
+              setNumQuestions("0");
+              setBuilderQuestions([]);
+              setActiveQuestionIdx(0);
+            }}
+            onSave={submitAddNode}
+            saving={saving}
+          />
         </Modal>
       )}
 
