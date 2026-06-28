@@ -179,26 +179,6 @@ public class LearningPathManagementController {
             return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình nháp đã được xóa thành công");
         }
 
-        @Operation(summary = "Add test to a learning node")
-        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @ResponseStatus(HttpStatus.CREATED)
-        @PostMapping("/learning-nodes/{nodeId}/tests")
-        public ResponseData<NodeTestResponse> addTest(
-                @PathVariable Long nodeId,
-                @Valid @RequestBody CreateNodeTestRequest request) {
-            log.info("Teacher adding test to node ID: {}, title: {}", nodeId, request.getTitle());
-            return new ResponseData<>(HttpStatus.CREATED.value(), "Test added successfully",
-                    nodeContentService.addTest(nodeId, request));
-        }
-
-        @Operation(summary = "Delete test from a learning node")
-        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @DeleteMapping("/tests/{testId}")
-        public ResponseData<Void> deleteTest(@PathVariable Long testId) {
-            log.info("Teacher deleting test ID: {}", testId);
-            nodeContentService.deleteTest(testId);
-            return new ResponseData<>(HttpStatus.OK.value(), "Test deleted successfully");
-        }
 
         @Operation(summary = "Update test details")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
@@ -220,47 +200,6 @@ public class LearningPathManagementController {
                     nodeContentService.getTestAttempts(testId));
         }
 
-        @Operation(summary = "Get content of a learning node for teacher")
-        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @GetMapping("/learning-nodes/{nodeId}/content")
-        public ResponseData<NodeContentResponse> getNodeContent(@PathVariable Long nodeId) {
-            log.info("Teacher requests content for node id: {}", nodeId);
-            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved node content successfully",
-                    nodeContentService.getNodeContent(nodeId));
-        }
-
-        @Operation(summary = "Add learning material (video or file) to a node")
-        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @ResponseStatus(HttpStatus.CREATED)
-        @PostMapping(value = "/learning-nodes/{nodeId}/materials", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-        public ResponseData<NodeMaterialResponse> addMaterial(
-                @PathVariable Long nodeId,
-                @Valid @ModelAttribute CreateNodeMaterialRequest request,
-                @RequestParam(value = "file", required = false) MultipartFile file) {
-            log.info("Teacher adding material to node ID: {}, title: {}", nodeId, request.getTitle());
-            return new ResponseData<>(HttpStatus.CREATED.value(), "Learning material added successfully",
-                    nodeContentService.addMaterial(nodeId, request, file));
-        }
-
-        @Operation(summary = "Delete learning material from a node")
-        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @DeleteMapping("/materials/{materialId}")
-        public ResponseData<Void> deleteMaterial(@PathVariable Long materialId) {
-            log.info("Teacher deleting material ID: {}", materialId);
-            nodeContentService.deleteMaterial(materialId);
-            return new ResponseData<>(HttpStatus.OK.value(), "Learning material deleted successfully");
-        }
-
-        @Operation(summary = "Reorder materials and tests inside a learning node")
-        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
-        @PostMapping("/learning-nodes/{nodeId}/reorder-content")
-        public ResponseData<Void> reorderContent(
-                @PathVariable Long nodeId,
-                @Valid @RequestBody List<ReorderContentRequest> requests) {
-            log.info("Teacher reordering content for node ID: {}, items count: {}", nodeId, requests.size());
-            nodeContentService.reorderContent(nodeId, requests);
-            return new ResponseData<>(HttpStatus.OK.value(), "Content reordered successfully");
-        }
 
         @Operation(summary = "Create node edge connection (prerequisite link between nodes)")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
