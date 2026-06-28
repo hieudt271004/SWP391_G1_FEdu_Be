@@ -858,9 +858,17 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .findFirst().orElse(null);
             if (target == null || target.getStatus() != StudentProgressStatus.LOCKED) continue;
 
-            // Tôn trọng điều kiện tiên quyết: chỉ mở cho học sinh đã hoàn thành các node trước.
-            boolean prereqMet = incoming.stream().allMatch(
-                    e -> statusMap.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
+            // Lấy thông tin lớp học sinh để biết level hiện tại
+            ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                    .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, student.getUserId())
+                    .orElse(null);
+            if (css == null || css.getCurrentLevel() == null) continue;
+            Integer studentLevel = css.getCurrentLevel();
+
+            // Tôn trọng điều kiện tiên quyết: chỉ mở cho học sinh đã hoàn thành các node trước (bỏ qua các node của level khác)
+            boolean prereqMet = incoming.stream()
+                    .filter(e -> e.getFromNode().getLevel() == null || e.getFromNode().getLevel().equals(studentLevel))
+                    .allMatch(e -> statusMap.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
             if (!prereqMet) continue;
 
             target.setStatus(StudentProgressStatus.OPEN);

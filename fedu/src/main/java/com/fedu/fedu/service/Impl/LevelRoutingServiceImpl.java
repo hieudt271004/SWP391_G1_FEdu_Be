@@ -170,8 +170,9 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
             }
             if (node.getLevel().equals(newLevel)) {
                 List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(node.getNodeId());
-                boolean prereqMet = incoming.isEmpty() || incoming.stream().allMatch(
-                        e -> statusByNode.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
+                boolean prereqMet = incoming.isEmpty() || incoming.stream()
+                        .filter(e -> e.getFromNode().getLevel() == null || e.getFromNode().getLevel().equals(newLevel))
+                        .allMatch(e -> statusByNode.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
                 if (p.getStatus() == StudentProgressStatus.LOCKED && prereqMet) {
                     p.setStatus(StudentProgressStatus.OPEN);
                     p.setUnlockedAt(LocalDateTime.now());
