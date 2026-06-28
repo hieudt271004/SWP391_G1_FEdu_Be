@@ -143,7 +143,6 @@ export function DashboardPage() {
           if (u.roles.includes("ADMIN")) displayRole = "Quản trị viên";
           else if (u.roles.includes("TEACHER")) displayRole = "Giảng viên";
           else if (u.roles.includes("STUDENT")) displayRole = "Học viên";
-          else if (u.roles.includes("SUB_MENTOR")) displayRole = "Trợ giảng";
 
           return {
             name: fullName,

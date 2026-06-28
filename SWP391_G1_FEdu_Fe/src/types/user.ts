@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'SUB_MENTOR' | 'USER';
+export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT' | 'USER';
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'NONE';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 

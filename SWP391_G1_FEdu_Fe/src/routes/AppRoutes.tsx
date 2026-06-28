@@ -4,7 +4,6 @@ import { AuthLayout } from '../components/layout/AuthLayout';
 import { StudentLayout } from '../components/layout/StudentLayout';
 import { TeacherLayout } from '../components/layout/TeacherLayout';
 import { AdminLayout } from '../components/layout/AdminLayout';
-import { SubMentorLayout } from '../components/layout/SubMentorLayout';
 import { RoleRoute } from './RoleRoute';
 
 import { HomePage } from '../pages/home/HomePage';
@@ -109,16 +108,6 @@ export function AppRoutes() {
                 <Route path="/teacher/classroom-subjects/:classroomSubjectId/manage" element={<ClassManagementPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
-            </Route>
-
-            <Route
-                element={
-                    <RoleRoute allowedRoles={['SUB_MENTOR']}>
-                        <SubMentorLayout />
-                    </RoleRoute>
-                }
-            >
-                <Route path="/sub-mentor/dashboard" element={<div>Sub-Mentor Dashboard placeholder</div>} />
             </Route>
 
             {/* ── ADMIN ─────────────────────────────────────────────── */}
