@@ -179,7 +179,6 @@ public class LearningPathManagementController {
             return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình nháp đã được xóa thành công");
         }
 
-<<<<<<< HEAD
         @Operation(summary = "Add test to a learning node")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @ResponseStatus(HttpStatus.CREATED)
@@ -271,7 +270,7 @@ public class LearningPathManagementController {
             log.info("Teacher creating node edge from {} to {}", request.getFromNodeId(), request.getToNodeId());
             return new ResponseData<>(HttpStatus.CREATED.value(), "Node edge created successfully",
                     nodeEdgeService.createEdge(request));
-
+        }
         @Operation(summary = "Delete node edge connection")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @DeleteMapping("/node-edges/{edgeId}")
