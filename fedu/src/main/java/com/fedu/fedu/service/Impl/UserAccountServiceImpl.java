@@ -268,29 +268,28 @@ public class UserAccountServiceImpl implements UserAccountService {
         if (request.getStatus() != null) {
             userAccount.setStatus(request.getStatus());
         }
-        
-        // Update role if provided
+
         if (request.getUserRole() != null) {
             Role role = roleRepository.findByRoleName(request.getUserRole())
                     .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + request.getUserRole()));
-            
-            // Delete existing roles
-            if (userAccount.getUserRoles() != null) {
-                userRoleRepository.deleteAll(userAccount.getUserRoles());
+            List<UserRole> roles = userAccount.getUserRoles();
+            if (roles == null) {
+                roles = new java.util.ArrayList<>();
+                userAccount.setUserRoles(roles);
             }
-            
-            // Assign new role
-            UserRole userRole = UserRole.builder()
-                    .role(role)
-                    .userAccount(userAccount)
-                    .build();
-            userRoleRepository.save(userRole);
-            
-            List<UserRole> newRoles = new java.util.ArrayList<>();
-            newRoles.add(userRole);
-            userAccount.setUserRoles(newRoles);
+            if (roles.isEmpty()) {
+                roles.add(UserRole.builder()
+                        .role(role)
+                        .userAccount(userAccount)
+                        .build());
+            } else {
+                roles.get(0).setRole(role);
+                while (roles.size() > 1) {
+                    roles.remove(roles.size() - 1);
+                }
+            }
         }
-        
+
         userAccountRepository.save(userAccount);
      }
 
