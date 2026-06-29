@@ -34,7 +34,6 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final UserAccountRepository userAccountRepository;
     private final ClassroomSubjectRepository classroomSubjectRepository;
-    // content repos (clone copy toàn bộ giáo trình)
     private final NodeMaterialRepository nodeMaterialRepository;
     private final VideoRepository videoRepository;
     private final FileEntityRepository fileEntityRepository;
@@ -42,8 +41,6 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final TestQuestionRepository testQuestionRepository;
     private final TestAnswerRepository testAnswerRepository;
     private final NodeExerciseRepository nodeExerciseRepository;
-
-    // Learning Path (Template)
 
     @Override
     @Transactional(readOnly = true)
@@ -889,6 +886,108 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Unauthorized"));
         if (!classroomSubjectRepository.existsByIdAndLecturerUserId(csId, actor.getUserId())) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StudentInClassResponse> getNodeStudents(Long nodeId) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
+        LearningPath path = node.getLearningPath();
+        if (path == null || path.getClassroomSubject() == null) {
+            return Collections.emptyList();
+        }
+        
+        List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByLearningNodeNodeId(nodeId);
+        List<StudentInClassResponse> responses = new ArrayList<>();
+        for (StudentNodeProgress p : progressList) {
+            ClassroomSubjectStudent css = p.getClassroomSubjectStudent();
+            UserAccount student = css.getStudent();
+            responses.add(StudentInClassResponse.builder()
+                    .userId(student.getUserId())
+                    .email(student.getEmail())
+                    .firstName(student.getFirstName())
+                    .lastName(student.getLastName())
+                    .avatarUrl(student.getAvatarUrl())
+                    .joinedAt(css.getCreatedAt())
+                    .currentLevel(css.getCurrentLevel())
+                    .classroomSubjectStudentId(css.getId())
+                    .build());
+        }
+        return responses;
+    }
+
+    @Override
+    @Transactional
+    public void assignStudentsToNode(Long nodeId, List<Long> studentUserIds) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
+        LearningPath path = node.getLearningPath();
+        if (path == null || path.getClassroomSubject() == null) {
+            throw new InvalidDataException("Node không thuộc lộ trình lớp học");
+        }
+        assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
+
+        Long csId = path.getClassroomSubject().getId();
+        Integer stage = node.getStageOrder();
+        
+        // Find other nodes in the same stage (row)
+        List<LearningNode> sameStageNodes = learningNodeRepository
+                .findByLearningPathPathIdAndIsDeletedFalse(path.getPathId())
+                .stream()
+                .filter(n -> Objects.equals(n.getStageOrder(), stage))
+                .collect(Collectors.toList());
+
+        List<ClassroomSubjectStudent> enrolledStudents = classroomSubjectStudentRepository.findAllByClassroomSubjectId(csId);
+        Set<Long> assignSet = studentUserIds != null ? new HashSet<>(studentUserIds) : Collections.emptySet();
+
+        for (ClassroomSubjectStudent css : enrolledStudents) {
+            Long studentId = css.getStudent().getUserId();
+            boolean shouldAssign = assignSet.contains(studentId);
+
+            if (shouldAssign) {
+                // Remove progress records for other nodes in the same stage
+                for (LearningNode otherNode : sameStageNodes) {
+                    if (!otherNode.getNodeId().equals(nodeId)) {
+                        List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+                        for (StudentNodeProgress p : list) {
+                            if (p.getLearningNode().getNodeId().equals(otherNode.getNodeId())) {
+                                studentNodeProgressRepository.delete(p);
+                            }
+                        }
+                    }
+                }
+                
+                // Ensure progress record exists for target node
+                List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+                boolean exists = list.stream().anyMatch(p -> p.getLearningNode().getNodeId().equals(nodeId));
+                if (!exists) {
+                    // Find entry nodes to decide whether to open it
+                    List<LearningNode> allNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
+                    List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
+                    List<LearningNode> entryNodes = validateAndGetEntryNodes(allNodes, edges);
+                    
+                    boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS;
+                    StudentNodeProgress progress = StudentNodeProgress.builder()
+                            .classroomSubjectStudent(css)
+                            .learningNode(node)
+                            .learningPath(path)
+                            .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)
+                            .status(openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
+                            .unlockedAt(openIt ? LocalDateTime.now() : null)
+                            .build();
+                    studentNodeProgressRepository.save(progress);
+                }
+            } else {
+                // If not assigned, ensure no progress record exists for target node
+                List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+                for (StudentNodeProgress p : list) {
+                    if (p.getLearningNode().getNodeId().equals(nodeId)) {
+                        studentNodeProgressRepository.delete(p);
+                    }
+                }
+            }
         }
     }
 }

@@ -38,4 +38,7 @@ public interface LearningPathService {
 
     /** Giáo viên mở khóa 1 node "Trên lớp" cho cả lớp-môn; trả về số học sinh được mở. */
     int unlockOnClassNode(Long classroomSubjectId, Long nodeId);
+
+    List<StudentInClassResponse> getNodeStudents(Long nodeId);
+    void assignStudentsToNode(Long nodeId, List<Long> studentUserIds);
 }

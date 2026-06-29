@@ -12,4 +12,5 @@ public interface StudentTestAttemptRepository extends JpaRepository<StudentTestA
     List<StudentTestAttempt> findByStudentUserIdAndTestTestId(Long studentId, Long testId);
     Optional<StudentTestAttempt> findFirstByStudentUserIdAndTestTestIdOrderBySubmittedAtDesc(Long studentId, Long testId);
     List<StudentTestAttempt> findByStudentUserIdOrderBySubmittedAtDesc(Long studentId);
+    List<StudentTestAttempt> findByTestTestId(Long testId);
 }

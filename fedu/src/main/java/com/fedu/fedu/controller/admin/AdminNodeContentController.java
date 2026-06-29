@@ -30,7 +30,7 @@ public class AdminNodeContentController {
     private final NodeContentService nodeContentService;
 
     @Operation(summary = "Get materials and tests for a specific node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @GetMapping("/learning-nodes/{nodeId}/content")
     public ResponseData<NodeContentResponse> getNodeContent(@PathVariable Long nodeId) {
         log.info("Admin retrieving content for learning node ID: {}", nodeId);
@@ -39,7 +39,7 @@ public class AdminNodeContentController {
     }
 
     @Operation(summary = "Add learning material (video or file) to a node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping(value = "/learning-nodes/{nodeId}/materials", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseData<NodeMaterialResponse> addMaterial(
@@ -52,7 +52,7 @@ public class AdminNodeContentController {
     }
 
     @Operation(summary = "Delete learning material from a node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @DeleteMapping("/materials/{materialId}")
     public ResponseData<Void> deleteMaterial(@PathVariable Long materialId) {
         log.info("Admin deleting material ID: {}", materialId);
@@ -61,7 +61,7 @@ public class AdminNodeContentController {
     }
 
     @Operation(summary = "Add test to a learning node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/learning-nodes/{nodeId}/tests")
     public ResponseData<NodeTestResponse> addTest(
@@ -73,7 +73,7 @@ public class AdminNodeContentController {
     }
 
     @Operation(summary = "Delete test from a learning node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @DeleteMapping("/tests/{testId}")
     public ResponseData<Void> deleteTest(@PathVariable Long testId) {
         log.info("Admin deleting test ID: {}", testId);
@@ -82,7 +82,7 @@ public class AdminNodeContentController {
     }
 
     @Operation(summary = "Add practice exercise to a learning node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/learning-nodes/{nodeId}/exercises")
     public ResponseData<NodeExerciseResponse> addExercise(
@@ -94,7 +94,7 @@ public class AdminNodeContentController {
     }
 
     @Operation(summary = "Delete practice exercise from a node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @DeleteMapping("/exercises/{exerciseId}")
     public ResponseData<Void> deleteExercise(@PathVariable Long exerciseId) {
         log.info("Admin deleting exercise ID: {}", exerciseId);
@@ -103,7 +103,7 @@ public class AdminNodeContentController {
     }
 
     @Operation(summary = "Reorder materials, tests and exercises inside a learning node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @PostMapping("/learning-nodes/{nodeId}/reorder-content")
     public ResponseData<Void> reorderContent(
             @PathVariable Long nodeId,

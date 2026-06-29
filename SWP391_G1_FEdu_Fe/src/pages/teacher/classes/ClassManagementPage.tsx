@@ -30,7 +30,9 @@ import {
   Award,
   Download,
   ExternalLink,
-  Users
+  Users,
+  Undo2,
+  Play
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -39,9 +41,11 @@ import {
   LearningNodeResponse, 
   NodeEdgeResponse, 
   ClassroomGraphResponse,
-  NodeContentResponse
+  NodeContentResponse,
+  StudentInClassResponse
 } from '../../../services/learningPath.service';
 import { toast } from 'sonner';
+import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +60,7 @@ interface Student {
   id: string;
   fullName: string;
   progress: number;
+  userId: number;
 }
 
 export function ClassManagementPage() {
@@ -78,6 +83,14 @@ export function ClassManagementPage() {
   const nodes = activePath ? activePath.nodes || [] : graphData?.nodes || [];
   const edges = activePath ? activePath.edges || [] : graphData?.edges || [];
 
+  const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
+
+  // Student Assignment States
+  const [assignedStudentIds, setAssignedStudentIds] = useState<number[]>([]);
+  const [siblingAssignments, setSiblingAssignments] = useState<Record<number, { nodeId: number; nodeTitle: string }>>({});
+  const [loadingNodeStudents, setLoadingNodeStudents] = useState(false);
+  const [savingNodeStudents, setSavingNodeStudents] = useState(false);
+
   // Modals state
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isAddContentOpen, setIsAddContentOpen] = useState(false);
@@ -87,6 +100,15 @@ export function ClassManagementPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ nodeId: number, title: string } | null>(null);
   const [understandDelete, setUnderstandDelete] = useState(false);
+
+  // Publish / Unpublish states
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [understandPublish, setUnderstandPublish] = useState(false);
+  const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
+  const [understandUnpublish, setUnderstandUnpublish] = useState(false);
+  const [showUnpublishError, setShowUnpublishError] = useState(false);
+  const [unpublishErrorMsg, setUnpublishErrorMsg] = useState('');
+  const [actionState, setActionState] = useState<'idle' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
 
   // New Node Form State
   const [newNodeTitle, setNewNodeTitle] = useState('');
@@ -159,6 +181,76 @@ export function ClassManagementPage() {
     }
   };
 
+  const handleSelectNode = async (node: LearningNodeResponse) => {
+    setSelectedNode(node);
+    await fetchNodeContent(node.nodeId);
+    
+    setLoadingNodeStudents(true);
+    try {
+      const currentAssigned = await learningPathService.getNodeStudents(node.nodeId);
+      setAssignedStudentIds(currentAssigned.map(s => s.userId));
+      
+      const siblingNodes = nodes.filter(n => n.stageOrder === node.stageOrder && n.nodeId !== node.nodeId);
+      const siblingMap: Record<number, { nodeId: number; nodeTitle: string }> = {};
+      
+      await Promise.all(
+        siblingNodes.map(async (sibling) => {
+          const studs = await learningPathService.getNodeStudents(sibling.nodeId);
+          studs.forEach(student => {
+            siblingMap[student.userId] = { nodeId: sibling.nodeId, nodeTitle: sibling.title };
+          });
+        })
+      );
+      
+      setSiblingAssignments(siblingMap);
+    } catch (err) {
+      console.error('Error fetching student assignments:', err);
+      toast.error('Không thể tải thông tin phân bổ sinh viên');
+    } finally {
+      setLoadingNodeStudents(false);
+    }
+  };
+
+  const handleAssignStudent = async (studentUserId: number, checked: boolean) => {
+    if (!selectedNode) return;
+    
+    let newIds = [...assignedStudentIds];
+    if (checked) {
+      const sibling = siblingAssignments[studentUserId];
+      if (sibling) {
+        toast.info(`Di chuyển sinh viên khỏi bài học: "${sibling.nodeTitle}" sang bài học hiện tại.`);
+      }
+      newIds.push(studentUserId);
+    } else {
+      newIds = newIds.filter(id => id !== studentUserId);
+    }
+    
+    setAssignedStudentIds(newIds);
+    if (checked) {
+      const updatedSiblingMap = { ...siblingAssignments };
+      delete updatedSiblingMap[studentUserId];
+      setSiblingAssignments(updatedSiblingMap);
+    }
+    
+    try {
+      await learningPathService.assignStudentsToNode(selectedNode.nodeId, newIds);
+      toast.success('Cập nhật phân bổ sinh viên thành công!');
+    } catch (err: any) {
+      console.error('Error assigning student:', err);
+      toast.error(err.response?.data?.message || 'Không thể lưu phân bổ sinh viên');
+      if (checked) {
+        setAssignedStudentIds(assignedStudentIds.filter(id => id !== studentUserId));
+        if (siblingAssignments[studentUserId]) {
+          const revertedMap = { ...siblingAssignments };
+          revertedMap[studentUserId] = siblingAssignments[studentUserId];
+          setSiblingAssignments(revertedMap);
+        }
+      } else {
+        setAssignedStudentIds([...assignedStudentIds, studentUserId]);
+      }
+    }
+  };
+
   const toggleNode = async (id: number) => {
     const nextState = !expandedNodes[id];
     setExpandedNodes((prev) => ({
@@ -205,6 +297,7 @@ export function ClassManagementPage() {
             ? `${item.lastName || ''} ${item.firstName || ''}`.trim()
             : `Student ${item.userId}`,
           progress: 0,
+          userId: item.userId,
         }));
         setStudents(formatted);
         await fetchGraphData(Number(classroomSubjectId));
@@ -401,6 +494,9 @@ export function ClassManagementPage() {
       await learningPathService.deleteLearningNode(nodeToDelete.nodeId);
       toast.success(`Node "${nodeToDelete.title}" deleted successfully`);
       setShowDeleteConfirm(false);
+      if (selectedNode && selectedNode.nodeId === nodeToDelete.nodeId) {
+        setSelectedNode(null);
+      }
       setNodeToDelete(null);
       if (classroomSubjectId) {
         await fetchGraphData(Number(classroomSubjectId));
@@ -413,11 +509,16 @@ export function ClassManagementPage() {
   const handleAddNodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNodeTitle.trim()) {
-      toast.error('Node title is required');
+      toast.error('Tiêu đề bài học không được để trống');
       return;
     }
     if (!activePathId) {
-      toast.error('Learning path template not loaded');
+      toast.error('Chưa tải được lộ trình học tập');
+      return;
+    }
+    // Require predecessor for all nodes so they connect properly into the graph
+    if (!newNodePredecessor) {
+      toast.error('Vui lòng chọn bài học yêu cầu trước để kết nối bài học vào lộ trình.');
       return;
     }
 
@@ -492,6 +593,9 @@ export function ClassManagementPage() {
 
       toast.success('Cập nhật node thành công!');
       setIsEditNodeOpen(false);
+      if (selectedNode && selectedNode.nodeId === nodeToEdit.nodeId) {
+        setSelectedNode(updated);
+      }
       setNodeToEdit(null);
 
       if (classroomSubjectId) {
@@ -502,6 +606,74 @@ export function ClassManagementPage() {
       toast.error(err.response?.data?.message || 'Không thể cập nhật thông tin node');
     } finally {
       setEditingNode(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+
+    if (!graphData?.quizStartTestId) {
+      toast.error('Vui lòng khởi tạo và cấu hình bài test phân loại đầu vào trước khi xuất bản lộ trình.');
+      setShowPublishConfirm(false);
+      setUnderstandPublish(false);
+      return;
+    }
+
+    try {
+      setActionState('publishing');
+      const res = await learningPathService.publishClassroomPath(Number(classroomSubjectId), graphData.pathId);
+      
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+
+      setShowPublishConfirm(false);
+      setUnderstandPublish(false);
+      toast.success('Xuất bản lộ trình học thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể xuất bản lộ trình học');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+    try {
+      setActionState('unpublishing');
+      await learningPathService.unpublishClassroomPath(Number(classroomSubjectId), graphData.pathId);
+      
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+
+      setShowUnpublishConfirm(false);
+      setUnderstandUnpublish(false);
+      toast.success('Gỡ xuất bản lộ trình học thành công!');
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        setUnpublishErrorMsg(err.response?.data?.message || 'Không thể unpublish — đã có học sinh hoàn thành node.');
+        setShowUnpublishError(true);
+      } else {
+        toast.error(err.response?.data?.message || 'Không thể gỡ xuất bản lộ trình học');
+      }
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bản nháp này không? Lộ trình sẽ bị xóa vĩnh viễn.')) return;
+    
+    try {
+      setActionState('deleting');
+      await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
+      
+      toast.success('Đã xóa bản nháp lộ trình học thành công!');
+      navigate(`/teacher/classroom-subjects/${classroomSubjectId}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể xóa bản nháp lộ trình học');
+    } finally {
+      setActionState('idle');
     }
   };
 
@@ -581,18 +753,38 @@ export function ClassManagementPage() {
           </h1>
         </div>
         
-        {/* Add Node Button Wrapper with Tooltip */}
-        <div title={isPublished ? lockTooltip : undefined}>
-          <Button 
-            onClick={handleAddNodeClick} 
-            disabled={isPublished}
-            aria-describedby={isPublished ? "lock-reason" : undefined}
-            className="text-white flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-sm font-semibold"
-            style={{ backgroundColor: '#030213' }}
-          >
-            <Plus className="size-4" />
-            Thêm bài học
-          </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {graphData?.state === 'DRAFT' && (
+            <Button 
+              onClick={() => setShowPublishConfirm(true)} 
+              disabled={actionState === 'publishing'}
+              className="bg-green-600 hover:bg-green-700 text-white h-9 rounded-[6px] text-xs font-semibold border-0"
+            >
+              <Play className="size-4 mr-1" />
+              Publish lộ trình
+            </Button>
+          )}
+          {graphData?.state === 'PUBLISHED' && (
+            <Button 
+              onClick={() => setShowUnpublishConfirm(true)} 
+              disabled={actionState === 'unpublishing'}
+              className="bg-amber-600 hover:bg-amber-700 text-white h-9 rounded-[6px] text-xs font-semibold border-0"
+            >
+              <Undo2 className="size-4 mr-1" />
+              Unpublish lộ trình
+            </Button>
+          )}
+          <div title={isPublished ? lockTooltip : undefined}>
+            <Button 
+              onClick={handleAddNodeClick} 
+              disabled={isPublished}
+              className="text-white flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-xs font-semibold h-9"
+              style={{ backgroundColor: '#030213' }}
+            >
+              <Plus className="size-4" />
+              Thêm bài học
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -605,309 +797,286 @@ export function ClassManagementPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5">
-            {/* Level selector tabs */}
-            <div className="flex gap-2 p-1 bg-slate-100/70 rounded-[8px] mb-5 border border-slate-200/40">
-              {[
-                { lvl: 1 as const, label: 'Lộ trình Yếu', desc: 'Cấp độ 1', color: 'text-rose-700 bg-rose-50 border-rose-200/60' },
-                { lvl: 2 as const, label: 'Lộ trình Trung bình', desc: 'Cấp độ 2', color: 'text-amber-700 bg-amber-50 border-amber-200/60' },
-                { lvl: 3 as const, label: 'Lộ trình Khá', desc: 'Cấp độ 3', color: 'text-emerald-700 bg-emerald-50 border-emerald-200/60' }
-              ].map(({ lvl, label, desc, color }) => {
-                const isActive = selectedLevel === lvl;
-                return (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => {
-                      setSelectedLevel(lvl);
-                      setExpandedNodes({});
-                    }}
-                    className={`flex-1 py-2 px-3 text-center rounded-[6px] border transition-all duration-200 flex flex-col items-center justify-center ${
-                      isActive
-                        ? `${color} border font-bold shadow-xs scale-[1.01]`
-                        : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="text-xs font-semibold">{label}</span>
-                    <span className="text-[10px] opacity-75 font-medium mt-0.5">{desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {nodes.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-[10px] bg-slate-50/40">
-                <Map className="size-8 mx-auto text-slate-350 mb-2" />
-                <p className="text-xs font-medium mb-4">Chưa có bài học nào trong lộ trình cấp độ này.</p>
-                <div title={isPublished ? lockTooltip : undefined}>
-                  <Button 
-                    onClick={() => setIsAddNodeOpen(true)} 
-                    disabled={isPublished} 
-                    size="sm"
-                    className="text-white rounded-[6px] shadow-xs hover:opacity-95 font-semibold text-xs py-1.5"
-                    style={{ backgroundColor: '#030213' }}
-                  >
-                    Tạo bài học đầu tiên
-                  </Button>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Column 1: Roadmap Flow Graph */}
+              <div className="lg:col-span-2 space-y-3">
+                <div className="text-xs font-semibold text-slate-500 mb-2">
+                  * Nhấp chuột vào một bài học trên sơ đồ dưới đây để xem & cấu hình chi tiết học liệu.
                 </div>
-              </div>
-            ) : (
-              <div className="border border-slate-100 rounded-[10px] overflow-hidden divide-y divide-slate-100 shadow-xs bg-white">
-                {nodes.map((node) => {
-                  const isExpanded = !!expandedNodes[node.nodeId];
-                  const incomingEdges = edges.filter((e) => e.toNodeId === node.nodeId);
-                  const incomingNodes = incomingEdges.map(e => nodes.find(n => n.nodeId === e.fromNodeId)).filter(Boolean);
-
-                  return (
-                    <div
-                      key={node.nodeId}
-                      className={`transition-all duration-250 border-l-[3px] ${
-                        node.status === 'OPEN' 
-                          ? 'border-l-emerald-500 bg-emerald-50/5 hover:bg-emerald-50/10' 
-                          : node.status === 'LOCKED' 
-                            ? 'border-l-slate-300 bg-slate-50/10 hover:bg-slate-50/20' 
-                            : 'border-l-amber-500 bg-amber-50/5 hover:bg-amber-50/10'
-                      }`}
-                    >
-                      {/* Header */}
-                      <div
-                        onClick={() => toggleNode(node.nodeId)}
-                        className="flex items-center justify-between p-4 cursor-pointer select-none"
+                {nodes.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-[10px] bg-slate-50/40">
+                    <Map className="size-8 mx-auto text-slate-350 mb-2" />
+                    <p className="text-xs font-medium mb-4">Chưa có bài học nào trong lộ trình lớp học.</p>
+                    <div title={isPublished ? lockTooltip : undefined}>
+                      <Button 
+                        onClick={() => setIsAddNodeOpen(true)} 
+                        disabled={isPublished} 
+                        size="sm"
+                        className="text-white rounded-[6px] shadow-xs hover:opacity-95 font-semibold text-xs py-1.5"
+                        style={{ backgroundColor: '#030213' }}
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className={`p-1 rounded transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-90' : ''}`}>
-                            <ChevronRight className="size-4 text-muted-foreground" />
-                          </div>
-                          <div className="shrink-0">
-                            {getNodeIcon(node.status)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`font-semibold text-sm ${node.status === 'LOCKED' ? 'text-muted-foreground' : 'text-foreground'
-                                }`}>
-                                {node.title}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal bg-slate-50 text-slate-650 border-slate-200 rounded-[6px]">
-                                {node.nodeType === 'ON_CLASS' ? 'Trên lớp' : 'Tự học'}
-                              </Badge>
-                              {node.isRequired && (
-                                <Badge className="text-[10px] py-0 px-1 font-normal bg-rose-50 text-rose-700 border-rose-200 rounded-[6px]" variant="outline">
-                                  Bắt buộc
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pl-4 shrink-0">
-                          {node.status === 'OPEN' ? 'Mở' : node.status === 'LOCKED' ? 'Khóa' : 'Ẩn'}
+                        Tạo bài học đầu tiên
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-[550px] overflow-auto rounded-xl border border-slate-200 bg-slate-50/30 p-2">
+                    <LearningPathFlow
+                      nodes={nodes}
+                      edges={edges}
+                      selectedNodeId={selectedNode?.nodeId ?? null}
+                      onNodeClick={(clickedNode) => handleSelectNode(clickedNode)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Column 2: Selected Node Sidebar Details Panel */}
+              <div className="lg:col-span-1 border border-slate-200 rounded-xl bg-slate-50/40 p-4 space-y-4 h-[580px] overflow-y-auto">
+                {!selectedNode ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center py-16 text-slate-400">
+                    <Map className="w-10 h-10 mb-2 text-slate-350" />
+                    <p className="text-xs font-bold text-slate-800">Chọn một bài học trên sơ đồ</p>
+                    <p className="text-[10px] text-slate-500 mt-1 max-w-[200px]">Nhấp chọn node trên sơ đồ lộ trình bên trái để xem nội dung chi tiết & chỉnh sửa.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Node Header Info */}
+                    <div className="space-y-2 border-b border-slate-200/80 pb-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                          Chi tiết bài học
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-slate-50 text-slate-650 border-slate-250 rounded-[4px]">
+                            {selectedNode.nodeType === 'ON_CLASS' ? 'Trên lớp' : 'Tự học'}
+                          </Badge>
+                          {selectedNode.isRequired && (
+                            <Badge className="text-[9px] py-0 px-1 font-normal bg-rose-50 text-rose-700 border-rose-250 rounded-[4px]" variant="outline">
+                              Bắt buộc
+                            </Badge>
+                          )}
                         </div>
                       </div>
+                      <h3 className="font-bold text-slate-800 text-sm">{selectedNode.title}</h3>
+                      {selectedNode.description && (
+                        <p className="text-xs text-slate-650 leading-relaxed italic">{selectedNode.description}</p>
+                      )}
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        Trạng thái hiển thị: <span className="font-semibold text-slate-700">{selectedNode.status === 'OPEN' ? 'Mở' : selectedNode.status === 'LOCKED' ? 'Khóa' : 'Ẩn'}</span>
+                      </div>
 
-                      {/* Expanded content */}
-                      {isExpanded && (
-                        <div className="px-4 pb-4 pt-2 bg-slate-50/30 border-t border-slate-100 space-y-3">
-                          <p className="text-sm text-slate-650 leading-relaxed">
-                            {node.description || 'Chưa có mô tả chi tiết cho bài học này.'}
-                          </p>
-
-                          {incomingNodes.length > 0 && (
-                            <div className="text-xs text-slate-600 bg-slate-50 border border-slate-150 p-2 rounded-[6px]">
-                              <span className="font-semibold text-slate-800">Bài học yêu cầu trước (Prerequisites): </span>
+                      {(() => {
+                        const incomingEdges = edges.filter((e) => e.toNodeId === selectedNode.nodeId);
+                        const incomingNodes = incomingEdges.map(e => nodes.find(n => n.nodeId === e.fromNodeId)).filter(Boolean);
+                        if (incomingNodes.length > 0) {
+                          return (
+                            <div className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200/60 p-1.5 rounded-[4px] mt-1.5">
+                              <span className="font-bold text-slate-800">Yêu cầu trước: </span>
                               {incomingNodes.map(inNode => inNode?.title).join(', ')}
                             </div>
-                          )}
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
 
-                          <div className="text-xs text-slate-500">
-                            Thứ tự hiển thị: <span className="font-semibold text-slate-850">{node.displayOrder}</span>
-                          </div>
-
-                          {/* Node Content Section */}
-                          <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
-                            <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
-                              <BookOpen className="size-3.5 text-slate-600" />
-                              Nội dung học tập
+                    {/* Check if PLACEMENT test */}
+                    {selectedNode.testKind === 'PLACEMENT' ? (
+                      <div className="space-y-3 bg-amber-50 border border-amber-200/60 p-3 rounded-lg text-xs leading-relaxed text-amber-900 shadow-2xs">
+                        <AlertTriangle className="size-5 text-amber-600 mb-1" />
+                        <p className="font-bold">Bài test năng lực đầu vào</p>
+                        <p className="text-[11px] text-amber-700">
+                          Bài test này được dùng để đánh giá năng lực & tự động phân lộ trình cho học sinh. Vui lòng cấu hình chi tiết câu hỏi & các khoảng điểm phân lớp tại tab **Đánh giá & Phân loại**.
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}?tab=placement`)}
+                          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-md text-[11px] h-8 mt-1"
+                        >
+                          <ArrowLeft className="size-3 mr-1 rotate-180" /> Đi tới tab Đánh giá & Phân loại
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Node Content lists (materials, tests, exercises) */}
+                        <div className="space-y-4">
+                          {/* Student Assignment */}
+                          <div className="space-y-2 pb-3 border-b border-slate-100">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                              <Users className="size-3.5 text-slate-500" />
+                              Phân bổ sinh viên ({assignedStudentIds.length})
                             </h4>
-
-                            {nodeContentsLoading[node.nodeId] ? (
-                              <div className="flex items-center gap-2 text-xs text-slate-500 py-2 pl-4">
-                                <Loader className="size-3.5 animate-spin text-slate-500" />
-                                Đang tải nội dung...
+                            {loadingNodeStudents ? (
+                              <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
+                                <Loader className="size-3 animate-spin text-primary" /> Đang tải danh sách...
                               </div>
-                                            ) : (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-2 mt-2">
-                                {/* Materials List */}
-                                <div className="space-y-3 md:border-r md:border-slate-100 md:pr-6">
-                                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                                    <FileText className="size-3 text-slate-500" />
-                                    Tài liệu & Video ({nodeContents[node.nodeId]?.materials?.length || 0})
-                                  </div>
-                                  {!(nodeContents[node.nodeId]?.materials) || nodeContents[node.nodeId].materials.length === 0 ? (
-                                    <p className="text-xs text-slate-400 italic pl-1">Chưa có tài liệu học tập.</p>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      {(nodeContents[node.nodeId]?.materials || []).map((material) => (
-                                        <div
-                                          key={material.materialId}
-                                          className="flex items-center justify-between p-2.5 rounded-[6px] border border-slate-200/60 bg-white hover:bg-slate-50/50 text-xs transition-colors shadow-2xs"
-                                        >
-                                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            {material.video ? (
-                                              <Film className="size-4 text-blue-500 shrink-0" />
-                                            ) : (
-                                              <FileText className="size-4 text-emerald-500 shrink-0" />
-                                            )}
-                                            <span className="font-semibold truncate text-slate-800">
-                                              {material.title}
-                                            </span>
-                                            {material.required && (
-                                              <Badge className="text-[9px] py-0 px-1 font-normal bg-rose-50 text-rose-700 border-rose-200 rounded-[6px]" variant="outline">
-                                                Bắt buộc
-                                              </Badge>
-                                            )}
-                                            {material.video && (
-                                              <a
-                                                href={material.video.videoUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-[#030213] hover:text-slate-800 flex items-center gap-0.5 shrink-0 ml-1 hover:underline font-bold"
-                                              >
-                                                Xem video <ExternalLink className="size-3" />
-                                              </a>
-                                            )}
-                                            {material.file && (
-                                              <a
-                                                href={material.file.fileUrl.startsWith('http') ? material.file.fileUrl : `http://localhost:8080${material.file.fileUrl}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                download
-                                                className="text-[#030213] hover:text-slate-800 flex items-center gap-0.5 shrink-0 ml-1 hover:underline font-bold"
-                                              >
-                                                Tải file <Download className="size-3" />
-                                              </a>
-                                            )}
-                                          </div>
-                                          <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            onClick={() => handleDeleteMaterial(node.nodeId, material.materialId)}
-                                            className="h-7 w-7 text-red-650 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
-                                          >
-                                            <Trash2 className="size-3.5" />
-                                          </Button>
+                            ) : students.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">Lớp học chưa có sinh viên nào.</p>
+                            ) : (
+                              <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+                                {students.map((student) => {
+                                  const isAssigned = assignedStudentIds.includes(student.userId);
+                                  
+                                  return (
+                                    <div key={student.userId} className="flex items-center justify-between text-xs p-1 rounded-lg hover:bg-slate-50 transition-colors">
+                                      <label htmlFor={`assign-std-${student.userId}`} className="flex items-center gap-2 flex-1 cursor-pointer select-none">
+                                        <Checkbox
+                                          id={`assign-std-${student.userId}`}
+                                          checked={isAssigned}
+                                          onCheckedChange={(checked) => handleAssignStudent(student.userId, !!checked)}
+                                        />
+                                        <div className="min-w-0">
+                                          <p className="font-semibold text-slate-700 truncate">{student.fullName}</p>
                                         </div>
-                                      ))}
+                                      </label>
                                     </div>
-                                  )}
-                                </div>
-
-                                {/* Tests List */}
-                                <div className="space-y-3">
-                                  <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                                    <Award className="size-3.5 text-slate-500" />
-                                    Bài kiểm tra ({nodeContents[node.nodeId]?.tests?.length || 0})
-                                  </div>
-                                  {!(nodeContents[node.nodeId]?.tests) || nodeContents[node.nodeId].tests.length === 0 ? (
-                                    <p className="text-xs text-slate-400 italic pl-1">Chưa có bài kiểm tra.</p>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      {(nodeContents[node.nodeId]?.tests || []).map((test) => (
-                                        <div
-                                          key={test.testId}
-                                          className="flex items-center justify-between p-2.5 rounded-[6px] border border-slate-200/60 bg-white hover:bg-slate-50/50 text-xs transition-colors shadow-2xs"
-                                        >
-                                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            <Award className="size-4 text-purple-500 shrink-0" />
-                                            <span className="font-semibold truncate text-slate-800">
-                                              {test.title}
-                                            </span>
-                                            {test.durationMinutes && (
-                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-slate-50 border-slate-200 rounded-[6px] text-slate-655">
-                                                {test.durationMinutes} phút
-                                              </Badge>
-                                            )}
-                                            {test.passingPercentage && (
-                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-purple-55/5 text-purple-700 border-purple-200 rounded-[6px]">
-                                                Đạt: {test.passingPercentage}%
-                                              </Badge>
-                                            )}
-                                          </div>
-                                          <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            onClick={() => handleDeleteTest(node.nodeId, test.testId)}
-                                            className="h-7 w-7 text-red-655 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
-                                          >
-                                            <Trash2 className="size-3.5" />
-                                          </Button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
 
-                          {/* Node operations wrapped with tooltips when published */}
-                          <div className="flex gap-2 pt-3 border-t border-slate-100 flex-wrap">
-                            <div title={isPublished ? lockTooltip : undefined}>
+                          {/* Materials & Videos */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
+                              <span className="flex items-center gap-1.5">
+                                <BookOpen className="size-3.5 text-slate-500" />
+                                Tài liệu & Video ({nodeContents[selectedNode.nodeId]?.materials?.length || 0})
+                              </span>
                               <Button
                                 size="sm"
-                                variant="outline"
-                                className="bg-white text-xs h-8 text-slate-700 hover:text-[#030213] hover:bg-slate-50 border-slate-200/80 rounded-[6px] font-semibold"
-                                onClick={() => handleAddNextNodeClick(node)}
+                                variant="ghost"
                                 disabled={isPublished}
+                                className="h-6 text-[10px] text-primary hover:bg-primary/5 rounded font-bold px-1.5"
+                                onClick={() => handleAddContentClick(selectedNode)}
                               >
-                                <Plus className="size-3.5 mr-1" />
-                                Thêm Node tiếp theo
+                                + Thêm tài liệu
                               </Button>
                             </div>
-                            
-                            <div title={isPublished ? lockTooltip : undefined}>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-white text-xs h-8 text-amber-700 hover:text-amber-800 hover:bg-amber-50/20 border-amber-250/60 rounded-[6px] font-semibold"
-                                onClick={() => handleEditNodeClick(node)}
-                                disabled={isPublished}
-                              >
-                                <Edit2 className="size-3.5 mr-1" />
-                                Sửa Node
-                              </Button>
-                            </div>
+                            {nodeContentsLoading[selectedNode.nodeId] ? (
+                              <div className="flex items-center gap-2 text-xs text-slate-500 py-1 pl-2">
+                                <Loader className="size-3 animate-spin" /> Tải tài liệu...
+                              </div>
+                            ) : !(nodeContents[selectedNode.nodeId]?.materials) || nodeContents[selectedNode.nodeId].materials.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic pl-1">Chưa có tài liệu học tập.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {(nodeContents[selectedNode.nodeId]?.materials || []).map((material) => (
+                                  <div
+                                    key={material.materialId}
+                                    className="flex items-center justify-between p-2 rounded-[6px] border border-slate-200/50 bg-white hover:bg-slate-50/50 text-xs transition-colors shadow-2xs"
+                                  >
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                      {material.video ? <Film className="size-3.5 text-slate-500 shrink-0" /> : <FileText className="size-3.5 text-slate-500 shrink-0" />}
+                                      <span className="truncate text-[11px] font-medium text-slate-700">{material.title}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                      {material.video && (
+                                        <a href={material.video.videoUrl} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-750">
+                                          <ExternalLink className="size-3" />
+                                        </a>
+                                      )}
+                                      {material.file && (
+                                        <a href={material.file.fileUrl} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-750">
+                                          <Download className="size-3" />
+                                        </a>
+                                      )}
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-5 rounded text-red-500 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
+                                        disabled={isPublished}
+                                        onClick={() => handleDeleteMaterial(selectedNode.nodeId, material.materialId)}
+                                      >
+                                        <X className="size-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
 
-                            <div title={isPublished ? lockTooltip : undefined}>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-white text-xs h-8 text-slate-700 hover:text-[#030213] hover:bg-slate-50 border-slate-200/80 rounded-[6px] font-semibold"
-                                onClick={() => handleAddContentClick(node)}
-                                disabled={isPublished}
-                              >
-                                <BookOpen className="size-3.5 mr-1" />
-                                Thêm nội dung
-                              </Button>
+                          {/* Quizzes & Tests */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
+                              <span className="flex items-center gap-1.5">
+                                <Award className="size-3.5 text-slate-500" />
+                                Bài kiểm tra ({nodeContents[selectedNode.nodeId]?.tests?.length || 0})
+                              </span>
                             </div>
-                            
-                            <div title={isPublished ? lockTooltip : undefined}>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 border-red-200/60 hover:border-red-400 hover:bg-red-50/30 text-xs h-8 rounded-[6px] font-semibold"
-                                onClick={() => triggerRemoveNodeDialog(node.nodeId, node.title)}
-                                disabled={isPublished}
-                              >
-                                <Trash2 className="size-3.5 mr-1" />
-                                Xóa Node
-                              </Button>
-                            </div>
+                            {nodeContentsLoading[selectedNode.nodeId] ? (
+                              <div className="flex items-center gap-2 text-xs text-slate-500 py-1 pl-2">
+                                <Loader className="size-3 animate-spin" /> Tải kiểm tra...
+                              </div>
+                            ) : !(nodeContents[selectedNode.nodeId]?.tests) || nodeContents[selectedNode.nodeId].tests.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic pl-1">Chưa có bài kiểm tra.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {(nodeContents[selectedNode.nodeId]?.tests || []).map((test) => (
+                                  <div
+                                    key={test.testId}
+                                    className="flex items-center justify-between p-2 rounded-[6px] border border-slate-200/50 bg-white hover:bg-slate-50/50 text-xs transition-colors shadow-2xs"
+                                  >
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                      <Award className="size-3.5 text-indigo-500 shrink-0" />
+                                      <span className="truncate text-[11px] font-semibold text-slate-700">{test.title}</span>
+                                      <span className="text-[10px] text-slate-400 shrink-0">({test.durationMinutes} ph)</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-5 rounded text-red-500 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
+                                        disabled={isPublished}
+                                        onClick={() => handleDeleteTest(selectedNode.nodeId, test.testId)}
+                                      >
+                                        <X className="size-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      )}
+                      </>
+                    )}
+
+                    {/* Node actions (edit, delete) */}
+                    <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60 w-full font-sans">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-slate-700 border-slate-250 hover:bg-slate-50 text-xs h-8 rounded-lg font-semibold"
+                        onClick={() => {
+                          setNodeToEdit(selectedNode);
+                          setEditNodeTitle(selectedNode.title);
+                          setEditNodeDesc(selectedNode.description || '');
+                          setEditNodeType(selectedNode.nodeType);
+                          setEditNodeStatus(selectedNode.status);
+                          setEditNodeOrder(selectedNode.displayOrder || 1);
+                          setEditNodeRequired(selectedNode.isRequired ?? true);
+                          setIsEditNodeOpen(true);
+                        }}
+                      >
+                        <Edit2 className="size-3.5 mr-1" /> Sửa bài học
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-8 rounded-lg font-semibold"
+                        disabled={isPublished}
+                        onClick={() => triggerRemoveNodeDialog(selectedNode.nodeId, selectedNode.title)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
@@ -995,7 +1164,7 @@ export function ClassManagementPage() {
             <Button 
               onClick={handleRemoveNodeConfirm} 
               disabled={!understandDelete}
-              className="bg-red-650 hover:bg-red-700 text-white font-medium rounded-[6px]"
+              className="bg-red-600 hover:bg-red-700 text-white font-medium rounded-[6px]"
             >
               Xóa bài học
             </Button>
@@ -1547,6 +1716,131 @@ export function ClassManagementPage() {
           </div>
         </div>
       )}
+      {/* Confirmation Modal for Publish */}
+      <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Xác nhận Publish lộ trình học</DialogTitle>
+            <DialogDescription>
+              Hành động này sẽ chính thức kích hoạt lộ trình học cho sinh viên.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong>{students.length} học sinh</strong> đang enroll trong lớp học này.
+            </p>
+            <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-100">
+              <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
+            </p>
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox 
+                id="understand-publish" 
+                checked={understandPublish} 
+                onCheckedChange={(val) => setUnderstandPublish(!!val)} 
+              />
+              <label 
+                htmlFor="understand-publish" 
+                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+              >
+                Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
+              </label>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => { setShowPublishConfirm(false); setUnderstandPublish(false); }}
+              disabled={actionState === 'publishing'}
+            >
+              Hủy
+            </Button>
+            <Button 
+              onClick={handlePublish} 
+              disabled={!understandPublish || actionState === 'publishing'}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium"
+            >
+              {actionState === 'publishing' ? (
+                <>
+                  <Loader className="size-4 animate-spin mr-1" />
+                  Đang seed tiến độ cho {students.length} học sinh...
+                </>
+              ) : (
+                'Publish ngay'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Modal for Unpublish */}
+      <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
+            <DialogDescription>
+              Rút lại lộ trình học để chỉnh sửa thêm bản nháp.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-600 leading-relaxed font-medium">
+              Toàn bộ tiến độ học tập và ghi nhận bài học hiện tại của học sinh sẽ bị xóa sạch khỏi hệ thống.
+            </p>
+            <p className="text-sm text-red-700 bg-red-50 p-3 rounded-md border border-red-100">
+              <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
+            </p>
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox 
+                id="understand-unpublish" 
+                checked={understandUnpublish} 
+                onCheckedChange={(val) => setUnderstandUnpublish(!!val)} 
+              />
+              <label 
+                htmlFor="understand-unpublish" 
+                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+              >
+                Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
+              </label>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); }}
+              disabled={actionState === 'unpublishing'}
+            >
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleUnpublish} 
+              disabled={!understandUnpublish || actionState === 'unpublishing'}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+            >
+              {actionState === 'unpublishing' ? <Loader className="size-4 animate-spin mr-1" /> : null}
+              Xác nhận Unpublish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unpublish Error Modal (already completed nodes) */}
+      <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="size-5 shrink-0" />
+              <span>Không thể unpublish</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 text-sm text-gray-600 leading-relaxed">
+            {unpublishErrorMsg || 'Đã có học sinh hoàn thành node, không thể unpublish.'}
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <Button onClick={() => setShowUnpublishError(false)}>
+              Đồng ý
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

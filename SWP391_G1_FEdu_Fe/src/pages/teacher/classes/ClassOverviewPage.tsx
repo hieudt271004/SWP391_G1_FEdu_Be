@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -50,8 +50,10 @@ import {
   learningPathService, 
   LearningNodeResponse, 
   ClassroomGraphResponse,
-  NodeContentResponse
+  NodeContentResponse,
+  StudentInClassResponse
 } from '../../../services/learningPath.service';
+import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import {
   Dialog,
   DialogContent,
@@ -111,6 +113,13 @@ export function ClassOverviewPage() {
   
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
+  // Selected Node Details state
+  const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
+  const [nodeStudents, setNodeStudents] = useState<StudentInClassResponse[]>([]);
+  const [nodeContent, setNodeContent] = useState<NodeContentResponse | null>(null);
+  const [loadingNodeDetails, setLoadingNodeDetails] = useState(false);
+
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
 
   const handleConfirmAssignSubMentors = async () => {
@@ -138,6 +147,14 @@ export function ClassOverviewPage() {
   const [isAssignSubMentorModalOpen, setIsAssignSubMentorModalOpen] = useState(false);
   const [assignSubMentorIds, setAssignSubMentorIds] = useState<number[]>([]);
 
+  // Sync activeTab from ?tab= query parameter (e.g. when redirected from ClassManagementPage)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'placement' || tabParam === 'students' || tabParam === 'support' || tabParam === 'roadmap') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
   // Placement Quiz states
   const [placementQuiz, setPlacementQuiz] = useState<any>(null);
   const [loadingPlacement, setLoadingPlacement] = useState(false);
@@ -157,7 +174,7 @@ export function ClassOverviewPage() {
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
   const [questionContent, setQuestionContent] = useState('');
-  const [questionType, setQuestionType] = useState<'SINGLE' | 'MULTIPLE'>('SINGLE');
+  const [questionType, setQuestionType] = useState<'SINGLE' | 'MULTIPLE' | 'ESSAY'>('SINGLE');
   const [answers, setAnswers] = useState<any[]>([
     { answerContent: '', isCorrect: false },
     { answerContent: '', isCorrect: false },
@@ -497,7 +514,11 @@ export function ClassOverviewPage() {
     setEditingQuestion(question);
     if (question) {
       setQuestionContent(question.questionContent);
-      setQuestionType(question.questionType === 'MULTIPLE_CHOICE' ? 'SINGLE' : 'MULTIPLE');
+      setQuestionType(
+        question.questionType === 'ESSAY' 
+          ? 'ESSAY' 
+          : (question.questionType === 'MULTIPLE_CHOICE' ? 'SINGLE' : 'MULTIPLE')
+      );
       setAnswers(question.answers.map((a: any) => ({
         answerContent: a.answerContent,
         isCorrect: a.isCorrect
@@ -519,27 +540,40 @@ export function ClassOverviewPage() {
     e.preventDefault();
     if (!placementQuiz) return;
 
-    const filledAnswers = answers.filter(a => a.answerContent.trim() !== '');
-    if (filledAnswers.length < 2) {
-      toast.error('Cần nhập ít nhất 2 đáp án');
-      return;
-    }
-    const hasCorrect = filledAnswers.some(a => a.isCorrect);
-    if (!hasCorrect) {
-      toast.error('Cần chọn ít nhất 1 đáp án đúng');
-      return;
+    if (questionType === 'ESSAY') {
+      if (!answers[0] || !answers[0].answerContent.trim()) {
+        toast.error('Vui lòng nhập câu trả lời mẫu/hướng dẫn chấm');
+        return;
+      }
+    } else {
+      const filledAnswers = answers.filter(a => a.answerContent.trim() !== '');
+      if (filledAnswers.length < 2) {
+        toast.error('Cần nhập ít nhất 2 đáp án');
+        return;
+      }
+      const hasCorrect = filledAnswers.some(a => a.isCorrect);
+      if (!hasCorrect) {
+        toast.error('Cần chọn ít nhất 1 đáp án đúng');
+        return;
+      }
     }
 
     try {
       setSubmittingQuestion(true);
+      const filledAnswers = questionType === 'ESSAY'
+        ? [{ answerContent: answers[0].answerContent.trim(), isCorrect: true }]
+        : answers.filter(a => a.answerContent.trim() !== '').map(a => ({
+            answerContent: a.answerContent.trim(),
+            isCorrect: a.isCorrect
+          }));
+
       const payload = {
         questionContent: questionContent.trim(),
-        questionType: (questionType === 'SINGLE' ? 'MULTIPLE_CHOICE' : 'MULTIPLE_SELECT') as 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT',
+        questionType: questionType === 'ESSAY'
+          ? 'ESSAY'
+          : (questionType === 'SINGLE' ? 'MULTIPLE_CHOICE' : 'MULTIPLE_SELECT') as 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'ESSAY',
         score: 1,
-        answers: filledAnswers.map(a => ({
-          answerContent: a.answerContent.trim(),
-          isCorrect: a.isCorrect
-        }))
+        answers: filledAnswers
       };
 
       if (editingQuestion) {
@@ -727,6 +761,24 @@ export function ClassOverviewPage() {
       }
     }
   }, [graphData, fetchNodeContent]);
+
+  const handleNodeClick = async (node: LearningNodeResponse) => {
+    setSelectedNode(node);
+    setLoadingNodeDetails(true);
+    try {
+      const [content, students] = await Promise.all([
+        learningPathService.getTeacherNodeContent(node.nodeId),
+        learningPathService.getNodeStudents(node.nodeId)
+      ]);
+      setNodeContent(content);
+      setNodeStudents(students);
+    } catch (err) {
+      console.error('Lỗi khi tải chi tiết node:', err);
+      toast.error('Không thể tải chi tiết bài học');
+    } finally {
+      setLoadingNodeDetails(false);
+    }
+  };
 
   const handleClone = async () => {
     if (!classroomSubjectId) return;
@@ -1173,14 +1225,6 @@ export function ClassOverviewPage() {
               Kết thúc lớp học
             </Button>
           )}
-          <Button 
-            onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}/manage`)} 
-            disabled={isNonIdle || graphData?.state === 'NO_PATH'}
-            className="bg-primary hover:bg-primary/90 text-white font-medium rounded-xl flex items-center gap-1.5"
-          >
-            <Settings className="size-4" />
-            Chỉnh sửa Lộ trình
-          </Button>
         </div>
       </div>
 
@@ -1190,12 +1234,12 @@ export function ClassOverviewPage() {
           <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-1 text-center md:text-left">
               <h2 className="text-lg font-semibold text-primary">
-                {graphData.canCloneAll ? "Khởi tạo lộ trình học cho lớp" : "Môn học chưa đầy đủ lộ trình mẫu"}
+                {graphData.canCloneAll ? "Khởi tạo lộ trình học cho lớp" : "Môn học chưa có lộ trình mẫu"}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {graphData.canCloneAll 
-                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình mẫu cả 3 mức (Yếu, Trung bình, Khá)." 
-                  : "Môn học này chưa được cấu hình đầy đủ lộ trình mẫu 3 mức (Yếu, Trung bình, Khá) từ khoa."}
+                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa." 
+                  : "Môn học này chưa được cấu hình lộ trình mẫu công bố từ khoa."}
               </p>
             </div>
             
@@ -1207,13 +1251,11 @@ export function ClassOverviewPage() {
                   className="w-full md:w-auto bg-primary hover:bg-primary/90 text-white font-medium rounded-xl"
                 >
                   {actionState === 'cloning' ? <Loader className="size-4 animate-spin mr-1" /> : <Play className="size-4 mr-1" />}
-                  Khởi tạo lộ trình (3 mức)
+                  Khởi tạo lộ trình học
                 </Button>
               ) : (
                 <div className="text-sm text-red-600 bg-red-50 py-2 px-3 rounded-md border border-red-100">
-                  Thiếu lộ trình mẫu mức: {
-                    graphData.missingLevels?.map(lvl => lvl === 1 ? "Yếu" : lvl === 2 ? "Trung bình" : "Khá").join(", ")
-                  }. Liên hệ admin.
+                  Lộ trình mẫu chưa sẵn sàng hoặc chưa được xuất bản. Liên hệ admin.
                 </div>
               )}
             </div>
@@ -1221,43 +1263,11 @@ export function ClassOverviewPage() {
         </Card>
       )}
 
-      {graphData?.state === 'DRAFT' && (
-        <Card className="border-amber-100 bg-amber-50/10" role="alert">
-          <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-amber-900 font-semibold">
-                <AlertTriangle className="size-5 text-amber-600" />
-                <span>Bản nháp — chưa publish</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Giáo viên có thể chỉnh sửa tự do. Học sinh sẽ không nhìn thấy lộ trình này cho đến khi bạn publish.</p>
-            </div>
-            
-            <div className="flex items-center gap-3 shrink-0 w-full md:w-auto">
-              <Button 
-                variant="outline" 
-                onClick={handleDeleteDraft} 
-                disabled={isNonIdle}
-                className="w-full md:w-auto text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100"
-              >
-                <Trash2 className="size-4 mr-1" />
-                Xóa draft
-              </Button>
-              <Button 
-                onClick={() => setShowPublishConfirm(true)} 
-                disabled={isNonIdle}
-                className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Play className="size-4 mr-1" />
-                Publish lộ trình
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+
 
       {graphData?.state === 'PUBLISHED' && (
         <Card className="border-emerald-100 bg-emerald-50/10" role="alert">
-          <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <CardContent className="pt-6">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-emerald-950 font-semibold">
                 <CheckCircle2 className="size-5 text-emerald-600" />
@@ -1267,18 +1277,6 @@ export function ClassOverviewPage() {
               <div className="text-xs text-muted-foreground font-semibold mt-1">
                 Tiến độ: 0/{students.length} học sinh đã bắt đầu
               </div>
-            </div>
-            
-            <div className="shrink-0 w-full md:w-auto">
-              <Button 
-                variant="outline"
-                onClick={() => setShowUnpublishConfirm(true)} 
-                disabled={isNonIdle}
-                className="w-full md:w-auto text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200"
-              >
-                <Undo2 className="size-4 mr-1" />
-                Unpublish
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -1334,7 +1332,7 @@ export function ClassOverviewPage() {
           <div className="flex items-center justify-between pl-1">
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Map className="w-5 h-5 text-primary" />
-              Lộ trình học tập song song (3 mức)
+              Sơ đồ lộ trình học tập
             </h2>
             {graphData?.state !== 'NO_PATH' && (
               <Button
@@ -1355,14 +1353,113 @@ export function ClassOverviewPage() {
               <Map className="w-12 h-12 mx-auto text-slate-300 mb-3 animate-pulse" />
               <h3 className="text-base font-bold text-slate-800 mb-1">Chưa cấu hình lộ trình</h3>
               <p className="text-sm text-slate-500 max-w-md mx-auto">
-                Lớp học này chưa khởi tạo lộ trình học tập. Hãy nhấp nút "Khởi tạo lộ trình (3 mức)" ở trên để bắt đầu.
+                Lớp học này chưa khởi tạo lộ trình học tập. Hãy nhấp nút "Khởi tạo lộ trình" ở trên để bắt đầu.
               </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              {renderClassRoadmapColumn(1, "Lộ trình Yếu (Level 1)", "Lộ trình dành cho học sinh có năng lực yếu, tập trung bổ trợ kiến thức cơ bản.")}
-              {renderClassRoadmapColumn(2, "Lộ trình Trung bình (Level 2)", "Lộ trình chuẩn cho học sinh có năng lực trung bình, bám sát khung chương trình chính.")}
-              {renderClassRoadmapColumn(3, "Lộ trình Khá (Level 3)", "Lộ trình nâng cao cho học sinh khá giỏi, tích hợp các bài toán/chủ đề chuyên sâu.")}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)]">
+                  <LearningPathFlow
+                    nodes={graphData?.nodes || []}
+                    edges={graphData?.edges || []}
+                    selectedNodeId={selectedNode?.nodeId || null}
+                    onNodeClick={(node) => handleNodeClick(node)}
+                  />
+                </div>
+              </div>
+              
+              <div className="lg:col-span-1">
+                {!selectedNode ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white border border-slate-250 rounded-2xl p-6">
+                    <Map className="w-10 h-10 text-slate-300 mb-2 animate-bounce" />
+                    <p className="text-xs font-semibold">Chọn bài học trên sơ đồ</p>
+                    <p className="text-[10px] text-slate-400">để xem thông tin chi tiết</p>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5 shadow-xs h-fit max-h-[70vh] overflow-auto flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div>
+                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-semibold uppercase">
+                            {selectedNode.nodeType === 'ON_CLASS' ? 'Trên lớp' : 'Tự học'}
+                          </span>
+                          <h3 className="font-bold text-slate-800 text-sm mt-1">{selectedNode.title}</h3>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setSelectedNode(null)}>
+                          <X className="size-4" />
+                        </Button>
+                      </div>
+
+                      {loadingNodeDetails ? (
+                        <div className="flex items-center justify-center py-10">
+                          <Loader className="w-6 h-6 animate-spin text-indigo-600" />
+                        </div>
+                      ) : (
+                        <>
+                          {/* Student list above materials */}
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sinh viên ({nodeStudents.length})</h4>
+                            {nodeStudents.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">Chưa có sinh viên nào học node này.</p>
+                            ) : (
+                              <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                                {nodeStudents.map((student) => (
+                                  <div key={student.userId} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 border border-slate-100/50">
+                                    <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600 uppercase">
+                                      {student.avatarUrl ? (
+                                        <img src={student.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
+                                      ) : (
+                                        student.lastName?.charAt(0) || student.firstName?.charAt(0) || 'S'
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-xs">
+                                      <p className="font-semibold text-slate-700 truncate">
+                                        {student.lastName} {student.firstName}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Materials */}
+                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tài liệu học tập</h4>
+                            {!nodeContent || (!nodeContent.materials?.length && !nodeContent.tests?.length) ? (
+                              <p className="text-xs text-slate-400 italic">Node này chưa có tài liệu hay bài kiểm tra nào.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {nodeContent.materials?.map((m) => (
+                                  <div key={m.materialId} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50/50 border border-slate-100 text-xs">
+                                    <div className="text-indigo-600 shrink-0">
+                                      <FileText className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-slate-700 truncate">{m.title}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                                {nodeContent.tests?.map((t) => (
+                                  <div key={t.testId} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50/50 border border-slate-100 text-xs">
+                                    <div className="text-amber-600 shrink-0">
+                                      <Award className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-slate-700 truncate">{t.title} ({t.durationMinutes} phút)</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1780,51 +1877,104 @@ export function ClassOverviewPage() {
                 <select
                   className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={questionType}
-                  onChange={(e) => setQuestionType(e.target.value as any)}
+                  onChange={(e) => {
+                    const newType = e.target.value as any;
+                    setQuestionType(newType);
+                    if (newType === 'ESSAY') {
+                      setAnswers([{ answerContent: '', isCorrect: true }]);
+                    } else {
+                      setAnswers([
+                        { answerContent: '', isCorrect: false },
+                        { answerContent: '', isCorrect: false },
+                        { answerContent: '', isCorrect: false },
+                        { answerContent: '', isCorrect: false }
+                      ]);
+                    }
+                  }}
                 >
                   <option value="SINGLE">Một đáp án đúng (Single Choice)</option>
                   <option value="MULTIPLE">Nhiều đáp án đúng (Multiple Choice)</option>
+                  <option value="ESSAY">Tự luận (Essay)</option>
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="font-bold text-slate-750 block">Danh sách đáp án (Nhập tối thiểu 2 đáp án, tích chọn ô đúng) *</label>
-                <div className="space-y-2">
-                  {answers.map((answer, aIdx) => (
-                    <div key={aIdx} className="flex items-center gap-2">
-                      <span className="font-bold text-slate-400 shrink-0 w-4">{String.fromCharCode(65 + aIdx)}</span>
-                      <input
-                        type="text"
-                        placeholder={`Nhập đáp án ${String.fromCharCode(65 + aIdx)}...`}
-                        className="flex-1 border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
-                        value={answer.answerContent}
-                        onChange={(e) => {
-                          const updated = [...answers];
-                          updated[aIdx].answerContent = e.target.value;
-                          setAnswers(updated);
-                        }}
-                      />
-                      <input
-                        type={questionType === 'SINGLE' ? 'radio' : 'checkbox'}
-                        name="correct-answer"
-                        className="h-4 w-4 text-primary shrink-0 cursor-pointer"
-                        checked={answer.isCorrect}
-                        onChange={(e) => {
-                          const updated = [...answers];
-                          if (questionType === 'SINGLE') {
-                            updated.forEach((ans, i) => {
-                              ans.isCorrect = i === aIdx;
-                            });
-                          } else {
-                            updated[aIdx].isCorrect = e.target.checked;
-                          }
-                          setAnswers(updated);
-                        }}
-                      />
-                    </div>
-                  ))}
+              {questionType === 'ESSAY' ? (
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-755 block">Câu trả lời mẫu / Hướng dẫn chấm *</label>
+                  <textarea
+                    required
+                    placeholder="Nhập câu trả lời mẫu cho tự luận..."
+                    rows={4}
+                    className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                    value={answers[0]?.answerContent || ''}
+                    onChange={(e) => {
+                      const updated = [{ answerContent: e.target.value, isCorrect: true }];
+                      setAnswers(updated);
+                    }}
+                  />
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between font-bold text-slate-750">
+                    <label>Danh sách đáp án (Nhập tối thiểu 2 đáp án, tích chọn ô đúng) *</label>
+                    <button
+                      type="button"
+                      onClick={() => setAnswers(prev => [...prev, { answerContent: '', isCorrect: false }])}
+                      className="text-indigo-600 hover:underline text-[11px]"
+                    >
+                      + Thêm đáp án
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {answers.map((answer, aIdx) => (
+                      <div key={aIdx} className="flex items-center gap-2">
+                        <span className="font-bold text-slate-400 shrink-0 w-4">{String.fromCharCode(65 + aIdx)}</span>
+                        <input
+                          type="text"
+                          placeholder={`Nhập đáp án ${String.fromCharCode(65 + aIdx)}...`}
+                          className="flex-1 border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                          value={answer.answerContent}
+                          onChange={(e) => {
+                            const updated = [...answers];
+                            updated[aIdx].answerContent = e.target.value;
+                            setAnswers(updated);
+                          }}
+                        />
+                        <input
+                          type={questionType === 'SINGLE' ? 'radio' : 'checkbox'}
+                          name="correct-answer"
+                          className="h-4 w-4 text-primary shrink-0 cursor-pointer"
+                          checked={answer.isCorrect}
+                          onChange={(e) => {
+                            const updated = [...answers];
+                            if (questionType === 'SINGLE') {
+                              updated.forEach((ans, i) => {
+                                ans.isCorrect = i === aIdx;
+                              });
+                            } else {
+                              updated[aIdx].isCorrect = e.target.checked;
+                            }
+                            setAnswers(updated);
+                          }}
+                        />
+                        {answers.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...answers];
+                              updated.splice(aIdx, 1);
+                              setAnswers(updated);
+                            }}
+                            className="text-red-500 hover:text-red-700 text-base px-1.5 font-bold"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter className="sm:justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setIsQuestionModalOpen(false)} disabled={submittingQuestion}>
