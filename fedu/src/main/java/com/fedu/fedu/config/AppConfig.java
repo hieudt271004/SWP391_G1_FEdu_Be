@@ -62,6 +62,16 @@ public class AppConfig {
                 .authorizeHttpRequests(authorizeRequests ->
                         authorizeRequests
                                 .requestMatchers(WHITE_LIST).permitAll()
+                                .requestMatchers(
+                                        "/admin/subjects/*/learning-paths/**",
+                                        "/admin/learning-paths/**",
+                                        "/admin/learning-nodes/**",
+                                        "/admin/node-edges/**",
+                                        "/admin/materials/**",
+                                        "/admin/tests/**",
+                                        "/admin/test-questions/**",
+                                        "/admin/exercises/**"
+                                ).hasAnyRole("ADMIN", "TEACHER")
                                 .requestMatchers("/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/teacher/**").hasRole("TEACHER")
                                 .requestMatchers("/teacher-manage/**").hasRole("TEACHER")

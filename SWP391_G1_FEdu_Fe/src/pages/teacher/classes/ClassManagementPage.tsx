@@ -30,7 +30,9 @@ import {
   Award,
   Download,
   ExternalLink,
-  Users
+  Users,
+  Undo2,
+  Play
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -39,7 +41,8 @@ import {
   LearningNodeResponse, 
   NodeEdgeResponse, 
   ClassroomGraphResponse,
-  NodeContentResponse
+  NodeContentResponse,
+  StudentInClassResponse
 } from '../../../services/learningPath.service';
 import { toast } from 'sonner';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
@@ -57,6 +60,7 @@ interface Student {
   id: string;
   fullName: string;
   progress: number;
+  userId: number;
 }
 
 export function ClassManagementPage() {
@@ -81,6 +85,12 @@ export function ClassManagementPage() {
 
   const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
 
+  // Student Assignment States
+  const [assignedStudentIds, setAssignedStudentIds] = useState<number[]>([]);
+  const [siblingAssignments, setSiblingAssignments] = useState<Record<number, { nodeId: number; nodeTitle: string }>>({});
+  const [loadingNodeStudents, setLoadingNodeStudents] = useState(false);
+  const [savingNodeStudents, setSavingNodeStudents] = useState(false);
+
   // Modals state
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isAddContentOpen, setIsAddContentOpen] = useState(false);
@@ -90,6 +100,15 @@ export function ClassManagementPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ nodeId: number, title: string } | null>(null);
   const [understandDelete, setUnderstandDelete] = useState(false);
+
+  // Publish / Unpublish states
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [understandPublish, setUnderstandPublish] = useState(false);
+  const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
+  const [understandUnpublish, setUnderstandUnpublish] = useState(false);
+  const [showUnpublishError, setShowUnpublishError] = useState(false);
+  const [unpublishErrorMsg, setUnpublishErrorMsg] = useState('');
+  const [actionState, setActionState] = useState<'idle' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
 
   // New Node Form State
   const [newNodeTitle, setNewNodeTitle] = useState('');
@@ -165,6 +184,71 @@ export function ClassManagementPage() {
   const handleSelectNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
     await fetchNodeContent(node.nodeId);
+    
+    setLoadingNodeStudents(true);
+    try {
+      const currentAssigned = await learningPathService.getNodeStudents(node.nodeId);
+      setAssignedStudentIds(currentAssigned.map(s => s.userId));
+      
+      const siblingNodes = nodes.filter(n => n.stageOrder === node.stageOrder && n.nodeId !== node.nodeId);
+      const siblingMap: Record<number, { nodeId: number; nodeTitle: string }> = {};
+      
+      await Promise.all(
+        siblingNodes.map(async (sibling) => {
+          const studs = await learningPathService.getNodeStudents(sibling.nodeId);
+          studs.forEach(student => {
+            siblingMap[student.userId] = { nodeId: sibling.nodeId, nodeTitle: sibling.title };
+          });
+        })
+      );
+      
+      setSiblingAssignments(siblingMap);
+    } catch (err) {
+      console.error('Error fetching student assignments:', err);
+      toast.error('Không thể tải thông tin phân bổ sinh viên');
+    } finally {
+      setLoadingNodeStudents(false);
+    }
+  };
+
+  const handleAssignStudent = async (studentUserId: number, checked: boolean) => {
+    if (!selectedNode) return;
+    
+    let newIds = [...assignedStudentIds];
+    if (checked) {
+      const sibling = siblingAssignments[studentUserId];
+      if (sibling) {
+        toast.info(`Di chuyển sinh viên khỏi bài học: "${sibling.nodeTitle}" sang bài học hiện tại.`);
+      }
+      newIds.push(studentUserId);
+    } else {
+      newIds = newIds.filter(id => id !== studentUserId);
+    }
+    
+    setAssignedStudentIds(newIds);
+    if (checked) {
+      const updatedSiblingMap = { ...siblingAssignments };
+      delete updatedSiblingMap[studentUserId];
+      setSiblingAssignments(updatedSiblingMap);
+    }
+    
+    try {
+      await learningPathService.assignStudentsToNode(selectedNode.nodeId, newIds);
+      toast.success('Cập nhật phân bổ sinh viên thành công!');
+    } catch (err: any) {
+      console.error('Error assigning student:', err);
+      toast.error(err.response?.data?.message || 'Không thể lưu phân bổ sinh viên');
+      if (checked) {
+        setAssignedStudentIds(assignedStudentIds.filter(id => id !== studentUserId));
+        if (siblingAssignments[studentUserId]) {
+          const revertedMap = { ...siblingAssignments };
+          revertedMap[studentUserId] = siblingAssignments[studentUserId];
+          setSiblingAssignments(revertedMap);
+        }
+      } else {
+        setAssignedStudentIds([...assignedStudentIds, studentUserId]);
+      }
+    }
   };
 
   const toggleNode = async (id: number) => {
@@ -213,6 +297,7 @@ export function ClassManagementPage() {
             ? `${item.lastName || ''} ${item.firstName || ''}`.trim()
             : `Student ${item.userId}`,
           progress: 0,
+          userId: item.userId,
         }));
         setStudents(formatted);
         await fetchGraphData(Number(classroomSubjectId));
@@ -524,6 +609,74 @@ export function ClassManagementPage() {
     }
   };
 
+  const handlePublish = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+
+    if (!graphData?.quizStartTestId) {
+      toast.error('Vui lòng khởi tạo và cấu hình bài test phân loại đầu vào trước khi xuất bản lộ trình.');
+      setShowPublishConfirm(false);
+      setUnderstandPublish(false);
+      return;
+    }
+
+    try {
+      setActionState('publishing');
+      const res = await learningPathService.publishClassroomPath(Number(classroomSubjectId), graphData.pathId);
+      
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+
+      setShowPublishConfirm(false);
+      setUnderstandPublish(false);
+      toast.success('Xuất bản lộ trình học thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể xuất bản lộ trình học');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+    try {
+      setActionState('unpublishing');
+      await learningPathService.unpublishClassroomPath(Number(classroomSubjectId), graphData.pathId);
+      
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+
+      setShowUnpublishConfirm(false);
+      setUnderstandUnpublish(false);
+      toast.success('Gỡ xuất bản lộ trình học thành công!');
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        setUnpublishErrorMsg(err.response?.data?.message || 'Không thể unpublish — đã có học sinh hoàn thành node.');
+        setShowUnpublishError(true);
+      } else {
+        toast.error(err.response?.data?.message || 'Không thể gỡ xuất bản lộ trình học');
+      }
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bản nháp này không? Lộ trình sẽ bị xóa vĩnh viễn.')) return;
+    
+    try {
+      setActionState('deleting');
+      await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
+      
+      toast.success('Đã xóa bản nháp lộ trình học thành công!');
+      navigate(`/teacher/classroom-subjects/${classroomSubjectId}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể xóa bản nháp lộ trình học');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
   const getNodeColorClass = (status: string) => {
     switch (status) {
       case 'OPEN':
@@ -600,18 +753,38 @@ export function ClassManagementPage() {
           </h1>
         </div>
         
-        {/* Add Node Button Wrapper with Tooltip */}
-        <div title={isPublished ? lockTooltip : undefined}>
-          <Button 
-            onClick={handleAddNodeClick} 
-            disabled={isPublished}
-            aria-describedby={isPublished ? "lock-reason" : undefined}
-            className="text-white flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-sm font-semibold"
-            style={{ backgroundColor: '#030213' }}
-          >
-            <Plus className="size-4" />
-            Thêm bài học
-          </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {graphData?.state === 'DRAFT' && (
+            <Button 
+              onClick={() => setShowPublishConfirm(true)} 
+              disabled={actionState === 'publishing'}
+              className="bg-green-600 hover:bg-green-700 text-white h-9 rounded-[6px] text-xs font-semibold border-0"
+            >
+              <Play className="size-4 mr-1" />
+              Publish lộ trình
+            </Button>
+          )}
+          {graphData?.state === 'PUBLISHED' && (
+            <Button 
+              onClick={() => setShowUnpublishConfirm(true)} 
+              disabled={actionState === 'unpublishing'}
+              className="bg-amber-600 hover:bg-amber-700 text-white h-9 rounded-[6px] text-xs font-semibold border-0"
+            >
+              <Undo2 className="size-4 mr-1" />
+              Unpublish lộ trình
+            </Button>
+          )}
+          <div title={isPublished ? lockTooltip : undefined}>
+            <Button 
+              onClick={handleAddNodeClick} 
+              disabled={isPublished}
+              className="text-white flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-xs font-semibold h-9"
+              style={{ backgroundColor: '#030213' }}
+            >
+              <Plus className="size-4" />
+              Thêm bài học
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -647,7 +820,7 @@ export function ClassManagementPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-[550px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50/30 p-2">
+                  <div className="h-[550px] overflow-auto rounded-xl border border-slate-200 bg-slate-50/30 p-2">
                     <LearningPathFlow
                       nodes={nodes}
                       edges={edges}
@@ -728,6 +901,42 @@ export function ClassManagementPage() {
                       <>
                         {/* Node Content lists (materials, tests, exercises) */}
                         <div className="space-y-4">
+                          {/* Student Assignment */}
+                          <div className="space-y-2 pb-3 border-b border-slate-100">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                              <Users className="size-3.5 text-slate-500" />
+                              Phân bổ sinh viên ({assignedStudentIds.length})
+                            </h4>
+                            {loadingNodeStudents ? (
+                              <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
+                                <Loader className="size-3 animate-spin text-primary" /> Đang tải danh sách...
+                              </div>
+                            ) : students.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">Lớp học chưa có sinh viên nào.</p>
+                            ) : (
+                              <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
+                                {students.map((student) => {
+                                  const isAssigned = assignedStudentIds.includes(student.userId);
+                                  
+                                  return (
+                                    <div key={student.userId} className="flex items-center justify-between text-xs p-1 rounded-lg hover:bg-slate-50 transition-colors">
+                                      <label htmlFor={`assign-std-${student.userId}`} className="flex items-center gap-2 flex-1 cursor-pointer select-none">
+                                        <Checkbox
+                                          id={`assign-std-${student.userId}`}
+                                          checked={isAssigned}
+                                          onCheckedChange={(checked) => handleAssignStudent(student.userId, !!checked)}
+                                        />
+                                        <div className="min-w-0">
+                                          <p className="font-semibold text-slate-700 truncate">{student.fullName}</p>
+                                        </div>
+                                      </label>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+
                           {/* Materials & Videos */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
@@ -832,38 +1041,38 @@ export function ClassManagementPage() {
                             )}
                           </div>
                         </div>
-
-                        {/* Node actions (edit, delete) */}
-                        <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60 w-full font-sans">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 text-slate-700 border-slate-250 hover:bg-slate-50 text-xs h-8 rounded-lg font-semibold"
-                            onClick={() => {
-                              setNodeToEdit(selectedNode);
-                              setEditNodeTitle(selectedNode.title);
-                              setEditNodeDesc(selectedNode.description || '');
-                              setEditNodeType(selectedNode.nodeType);
-                              setEditNodeStatus(selectedNode.status);
-                              setEditNodeOrder(selectedNode.displayOrder || 1);
-                              setEditNodeRequired(selectedNode.isRequired ?? true);
-                              setIsEditNodeOpen(true);
-                            }}
-                          >
-                            <Edit2 className="size-3.5 mr-1" /> Sửa bài học
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-8 rounded-lg font-semibold"
-                            disabled={isPublished}
-                            onClick={() => triggerRemoveNodeDialog(selectedNode.nodeId, selectedNode.title)}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
                       </>
                     )}
+
+                    {/* Node actions (edit, delete) */}
+                    <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60 w-full font-sans">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-slate-700 border-slate-250 hover:bg-slate-50 text-xs h-8 rounded-lg font-semibold"
+                        onClick={() => {
+                          setNodeToEdit(selectedNode);
+                          setEditNodeTitle(selectedNode.title);
+                          setEditNodeDesc(selectedNode.description || '');
+                          setEditNodeType(selectedNode.nodeType);
+                          setEditNodeStatus(selectedNode.status);
+                          setEditNodeOrder(selectedNode.displayOrder || 1);
+                          setEditNodeRequired(selectedNode.isRequired ?? true);
+                          setIsEditNodeOpen(true);
+                        }}
+                      >
+                        <Edit2 className="size-3.5 mr-1" /> Sửa bài học
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-8 rounded-lg font-semibold"
+                        disabled={isPublished}
+                        onClick={() => triggerRemoveNodeDialog(selectedNode.nodeId, selectedNode.title)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1507,6 +1716,131 @@ export function ClassManagementPage() {
           </div>
         </div>
       )}
+      {/* Confirmation Modal for Publish */}
+      <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Xác nhận Publish lộ trình học</DialogTitle>
+            <DialogDescription>
+              Hành động này sẽ chính thức kích hoạt lộ trình học cho sinh viên.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong>{students.length} học sinh</strong> đang enroll trong lớp học này.
+            </p>
+            <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-100">
+              <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
+            </p>
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox 
+                id="understand-publish" 
+                checked={understandPublish} 
+                onCheckedChange={(val) => setUnderstandPublish(!!val)} 
+              />
+              <label 
+                htmlFor="understand-publish" 
+                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+              >
+                Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
+              </label>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => { setShowPublishConfirm(false); setUnderstandPublish(false); }}
+              disabled={actionState === 'publishing'}
+            >
+              Hủy
+            </Button>
+            <Button 
+              onClick={handlePublish} 
+              disabled={!understandPublish || actionState === 'publishing'}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium"
+            >
+              {actionState === 'publishing' ? (
+                <>
+                  <Loader className="size-4 animate-spin mr-1" />
+                  Đang seed tiến độ cho {students.length} học sinh...
+                </>
+              ) : (
+                'Publish ngay'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Modal for Unpublish */}
+      <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
+            <DialogDescription>
+              Rút lại lộ trình học để chỉnh sửa thêm bản nháp.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-600 leading-relaxed font-medium">
+              Toàn bộ tiến độ học tập và ghi nhận bài học hiện tại của học sinh sẽ bị xóa sạch khỏi hệ thống.
+            </p>
+            <p className="text-sm text-red-700 bg-red-50 p-3 rounded-md border border-red-100">
+              <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
+            </p>
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox 
+                id="understand-unpublish" 
+                checked={understandUnpublish} 
+                onCheckedChange={(val) => setUnderstandUnpublish(!!val)} 
+              />
+              <label 
+                htmlFor="understand-unpublish" 
+                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+              >
+                Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
+              </label>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); }}
+              disabled={actionState === 'unpublishing'}
+            >
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleUnpublish} 
+              disabled={!understandUnpublish || actionState === 'unpublishing'}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+            >
+              {actionState === 'unpublishing' ? <Loader className="size-4 animate-spin mr-1" /> : null}
+              Xác nhận Unpublish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unpublish Error Modal (already completed nodes) */}
+      <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="size-5 shrink-0" />
+              <span>Không thể unpublish</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 text-sm text-gray-600 leading-relaxed">
+            {unpublishErrorMsg || 'Đã có học sinh hoàn thành node, không thể unpublish.'}
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <Button onClick={() => setShowUnpublishError(false)}>
+              Đồng ý
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

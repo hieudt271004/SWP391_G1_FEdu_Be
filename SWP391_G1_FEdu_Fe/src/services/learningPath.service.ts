@@ -3,6 +3,18 @@ import { http } from './http';
 export type LearningPathLevel = 1 | 2 | 3;
 export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
 
+export interface StudentInClassResponse {
+  userId: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
+  joinedAt?: string;
+  currentLevel?: number;
+  classroomSubjectStudentId?: number;
+  isSubmentor?: boolean;
+}
+
 export interface CreateLearningPathRequest {
   subjectId: number;
   pathName: string;
@@ -354,4 +366,8 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/test-questions/${questionId}`),
   getStudentLevelHistory: (csId: number, studentId: number) =>
     http.get<any[]>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/level-history`),
+  getNodeStudents: (nodeId: number) =>
+    http.get<StudentInClassResponse[]>(`/teacher-manage/learning-nodes/${nodeId}/students`),
+  assignStudentsToNode: (nodeId: number, studentUserIds: number[]) =>
+    http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
 };

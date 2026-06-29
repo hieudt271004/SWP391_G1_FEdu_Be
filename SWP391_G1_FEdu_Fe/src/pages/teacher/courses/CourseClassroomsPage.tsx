@@ -1,63 +1,72 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { ArrowLeft, Loader2, AlertCircle, GraduationCap, Map } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
-import { learningPathService, LearningPathResponse } from '../../../services/learningPath.service';
+import { classroomService } from '../../../services/classroom.service';
 import { Classroom } from '../../../types/teacher';
 import { Subject } from '../../../types/subject';
 import { useAuth } from '../../../context/AuthContext';
+import { learningPathService, LearningNodeResponse } from '../../../services/learningPath.service';
+import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 
 export function CourseClassroomsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { subjectId } = useParams<{ subjectId: string }>();
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get('view');
+  const pathId = searchParams.get('pathId');
 
   const [subject, setSubject] = useState<Subject | null>(null);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
-  const [learningPaths, setLearningPaths] = useState<LearningPathResponse[]>([]);
+  
+  // Template graph states for view details
+  const [templateNodes, setTemplateNodes] = useState<LearningNodeResponse[]>([]);
+  const [templateEdges, setTemplateEdges] = useState<any[]>([]);
+  const [loadingTemplateGraph, setLoadingTemplateGraph] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchSubjectDetails = async () => {
+    const fetchPageData = async () => {
       if (!subjectId || !user?.userId) return;
 
       try {
         setLoading(true);
         setError(null);
 
-        const subjectData = await teacherService.getSubjectById(Number(subjectId));   // bỏ khối if lồng
+        const subjectData = await teacherService.getSubjectById(Number(subjectId));
         if (!subjectData) throw new Error('môn học không tồn tại hoặc dữ liệu không hợp lệ');
         setSubject(subjectData);
-        const rawClassrooms = await teacherService.getClassroomsByTeacher(user.userId);
-        const filtered = (rawClassrooms ?? []).filter((c) => c.subjectId === Number(subjectId));
-        const mapped = filtered.map((c) => ({
-          classroomSubjectId: c.classroomSubjectId,
-          classroomId: c.classroomId,
-          classroomCode: c.className,
-          classroomName: c.className,
-          subjectId: c.subjectId,
-          teacherId: c.lecturerId ?? 0,
-          semester: 'Summer 2026',
-          year: new Date().getFullYear(),
-        }));
-        setClassrooms(mapped);
 
-        // Fetch learning paths list individually
-        try {
-          // Service đã unwrap sẵn -> trả về mảng LearningPathResponse[]
-          const rawPaths = await learningPathService.getSubjectLearningPaths(Number(subjectId));
-          if (Array.isArray(rawPaths)) {
-            setLearningPaths(rawPaths);
-          } else {
-            setLearningPaths([]);
+        if (view === 'template' && pathId) {
+          setLoadingTemplateGraph(true);
+          try {
+            const graph = await learningPathService.getLearningPathGraph(Number(pathId));
+            setTemplateNodes(graph.nodes || []);
+            setTemplateEdges(graph.edges || []);
+          } catch (err) {
+            console.error('Error fetching template graph:', err);
+          } finally {
+            setLoadingTemplateGraph(false);
           }
-        } catch (pathsErr) {
-          console.error('Lỗi khi tải lộ trình học tập:', pathsErr);
-          setLearningPaths([]);
+        } else {
+          const rawClassrooms = await teacherService.getClassroomsByTeacher(user.userId);
+          const filtered = (rawClassrooms ?? []).filter((c) => c.subjectId === Number(subjectId));
+          const mapped = filtered.map((c) => ({
+            classroomSubjectId: c.classroomSubjectId,
+            classroomId: c.classroomId,
+            classroomCode: c.className,
+            classroomName: c.className,
+            subjectId: c.subjectId,
+            teacherId: c.lecturerId ?? 0,
+            semester: 'Summer 2026',
+            year: new Date().getFullYear(),
+          }));
+          setClassrooms(mapped);
         }
       } catch (err: any) {
         console.error('Lỗi khi tải chi tiết môn học:', err);
@@ -67,8 +76,8 @@ export function CourseClassroomsPage() {
       }
     };
 
-    fetchSubjectDetails();
-  }, [subjectId, user]);
+    fetchPageData();
+  }, [subjectId, user, view, pathId]);
 
   const handleEnterClass = (classroomSubjectId: number) => {
     navigate(`/teacher/classroom-subjects/${classroomSubjectId}`);
@@ -109,7 +118,9 @@ export function CourseClassroomsPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{subject.subjectCode} - {subject.subjectName}</h1>
-          <p className="text-sm text-gray-500">Chi tiết môn học và lộ trình giảng dạy</p>
+          <p className="text-sm text-gray-500">
+            {view === 'template' ? 'Chi tiết lộ trình học tập gốc' : 'Chi tiết môn học và danh sách lớp giảng dạy'}
+          </p>
         </div>
       </div>
 
@@ -125,92 +136,74 @@ export function CourseClassroomsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column: Learning Paths (Roadmaps) */}
+      {view === 'template' ? (
+        /* Template learning path view */
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
-            <Map className="w-5 h-5 text-violet-600" />
-            <h2 className="text-lg font-bold text-gray-900">Lộ trình học tập (Roadmaps)</h2>
+            <Map className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-lg font-bold text-gray-900">Sơ đồ lộ trình học tập gốc (Template)</h2>
           </div>
-
-          {learningPaths.length === 0 ? (
-            <div className="text-center py-10 bg-white rounded-xl border border-gray-200 text-gray-500 text-sm">
-              Chưa có lộ trình học tập nào được thiết lập cho môn học này.
+          {loadingTemplateGraph ? (
+            <div className="flex items-center justify-center h-48">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
             </div>
           ) : (
-            <div className="space-y-4">
-              {learningPaths.map((path) => (
-                <Card key={path.pathId} className="hover:shadow-sm transition-shadow">
+            <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)]">
+              <LearningPathFlow
+                nodes={templateNodes}
+                edges={templateEdges}
+                selectedNodeId={null}
+                onNodeClick={() => {}}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Classrooms Section */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-emerald-600" />
+              <h2 className="text-lg font-bold text-gray-900">Danh sách lớp học phụ trách</h2>
+            </div>
+          </div>
+
+          {myClassrooms.length === 0 ? (
+            <div className="text-center py-8 bg-white rounded-xl border border-gray-200 text-gray-500 text-sm">
+              Bạn chưa phụ trách lớp học nào cho môn học này.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              {myClassrooms.map((classroom) => (
+                <Card key={classroom.classroomSubjectId || classroom.classroomId} className="hover:shadow-sm transition-all border-l-4 border-l-emerald-500 flex flex-col justify-between">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-violet-900 font-bold">{path.pathName}</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base font-bold text-emerald-950">{classroom.classroomName}</CardTitle>
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-semibold">
+                        Lớp bạn dạy
+                      </span>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-xs text-gray-500">
-                      {path.description || 'Không có mô tả chi tiết lộ trình.'}
-                    </p>
-                    <div className="text-[10px] text-gray-400">
-                      Được tạo ngày: {
-                        path.createdAt ? (
-                          Array.isArray(path.createdAt)
-                            ? `${path.createdAt[2]}/${path.createdAt[1]}/${path.createdAt[0]}`
-                            : new Date(path.createdAt).toLocaleDateString('vi-VN')
-                        ) : 'N/A'
-                      }
+                  <CardContent className="space-y-3 pb-2">
+                    <div className="flex gap-4 text-xs text-muted-foreground">
+                      {classroom.semester && <div>Học kỳ: <span className="font-semibold text-gray-700">{classroom.semester}</span></div>}
+                      {classroom.year && <div>Năm học: <span className="font-semibold text-gray-700">{classroom.year}</span></div>}
                     </div>
                   </CardContent>
+                  <CardFooter className="pt-2 border-t border-gray-50">
+                    <Button
+                      className="w-full text-xs font-semibold py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                      onClick={() => handleEnterClass(classroom.classroomSubjectId || classroom.classroomId)}
+                    >
+                      Vào quản lý lớp
+                    </Button>
+                  </CardFooter>
                 </Card>
               ))}
             </div>
           )}
         </div>
-
-        {/* Right Column: Classrooms */}
-        <div id="classrooms-section" className="space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-emerald-600" />
-              <h2 className="text-lg font-bold text-gray-900">Danh sách lớp học</h2>
-            </div>
-          </div>
-
-          {myClassrooms.length === 0 ? (
-            <div className="text-center py-10 bg-white rounded-xl border border-gray-200 text-gray-500 text-sm">
-              Bạn chưa phụ trách lớp học nào cho môn học này.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {myClassrooms.map((classroom) => {
-                return (
-                  <Card key={classroom.classroomSubjectId || classroom.classroomId} className="hover:shadow-sm transition-all border-l-4 border-l-emerald-500">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base font-bold text-emerald-950">{classroom.classroomName}</CardTitle>
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-semibold">
-                          Lớp bạn dạy
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex gap-4 text-xs text-muted-foreground">
-                        {classroom.semester && <div>Học kỳ: <span className="font-semibold text-gray-700">{classroom.semester}</span></div>}
-                        {classroom.year && <div>Năm học: <span className="font-semibold text-gray-700">{classroom.year}</span></div>}
-                      </div>
-                    </CardContent>
-                    <CardFooter className="pt-2 border-t border-gray-50">
-                      <Button
-                        className="w-full text-xs font-semibold py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
-                        onClick={() => handleEnterClass(classroom.classroomSubjectId || classroom.classroomId)}
-                      >
-                        Vào quản lý lớp
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

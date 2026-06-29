@@ -227,4 +227,24 @@ public class LearningPathManagementController {
             return new ResponseData<>(HttpStatus.OK.value(),
                     "Đã mở khóa node trên lớp cho " + opened + " học sinh", opened);
         }
+
+        @Operation(summary = "Get list of students assigned to a classroom learning node")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/learning-nodes/{nodeId}/students")
+        public ResponseData<List<StudentInClassResponse>> getNodeStudents(@PathVariable Long nodeId) {
+            log.info("Teacher requests list of students assigned to node ID: {}", nodeId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved node students successfully",
+                    learningPathService.getNodeStudents(nodeId));
+        }
+
+        @Operation(summary = "Assign/unassign students to/from a classroom learning node")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PutMapping("/learning-nodes/{nodeId}/students")
+        public ResponseData<Void> assignStudentsToNode(
+                @PathVariable Long nodeId,
+                @RequestBody List<Long> studentUserIds) {
+            log.info("Teacher assigning students to node ID: {}, students count: {}", nodeId, studentUserIds.size());
+            learningPathService.assignStudentsToNode(nodeId, studentUserIds);
+            return new ResponseData<>(HttpStatus.OK.value(), "Assigned students to node successfully");
+        }
 }
