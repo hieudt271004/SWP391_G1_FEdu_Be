@@ -1,4 +1,4 @@
-import { ArrowLeft, Mail, Phone, MapPin, BookOpen, GraduationCap, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Mail, Phone, BookOpen, GraduationCap, Loader2, AlertCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { adminService, AdminUserResponse } from "../../services/admin.service";
@@ -131,6 +131,8 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
   );
 
   const isStudent = user.role === "Học viên";
+  const isTeacher = user.role === "Giảng viên";
+  const isAdmin = !isStudent && !isTeacher;
 
   return (
     <div className="space-y-6" style={{ fontFamily: "Outfit, sans-serif" }}>
@@ -140,31 +142,33 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
           <ArrowLeft className="w-5 h-5" style={{ color: "#717182" }} />
         </button>
         <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#030213" }}>
-          {isStudent ? "Thông tin Học viên" : "Thông tin Giảng viên"}
+          {isStudent ? "Thông tin Học viên" : isTeacher ? "Thông tin Giảng viên" : "Thông tin Quản trị viên"}
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={isAdmin ? "max-w-md mx-auto" : "grid grid-cols-1 lg:grid-cols-3 gap-6"}>
         {/* Left Column */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className={isAdmin ? "space-y-6 w-full" : "lg:col-span-1 space-y-6"}>
           <div className="p-6 text-center" style={{ backgroundColor: "#030213", borderRadius: "10px" }}>
             <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.15)", border: "2px solid white" }}>
               <span className="text-white text-3xl font-bold">{user.avatar}</span>
             </div>
             <h2 className="text-white mb-4" style={{ fontSize: "1.25rem", fontWeight: 700 }}>{user.name}</h2>
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <div className="text-center">
-                <div className="text-white text-2xl font-bold">{courses.length}</div>
-                <div className="text-slate-300 text-xs">Môn học</div>
-              </div>
-              <div className="w-px h-10" style={{ backgroundColor: "rgba(255,255,255,0.2)" }} />
-              <div className="text-center">
-                <div className="text-white text-2xl font-bold">
-                  {isStudent ? "0%" : courses.reduce((sum, c) => sum + (c.students || 0), 0)}
+            {!isAdmin && (
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <div className="text-center">
+                  <div className="text-white text-2xl font-bold">{courses.length}</div>
+                  <div className="text-slate-300 text-xs">Môn học</div>
                 </div>
-                <div className="text-slate-300 text-xs">{isStudent ? "Hoàn thành" : "Học viên"}</div>
+                <div className="w-px h-10" style={{ backgroundColor: "rgba(255,255,255,0.2)" }} />
+                <div className="text-center">
+                  <div className="text-white text-2xl font-bold">
+                    {isStudent ? "0%" : courses.reduce((sum, c) => sum + (c.students || 0), 0)}
+                  </div>
+                  <div className="text-slate-300 text-xs">{isStudent ? "Hoàn thành" : "Học viên"}</div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="p-6" style={{ backgroundColor: "white", border: "1px solid rgba(0, 0, 0, 0.1)", borderRadius: "10px" }}>
@@ -199,19 +203,13 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
                   <div style={{ fontSize: "0.875rem", color: "#030213", fontWeight: 500 }}>{user.phone}</div>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#717182" }} />
-                <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: "0.75rem", color: "#717182", marginBottom: "0.125rem" }}>Địa chỉ</div>
-                  <div style={{ fontSize: "0.875rem", color: "#030213", fontWeight: 500 }}>Hà Nội, Việt Nam</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
 
         {/* Right Column */}
-        <div className="lg:col-span-2">
+        {!isAdmin && (
+          <div className="lg:col-span-2">
           <div className="p-6" style={{ backgroundColor: "white", border: "1px solid rgba(0, 0, 0, 0.1)", borderRadius: "10px" }}>
             <div className="flex items-center gap-2 mb-6">
               {isStudent ? <BookOpen className="w-5 h-5" style={{ color: "#030213" }} /> : <GraduationCap className="w-5 h-5" style={{ color: "#030213" }} />}
@@ -266,6 +264,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
