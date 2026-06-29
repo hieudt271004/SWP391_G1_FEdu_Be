@@ -165,7 +165,6 @@ export function ProfileEditPage() {
     if (user?.roles.includes('TEACHER')) return 'Giảng viên';
     if (user?.roles.includes('STUDENT')) return 'Học viên';
     if (user?.roles.includes('ADMIN')) return 'Admin';
-    if (user?.roles.includes('SUB_MENTOR')) return 'Sub Mentor';
     return 'User';
   };
   const roleName = getRoleDisplayName();
