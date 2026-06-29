@@ -223,21 +223,14 @@ export function TeacherCoursesPage() {
                       </p>
                     </CardContent>
 
-                    <CardFooter className="p-5 pt-3 border-t border-[rgba(0,0,0,0.1)] bg-[#ececf0]/20 flex gap-2">
+                    <CardFooter className="p-5 pt-3 border-t border-[rgba(0,0,0,0.1)] bg-[#ececf0]/20">
                       <Button
                         variant="outline"
-                        onClick={() => handleOpenDetail(template)}
-                        className="flex-1 text-xs border-[rgba(0,0,0,0.1)] text-[#030213] hover:bg-[#ececf0] rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors h-8"
+                        onClick={() => navigate(`/teacher/courses/${template.subjectId}?view=template&pathId=${template.pathId}`)}
+                        className="w-full text-xs border-[rgba(0,0,0,0.1)] text-[#030213] hover:bg-[#ececf0] rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors h-8"
                       >
                         <Eye className="w-4 h-4" />
                         Xem chi tiết
-                      </Button>
-                      <Button
-                        onClick={() => handleOpenApply(template)}
-                        className="flex-1 text-xs bg-[#030213] hover:bg-[#1c1b2d] text-white rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors shadow-none border-0 h-8"
-                      >
-                        <Zap className="w-4 h-4" />
-                        Áp dụng lớp
                       </Button>
                     </CardFooter>
                   </Card>
@@ -286,13 +279,6 @@ export function TeacherCoursesPage() {
             </p>
           </div>
         </div>
-        <Button
-          onClick={() => setIsCreateOpen(true)}
-          className="bg-[#030213] hover:bg-[#1c1b2d] text-white font-medium px-4 py-2 rounded-[6px] transition-colors flex items-center gap-2 text-xs border-0 shadow-none h-9"
-        >
-          <Plus className="w-5 h-5" />
-          Tạo Lộ trình mới
-        </Button>
       </div>
 
       {/* Filter and search bar */}
@@ -341,29 +327,6 @@ export function TeacherCoursesPage() {
         </div>
       )}
 
-      {/* Modal: Create Template */}
-      <CreateTemplateDialog
-        isOpen={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        subjects={subjects}
-        onCreated={handleCreated}
-      />
-
-      {/* Modal: View Template Node Details */}
-      <ViewTemplateDetailDialog
-        isOpen={isDetailOpen}
-        onOpenChange={setIsDetailOpen}
-        template={selectedTemplateForDetail}
-      />
-
-      {/* Modal: Apply template to class */}
-      <ApplyTemplateDialog
-        isOpen={isApplyOpen}
-        onOpenChange={setIsApplyOpen}
-        template={selectedTemplateForApply}
-        classrooms={classrooms}
-        onApplied={handleApplied}
-      />
     </div>
   );
 }
