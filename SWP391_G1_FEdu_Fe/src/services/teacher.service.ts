@@ -9,6 +9,7 @@ import type {
   SupportTicketResponse,
   RespondTicketRequest,
 } from '../types/submentor';
+import type { SubmissionResponse } from './student.service';
 
 export const teacherService = {
   getSubjectsByTeacher: (teacherId: number) =>
@@ -49,4 +50,10 @@ export const teacherService = {
 
   respondAsTeacher: (classroomSubjectId: number, ticketId: number, req: RespondTicketRequest) =>
     http.put<SupportTicketResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/tickets/${ticketId}/respond`, req),
+
+  listSubmissions: (exerciseId: number) =>
+    http.get<SubmissionResponse[]>(`/teacher-manage/exercises/${exerciseId}/submissions`),
+
+  gradeSubmission: (submissionId: number, grade: number, feedback?: string) =>
+    http.put<SubmissionResponse>(`/teacher-manage/submissions/${submissionId}/grade`, { grade, feedback }),
 };

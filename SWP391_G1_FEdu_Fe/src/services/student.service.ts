@@ -78,6 +78,23 @@ export interface LevelHistoryEntry {
   changedAt: string;
 }
 
+export interface SubmissionResponse {
+  submissionId: number;
+  exerciseId: number;
+  nodeId: number;
+  studentId: number;
+  studentName: string;
+  content?: string;
+  fileUrl?: string;
+  status: 'PENDING' | 'GRADED';
+  grade?: number;
+  feedback?: string;
+  gradedById?: number;
+  gradedByName?: string;
+  submittedAt: string;
+  gradedAt?: string;
+}
+
 export const studentService = {
   // Đồ thị lộ trình của một lớp-môn (kèm tiến độ học của SV hiện tại)
   getClassroomSubjectGraph: (classroomSubjectId: number) =>
@@ -152,4 +169,20 @@ export const studentService = {
     http.get<any[]>(
       `/student/support-tickets?classroomSubjectId=${csId}`
     ),
+
+  submitExercise: (exerciseId: number, content?: string, file?: File) => {
+    const formData = new FormData();
+    if (content) {
+      formData.append('content', content);
+    }
+    if (file) {
+      formData.append('file', file);
+    }
+    return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData, {
+      'Content-Type': 'multipart/form-data',
+    });
+  },
+
+  getMySubmission: (exerciseId: number) =>
+    http.get<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions/me`),
 };

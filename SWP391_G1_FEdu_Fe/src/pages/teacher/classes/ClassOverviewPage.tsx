@@ -43,6 +43,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
+import type { SubmissionResponse } from '../../../services/student.service';
 import { classroomService } from '../../../services/classroom.service';
 import { 
   learningPathService, 
@@ -112,6 +113,17 @@ export function ClassOverviewPage() {
 
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
+
+  // Submissions Grading States
+  const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
+  const [selectedExerciseTitle, setSelectedExerciseTitle] = useState('');
+  const [submissionsList, setSubmissionsList] = useState<SubmissionResponse[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  
+  const [gradingSubmission, setGradingSubmission] = useState<SubmissionResponse | null>(null);
+  const [gradeValue, setGradeValue] = useState('');
+  const [feedbackValue, setFeedbackValue] = useState('');
+  const [submittingGrade, setSubmittingGrade] = useState(false);
 
   // Sync activeTab from ?tab= query parameter (e.g. when redirected from ClassManagementPage)
   useEffect(() => {
@@ -600,7 +612,68 @@ export function ClassOverviewPage() {
       orderIndex: t.orderIndex ?? 9999,
       data: t,
     }));
-    return [...materials, ...tests].sort((a, b) => a.orderIndex - b.orderIndex);
+    const exercises = (content.exercises || []).map((e) => ({
+      key: `exercise-${e.exerciseId}`,
+      id: e.exerciseId,
+      type: "EXERCISE" as const,
+      title: e.title,
+      orderIndex: e.orderIndex ?? 9999,
+      data: e,
+    }));
+    return [...materials, ...tests, ...exercises].sort((a, b) => a.orderIndex - b.orderIndex);
+  };
+
+  const handleOpenSubmissionsModal = async (exerciseId: number, title: string) => {
+    setSelectedExerciseId(exerciseId);
+    setSelectedExerciseTitle(title);
+    setLoadingSubmissions(true);
+    try {
+      const list = await teacherService.listSubmissions(exerciseId);
+      setSubmissionsList(list || []);
+    } catch (err: any) {
+      console.error('Failed to load submissions:', err);
+      toast.error('Không thể tải danh sách bài nộp');
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
+
+  const handleOpenGrading = (sub: SubmissionResponse) => {
+    setGradingSubmission(sub);
+    setGradeValue(sub.grade !== undefined && sub.grade !== null ? sub.grade.toString() : '');
+    setFeedbackValue(sub.feedback || '');
+  };
+
+  const handleSaveGrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gradingSubmission || !gradeValue.trim()) return;
+
+    const gradeNum = parseFloat(gradeValue);
+    if (isNaN(gradeNum) || gradeNum < 0 || gradeNum > 10) {
+      toast.error('Điểm số phải nằm trong khoảng từ 0 đến 10.');
+      return;
+    }
+
+    try {
+      setSubmittingGrade(true);
+      const res = await teacherService.gradeSubmission(
+        gradingSubmission.submissionId,
+        gradeNum,
+        feedbackValue.trim()
+      );
+
+      // Update submissionsList locally
+      setSubmissionsList((prev) =>
+        prev.map((s) => (s.submissionId === res.submissionId ? res : s))
+      );
+      toast.success('Chấm điểm thành công!');
+      setGradingSubmission(null);
+    } catch (err: any) {
+      console.error('Failed to save grade:', err);
+      toast.error(err.message || 'Không thể lưu điểm.');
+    } finally {
+      setSubmittingGrade(false);
+    }
   };
 
   const fetchClassroomData = async () => {
@@ -1036,22 +1109,24 @@ export function ClassOverviewPage() {
                               </div>
                             ) : sortedItems.length === 0 ? (
                               <div className="text-[10px] text-slate-400 italic py-2 text-center bg-slate-50/50 rounded border border-dashed border-slate-100">
-                                Chưa có tài liệu hoặc bài test.
+                                Chưa có tài liệu, bài test hoặc bài thực hành.
                               </div>
                             ) : (
                               <div className="space-y-1.5">
                                 {sortedItems.map((item) => {
                                   const isMaterial = item.type === "MATERIAL";
+                                  const isExercise = item.type === "EXERCISE";
                                   const m = isMaterial ? item.data : null;
-                                  const t = !isMaterial ? item.data : null;
+                                  const t = (!isMaterial && !isExercise) ? item.data : null;
+                                  const ex = isExercise ? item.data : null;
 
                                   return (
                                     <div
                                       key={item.key}
-                                      className="flex items-center gap-2 p-2 bg-slate-50/50 hover:bg-slate-50 rounded-lg border border-slate-100 text-[11px] transition-colors"
+                                      className="flex items-center justify-between gap-2 p-2 bg-slate-50/50 hover:bg-slate-50 rounded-lg border border-slate-100 text-[11px] transition-colors"
                                     >
                                       {isMaterial ? (
-                                        <>
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
                                           {m?.video ? (
                                             <Film className="w-3.5 h-3.5 text-purple-500 shrink-0" />
                                           ) : (
@@ -1077,9 +1152,31 @@ export function ClassOverviewPage() {
                                               </span>
                                             )}
                                           </div>
+                                        </div>
+                                      ) : isExercise ? (
+                                        <>
+                                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                              <span className="font-semibold text-slate-700 truncate block" title={item.title}>
+                                                {item.title} (Thực hành)
+                                              </span>
+                                              {item.data.instructions && (
+                                                <span className="text-[9px] text-slate-400 block mt-0.5 truncate">
+                                                  {item.data.instructions}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <Button
+                                            onClick={() => handleOpenSubmissionsModal(item.data.exerciseId, item.data.title)}
+                                            className="h-6 px-2 text-[9px] bg-slate-800 hover:bg-slate-750 text-white font-bold rounded shrink-0"
+                                          >
+                                            Xem bài nộp
+                                          </Button>
                                         </>
                                       ) : (
-                                        <>
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
                                           <Award className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                                           <div className="flex-1 min-w-0">
                                             <span className="font-semibold text-slate-700 truncate block" title={item.title}>
@@ -1089,7 +1186,7 @@ export function ClassOverviewPage() {
                                               {t?.durationMinutes || 0} phút · Yêu cầu đạt: {t?.passingPercentage || 80}%
                                             </span>
                                           </div>
-                                        </>
+                                        </div>
                                       )}
                                     </div>
                                   );
@@ -2581,6 +2678,175 @@ export function ClassOverviewPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Exercise Submissions List Dialog */}
+      {selectedExerciseId && (
+        <Dialog open={!!selectedExerciseId} onOpenChange={() => setSelectedExerciseId(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+            <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-white shrink-0">
+              <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                Danh Sách Bài Nộp: {selectedExerciseTitle}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+              {loadingSubmissions ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-2">
+                  <Loader className="w-6 h-6 animate-spin text-indigo-600" />
+                  <span className="text-xs text-slate-500 font-medium">Đang tải danh sách bài nộp...</span>
+                </div>
+              ) : submissionsList.length === 0 ? (
+                <div className="text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-white p-6">
+                  <Users className="w-8 h-8 text-slate-355 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-slate-655">Chưa có học sinh nào nộp bài tập này.</p>
+                </div>
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                  <table className="w-full text-xs text-left text-slate-700">
+                    <thead className="bg-slate-50 text-[10px] text-slate-500 font-bold uppercase border-b border-slate-150">
+                      <tr>
+                        <th className="px-4 py-3">Học sinh</th>
+                        <th className="px-4 py-3">Ngày nộp</th>
+                        <th className="px-4 py-3">Trạng thái</th>
+                        <th className="px-4 py-3 text-right">Điểm</th>
+                        <th className="px-4 py-3 text-right">Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {submissionsList.map((sub) => (
+                        <tr key={sub.submissionId} className="hover:bg-slate-50/50">
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-slate-800">{sub.studentName}</div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-500">
+                            {new Date(sub.submittedAt).toLocaleString('vi-VN')}
+                          </td>
+                          <td className="px-4 py-3">
+                            {sub.status === 'GRADED' ? (
+                              <Badge variant="outline" className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border-emerald-250 rounded-[4px] px-1.5">
+                                Đã chấm
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[9px] font-bold text-yellow-755 bg-yellow-50 border-yellow-250 rounded-[4px] px-1.5">
+                                Chờ chấm
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right font-black text-slate-850">
+                            {sub.status === 'GRADED' ? `${sub.grade} / 10` : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              onClick={() => handleOpenGrading(sub)}
+                              className="h-6 px-2.5 text-[9px] bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded"
+                            >
+                              {sub.status === 'GRADED' ? 'Chấm lại' : 'Chấm điểm'}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="p-4 border-t border-slate-100 shrink-0 bg-white">
+              <Button type="button" onClick={() => setSelectedExerciseId(null)} className="bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs py-2 px-4 shadow-sm">
+                Đóng
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Submission Grading Details Modal */}
+      {gradingSubmission && (
+        <Dialog open={!!gradingSubmission} onOpenChange={() => setGradingSubmission(null)}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Award className="w-5 h-5 text-indigo-600" />
+                Chấm Điểm Bài Tập: {gradingSubmission.studentName}
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleSaveGrade} className="space-y-4 pt-2 text-xs">
+              {gradingSubmission.content && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Bài làm của học sinh</label>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed text-slate-800">
+                    {gradingSubmission.content}
+                  </div>
+                </div>
+              )}
+
+              {gradingSubmission.fileUrl && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">File đính kèm nộp bài</label>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-650 truncate max-w-xs">{gradingSubmission.fileUrl.split('/').pop()}</span>
+                    <a
+                      href={gradingSubmission.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 transition-colors"
+                    >
+                      Tải về / Xem tệp
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5 col-span-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Điểm số (0 - 10) *</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="10"
+                    required
+                    placeholder="VD: 8.5"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                    value={gradeValue}
+                    onChange={(e) => setGradeValue(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nhận xét của giảng viên</label>
+                  <input
+                    type="text"
+                    placeholder="Nhập nhận xét hoặc feedback..."
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                    value={feedbackValue}
+                    onChange={(e) => setFeedbackValue(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setGradingSubmission(null)}
+                  className="rounded-xl text-xs py-2 px-4"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submittingGrade}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs py-2 px-4 shadow-sm"
+                >
+                  {submittingGrade ? 'Đang lưu...' : 'Lưu điểm'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
