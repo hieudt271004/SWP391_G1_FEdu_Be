@@ -129,11 +129,14 @@ export function AppRoutes() {
                 {/* Dashboard */}
                 <Route path="/admin/dashboard" element={<DashboardPage />} />
 
+                {/* Profile */}
+                <Route path="/admin/profile" element={<ProfileEditPage />} />
+
                 {/* User management */}
                 <Route path="/admin/users" element={<UserManagementPage filterRole="all" />} />
                 <Route path="/admin/users/students" element={<UserManagementPage filterRole="STUDENT" />} />
                 <Route path="/admin/users/teachers" element={<UserManagementPage filterRole="TEACHER" />} />
-                <Route path="/admin/users/:id" element={<UserDetailPage onBack={() => window.history.back()} />} />
+                <Route path="/admin/users/:id" element={<UserDetailPage />} />
 
                 {/* Course management */}
                 <Route path="/admin/subjects" element={<SubjectManagementPage />} />

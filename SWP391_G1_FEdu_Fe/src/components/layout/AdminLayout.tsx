@@ -210,7 +210,13 @@ export function AdminLayout() {
 
                     {/* Actions Menu */}
                     <div className="py-1.5">
-                      <button className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 hover:bg-gray-50 text-sm transition-colors text-left border-0 cursor-pointer bg-transparent">
+                      <button
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          navigate("/admin/profile");
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 hover:bg-gray-50 text-sm transition-colors text-left border-0 cursor-pointer bg-transparent"
+                      >
                         <UserCircle className="w-4 h-4 text-slate-400" />
                         Thông tin cá nhân
                       </button>

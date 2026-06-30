@@ -5,6 +5,8 @@ import { UserDetailModal } from "./UserDetailModal";
 import { adminService } from "../../services/admin.service";
 import type { AdminUserResponse } from "../../services/admin.service";
 import { UserRole } from "@/types/user";
+import { useAuth } from "../../context/AuthContext";
+
 
 type ViewMode = "list" | "grid";
 
@@ -60,6 +62,7 @@ interface UserManagementPageProps {
 
 export function UserManagementPage({ filterRole = "all" }: UserManagementPageProps) {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +130,10 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
   };
 
   const filteredUsers = users.filter((user) => {
+    // Exclude currently logged in admin
+    if (currentUser && user.email === currentUser.email) {
+      return false;
+    }
     const matchSearch = searchQuery === "" || user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchRole = roleFilter === "all" || user.roleKey === roleFilter;
     return matchSearch && matchRole;
@@ -251,15 +258,41 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                       <span className="px-2.5 py-1 text-xs" style={{ backgroundColor: user.role === "Giảng viên" ? "#fce7f3" : "#e0f2fe", color: user.role === "Giảng viên" ? "#9d174d" : "#0369a1", fontWeight: 600, borderRadius: "6px" }}>{user.role}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2.5 py-1 text-xs" style={{ backgroundColor: user.status === "active" ? "#d1fae5" : "#fee2e2", color: user.status === "active" ? "#065f46" : "#991b1b", fontWeight: 600, cursor: "pointer", borderRadius: "6px" }} onClick={() => handleToggleStatus(user)}>
+                      <span 
+                        className="px-2.5 py-1 text-xs" 
+                        style={{ 
+                          backgroundColor: user.status === "active" ? "#d1fae5" : "#fee2e2", 
+                          color: user.status === "active" ? "#065f46" : "#991b1b", 
+                          fontWeight: 600, 
+                          cursor: user.roleKey === 'ADMIN' ? "not-allowed" : "pointer", 
+                          borderRadius: "6px",
+                          opacity: user.roleKey === 'ADMIN' ? 0.7 : 1
+                        }} 
+                        onClick={() => user.roleKey !== 'ADMIN' && handleToggleStatus(user)}
+                        title={user.roleKey === 'ADMIN' ? "Không thể thay đổi trạng thái Admin khác" : undefined}
+                      >
                         {user.status === "active" ? "Hoạt động" : "Ngưng"}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleViewUser(user)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer" title="Xem chi tiết"><Eye className="w-4 h-4" style={{ color: "#030213" }} /></button>
-                        <button onClick={() => handleEditUser(user)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer" title="Chỉnh sửa"><Edit2 className="w-4 h-4" style={{ color: "#717182" }} /></button>
-                        <button onClick={() => handleDeleteUser(user.id)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer" title="Xóa"><Trash2 className="w-4 h-4" style={{ color: "#991b1b" }} /></button>
+                        <button 
+                          onClick={() => handleEditUser(user)} 
+                          disabled={user.roleKey === 'ADMIN'}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors border-none bg-transparent cursor-pointer" 
+                          title={user.roleKey === 'ADMIN' ? "Không thể chỉnh sửa Admin khác" : "Chỉnh sửa"}
+                        >
+                          <Edit2 className="w-4 h-4" style={{ color: "#717182" }} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteUser(user.id)} 
+                          disabled={user.roleKey === 'ADMIN'}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-colors border-none bg-transparent cursor-pointer" 
+                          title={user.roleKey === 'ADMIN' ? "Không thể xóa Admin khác" : "Xóa"}
+                        >
+                          <Trash2 className="w-4 h-4" style={{ color: "#991b1b" }} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -290,18 +323,22 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
           {paginatedUsers.map((user) => (
             <div key={user.id} className="p-6 relative" style={{ backgroundColor: "white", border: "1px solid rgba(0, 0, 0, 0.1)", borderRadius: "10px" }}>
               <div className="absolute top-4 right-4">
-                <button onClick={() => setOpenDropdown(openDropdown === user.id ? null : user.id)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer">
-                  <MoreVertical className="w-4 h-4" style={{ color: "#717182" }} />
-                </button>
-                {openDropdown === user.id && (
-                  <div className="absolute right-0 top-full mt-2 w-40 overflow-hidden z-10" style={{ backgroundColor: "#030213", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "6px" }}>
-                    <button onClick={() => { handleEditUser(user); setOpenDropdown(null); }} className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-[#1c1b2d] transition-colors" style={{ backgroundColor: "transparent", border: "none", color: "white", fontSize: "0.875rem", cursor: "pointer" }}>
-                      <Edit2 className="w-4 h-4" /> Chỉnh sửa
+                {user.roleKey !== 'ADMIN' && (
+                  <>
+                    <button onClick={() => setOpenDropdown(openDropdown === user.id ? null : user.id)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer">
+                      <MoreVertical className="w-4 h-4" style={{ color: "#717182" }} />
                     </button>
-                    <button onClick={() => handleDeleteUser(user.id)} className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-[#1c1b2d] transition-colors" style={{ backgroundColor: "transparent", border: "none", color: "#fca5a5", fontSize: "0.875rem", cursor: "pointer" }}>
-                      <Trash2 className="w-4 h-4" /> Xóa
-                    </button>
-                  </div>
+                    {openDropdown === user.id && (
+                      <div className="absolute right-0 top-full mt-2 w-40 overflow-hidden z-10" style={{ backgroundColor: "#030213", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "6px" }}>
+                        <button onClick={() => { handleEditUser(user); setOpenDropdown(null); }} className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-[#1c1b2d] transition-colors" style={{ backgroundColor: "transparent", border: "none", color: "white", fontSize: "0.875rem", cursor: "pointer" }}>
+                          <Edit2 className="w-4 h-4" /> Chỉnh sửa
+                        </button>
+                        <button onClick={() => handleDeleteUser(user.id)} className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-[#1c1b2d] transition-colors" style={{ backgroundColor: "transparent", border: "none", color: "#fca5a5", fontSize: "0.875rem", cursor: "pointer" }}>
+                          <Trash2 className="w-4 h-4" /> Xóa
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <div className="flex flex-col items-center text-center mb-4">
@@ -319,10 +356,6 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                 <div className="flex items-center justify-between">
                   <span style={{ fontSize: "0.8125rem", color: "#717182" }}>SĐT:</span>
                   <span style={{ fontSize: "0.8125rem", color: "#030213", fontWeight: 500 }}>{user.phone}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span style={{ fontSize: "0.8125rem", color: "#717182" }}>Địa chỉ:</span>
-                  <span style={{ fontSize: "0.8125rem", color: "#030213", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Hà Nội, VN</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span style={{ fontSize: "0.8125rem", color: "#717182" }}>Email:</span>

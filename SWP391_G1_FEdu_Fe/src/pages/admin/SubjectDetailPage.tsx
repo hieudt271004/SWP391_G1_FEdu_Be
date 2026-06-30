@@ -139,7 +139,7 @@ export function SubjectDetailPage() {
       {/* Header */}
       <div className="flex items-center gap-4 flex-wrap">
         <button
-          onClick={() => navigate("/admin/subjects")}
+          onClick={() => navigate(-1)}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
