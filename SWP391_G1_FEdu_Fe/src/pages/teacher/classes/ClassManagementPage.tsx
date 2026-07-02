@@ -11,17 +11,17 @@ import {
   TableRow,
 } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
-  Circle, 
-  Map, 
-  Loader, 
-  ChevronRight, 
-  Plus, 
-  Trash2, 
-  BookOpen, 
-  X, 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  Map,
+  Loader,
+  ChevronRight,
+  Plus,
+  Trash2,
+  BookOpen,
+  X,
   HelpCircle,
   AlertTriangle,
   Edit2,
@@ -36,16 +36,18 @@ import {
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
-import { 
-  learningPathService, 
-  LearningNodeResponse, 
-  NodeEdgeResponse, 
+import {
+  learningPathService,
+  LearningNodeResponse,
+  NodeEdgeResponse,
   ClassroomGraphResponse,
   NodeContentResponse,
   StudentInClassResponse
 } from '../../../services/learningPath.service';
 import { toast } from 'sonner';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
+import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
+import { uploadService } from '../../../services/upload.service';
 import {
   Dialog,
   DialogContent,
@@ -95,7 +97,7 @@ export function ClassManagementPage() {
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isAddContentOpen, setIsAddContentOpen] = useState(false);
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
-  
+
   // Custom delete confirm dialog state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ nodeId: number, title: string } | null>(null);
@@ -184,15 +186,15 @@ export function ClassManagementPage() {
   const handleSelectNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
     await fetchNodeContent(node.nodeId);
-    
+
     setLoadingNodeStudents(true);
     try {
       const currentAssigned = await learningPathService.getNodeStudents(node.nodeId);
       setAssignedStudentIds(currentAssigned.map(s => s.userId));
-      
+
       const siblingNodes = nodes.filter(n => n.stageOrder === node.stageOrder && n.nodeId !== node.nodeId);
       const siblingMap: Record<number, { nodeId: number; nodeTitle: string }> = {};
-      
+
       await Promise.all(
         siblingNodes.map(async (sibling) => {
           const studs = await learningPathService.getNodeStudents(sibling.nodeId);
@@ -201,7 +203,7 @@ export function ClassManagementPage() {
           });
         })
       );
-      
+
       setSiblingAssignments(siblingMap);
     } catch (err) {
       console.error('Error fetching student assignments:', err);
@@ -213,7 +215,7 @@ export function ClassManagementPage() {
 
   const handleAssignStudent = async (studentUserId: number, checked: boolean) => {
     if (!selectedNode) return;
-    
+
     let newIds = [...assignedStudentIds];
     if (checked) {
       const sibling = siblingAssignments[studentUserId];
@@ -224,14 +226,14 @@ export function ClassManagementPage() {
     } else {
       newIds = newIds.filter(id => id !== studentUserId);
     }
-    
+
     setAssignedStudentIds(newIds);
     if (checked) {
       const updatedSiblingMap = { ...siblingAssignments };
       delete updatedSiblingMap[studentUserId];
       setSiblingAssignments(updatedSiblingMap);
     }
-    
+
     try {
       await learningPathService.assignStudentsToNode(selectedNode.nodeId, newIds);
       toast.success('Cập nhật phân bổ sinh viên thành công!');
@@ -287,9 +289,9 @@ export function ClassManagementPage() {
           classroomService.getStudents(Number(classroomSubjectId)),
         ]);
         setClassInfo({
-          classCode: classData.className,       
-          courseCode: classData.subjectCode,     
-          subjectId: classData.subjectId,       
+          classCode: classData.className,
+          courseCode: classData.subjectCode,
+          subjectId: classData.subjectId,
         });
         const formatted = (studentsData ?? []).map((item) => ({
           id: item.email?.split('@')[0].toUpperCase() || `ST${item.userId}`,
@@ -396,7 +398,11 @@ export function ClassManagementPage() {
             setSubmittingContent(false);
             return;
           }
-          formData.append('file', selectedFile);
+          const uploaded = await uploadService.uploadToCloudinary(selectedFile, 'materials');
+          formData.append('fileUrl', uploaded.url);
+          formData.append('fileName', selectedFile.name);
+          formData.append('fileType', selectedFile.type || uploaded.format || '');
+          formData.append('publicId', uploaded.publicId);
           if (fileDescription.trim()) {
             formData.append('fileDescription', fileDescription.trim());
           }
@@ -622,7 +628,7 @@ export function ClassManagementPage() {
     try {
       setActionState('publishing');
       const res = await learningPathService.publishClassroomPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
 
@@ -641,7 +647,7 @@ export function ClassManagementPage() {
     try {
       setActionState('unpublishing');
       await learningPathService.unpublishClassroomPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
 
@@ -663,11 +669,11 @@ export function ClassManagementPage() {
   const handleDeleteDraft = async () => {
     if (!classroomSubjectId || !graphData?.pathId) return;
     if (!window.confirm('Bạn có chắc chắn muốn xóa bản nháp này không? Lộ trình sẽ bị xóa vĩnh viễn.')) return;
-    
+
     try {
       setActionState('deleting');
       await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       toast.success('Đã xóa bản nháp lộ trình học thành công!');
       navigate(`/teacher/classroom-subjects/${classroomSubjectId}`);
     } catch (err: any) {
@@ -729,7 +735,7 @@ export function ClassManagementPage() {
     <div className="space-y-6 relative font-sans text-slate-800">
       {/* Sticky Published Banner */}
       {isPublished && (
-        <div 
+        <div
           className="sticky top-0 z-40 w-full bg-emerald-600 text-white py-2.5 px-4 rounded-[6px] shadow-sm flex items-center gap-2 mb-4 font-semibold text-sm animate-in slide-in-from-top duration-300"
           role="alert"
         >
@@ -740,9 +746,9 @@ export function ClassManagementPage() {
 
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            size="icon" 
+          <Button
+            variant="outline"
+            size="icon"
             onClick={() => navigate(-1)}
             className="rounded-[6px] border-slate-200 text-slate-600 hover:text-slate-900"
           >
@@ -752,31 +758,11 @@ export function ClassManagementPage() {
             Lớp {classInfo.classCode} - {classInfo.courseCode} (Quản lý lộ trình)
           </h1>
         </div>
-        
+
         <div className="flex items-center gap-2 shrink-0">
-          {graphData?.state === 'DRAFT' && (
-            <Button 
-              onClick={() => setShowPublishConfirm(true)} 
-              disabled={actionState === 'publishing'}
-              className="bg-green-600 hover:bg-green-700 text-white h-9 rounded-[6px] text-xs font-semibold border-0"
-            >
-              <Play className="size-4 mr-1" />
-              Publish lộ trình
-            </Button>
-          )}
-          {graphData?.state === 'PUBLISHED' && (
-            <Button 
-              onClick={() => setShowUnpublishConfirm(true)} 
-              disabled={actionState === 'unpublishing'}
-              className="bg-amber-600 hover:bg-amber-700 text-white h-9 rounded-[6px] text-xs font-semibold border-0"
-            >
-              <Undo2 className="size-4 mr-1" />
-              Unpublish lộ trình
-            </Button>
-          )}
           <div title={isPublished ? lockTooltip : undefined}>
-            <Button 
-              onClick={handleAddNodeClick} 
+            <Button
+              onClick={handleAddNodeClick}
               disabled={isPublished}
               className="text-white flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-xs font-semibold h-9"
               style={{ backgroundColor: '#030213' }}
@@ -797,9 +783,9 @@ export function ClassManagementPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Column 1: Roadmap Flow Graph */}
-              <div className="lg:col-span-2 space-y-3">
+            <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+              {/* Column 1: Roadmap Flow Graph — giới hạn ~3 node ngang, panel chi tiết phủ phần còn lại */}
+              <div className="space-y-3 lg:w-[560px] lg:shrink-0">
                 <div className="text-xs font-semibold text-slate-500 mb-2">
                   * Nhấp chuột vào một bài học trên sơ đồ dưới đây để xem & cấu hình chi tiết học liệu.
                 </div>
@@ -808,9 +794,9 @@ export function ClassManagementPage() {
                     <Map className="size-8 mx-auto text-slate-350 mb-2" />
                     <p className="text-xs font-medium mb-4">Chưa có bài học nào trong lộ trình lớp học.</p>
                     <div title={isPublished ? lockTooltip : undefined}>
-                      <Button 
-                        onClick={() => setIsAddNodeOpen(true)} 
-                        disabled={isPublished} 
+                      <Button
+                        onClick={() => setIsAddNodeOpen(true)}
+                        disabled={isPublished}
                         size="sm"
                         className="text-white rounded-[6px] shadow-xs hover:opacity-95 font-semibold text-xs py-1.5"
                         style={{ backgroundColor: '#030213' }}
@@ -832,7 +818,7 @@ export function ClassManagementPage() {
               </div>
 
               {/* Column 2: Selected Node Sidebar Details Panel */}
-              <div className="lg:col-span-1 border border-slate-200 rounded-xl bg-slate-50/40 p-4 space-y-4 h-[580px] overflow-y-auto">
+              <div className="flex-1 min-w-0 border border-slate-200 rounded-xl bg-slate-50/40 p-4 space-y-4 h-[580px] overflow-y-auto">
                 {!selectedNode ? (
                   <div className="h-full flex flex-col items-center justify-center text-center py-16 text-slate-400">
                     <Map className="w-10 h-10 mb-2 text-slate-350" />
@@ -901,42 +887,6 @@ export function ClassManagementPage() {
                       <>
                         {/* Node Content lists (materials, tests, exercises) */}
                         <div className="space-y-4">
-                          {/* Student Assignment */}
-                          <div className="space-y-2 pb-3 border-b border-slate-100">
-                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                              <Users className="size-3.5 text-slate-500" />
-                              Phân bổ sinh viên ({assignedStudentIds.length})
-                            </h4>
-                            {loadingNodeStudents ? (
-                              <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
-                                <Loader className="size-3 animate-spin text-primary" /> Đang tải danh sách...
-                              </div>
-                            ) : students.length === 0 ? (
-                              <p className="text-xs text-slate-400 italic">Lớp học chưa có sinh viên nào.</p>
-                            ) : (
-                              <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 border border-slate-100 rounded-xl p-2 bg-slate-50/50">
-                                {students.map((student) => {
-                                  const isAssigned = assignedStudentIds.includes(student.userId);
-                                  
-                                  return (
-                                    <div key={student.userId} className="flex items-center justify-between text-xs p-1 rounded-lg hover:bg-slate-50 transition-colors">
-                                      <label htmlFor={`assign-std-${student.userId}`} className="flex items-center gap-2 flex-1 cursor-pointer select-none">
-                                        <Checkbox
-                                          id={`assign-std-${student.userId}`}
-                                          checked={isAssigned}
-                                          onCheckedChange={(checked) => handleAssignStudent(student.userId, !!checked)}
-                                        />
-                                        <div className="min-w-0">
-                                          <p className="font-semibold text-slate-700 truncate">{student.fullName}</p>
-                                        </div>
-                                      </label>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-
                           {/* Materials & Videos */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
@@ -965,8 +915,9 @@ export function ClassManagementPage() {
                                 {(nodeContents[selectedNode.nodeId]?.materials || []).map((material) => (
                                   <div
                                     key={material.materialId}
-                                    className="flex items-center justify-between p-2 rounded-[6px] border border-slate-200/50 bg-white hover:bg-slate-50/50 text-xs transition-colors shadow-2xs"
+                                    className="rounded-[6px] border border-slate-200/50 bg-white p-2 text-xs shadow-2xs"
                                   >
+                                    <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                       {material.video ? <Film className="size-3.5 text-slate-500 shrink-0" /> : <FileText className="size-3.5 text-slate-500 shrink-0" />}
                                       <span className="truncate text-[11px] font-medium text-slate-700">{material.title}</span>
@@ -991,6 +942,10 @@ export function ClassManagementPage() {
                                       >
                                         <X className="size-3" />
                                       </Button>
+                                    </div>
+                                    </div>
+                                    <div className="max-w-2xl">
+                                      <MaterialPreview material={material} />
                                     </div>
                                   </div>
                                 ))}
@@ -1079,41 +1034,6 @@ export function ClassManagementPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="rounded-[10px] border border-slate-200/60 shadow-xs overflow-hidden bg-white">
-          <CardHeader className="border-b border-slate-100/80 bg-slate-50/40 py-4">
-            <CardTitle className="text-base font-bold text-[#030213] flex items-center gap-2">
-              <Users className="size-4 text-slate-500" />
-              Danh sách học sinh
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-5">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent border-slate-100">
-                  <TableHead className="font-semibold text-slate-500 text-xs">Mã học sinh</TableHead>
-                  <TableHead className="font-semibold text-slate-500 text-xs">Họ và tên</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-center py-8 text-slate-400 italic text-xs">
-                      Chưa có học sinh nào trong lớp.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  students.map((student) => (
-                    <TableRow key={student.id} className="border-slate-100 hover:bg-slate-50/50">
-                      <TableCell className="font-semibold text-slate-700 text-xs">{student.id}</TableCell>
-                      <TableCell className="text-slate-650 text-xs">{student.fullName}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Hidden helper element for aria accessibility */}
@@ -1140,13 +1060,13 @@ export function ClassManagementPage() {
               Bạn có chắc chắn muốn xóa bài học <strong>"{nodeToDelete?.title}"</strong>? Mọi liên kết prerequisite edges liên quan đến bài học này cũng sẽ bị xóa.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-delete" 
-                checked={understandDelete} 
-                onCheckedChange={(val) => setUnderstandDelete(!!val)} 
+              <Checkbox
+                id="understand-delete"
+                checked={understandDelete}
+                onCheckedChange={(val) => setUnderstandDelete(!!val)}
               />
-              <label 
-                htmlFor="understand-delete" 
+              <label
+                htmlFor="understand-delete"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi đồng ý xóa bài học và chấp nhận mất các liên kết prerequisites đi kèm.
@@ -1154,15 +1074,15 @@ export function ClassManagementPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowDeleteConfirm(false); setUnderstandDelete(false); }}
               className="rounded-[6px] border-slate-200"
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handleRemoveNodeConfirm} 
+            <Button
+              onClick={handleRemoveNodeConfirm}
               disabled={!understandDelete}
               className="bg-red-600 hover:bg-red-700 text-white font-medium rounded-[6px]"
             >
@@ -1308,8 +1228,8 @@ export function ClassManagementPage() {
                 <Button type="button" variant="outline" className="rounded-[6px] border-slate-200" onClick={() => setIsAddNodeOpen(false)}>
                   Hủy
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="text-white font-semibold rounded-[6px] shadow-xs px-4"
                   style={{ backgroundColor: '#030213' }}
                 >
@@ -1588,9 +1508,9 @@ export function ClassManagementPage() {
                 <Button type="button" variant="outline" disabled={submittingContent} className="rounded-[6px] border-slate-200" onClick={() => setIsAddContentOpen(false)}>
                   Hủy
                 </Button>
-                <Button 
-                  type="submit" 
-                  disabled={submittingContent} 
+                <Button
+                  type="submit"
+                  disabled={submittingContent}
                   className="text-white flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
                   style={{ backgroundColor: '#030213' }}
                 >
@@ -1733,13 +1653,13 @@ export function ClassManagementPage() {
               <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-publish" 
-                checked={understandPublish} 
-                onCheckedChange={(val) => setUnderstandPublish(!!val)} 
+              <Checkbox
+                id="understand-publish"
+                checked={understandPublish}
+                onCheckedChange={(val) => setUnderstandPublish(!!val)}
               />
-              <label 
-                htmlFor="understand-publish" 
+              <label
+                htmlFor="understand-publish"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
@@ -1747,15 +1667,15 @@ export function ClassManagementPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowPublishConfirm(false); setUnderstandPublish(false); }}
               disabled={actionState === 'publishing'}
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handlePublish} 
+            <Button
+              onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
               className="bg-green-600 hover:bg-green-700 text-white font-medium"
             >
@@ -1789,13 +1709,13 @@ export function ClassManagementPage() {
               <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-unpublish" 
-                checked={understandUnpublish} 
-                onCheckedChange={(val) => setUnderstandUnpublish(!!val)} 
+              <Checkbox
+                id="understand-unpublish"
+                checked={understandUnpublish}
+                onCheckedChange={(val) => setUnderstandUnpublish(!!val)}
               />
-              <label 
-                htmlFor="understand-unpublish" 
+              <label
+                htmlFor="understand-unpublish"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
@@ -1803,15 +1723,15 @@ export function ClassManagementPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); }}
               disabled={actionState === 'unpublishing'}
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handleUnpublish} 
+            <Button
+              onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
             >

@@ -262,8 +262,12 @@ export const learningPathService = {
   // Admin read-only: xem graph lớp-môn (endpoint riêng cho ADMIN, không đụng /teacher-manage)
   getAdminClassroomGraph: (classroomSubjectId: number) =>
     http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
-  cloneFromTemplate: (classroomSubjectId: number) =>
-    http.post<LearningPathResponse[]>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path`),
+  cloneFromTemplate: (classroomSubjectId: number, templatePathId?: number) =>
+    http.post<LearningPathResponse[]>(
+      `/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path${
+        templatePathId != null ? `?templatePathId=${templatePathId}` : ''
+      }`
+    ),
   publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
     http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
   unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>
@@ -332,6 +336,8 @@ export const learningPathService = {
   // Teacher node content endpoints
   getTeacherNodeContent: (nodeId: number) =>
     http.get<NodeContentResponse>(`/teacher-manage/learning-nodes/${nodeId}/content`),
+  getTeacherTestQuestions: (testId: number) =>
+    http.get<TeacherQuestionResponse[]>(`/teacher-manage/tests/${testId}/questions`),
   addTeacherNodeMaterial: (nodeId: number, formData: FormData) =>
     http.post<NodeMaterialResponse>(`/teacher-manage/learning-nodes/${nodeId}/materials`, formData, {
       'Content-Type': 'multipart/form-data',

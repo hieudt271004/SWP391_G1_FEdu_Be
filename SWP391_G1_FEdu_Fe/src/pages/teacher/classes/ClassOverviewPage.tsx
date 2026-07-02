@@ -47,13 +47,15 @@ import {
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
 import { 
-  learningPathService, 
-  LearningNodeResponse, 
+  learningPathService,
+  LearningNodeResponse,
+  NodeEdgeResponse,
   ClassroomGraphResponse,
   NodeContentResponse,
   StudentInClassResponse
 } from '../../../services/learningPath.service';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
+import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import {
   Dialog,
   DialogContent,
@@ -100,7 +102,11 @@ export function ClassOverviewPage() {
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'cloning' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
-  
+  // Xem trước lộ trình mẫu trước khi áp dụng/đè lên
+  const [templatePreview, setTemplatePreview] = useState<{ pathId: number; nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [showApplyTemplateConfirm, setShowApplyTemplateConfirm] = useState(false);
+
   // Dialog visibility and confirmation states
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [understandPublish, setUnderstandPublish] = useState(false);
@@ -784,14 +790,59 @@ export function ClassOverviewPage() {
     if (!classroomSubjectId) return;
     try {
       setActionState('cloning');
-      await learningPathService.cloneFromTemplate(Number(classroomSubjectId));
-      
+      // Truyền template đang chọn (nếu có) — môn nhiều lộ trình mẫu bắt buộc phải chọn cụ thể.
+      await learningPathService.cloneFromTemplate(Number(classroomSubjectId), selectedTemplateId ?? undefined);
+
       // Refetch classroom graph
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
-      toast.success('Khởi tạo lộ trình học (3 mức) thành công!');
+      setTemplatePreview(null);
+      toast.success('Khởi tạo lộ trình học thành công!');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Không thể khởi tạo lộ trình học');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  // Chọn 1 template ở dropdown → tải graph mẫu để xem trước trong khung "Sơ đồ lộ trình học tập".
+  const handlePreviewTemplate = async (templatePathId: number | null) => {
+    setSelectedTemplateId(templatePathId);
+    setSelectedNode(null);
+    if (!templatePathId) {
+      setTemplatePreview(null);
+      return;
+    }
+    try {
+      setPreviewLoading(true);
+      const graph = await learningPathService.getLearningPathGraph(templatePathId);
+      setTemplatePreview({ pathId: templatePathId, nodes: graph.nodes || [], edges: graph.edges || [] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể tải lộ trình mẫu để xem trước');
+      setTemplatePreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Áp dụng template đang xem trước. Nếu lớp đã có bản nháp → xóa nháp cũ rồi clone đè lên.
+  const handleApplyTemplate = async () => {
+    if (!classroomSubjectId || !selectedTemplateId) return;
+    try {
+      setActionState('cloning');
+      if (graphData?.state === 'DRAFT' && graphData.pathId) {
+        await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
+      }
+      await learningPathService.cloneFromTemplate(Number(classroomSubjectId), selectedTemplateId);
+
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+      setTemplatePreview(null);
+      setSelectedTemplateId(null);
+      setShowApplyTemplateConfirm(false);
+      toast.success('Áp dụng lộ trình mẫu thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể áp dụng lộ trình mẫu');
     } finally {
       setActionState('idle');
     }
@@ -1216,13 +1267,26 @@ export function ClassOverviewPage() {
               Bắt đầu lớp học
             </Button>
           )}
-          {classroomStatus === 'active' && (
+          {/* "Kết thúc lớp học" chỉ dành cho admin — đã bỏ ở giao diện giáo viên. */}
+          {graphData?.state === 'DRAFT' && (
             <Button
-              className="bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl flex items-center gap-1.5"
-              onClick={() => handleUpdateStatus('completed')}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
+              onClick={() => setShowPublishConfirm(true)}
               disabled={isNonIdle}
             >
-              Kết thúc lớp học
+              <Play className="size-4" />
+              Publish lộ trình
+            </Button>
+          )}
+          {graphData?.state === 'PUBLISHED' && (
+            <Button
+              variant="outline"
+              className="text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200 font-semibold rounded-xl flex items-center gap-1.5"
+              onClick={() => setShowUnpublishConfirm(true)}
+              disabled={isNonIdle}
+            >
+              <Undo2 className="size-4" />
+              Unpublish lộ trình
             </Button>
           )}
         </div>
@@ -1348,7 +1412,46 @@ export function ClassOverviewPage() {
             )}
           </div>
           
-          {(!graphData?.paths || graphData.paths.length === 0) && graphData?.state === 'NO_PATH' ? (
+          {/* Ô chọn & áp dụng lộ trình mẫu (clone). Hiện khi lớp chưa có lộ trình hoặc còn bản nháp. */}
+          {(graphData?.state === 'NO_PATH' || graphData?.state === 'DRAFT') && (graphData?.availableTemplates?.length ?? 0) > 0 && (
+            <Card className="border border-primary/20 bg-primary/5 rounded-2xl">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex-1 space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                    <BookOpen className="size-3.5" /> Chọn lộ trình mẫu để áp dụng
+                  </label>
+                  <select
+                    value={selectedTemplateId ?? ''}
+                    onChange={(e) => handlePreviewTemplate(e.target.value ? Number(e.target.value) : null)}
+                    disabled={isNonIdle}
+                    className="w-full max-w-md rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">-- Chọn lộ trình mẫu để xem trước --</option>
+                    {graphData?.availableTemplates?.map((t) => (
+                      <option key={t.pathId} value={t.pathId}>
+                        {t.pathName} ({t.nodeCount} bài học)
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    {graphData?.state === 'DRAFT'
+                      ? 'Chọn để xem trước; áp dụng sẽ ghi đè lộ trình nháp hiện tại (kèm mọi chỉnh sửa).'
+                      : 'Chọn để xem trước sơ đồ, sau đó áp dụng để tạo lộ trình cho lớp.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => (graphData?.state === 'DRAFT' ? setShowApplyTemplateConfirm(true) : handleApplyTemplate())}
+                  disabled={isNonIdle || !selectedTemplateId}
+                  className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
+                >
+                  {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
+                  {graphData?.state === 'DRAFT' ? 'Đè lộ trình này' : 'Áp dụng lộ trình'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {(!graphData?.paths || graphData.paths.length === 0) && graphData?.state === 'NO_PATH' && !templatePreview ? (
             <Card className="border border-dashed border-slate-200 bg-white p-12 text-center rounded-2xl">
               <Map className="w-12 h-12 mx-auto text-slate-300 mb-3 animate-pulse" />
               <h3 className="text-base font-bold text-slate-800 mb-1">Chưa cấu hình lộ trình</h3>
@@ -1357,19 +1460,35 @@ export function ClassOverviewPage() {
               </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+              <div className="space-y-2 lg:w-[600px] lg:shrink-0">
+                {templatePreview && (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <Eye className="size-3.5" /> Đang xem trước lộ trình mẫu — chưa áp dụng.
+                    </span>
+                    <button onClick={() => handlePreviewTemplate(null)} className="font-semibold text-amber-700 hover:underline">
+                      Bỏ xem trước
+                    </button>
+                  </div>
+                )}
                 <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)]">
-                  <LearningPathFlow
-                    nodes={graphData?.nodes || []}
-                    edges={graphData?.edges || []}
-                    selectedNodeId={selectedNode?.nodeId || null}
-                    onNodeClick={(node) => handleNodeClick(node)}
-                  />
+                  {previewLoading ? (
+                    <div className="flex h-64 items-center justify-center text-slate-400">
+                      <Loader className="size-6 animate-spin" />
+                    </div>
+                  ) : (
+                    <LearningPathFlow
+                      nodes={templatePreview ? templatePreview.nodes : (graphData?.nodes || [])}
+                      edges={templatePreview ? templatePreview.edges : (graphData?.edges || [])}
+                      selectedNodeId={templatePreview ? null : (selectedNode?.nodeId || null)}
+                      onNodeClick={templatePreview ? undefined : ((node) => handleNodeClick(node))}
+                    />
+                  )}
                 </div>
               </div>
-              
-              <div className="lg:col-span-1">
+
+              <div className="flex-1 min-w-0">
                 {!selectedNode ? (
                   <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white border border-slate-250 rounded-2xl p-6">
                     <Map className="w-10 h-10 text-slate-300 mb-2 animate-bounce" />
@@ -1432,12 +1551,17 @@ export function ClassOverviewPage() {
                             ) : (
                               <div className="space-y-2">
                                 {nodeContent.materials?.map((m) => (
-                                  <div key={m.materialId} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50/50 border border-slate-100 text-xs">
-                                    <div className="text-indigo-600 shrink-0">
-                                      <FileText className="w-4 h-4" />
+                                  <div key={m.materialId} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2 text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <div className="shrink-0 text-indigo-600">
+                                        <FileText className="h-4 w-4" />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate font-medium text-slate-700">{m.title}</p>
+                                      </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-slate-700 truncate">{m.title}</p>
+                                    <div className="mt-1.5 max-w-2xl">
+                                      <MaterialPreview material={m} />
                                     </div>
                                   </div>
                                 ))}
@@ -1464,6 +1588,34 @@ export function ClassOverviewPage() {
           )}
         </div>
       )}
+
+      {/* Xác nhận ghi đè template lên bản nháp hiện tại */}
+      <Dialog open={showApplyTemplateConfirm} onOpenChange={(o) => { if (!o) setShowApplyTemplateConfirm(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="size-5 shrink-0" />
+              <span>Ghi đè lộ trình nháp?</span>
+            </DialogTitle>
+            <DialogDescription>
+              Lộ trình nháp hiện tại của lớp (kèm mọi tài liệu/bài kiểm tra đã thêm) sẽ bị xóa và thay bằng lộ trình mẫu đã chọn.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button variant="outline" className="rounded-xl" onClick={() => setShowApplyTemplateConfirm(false)}>
+              Hủy
+            </Button>
+            <Button
+              className="rounded-xl bg-amber-600 font-semibold text-white hover:bg-amber-700"
+              onClick={handleApplyTemplate}
+              disabled={isNonIdle}
+            >
+              {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : null}
+              Ghi đè & áp dụng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {activeTab === 'placement' && (
         <div className="space-y-6">

@@ -4,12 +4,13 @@ import {
   ArrowLeft, Search, UserPlus, Loader2, AlertCircle, Trash2,
   BookOpen, GraduationCap, Mail, Pencil, X, Route as RouteIcon,
   Lock, CheckCircle2, FileText, Upload, Download,
-  ChevronDown, ChevronRight, Video, ClipboardCheck, ExternalLink,
+  Video, ClipboardCheck,
 } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
 import { adminService } from "../../services/admin.service";
 import { learningPathService } from "../../services/learningPath.service";
-import { API_BASE_URL } from "../../services/api.client";
+import { LearningPathFlow } from "../../components/learningPath/LearningPathFlow";
+import { NodeContentReadOnlyPanel } from "../../components/learningPath/NodeContentReadOnlyPanel";
 import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
 import type { StudentInClass, ImportStudentsResult } from "../../types/student";
 import type { ClassroomGraphResponse, LearningNodeResponse, NodeContentResponse } from "../../services/learningPath.service";
@@ -34,6 +35,9 @@ export function ClassroomSubjectDetailPage() {
   const [graph, setGraph] = useState<ClassroomGraphResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Node đang chọn trên cây → hiện nội dung read-only bên panel phải
+  const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
 
   // Nội dung node (tài liệu + bài test) — admin xem read-only, fetch khi mở node
   const [expandedNodeId, setExpandedNodeId] = useState<number | null>(null);
@@ -240,21 +244,6 @@ export function ClassroomSubjectDetailPage() {
   const sortedNodes = graph ? [...graph.nodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId)) : [];
   const stBadge = graph ? pathStateBadge(graph.state) : pathStateBadge("NO_PATH");
 
-  const isSubNode = (n: LearningNodeResponse) => false;
-  // Tự đánh số "Bài N" theo vị trí (node phụ = "Bài {N cha} phụ"); bỏ tiền tố "Bài N:" cũ trong title
-  const stripLessonPrefix = (t: string) => (t || "").replace(/^\s*Bài\s+\d+(\s*phụ)?\s*:?\s*/i, "").trim();
-  const nodeLabels: Record<number, string> = {};
-  let lessonCounter = 0;
-  for (const n of sortedNodes) {
-    if (isSubNode(n)) {
-      const pe = (graph?.edges || []).find((e) => e.toNodeId === n.nodeId);
-      const parentLabel = pe ? nodeLabels[pe.fromNodeId] : undefined;
-      nodeLabels[n.nodeId] = parentLabel ? `${parentLabel} phụ` : `Bài ${lessonCounter} phụ`;
-    } else {
-      lessonCounter += 1;
-      nodeLabels[n.nodeId] = `Bài ${lessonCounter}`;
-    }
-  }
   const isPublished = graph?.state === "PUBLISHED";
   const totals = sortedNodes.reduce(
     (acc, n) => {
@@ -366,80 +355,35 @@ export function ClassroomSubjectDetailPage() {
             </p>
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden divide-y divide-gray-100" style={{ border: "1px solid #f3f4f6" }}>
-            {sortedNodes.map((node) => {
-              const isExpanded = expandedNodeId === node.nodeId;
-              const content = nodeContent[node.nodeId];
-              const cLoading = nodeContentLoading[node.nodeId];
-              const itemCount = content ? content.materials.length + content.tests.length : 0;
-              return (
-                <div key={node.nodeId}>
-                  <div className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => toggleNode(node.nodeId)}>
-                    <span className="shrink-0" style={{ color: "#6b7280" }}>
-                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{nodeLabels[node.nodeId]}: {stripLessonPrefix(node.title)}</div>
-                      <div className="flex items-center gap-2 mt-0.5" style={{ fontSize: "0.75rem", color: "#6b7280" }}>
-                        <span>{node.nodeType === "AT_HOME" ? "Tự học" : "Trên lớp"}</span>
-                        {content && (<><span>·</span><span>{itemCount} mục</span></>)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="pl-14 pr-4 pb-3" style={{ backgroundColor: "#fafafa" }}>
-                      {node.description && (
-                        <p className="pt-3 pb-1" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>{node.description}</p>
-                      )}
-                      {(cLoading || !content) ? (
-                        <div className="flex items-center gap-2 py-3" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
-                          <Loader2 className="w-4 h-4 animate-spin" /> Đang tải nội dung…
-                        </div>
-                      ) : itemCount === 0 ? (
-                        <p className="py-3" style={{ fontSize: "0.8125rem", color: "#9ca3af" }}>Bài học này chưa có tài liệu hoặc bài test.</p>
-                      ) : (
-                        <div className="pt-1">
-                          {content.materials.map((m) => {
-                            const rawUrl = m.video?.videoUrl || m.file?.fileUrl;
-                            const url = rawUrl && rawUrl.startsWith("/") ? `${API_BASE_URL}${rawUrl}` : rawUrl;
-                            const isVideo = !!m.video;
-                            const mins = m.video?.durationSeconds ? Math.max(1, Math.round(m.video.durationSeconds / 60)) : null;
-                            const meta = isVideo ? `Video${mins ? ` · ${mins} phút` : ""}` : (m.file?.fileType || "Tài liệu");
-                            return (
-                              <a key={`m${m.materialId}`} href={url || undefined} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-3 py-2.5 group" style={{ borderTop: "1px solid #f3f4f6" }}>
-                                <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ border: "1px solid #e5e7eb", backgroundColor: "white" }}>
-                                  {isVideo ? <Video className="w-4 h-4" style={{ color: "#7c3aed" }} /> : <FileText className="w-4 h-4" style={{ color: "#4338ca" }} />}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="group-hover:underline" style={{ fontSize: "0.875rem", fontWeight: 500, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title || m.file?.fileName || m.video?.title || "Tài liệu"}</div>
-                                  <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{meta}{m.required ? " · Bắt buộc" : ""}</div>
-                                </div>
-                                {url && <ExternalLink className="w-4 h-4 shrink-0" style={{ color: "#9ca3af" }} />}
-                              </a>
-                            );
-                          })}
-                          {content.tests.map((t) => (
-                            <div key={`t${t.testId}`} className="flex items-center gap-3 py-2.5" style={{ borderTop: "1px solid #f3f4f6" }}>
-                              <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ border: "1px solid #fde68a", backgroundColor: "white" }}>
-                                <ClipboardCheck className="w-4 h-4" style={{ color: "#d97706" }} />
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div style={{ fontSize: "0.875rem", fontWeight: 500, color: "#111827" }}>{t.title}</div>
-                                <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>
-                                  Bài test{t.durationMinutes ? ` · ${t.durationMinutes} phút` : ""}{t.passingPercentage != null ? ` · Qua ≥ ${t.passingPercentage}%` : ""}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+            <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)] lg:w-[544px] lg:flex-shrink-0">
+              <LearningPathFlow
+                nodes={graph?.nodes || []}
+                edges={graph?.edges || []}
+                selectedNodeId={selectedNode?.nodeId ?? null}
+                onNodeClick={(node) => setSelectedNode(node)}
+              />
+            </div>
+            <aside className="overflow-y-auto rounded-xl border border-slate-200 bg-white lg:max-h-[calc(100vh-2rem)] lg:flex-1 lg:min-w-[360px]">
+              {!selectedNode ? (
+                <div className="p-8 text-center text-sm text-slate-400">
+                  Chọn một bài học trên lộ trình để xem nội dung.
                 </div>
-              );
-            })}
+              ) : (
+                <div className="p-4">
+                  <div className="mb-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      {selectedNode.nodeType === "AT_HOME" ? "Tự học" : "Trên lớp"}
+                    </div>
+                    <h3 className="text-base font-semibold text-slate-800">{selectedNode.title}</h3>
+                    {selectedNode.description && (
+                      <p className="mt-0.5 text-sm text-slate-500">{selectedNode.description}</p>
+                    )}
+                  </div>
+                  <NodeContentReadOnlyPanel nodeId={selectedNode.nodeId} />
+                </div>
+              )}
+            </aside>
           </div>
         )}
       </div>
