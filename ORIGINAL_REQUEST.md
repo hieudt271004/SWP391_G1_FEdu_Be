@@ -35,3 +35,48 @@ Integrity mode: development
 - [ ] The dashboard loads successfully with actual data when integrated with the backend.
 - [ ] No layout breakage (no overflow, horizontal scrollbars, or text collisions) down to 360px viewport width.
 - [ ] Clicking on "Vào lớp học" (Enter Class), "Quản lý môn học" (Manage Subjects), etc. navigates to the correct routes.
+
+## Follow-up — 2026-07-02T10:05:25Z
+
+Fix the admin user information update issue on the `/admin/users` screen by relaxing phone number validation in the backend and updating the editing modal on the frontend to support all fields including gender and date of birth.
+
+Working directory: /Users/mac/Documents/GitHub/SWP391_G1_FEdu_Be
+Integrity mode: development
+
+## Requirements
+
+### R1. Backend Phone Number Validation Relaxation
+- Update `PhoneValidator.java` to allow `null`, empty, blank, or `"—"` strings as valid phone numbers (treated as optional). Only validate format if a non-blank value is entered.
+
+### R2. Frontend Modal Enhancements (`UserDetailModal.tsx`)
+- **Add Fields**: Include **Giới tính** (Gender) and **Ngày sinh** (Date of birth) input fields in the editing modal.
+- **Initial Values Mapping**:
+  - Convert date of birth from `"dd/MM/yyyy"` format (returned by the backend) to `"yyyy-MM-dd"` format (required for the HTML `<input type="date" />`).
+  - Clear the placeholder `"—"` from the phone number state so the input field shows as empty instead of displaying `"—"`.
+- **Form Submission Mapping**:
+  - Map the local date format (`yyyy-MM-dd`) back to `"dd/MM/yyyy"` for the backend update payload.
+  - Map selected gender (`"Male" | "Female" | "Other"`) to backend enum values (`"MALE" | "FEMALE" | "OTHER"`).
+
+### R3. Compile & Sync
+- Ensure the backend compiles cleanly without errors.
+- Ensure the frontend builds cleanly without TypeScript or bundler errors (`npm run build`).
+
+## Acceptance Criteria
+
+### Visual Layout & Form Inputs
+- [ ] The `UserDetailModal` displays dropdown/select options for "Giới tính" (Nam, Nữ, Khác) and a date picker for "Ngày sinh".
+- [ ] If a user has no phone number, the input field is displayed as empty (not showing `"—"`).
+
+### Functional Integrity
+- [ ] Submitting the updated information successfully calls `adminService.updateUser` and refreshes the user list.
+- [ ] Saving updates for a user with no phone number or a blank phone number succeeds without triggering a `"Phone number invalid format"` error.
+- [ ] The application compiles cleanly on both frontend (`npm run build`) and backend.
+
+## Follow-up — 2026-07-02T10:06:59Z
+
+In `UserDetailModal.tsx` (both Add and Edit modes), the 'Avatar URL' text input must be replaced with a file upload button/control. Clicking it should open the native file dialog, validate the image format (PNG, JPEG, JPG, WEBP) and size (max 5MB), display a loading spinner / 'Đang tải...' state when uploading, and upload directly to Cloudinary using `uploadService.uploadToCloudinary` to set `formData.avatarUrl` upon success.
+
+## Follow-up — 2026-07-02T10:07:46Z
+
+Redesign the User Management Page (`UserManagementPage.tsx`) and the User Detail Modal (`UserDetailModal.tsx`) to offer a premium, modern, and highly polished user experience.
+Standardize on the Outfit font, use the cohesive theme variables from `theme.css` instead of raw inline styles, and add hover and active transition micro-animations. Ensure visual elements (buttons, cards, table rows, inputs) have cohesive spacing, smooth transitions, and interactive hover effects to match the premium dashboard aesthetic.
