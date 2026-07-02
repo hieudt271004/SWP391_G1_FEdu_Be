@@ -846,7 +846,7 @@ export function ClassManagementPage() {
                 </div>
                 {nodes.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-[10px] bg-slate-50/40">
-                    <Map className="size-8 mx-auto text-slate-350 mb-2" />
+                    <Map className="size-8 mx-auto text-slate-300 mb-2" />
                     <p className="text-xs font-medium mb-4">Chưa có bài học nào trong lộ trình lớp học.</p>
                     <div title={isPublished ? lockTooltip : undefined}>
                       <Button
@@ -876,7 +876,7 @@ export function ClassManagementPage() {
               <div className="flex-1 min-w-0 border border-slate-200 rounded-xl bg-slate-50/40 p-4 space-y-4 h-[580px] overflow-y-auto">
                 {!selectedNode ? (
                   <div className="h-full flex flex-col items-center justify-center text-center py-16 text-slate-400">
-                    <Map className="w-10 h-10 mb-2 text-slate-350" />
+                    <Map className="w-10 h-10 mb-2 text-slate-300" />
                     <p className="text-xs font-bold text-slate-800">Chọn một bài học trên sơ đồ</p>
                     <p className="text-[10px] text-slate-500 mt-1 max-w-[200px]">Nhấp chọn node trên sơ đồ lộ trình bên trái để xem nội dung chi tiết & chỉnh sửa.</p>
                   </div>
@@ -1165,7 +1165,7 @@ export function ClassManagementPage() {
                   type="text"
                   required
                   placeholder="Ví dụ: Giới thiệu Git & GitHub..."
-                  className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                   value={newNodeTitle}
                   onChange={(e) => setNewNodeTitle(e.target.value)}
                 />
@@ -1176,7 +1176,7 @@ export function ClassManagementPage() {
                 <textarea
                   placeholder="Nhập mô tả ngắn gọn nội dung bài học..."
                   rows={3}
-                  className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                   value={newNodeDesc}
                   onChange={(e) => setNewNodeDesc(e.target.value)}
                 />
@@ -1185,7 +1185,7 @@ export function ClassManagementPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700">Loại</label>
                 <select
-                  className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
+                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
                   value={nKind}
                   onChange={(e) => setNKind(e.target.value as AddNodeKind)}
                 >
@@ -1201,7 +1201,7 @@ export function ClassManagementPage() {
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Mức năng lực</label>
                     <select
-                      className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
+                      className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
                       value={nLevel}
                       onChange={(e) => setNLevel(e.target.value === '' ? '' : (Number(e.target.value) as 1 | 2 | 3))}
                     >
@@ -1215,7 +1215,7 @@ export function ClassManagementPage() {
                     <input
                       type="number"
                       min={1}
-                      className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                      className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                       value={nStage}
                       onChange={(e) => setNStage(Number(e.target.value) || 1)}
                     />
@@ -1245,7 +1245,7 @@ export function ClassManagementPage() {
                         <input
                           type="number"
                           min={1}
-                          className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                           value={nStage}
                           onChange={(e) => setNStage(Number(e.target.value) || 1)}
                         />
@@ -1264,7 +1264,7 @@ export function ClassManagementPage() {
                         <input
                           type="number"
                           min={1}
-                          className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                           value={nStage}
                           onChange={(e) => setNStage(Number(e.target.value) || 1)}
                         />
@@ -1280,21 +1280,21 @@ export function ClassManagementPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-slate-700">Điểm Yếu tối đa (%)</label>
-                          <input type="number" className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nYeuMax} onChange={(e) => setNYeuMax(e.target.value)} placeholder="vd 40" />
+                          <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nYeuMax} onChange={(e) => setNYeuMax(e.target.value)} placeholder="vd 40" />
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-slate-700">Điểm TB tối đa (%)</label>
-                          <input type="number" className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nTbMax} onChange={(e) => setNTbMax(e.target.value)} placeholder="vd 70" />
+                          <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nTbMax} onChange={(e) => setNTbMax(e.target.value)} placeholder="vd 70" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-slate-700">Thời lượng làm test (phút)</label>
-                          <input type="number" min={1} className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={tDuration} onChange={(e) => setTDuration(e.target.value)} placeholder="vd 15" />
+                          <input type="number" min={1} className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={tDuration} onChange={(e) => setTDuration(e.target.value)} placeholder="vd 15" />
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-slate-700">Số lượng câu hỏi</label>
-                          <input type="number" min={0} className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} placeholder="vd 5" />
+                          <input type="number" min={0} className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} placeholder="vd 5" />
                         </div>
                       </div>
                     </>
@@ -1304,11 +1304,11 @@ export function ClassManagementPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-slate-700">Ngưỡng lên (≥ %)</label>
-                        <input type="number" className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nUpMin} onChange={(e) => setNUpMin(e.target.value)} placeholder="vd 80" />
+                        <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nUpMin} onChange={(e) => setNUpMin(e.target.value)} placeholder="vd 80" />
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-slate-700">Ngưỡng xuống (≤ %)</label>
-                        <input type="number" className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nDownMax} onChange={(e) => setNDownMax(e.target.value)} placeholder="vd 40" />
+                        <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nDownMax} onChange={(e) => setNDownMax(e.target.value)} placeholder="vd 40" />
                       </div>
                     </div>
                   )}
@@ -1391,7 +1391,7 @@ export function ClassManagementPage() {
                       type="text"
                       required
                       placeholder="e.g. Slide bài giảng số 1, Video thực hành..."
-                      className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
                       value={contentTitle}
                       onChange={(e) => setContentTitle(e.target.value)}
                     />
@@ -1443,7 +1443,7 @@ export function ClassManagementPage() {
                         <input
                           type="file"
                           required
-                          className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800"
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800"
                           onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                         />
                       </div>
@@ -1452,7 +1452,7 @@ export function ClassManagementPage() {
                         <input
                           type="text"
                           placeholder="e.g. Đọc tài liệu PDF trước khi lên lớp..."
-                          className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800"
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800"
                           value={fileDescription}
                           onChange={(e) => setFileDescription(e.target.value)}
                         />
@@ -1468,7 +1468,7 @@ export function ClassManagementPage() {
                           type="url"
                           required
                           placeholder="https://youtube.com/watch?v=..."
-                          className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                           value={contentVideoUrl}
                           onChange={(e) => setContentVideoUrl(e.target.value)}
                         />
@@ -1479,7 +1479,7 @@ export function ClassManagementPage() {
                           <input
                             type="number"
                             placeholder="Ví dụ: 600"
-                            className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                             value={videoDuration}
                             onChange={(e) => setVideoDuration(e.target.value ? Number(e.target.value) : '')}
                           />
@@ -1489,7 +1489,7 @@ export function ClassManagementPage() {
                           <input
                             type="text"
                             placeholder="e.g. Video giảng lý thuyết..."
-                            className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                             value={videoDescription}
                             onChange={(e) => setVideoDescription(e.target.value)}
                           />
@@ -1506,7 +1506,7 @@ export function ClassManagementPage() {
                           type="url"
                           required
                           placeholder="https://example.com/document"
-                          className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                           value={contentFileUrl}
                           onChange={(e) => setContentFileUrl(e.target.value)}
                         />
@@ -1517,7 +1517,7 @@ export function ClassManagementPage() {
                           <input
                             type="text"
                             placeholder="e.g. Slide bài đọc..."
-                            className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                             value={fileName}
                             onChange={(e) => setFileName(e.target.value)}
                           />
@@ -1527,7 +1527,7 @@ export function ClassManagementPage() {
                           <input
                             type="text"
                             placeholder="e.g. PDF, Website..."
-                            className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                             value={fileType}
                             onChange={(e) => setFileType(e.target.value)}
                           />
@@ -1557,7 +1557,7 @@ export function ClassManagementPage() {
                       type="text"
                       required
                       placeholder="e.g. Bài test trắc nghiệm số 1..."
-                      className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
                       value={testTitle}
                       onChange={(e) => setTestTitle(e.target.value)}
                     />
@@ -1568,7 +1568,7 @@ export function ClassManagementPage() {
                     <textarea
                       placeholder="Mô tả nội dung bài kiểm tra hoặc quy chế thi..."
                       rows={2}
-                      className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
                       value={testDescription}
                       onChange={(e) => setTestDescription(e.target.value)}
                     />
@@ -1581,7 +1581,7 @@ export function ClassManagementPage() {
                         type="number"
                         placeholder="Ví dụ: 15"
                         min="1"
-                        className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                        className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
                         value={testDuration}
                         onChange={(e) => setTestDuration(e.target.value ? Number(e.target.value) : '')}
                       />
@@ -1594,7 +1594,7 @@ export function ClassManagementPage() {
                         placeholder="Ví dụ: 80"
                         min="0"
                         max="100"
-                        className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                        className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
                         value={testPassingPercentage}
                         onChange={(e) => setTestPassingPercentage(e.target.value ? Number(e.target.value) : '')}
                       />
@@ -1640,7 +1640,7 @@ export function ClassManagementPage() {
                   type="text"
                   required
                   placeholder="Ví dụ: Giới thiệu, Lab 1..."
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
                   value={editNodeTitle}
                   onChange={(e) => setEditNodeTitle(e.target.value)}
                 />
@@ -1651,7 +1651,7 @@ export function ClassManagementPage() {
                 <textarea
                   placeholder="Nhập mô tả ngắn gọn nội dung bài học..."
                   rows={3}
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
                   value={editNodeDesc}
                   onChange={(e) => setEditNodeDesc(e.target.value)}
                 />
@@ -1661,7 +1661,7 @@ export function ClassManagementPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Hình thức học</label>
                   <select
-                    className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
                     value={editNodeType}
                     onChange={(e) => setEditNodeType(e.target.value as 'AT_HOME' | 'ON_CLASS')}
                   >
@@ -1673,7 +1673,7 @@ export function ClassManagementPage() {
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Trạng thái khóa học</label>
                   <select
-                    className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
                     value={editNodeStatus}
                     onChange={(e) => setEditNodeStatus(e.target.value as 'LOCKED' | 'OPEN' | 'HIDDEN')}
                   >
@@ -1691,7 +1691,7 @@ export function ClassManagementPage() {
                     type="number"
                     min="0"
                     required
-                    className="w-full border border-slate-350/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
                     value={editNodeOrder}
                     onChange={(e) => setEditNodeOrder(Number(e.target.value))}
                   />

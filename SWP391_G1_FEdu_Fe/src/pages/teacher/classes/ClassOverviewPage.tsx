@@ -1960,7 +1960,7 @@ export function ClassOverviewPage() {
                   type="text"
                   required
                   placeholder="Ví dụ: Bài kiểm tra đánh giá năng lực đầu vào"
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 animate-in fade-in"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 animate-in fade-in"
                   value={quizTitle}
                   onChange={(e) => setQuizTitle(e.target.value)}
                 />
@@ -1970,7 +1970,7 @@ export function ClassOverviewPage() {
                 <textarea
                   placeholder="Nhập hướng dẫn làm bài cho học sinh..."
                   rows={3}
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={quizDescription}
                   onChange={(e) => setQuizDescription(e.target.value)}
                 />
@@ -1982,7 +1982,7 @@ export function ClassOverviewPage() {
                   required
                   min={10}
                   max={180}
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={quizDuration}
                   onChange={(e) => setQuizDuration(e.target.value)}
                 />
@@ -2018,7 +2018,7 @@ export function ClassOverviewPage() {
                   required
                   placeholder="Ví dụ: Đâu là một Hook cơ bản trong React?"
                   rows={2}
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={questionContent}
                   onChange={(e) => setQuestionContent(e.target.value)}
                 />
@@ -2027,7 +2027,7 @@ export function ClassOverviewPage() {
               <div className="space-y-1">
                 <label className="font-bold text-slate-700">Loại câu hỏi</label>
                 <select
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={questionType}
                   onChange={(e) => {
                     const newType = e.target.value as any;
@@ -2057,7 +2057,7 @@ export function ClassOverviewPage() {
                     required
                     placeholder="Nhập câu trả lời mẫu cho tự luận..."
                     rows={4}
-                    className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                     value={answers[0]?.answerContent || ''}
                     onChange={(e) => {
                       const updated = [{ answerContent: e.target.value, isCorrect: true }];
@@ -2084,7 +2084,7 @@ export function ClassOverviewPage() {
                         <input
                           type="text"
                           placeholder={`Nhập đáp án ${String.fromCharCode(65 + aIdx)}...`}
-                          className="flex-1 border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                          className="flex-1 border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                           value={answer.answerContent}
                           onChange={(e) => {
                             const updated = [...answers];

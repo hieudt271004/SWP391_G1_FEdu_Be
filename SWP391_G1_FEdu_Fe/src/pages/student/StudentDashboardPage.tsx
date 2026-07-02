@@ -213,7 +213,7 @@ export function StudentDashboardPage() {
               <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                 Chào mừng trở lại, {user?.lastName || 'Sinh viên'} {user?.firstName || ''}!
               </h1>
-              <p className="text-slate-350 text-sm mt-1 font-normal">
+              <p className="text-indigo-200/80 text-sm mt-1 font-normal">
                 Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Chúc bạn học tập tốt!
               </p>
             </div>
