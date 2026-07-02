@@ -39,7 +39,6 @@ import { classroomService } from '../../../services/classroom.service';
 import {
   learningPathService,
   LearningNodeResponse,
-  NodeEdgeResponse,
   ClassroomGraphResponse,
   NodeContentResponse,
   StudentInClassResponse
@@ -47,6 +46,13 @@ import {
 import { toast } from 'sonner';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
+import {
+  computeDesiredEdges,
+  syncEdges,
+  resolveNodePlacement,
+  LEVEL_OPTIONS,
+  type AddNodeKind,
+} from '../../../components/learningPath/learningPathWiring';
 import { uploadService } from '../../../services/upload.service';
 import {
   Dialog,
@@ -112,19 +118,19 @@ export function ClassManagementPage() {
   const [unpublishErrorMsg, setUnpublishErrorMsg] = useState('');
   const [actionState, setActionState] = useState<'idle' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
 
-  // New Node Form State
   const [newNodeTitle, setNewNodeTitle] = useState('');
   const [newNodeDesc, setNewNodeDesc] = useState('');
-  const [newNodeType, setNewNodeType] = useState<'AT_HOME' | 'ON_CLASS'>('AT_HOME');
-  const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
-  const [newNodeOrder, setNewNodeOrder] = useState<number>(1);
-  const [newNodeRequired, setNewNodeRequired] = useState(true);
-  const [newNodePredecessor, setNewNodePredecessor] = useState<string>('');
-
-  // Edge score requirements state
-  const [isPredecessorLocked, setIsPredecessorLocked] = useState(false);
-  const [edgeMinScore, setEdgeMinScore] = useState('');
-  const [edgeMaxScore, setEdgeMaxScore] = useState('');
+  const [nKind, setNKind] = useState<AddNodeKind>('AT_HOME');
+  const [nLevel, setNLevel] = useState<'' | 1 | 2 | 3>('');
+  const [nStage, setNStage] = useState(1);
+  const [nApplies, setNApplies] = useState<number[]>([]);
+  const [nUpMin, setNUpMin] = useState('');
+  const [nDownMax, setNDownMax] = useState('');
+  const [nYeuMax, setNYeuMax] = useState('');
+  const [nTbMax, setNTbMax] = useState('');
+  const [tDuration, setTDuration] = useState('15');
+  const [numQuestions, setNumQuestions] = useState('0');
+  const [addingNode, setAddingNode] = useState(false);
 
   // Edit Node Modal & Form State
   const [isEditNodeOpen, setIsEditNodeOpen] = useState(false);
@@ -274,9 +280,6 @@ export function ClassManagementPage() {
     }
   };
 
-  useEffect(() => {
-    setNewNodeOrder((nodes.length || 0) + 1);
-  }, [selectedLevel, graphData, nodes.length]);
 
   useEffect(() => {
     const fetchClassroomData = async () => {
@@ -331,26 +334,16 @@ export function ClassManagementPage() {
   const handleAddNodeClick = () => {
     setNewNodeTitle('');
     setNewNodeDesc('');
-    setNewNodeType('AT_HOME');
-    setNewNodeStatus('LOCKED');
-    setNewNodeRequired(true);
-    setNewNodePredecessor('');
-    setIsPredecessorLocked(false);
-    setEdgeMinScore('');
-    setEdgeMaxScore('');
-    setIsAddNodeOpen(true);
-  };
-
-  const handleAddNextNodeClick = (node: LearningNodeResponse) => {
-    setNewNodeTitle('');
-    setNewNodeDesc('');
-    setNewNodeType('AT_HOME');
-    setNewNodeStatus('LOCKED');
-    setNewNodeRequired(true);
-    setNewNodePredecessor(node.nodeId.toString());
-    setIsPredecessorLocked(true);
-    setEdgeMinScore('');
-    setEdgeMaxScore('');
+    setNKind('AT_HOME');
+    setNLevel('');
+    setNStage(1);
+    setNApplies([]);
+    setNUpMin('');
+    setNDownMax('');
+    setNYeuMax('');
+    setNTbMax('');
+    setTDuration('15');
+    setNumQuestions('0');
     setIsAddNodeOpen(true);
   };
 
@@ -512,6 +505,16 @@ export function ClassManagementPage() {
     }
   };
 
+  const rewireAll = async () => {
+    if (!classroomSubjectId) return;
+    const g = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+    await syncEdges(g.edges, computeDesiredEdges(g.nodes), {
+      createEdge: (r) => learningPathService.createNodeEdge(r),
+      deleteEdge: (id) => learningPathService.deleteNodeEdge(id),
+    });
+    await fetchGraphData(Number(classroomSubjectId));
+  };
+
   const handleAddNodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNodeTitle.trim()) {
@@ -522,48 +525,100 @@ export function ClassManagementPage() {
       toast.error('Chưa tải được lộ trình học tập');
       return;
     }
-    // Require predecessor for all nodes so they connect properly into the graph
-    if (!newNodePredecessor) {
-      toast.error('Vui lòng chọn bài học yêu cầu trước để kết nối bài học vào lộ trình.');
+    if (nodes.length === 0 && nKind !== 'PLACEMENT') {
+      toast.error('Node đầu tiên của lộ trình phải là Test năng lực.');
+      return;
+    }
+    if (nKind === 'PLACEMENT' && (!tDuration || Number(tDuration) <= 0)) {
+      toast.error('Thời lượng bài test phải lớn hơn 0');
       return;
     }
 
+    const placement = resolveNodePlacement({
+      kind: nKind,
+      stage: nStage,
+      applies: nApplies,
+      level: nLevel,
+      existingNodes: nodes,
+    });
+    if ('error' in placement) {
+      toast.error(placement.error);
+      return;
+    }
+
+    const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
+
+    setAddingNode(true);
     try {
-      const createdNode = await learningPathService.createLearningNode({
-        classroomPathId: activePathId,
-        title: newNodeTitle,
-        description: newNodeDesc,
-        nodeType: newNodeType,
-        displayOrder: newNodeOrder,
-        status: newNodeStatus,
-        isRequired: newNodeRequired
-      });
-
-      if (newNodePredecessor) {
-        await learningPathService.createNodeEdge({
-          fromNodeId: Number(newNodePredecessor),
-          toNodeId: createdNode.nodeId
+      if (nKind === 'FREE_CHOICE') {
+        // Test tự do = 3 node test (Yếu/TB/Khá) cùng chặng; mỗi node route về nhánh của nó.
+        const variants: { lv: 1 | 2 | 3; name: string }[] = [
+          { lv: 1, name: 'Yếu' },
+          { lv: 2, name: 'TB' },
+          { lv: 3, name: 'Khá' },
+        ];
+        for (const v of variants) {
+          await learningPathService.createLearningNode({
+            classroomPathId: activePathId,
+            title: `${newNodeTitle.trim()} – ${v.name}`,
+            description: newNodeDesc.trim() || undefined,
+            nodeType: 'AT_HOME',
+            testKind: 'FREE_CHOICE',
+            appliesLevels: String(v.lv),
+            displayOrder: 0,
+            isRequired: true,
+            stageOrder: nStage,
+            level: v.lv,
+          });
+        }
+      } else {
+        const created = await learningPathService.createLearningNode({
+          classroomPathId: activePathId,
+          title: newNodeTitle.trim(),
+          description: newNodeDesc.trim() || undefined,
+          nodeType: nKind === 'ON_CLASS' ? 'ON_CLASS' : 'AT_HOME',
+          testKind: nKind === 'GATE' ? 'GATE' : nKind === 'PLACEMENT' ? 'PLACEMENT' : 'NONE',
+          appliesLevels: placement.appliesLevels,
+          gateUpMin: nKind === 'GATE' && nUpMin !== '' ? Number(nUpMin) : undefined,
+          gateDownMax: nKind === 'GATE' && nDownMax !== '' ? Number(nDownMax) : undefined,
+          placementYeuMax: nKind === 'PLACEMENT' && nYeuMax !== '' ? Number(nYeuMax) : undefined,
+          placementTbMax: nKind === 'PLACEMENT' && nTbMax !== '' ? Number(nTbMax) : undefined,
+          displayOrder: 0,
+          isRequired: true,
+          stageOrder: nStage,
+          level: placement.level,
         });
+
+        // Node Test năng lực: tạo luôn bài test + N câu hỏi mẫu (giống admin).
+        if (nKind === 'PLACEMENT') {
+          const testRes = await learningPathService.addTeacherNodeTest(created.nodeId, {
+            title: newNodeTitle.trim(),
+            durationMinutes: Number(tDuration) || 15,
+            passingPercentage: 0,
+          });
+          for (let i = 0; i < numQ; i++) {
+            await learningPathService.addPlacementQuestion(testRes.testId, {
+              questionContent: `Câu hỏi ${i + 1}`,
+              questionType: 'MULTIPLE_CHOICE',
+              score: 1,
+              answers: [
+                { answerContent: 'Đáp án A', isCorrect: true },
+                { answerContent: 'Đáp án B', isCorrect: false },
+                { answerContent: 'Đáp án C', isCorrect: false },
+                { answerContent: 'Đáp án D', isCorrect: false },
+              ],
+            });
+          }
+        }
       }
 
-      toast.success('Node created successfully');
+      await rewireAll();
+      toast.success('Đã thêm bài học');
       setIsAddNodeOpen(false);
-
-      // Reset Form State
-      setNewNodeTitle('');
-      setNewNodeDesc('');
-      setNewNodeType('AT_HOME');
-      setNewNodeStatus('LOCKED');
-      setNewNodeRequired(true);
-      setNewNodePredecessor('');
-      setEdgeMinScore('');
-      setEdgeMaxScore('');
-
-      if (classroomSubjectId) {
-        await fetchGraphData(Number(classroomSubjectId));
-      }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to create node');
+      toast.error(err.response?.data?.message || err.message || 'Không thể thêm bài học');
+    } finally {
+      setAddingNode(false);
     }
   };
 
@@ -1127,102 +1182,145 @@ export function ClassManagementPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Hình thức học</label>
-                  <select
-                    className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
-                    value={newNodeType}
-                    onChange={(e) => setNewNodeType(e.target.value as any)}
-                  >
-                    <option value="AT_HOME">Tự học (At Home)</option>
-                    <option value="ON_CLASS">Trên lớp (On Class)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Trạng thái khóa học</label>
-                  <select
-                    className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
-                    value={newNodeStatus}
-                    onChange={(e) => setNewNodeStatus(e.target.value as any)}
-                  >
-                    <option value="LOCKED">Bị khóa (LOCKED)</option>
-                    <option value="OPEN">Mở (OPEN)</option>
-                    <option value="HIDDEN">Ẩn (HIDDEN)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Thứ tự hiển thị</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
-                    value={newNodeOrder}
-                    onChange={(e) => setNewNodeOrder(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Bài học yêu cầu trước (Prerequisites)</label>
+                <label className="text-xs font-semibold text-slate-700">Loại</label>
                 <select
-                  disabled={isPredecessorLocked}
-                  className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium disabled:bg-slate-50 disabled:text-slate-450"
-                  value={newNodePredecessor}
-                  onChange={(e) => setNewNodePredecessor(e.target.value)}
+                  className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
+                  value={nKind}
+                  onChange={(e) => setNKind(e.target.value as AddNodeKind)}
                 >
-                  <option value="">-- Không có (Bài bắt đầu) --</option>
-                  {nodes.map(n => (
-                    <option key={n.nodeId} value={n.nodeId}>{n.title} (Thứ tự: {n.displayOrder})</option>
-                  ))}
+                  <option value="AT_HOME">Tự học</option>
+                  <option value="GATE">Test phân luồng</option>
+                  <option value="PLACEMENT">Test năng lực</option>
+                  <option value="FREE_CHOICE">Test tự do chọn</option>
                 </select>
               </div>
 
-              {newNodePredecessor && (
-                <div className="grid grid-cols-2 gap-4 border border-slate-200/50 bg-slate-50/50 p-3 rounded-[6px] animate-in fade-in duration-200">
+              {nKind === 'AT_HOME' || nKind === 'ON_CLASS' ? (
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-750">Điểm tối thiểu đạt (Tùy chọn)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="e.g. 8.0"
-                      className="w-full border border-slate-300 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-850"
-                      value={edgeMinScore}
-                      onChange={(e) => setEdgeMinScore(e.target.value)}
-                    />
+                    <label className="text-xs font-semibold text-slate-700">Mức năng lực</label>
+                    <select
+                      className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
+                      value={nLevel}
+                      onChange={(e) => setNLevel(e.target.value === '' ? '' : (Number(e.target.value) as 1 | 2 | 3))}
+                    >
+                      {LEVEL_OPTIONS.map((o) => (
+                        <option key={String(o.value)} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
                   </div>
-
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-750">Điểm tối đa (Tùy chọn)</label>
+                    <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
                     <input
                       type="number"
-                      step="0.01"
-                      placeholder="e.g. 10.0"
-                      className="w-full border border-slate-300 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-850"
-                      value={edgeMaxScore}
-                      onChange={(e) => setEdgeMaxScore(e.target.value)}
+                      min={1}
+                      className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                      value={nStage}
+                      onChange={(e) => setNStage(Number(e.target.value) || 1)}
                     />
                   </div>
                 </div>
-              )}
+              ) : (
+                <>
+                  {nKind === 'GATE' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Mức làm test</label>
+                        <div className="flex gap-3 pt-2">
+                          {[1, 2, 3].map((lv) => (
+                            <label key={lv} className="flex items-center gap-1 text-sm text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={nApplies.includes(lv)}
+                                onChange={() => setNApplies((p) => (p.includes(lv) ? p.filter((x) => x !== lv) : [...p, lv]))}
+                              />
+                              {lv === 1 ? 'Yếu' : lv === 2 ? 'TB' : 'Khá'}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          value={nStage}
+                          onChange={(e) => setNStage(Number(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Mức làm test</label>
+                        <p className="pt-2 text-sm text-slate-500">
+                          {nKind === 'FREE_CHOICE' ? 'HS tự chọn 1 trong 3 mức' : 'Mọi mức (Yếu · TB · Khá)'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          value={nStage}
+                          onChange={(e) => setNStage(Number(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="isRequiredChk"
-                  className="rounded text-slate-800 focus:ring-slate-800 size-4 cursor-pointer"
-                  checked={newNodeRequired}
-                  onChange={(e) => setNewNodeRequired(e.target.checked)}
-                />
-                <label htmlFor="isRequiredChk" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
-                  Mốc bài học bắt buộc (Required Milestone)
-                </label>
-              </div>
+                  {nKind === 'PLACEMENT' && (
+                    <>
+                      <p className="text-xs text-slate-500">
+                        Test năng lực phải đứng riêng một chặng; mọi học sinh đều làm và được phân về mức theo điểm.
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Điểm Yếu tối đa (%)</label>
+                          <input type="number" className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nYeuMax} onChange={(e) => setNYeuMax(e.target.value)} placeholder="vd 40" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Điểm TB tối đa (%)</label>
+                          <input type="number" className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nTbMax} onChange={(e) => setNTbMax(e.target.value)} placeholder="vd 70" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Thời lượng làm test (phút)</label>
+                          <input type="number" min={1} className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={tDuration} onChange={(e) => setTDuration(e.target.value)} placeholder="vd 15" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Số lượng câu hỏi</label>
+                          <input type="number" min={0} className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} placeholder="vd 5" />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {nKind === 'GATE' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Ngưỡng lên (≥ %)</label>
+                        <input type="number" className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nUpMin} onChange={(e) => setNUpMin(e.target.value)} placeholder="vd 80" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Ngưỡng xuống (≤ %)</label>
+                        <input type="number" className="w-full border border-slate-350/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nDownMax} onChange={(e) => setNDownMax(e.target.value)} placeholder="vd 40" />
+                      </div>
+                    </div>
+                  )}
+
+                  {nKind === 'FREE_CHOICE' && (
+                    <p className="text-xs text-slate-500">
+                      Sẽ tạo <b>3 node test</b> (Yếu / TB / Khá) cùng chặng. Mọi nhánh đều nối vào cả 3; học sinh tự chọn
+                      làm bài nào, đạt ≥ ngưỡng % của bài đó thì học tiếp nhánh tương ứng. Mỗi node thêm 1 bài test + ngưỡng % ở phần chi tiết.
+                    </p>
+                  )}
+                </>
+              )}
 
               <div className="flex justify-end gap-2 border-t border-slate-150 pt-4">
                 <Button type="button" variant="outline" className="rounded-[6px] border-slate-200" onClick={() => setIsAddNodeOpen(false)}>
@@ -1230,10 +1328,11 @@ export function ClassManagementPage() {
                 </Button>
                 <Button
                   type="submit"
-                  className="text-white font-semibold rounded-[6px] shadow-xs px-4"
+                  disabled={addingNode}
+                  className="text-white font-semibold rounded-[6px] shadow-xs px-4 disabled:opacity-60"
                   style={{ backgroundColor: '#030213' }}
                 >
-                  Tạo bài học
+                  {addingNode ? 'Đang lưu...' : 'Tạo bài học'}
                 </Button>
               </div>
             </form>

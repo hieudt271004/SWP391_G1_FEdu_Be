@@ -282,6 +282,8 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/learning-nodes/${nodeId}`),
   createNodeEdge: (request: CreateNodeEdgeRequest) =>
     http.post<NodeEdgeResponse>('/teacher-manage/node-edges', request),
+  deleteNodeEdge: (edgeId: number) =>
+    http.delete<void>(`/teacher-manage/node-edges/${edgeId}`),
 
   // Admin template endpoints
   getAdminSubjectTemplates: (subjectId: number) =>
