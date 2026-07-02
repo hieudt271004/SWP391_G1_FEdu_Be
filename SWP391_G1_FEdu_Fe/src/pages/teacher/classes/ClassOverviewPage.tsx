@@ -12,13 +12,13 @@ import {
   TableRow,
 } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
-  Circle, 
-  Settings, 
-  Loader, 
-  ChevronRight, 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  Settings,
+  Loader,
+  ChevronRight,
   HelpCircle,
   AlertTriangle,
   Play,
@@ -46,7 +46,7 @@ import {
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
-import { 
+import {
   learningPathService,
   LearningNodeResponse,
   NodeEdgeResponse,
@@ -82,22 +82,22 @@ export function ClassOverviewPage() {
   const navigate = useNavigate();
   const { classroomSubjectId } = useParams();
   const [students, setStudents] = useState<Student[]>([]);
-  const [classInfo, setClassInfo] = useState({ 
-    classCode: '', 
+  const [classInfo, setClassInfo] = useState({
+    classCode: '',
     courseCode: '',
     semester: '',
     description: ''
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [classroomStatus, setClassroomStatus] = useState<string>('inactive');
   const [parentClassroomId, setParentClassroomId] = useState<number | null>(null);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [loadingContents, setLoadingContents] = useState<Record<number, boolean>>({});
-  
+
   // New classroom publish flow states
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'cloning' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
@@ -110,13 +110,13 @@ export function ClassOverviewPage() {
   // Dialog visibility and confirmation states
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [understandPublish, setUnderstandPublish] = useState(false);
-  
+
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
   const [understandUnpublish, setUnderstandUnpublish] = useState(false);
-  
+
   const [showUnpublishError, setShowUnpublishError] = useState(false);
   const [unpublishErrorMsg, setUnpublishErrorMsg] = useState<string | null>(null);
-  
+
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
   // Selected Node Details state
@@ -275,7 +275,7 @@ export function ClassOverviewPage() {
     if (!classroomSubjectId || !student.classroomSubjectStudentId) return;
     const isCurrentlySub = !!student.isSubmentor;
     const actionText = isCurrentlySub ? "tắt" : "bật";
-    
+
     try {
       if (isCurrentlySub) {
         await teacherService.disableSubMentor(Number(classroomSubjectId), student.classroomSubjectStudentId);
@@ -456,7 +456,7 @@ export function ClassOverviewPage() {
       toast.success(placementQuiz ? 'Cập nhật bài test thành công!' : 'Khởi tạo bài test thành công!');
       setIsCreateQuizOpen(false);
       await fetchPlacementQuiz();
-      
+
       // Update graphData to check quizStartTestId
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
@@ -521,8 +521,8 @@ export function ClassOverviewPage() {
     if (question) {
       setQuestionContent(question.questionContent);
       setQuestionType(
-        question.questionType === 'ESSAY' 
-          ? 'ESSAY' 
+        question.questionType === 'ESSAY'
+          ? 'ESSAY'
           : (question.questionType === 'MULTIPLE_CHOICE' ? 'SINGLE' : 'MULTIPLE')
       );
       setAnswers(question.answers.map((a: any) => ({
@@ -657,16 +657,16 @@ export function ClassOverviewPage() {
       ]);
 
       const fullClassroom = await teacherService.getClassroomById(classData.classroomId);
-      
+
       setClassInfo({
-        classCode: classData.className,        
+        classCode: classData.className,
         courseCode: classData.subjectCode,
         semester: fullClassroom.semester || '',
         description: fullClassroom.description || '',
       });
       setClassroomStatus(fullClassroom.status || 'inactive');
       setParentClassroomId(fullClassroom.classroomId);
-      
+
       if (!isMounted.current) return;
       const formatted = (studentsData ?? []).map((item) => ({
         id: item.email?.split('@')[0].toUpperCase() || `ST${item.userId}`,
@@ -699,7 +699,7 @@ export function ClassOverviewPage() {
     if (!parentClassroomId) return;
     const actionText = newStatus === 'active' ? 'bắt đầu' : 'kết thúc';
     if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không? (Hành động này ảnh hưởng đến toàn bộ môn học trong lớp)`)) return;
-    
+
     try {
       setActionState(newStatus === 'active' ? 'publishing' : 'unpublishing');
       await classroomService.update(parentClassroomId, {
@@ -862,7 +862,7 @@ export function ClassOverviewPage() {
       setActionState('publishing');
       const res = await learningPathService.publishClassroomPath(Number(classroomSubjectId), graphData.pathId);
       setSeededCount(res.seededStudents);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setShowPublishConfirm(false);
@@ -880,7 +880,7 @@ export function ClassOverviewPage() {
     try {
       setActionState('unpublishing');
       await learningPathService.unpublishClassroomPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setShowUnpublishConfirm(false);
@@ -901,11 +901,11 @@ export function ClassOverviewPage() {
   const handleDeleteDraft = async () => {
     if (!classroomSubjectId || !graphData?.pathId) return;
     if (!window.confirm('Bạn có chắc chắn muốn xóa bản nháp này không? Lộ trình sẽ bị xóa vĩnh viễn.')) return;
-    
+
     try {
       setActionState('deleting');
       await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setSelectedTemplateId(null);
@@ -980,7 +980,7 @@ export function ClassOverviewPage() {
     const colNodeLabels: Record<number, string> = {};
     const subInfo: Record<number, { base: string; idx: number }> = {};
     let lessonCounter = 0;
-    
+
     // Sort nodes by displayOrder, then nodeId for stable sorting
     const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
 
@@ -1301,17 +1301,17 @@ export function ClassOverviewPage() {
                 {graphData.canCloneAll ? "Khởi tạo lộ trình học cho lớp" : "Môn học chưa có lộ trình mẫu"}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {graphData.canCloneAll 
-                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa." 
+                {graphData.canCloneAll
+                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa."
                   : "Môn học này chưa được cấu hình lộ trình mẫu công bố từ khoa."}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-wrap">
               {graphData.canCloneAll ? (
-                <Button 
-                  onClick={handleClone} 
-                  disabled={isNonIdle} 
+                <Button
+                  onClick={handleClone}
+                  disabled={isNonIdle}
                   className="w-full md:w-auto bg-primary hover:bg-primary/90 text-white font-medium rounded-xl"
                 >
                   {actionState === 'cloning' ? <Loader className="size-4 animate-spin mr-1" /> : <Play className="size-4 mr-1" />}
@@ -1411,7 +1411,7 @@ export function ClassOverviewPage() {
               </Button>
             )}
           </div>
-          
+
           {/* Ô chọn & áp dụng lộ trình mẫu (clone). Hiện khi lớp chưa có lộ trình hoặc còn bản nháp. */}
           {(graphData?.state === 'NO_PATH' || graphData?.state === 'DRAFT') && (graphData?.availableTemplates?.length ?? 0) > 0 && (
             <Card className="border border-primary/20 bg-primary/5 rounded-2xl">
@@ -1445,7 +1445,7 @@ export function ClassOverviewPage() {
                   className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
                 >
                   {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
-                  {graphData?.state === 'DRAFT' ? 'Đè lộ trình này' : 'Áp dụng lộ trình'}
+                  {graphData?.state === 'DRAFT' ? 'Áp dụng lộ trình' : 'Áp dụng lộ trình'}
                 </Button>
               </CardContent>
             </Card>
@@ -1864,12 +1864,12 @@ export function ClassOverviewPage() {
                 ) : (
                   students.map((student) => {
                     const levelLabel = student.currentLevel === 1 ? 'Yếu' : student.currentLevel === 2 ? 'Trung bình' : student.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                    const levelColor = student.currentLevel === 1 
-                      ? 'bg-rose-50 border-rose-200 text-rose-700' 
-                      : student.currentLevel === 2 
-                        ? 'bg-amber-50 border-amber-200 text-amber-700' 
-                        : student.currentLevel === 3 
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                    const levelColor = student.currentLevel === 1
+                      ? 'bg-rose-50 border-rose-200 text-rose-700'
+                      : student.currentLevel === 2
+                        ? 'bg-amber-50 border-amber-200 text-amber-700'
+                        : student.currentLevel === 3
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                           : 'bg-slate-50 border-slate-200 text-slate-500';
 
                     return (
@@ -1916,8 +1916,8 @@ export function ClassOverviewPage() {
                               size="sm"
                               onClick={() => handleToggleSubMentor(student)}
                               className={`h-7 text-xs rounded-lg font-semibold flex items-center gap-1 ${
-                                student.isSubmentor 
-                                  ? 'text-rose-600 hover:bg-rose-50' 
+                                student.isSubmentor
+                                  ? 'text-rose-600 hover:bg-rose-50'
                                   : 'text-emerald-650 hover:bg-emerald-50'
                               }`}
                             >
@@ -2158,13 +2158,13 @@ export function ClassOverviewPage() {
               <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-publish" 
-                checked={understandPublish} 
-                onCheckedChange={(val) => setUnderstandPublish(!!val)} 
+              <Checkbox
+                id="understand-publish"
+                checked={understandPublish}
+                onCheckedChange={(val) => setUnderstandPublish(!!val)}
               />
-              <label 
-                htmlFor="understand-publish" 
+              <label
+                htmlFor="understand-publish"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
@@ -2172,15 +2172,15 @@ export function ClassOverviewPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowPublishConfirm(false); setUnderstandPublish(false); }}
               disabled={actionState === 'publishing'}
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handlePublish} 
+            <Button
+              onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
               className="bg-green-600 hover:bg-green-700 text-white font-medium"
             >
@@ -2214,13 +2214,13 @@ export function ClassOverviewPage() {
               <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-unpublish" 
-                checked={understandUnpublish} 
-                onCheckedChange={(val) => setUnderstandUnpublish(!!val)} 
+              <Checkbox
+                id="understand-unpublish"
+                checked={understandUnpublish}
+                onCheckedChange={(val) => setUnderstandUnpublish(!!val)}
               />
-              <label 
-                htmlFor="understand-unpublish" 
+              <label
+                htmlFor="understand-unpublish"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
@@ -2228,15 +2228,15 @@ export function ClassOverviewPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); }}
               disabled={actionState === 'unpublishing'}
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handleUnpublish} 
+            <Button
+              onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
             >
@@ -2395,12 +2395,12 @@ export function ClassOverviewPage() {
                         <div className="pt-1">
                           {(() => {
                             const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                            const badgeColor = selectedStudent.currentLevel === 1 
-                              ? 'bg-rose-50 border-rose-200 text-rose-700' 
-                              : selectedStudent.currentLevel === 2 
-                                ? 'bg-amber-50 border-amber-200 text-amber-700' 
-                                : selectedStudent.currentLevel === 3 
-                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                            const badgeColor = selectedStudent.currentLevel === 1
+                              ? 'bg-rose-50 border-rose-200 text-rose-700'
+                              : selectedStudent.currentLevel === 2
+                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                : selectedStudent.currentLevel === 3
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                                   : 'bg-slate-50 border-slate-200 text-slate-500';
                             return (
                               <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 ${badgeColor}`}>
