@@ -411,6 +411,14 @@ export function StudentCoursesPage() {
                       >
                         <AlertTriangle className="size-3.5 mr-0.5 text-amber-600" /> Gửi câu hỏi hỗ trợ
                       </Button>
+                      {c.isSubmentor && (
+                        <Button
+                          onClick={() => handleOpenSupport(c)}
+                          className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                          <MessageSquare className="size-3.5" /> Thao tác Trợ giảng (Hỗ trợ giải đáp)
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="w-full space-y-2">
@@ -444,7 +452,7 @@ export function StudentCoursesPage() {
                             onClick={() => handleOpenSupport(c)}
                             className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1.5 shadow-sm"
                           >
-                            <MessageSquare className="size-3.5" /> Thao tác Trợ giảng
+                            <MessageSquare className="size-3.5" /> Thao tác Trợ giảng (Hỗ trợ giải đáp)
                           </Button>
                         )}
                       </div>
