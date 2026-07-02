@@ -841,9 +841,6 @@ export function ClassManagementPage() {
             <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
               {/* Column 1: Roadmap Flow Graph — giới hạn ~3 node ngang, panel chi tiết phủ phần còn lại */}
               <div className="space-y-3 lg:w-[560px] lg:shrink-0">
-                <div className="text-xs font-semibold text-slate-500 mb-2">
-                  * Nhấp chuột vào một bài học trên sơ đồ dưới đây để xem & cấu hình chi tiết học liệu.
-                </div>
                 {nodes.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-[10px] bg-slate-50/40">
                     <Map className="size-8 mx-auto text-slate-350 mb-2" />
