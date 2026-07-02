@@ -28,7 +28,7 @@ export function UserMenu() {
   const handleLogout = () => {
     setOpen(false);
     logout();
-    navigate("/");
+    window.location.href = "/";
   };
 
   const handleNavigate = (path: string) => {

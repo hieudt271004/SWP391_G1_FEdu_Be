@@ -47,9 +47,8 @@ export function AdminLayout() {
   const handleLogout = () => {
     setDropdownOpen(false);
     logout();
-    navigate("/login");
+    window.location.href = "/";
   };
-
   const isActive = (path: string) => {
     if (path === "/admin/users") {
       return location.pathname.startsWith("/admin/users");

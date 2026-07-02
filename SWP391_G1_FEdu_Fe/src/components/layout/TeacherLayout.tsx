@@ -86,6 +86,7 @@ function SidebarContent({
           onClick={() => {
             logout();
             if (onItemClick) onItemClick();
+            window.location.href = "/";
           }}
           className="w-full px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
         >

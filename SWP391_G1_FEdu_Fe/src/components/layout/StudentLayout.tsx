@@ -71,7 +71,10 @@ export function StudentLayout() {
             </div>
           </div>
           <button
-            onClick={logout}
+            onClick={() => {
+              logout();
+              window.location.href = "/";
+            }}
             className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
             Đăng xuất

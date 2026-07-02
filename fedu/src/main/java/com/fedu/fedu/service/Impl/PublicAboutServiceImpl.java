@@ -53,10 +53,10 @@ public class PublicAboutServiceImpl implements PublicAboutService {
         );
 
         try {
-            mailService.sendEmail("contact@fedu.vn", "FEdu Contact: " + contactRequest.getSubject(), emailContent, null);
-            log.info("Contact email sent successfully to contact@fedu.vn");
+            mailService.sendEmail("hieunthe171211@gmail.com", "FEdu Contact: " + contactRequest.getSubject(), emailContent, null);
+            log.info("Contact email sent successfully to hieunthe171211@gmail.com");
         } catch (Exception e) {
-            log.error("Failed to send contact email to contact@fedu.vn, error: {}", e.getMessage());
+            log.error("Failed to send contact email to hieunthe171211@gmail.com, error: {}", e.getMessage());
         }
     }
 
