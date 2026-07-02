@@ -1,7 +1,9 @@
 package com.fedu.fedu;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.fedu.fedu.entity.UserAccount;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fedu.fedu.dto.req.AddStudentRequest;
 import com.fedu.fedu.dto.req.AssignTeacherRequest;

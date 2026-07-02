@@ -238,15 +238,6 @@ export function TeacherDashboardPage() {
                 </CardHeader>
                 <CardContent className="pt-0 pb-4 px-5 text-[#717182] text-xs space-y-3">
                   <p className="font-normal">Môn học: <span className="font-semibold text-[#030213]">{cls.subjectName} ({cls.subjectCode})</span></p>
-                  <div className="space-y-1 pt-1">
-                    <div className="flex items-center justify-between text-xs font-normal">
-                      <span className="text-[#717182]">Tiến độ lớp học</span>
-                      <span className="font-semibold text-[#030213]">80%</span>
-                    </div>
-                    <div className="h-2 w-full bg-[#ececf0] rounded-[6px] overflow-hidden">
-                      <div className="bg-[#030213] h-full rounded-[6px]" style={{ width: '80%' }} />
-                    </div>
-                  </div>
                 </CardContent>
                 <CardFooter className="pt-3 pb-3 px-5 border-t border-[rgba(0,0,0,0.1)]">
                   <Button

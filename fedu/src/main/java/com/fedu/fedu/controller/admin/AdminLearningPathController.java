@@ -28,7 +28,7 @@ public class AdminLearningPathController {
     private final NodeEdgeService nodeEdgeService;
 
     @Operation(summary = "Get learning path templates by subject")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @GetMapping("/subjects/{subjectId}/learning-paths")
     public ResponseData<List<LearningPathResponse>> getTemplatesBySubjectId(@PathVariable Long subjectId) {
         log.info("Admin retrieving learning path templates for subject: {}", subjectId);
@@ -37,7 +37,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Create learning path template")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/learning-paths")
     public ResponseData<LearningPathResponse> createTemplate(@Valid @RequestBody CreateLearningPathRequest request) {
@@ -47,7 +47,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Update learning path template")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @PutMapping("/learning-paths/{pathId}")
     public ResponseData<LearningPathResponse> updateTemplate(@PathVariable Long pathId, @Valid @RequestBody UpdateLearningPathRequest request) {
         log.info("Admin updating learning path template ID: {}", pathId);
@@ -56,7 +56,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Delete learning path template")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @DeleteMapping("/learning-paths/{pathId}")
     public ResponseData<Void> deleteTemplate(@PathVariable Long pathId) {
         log.info("Admin deleting learning path template ID: {}", pathId);
@@ -65,7 +65,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Get template graph")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @GetMapping("/learning-paths/{pathId}/graph")
     public ResponseData<LearningPathGraphResponse> getTemplateGraph(@PathVariable Long pathId) {
         log.info("Admin retrieving template graph for path ID: {}", pathId);
@@ -74,7 +74,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Create learning node under template")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/learning-nodes")
     public ResponseData<LearningNodeResponse> createTemplateNode(@Valid @RequestBody CreateLearningNodeRequest request) {
@@ -84,7 +84,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Update learning node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @PutMapping("/learning-nodes/{nodeId}")
     public ResponseData<LearningNodeResponse> updateTemplateNode(@PathVariable Long nodeId, @Valid @RequestBody UpdateLearningNodeRequest request) {
         log.info("Admin updating learning node ID: {}", nodeId);
@@ -93,7 +93,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Delete learning node")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @DeleteMapping("/learning-nodes/{nodeId}")
     public ResponseData<Void> deleteTemplateNode(@PathVariable Long nodeId) {
         log.info("Admin deleting learning node ID: {}", nodeId);
@@ -102,7 +102,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Create node edge connection")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/node-edges")
     public ResponseData<NodeEdgeResponse> createTemplateEdge(@Valid @RequestBody CreateNodeEdgeRequest request) {
@@ -112,7 +112,7 @@ public class AdminLearningPathController {
     }
 
     @Operation(summary = "Delete node edge connection")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN', 'ROLE_TEACHER')")
     @DeleteMapping("/node-edges/{edgeId}")
     public ResponseData<Void> deleteTemplateEdge(@PathVariable Long edgeId) {
         log.info("Admin deleting node edge ID: {}", edgeId);

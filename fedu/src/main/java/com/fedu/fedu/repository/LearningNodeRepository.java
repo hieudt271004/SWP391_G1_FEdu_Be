@@ -12,7 +12,8 @@ import java.util.List;
 public interface LearningNodeRepository extends JpaRepository<LearningNode, Long> {
 
     // Lấy tất cả nodes của một learning path (template hoặc classroom path)
-    List<LearningNode> findByLearningPathPathIdAndIsDeletedFalse(Long pathId);
+    @Query("SELECT n FROM LearningNode n WHERE n.learningPath.pathId = :pathId AND n.isDeleted = false ORDER BY n.displayOrder ASC")
+    List<LearningNode> findByLearningPathPathIdAndIsDeletedFalse(@Param("pathId") Long pathId);
 
     // Lấy tất cả nodes của các learning paths thuộc một môn học (template paths)
     @Query("""

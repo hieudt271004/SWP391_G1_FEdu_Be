@@ -156,7 +156,6 @@ export function AdminLayout() {
             <div className="flex items-center gap-3">
               <button className="relative p-2 rounded-lg text-slate-500 hover:bg-slate-100">
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500" />
               </button>
 
               {/* User Dropdown */}
@@ -211,7 +210,13 @@ export function AdminLayout() {
 
                     {/* Actions Menu */}
                     <div className="py-1.5">
-                      <button className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 hover:bg-gray-50 text-sm transition-colors text-left border-0 cursor-pointer bg-transparent">
+                      <button
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          navigate("/admin/profile");
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-700 hover:bg-gray-50 text-sm transition-colors text-left border-0 cursor-pointer bg-transparent"
+                      >
                         <UserCircle className="w-4 h-4 text-slate-400" />
                         Thông tin cá nhân
                       </button>

@@ -3,6 +3,18 @@ import { http } from './http';
 export type LearningPathLevel = 1 | 2 | 3;
 export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
 
+export interface StudentInClassResponse {
+  userId: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
+  joinedAt?: string;
+  currentLevel?: number;
+  classroomSubjectStudentId?: number;
+  isSubmentor?: boolean;
+}
+
 export interface CreateLearningPathRequest {
   subjectId: number;
   pathName: string;
@@ -306,6 +318,14 @@ export const learningPathService = {
     http.post<NodeTestResponse>(`/admin/learning-nodes/${nodeId}/tests`, request),
   deleteAdminNodeTest: (testId: number) =>
     http.delete<void>(`/admin/tests/${testId}`),
+  getAdminTestQuestions: (testId: number) =>
+    http.get<TeacherQuestionResponse[]>(`/admin/tests/${testId}/questions`),
+  addAdminTestQuestion: (testId: number, request: TeacherQuestionRequest) =>
+    http.post<TeacherQuestionResponse>(`/admin/tests/${testId}/questions`, request),
+  updateAdminTestQuestion: (questionId: number, request: TeacherQuestionRequest) =>
+    http.put<TeacherQuestionResponse>(`/admin/test-questions/${questionId}`, request),
+  deleteAdminTestQuestion: (questionId: number) =>
+    http.delete<void>(`/admin/test-questions/${questionId}`),
   addAdminNodeExercise: (nodeId: number, request: CreateNodeExerciseRequest) =>
     http.post<NodeExerciseResponse>(`/admin/learning-nodes/${nodeId}/exercises`, request),
   deleteAdminNodeExercise: (exerciseId: number) =>
@@ -352,4 +372,8 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/test-questions/${questionId}`),
   getStudentLevelHistory: (csId: number, studentId: number) =>
     http.get<any[]>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/level-history`),
+  getNodeStudents: (nodeId: number) =>
+    http.get<StudentInClassResponse[]>(`/teacher-manage/learning-nodes/${nodeId}/students`),
+  assignStudentsToNode: (nodeId: number, studentUserIds: number[]) =>
+    http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
 };

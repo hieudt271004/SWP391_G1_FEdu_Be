@@ -40,6 +40,7 @@ import { TeacherClassesPage } from '../pages/teacher/classes/TeacherClassesPage'
 import { ClassOverviewPage } from '../pages/teacher/classes/ClassOverviewPage';
 import { ClassManagementPage } from '../pages/teacher/classes/ClassManagementPage';
 import { StudentDetailsPage } from '../pages/teacher/students/StudentDetailsPage';
+import { TeacherTicketsPage } from '../pages/teacher/tickets/TeacherTicketsPage';
 
 // Common pages
 import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
@@ -110,6 +111,7 @@ export function AppRoutes() {
                 <Route path="/teacher/classroom-subjects/:classroomSubjectId" element={<ClassOverviewPage />} />
                 <Route path="/teacher/classroom-subjects/:classroomSubjectId/manage" element={<ClassManagementPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />
+                <Route path="/teacher/tickets" element={<TeacherTicketsPage />} />
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
             </Route>
 
@@ -127,11 +129,14 @@ export function AppRoutes() {
                 {/* Dashboard */}
                 <Route path="/admin/dashboard" element={<DashboardPage />} />
 
+                {/* Profile */}
+                <Route path="/admin/profile" element={<ProfileEditPage />} />
+
                 {/* User management */}
                 <Route path="/admin/users" element={<UserManagementPage filterRole="all" />} />
                 <Route path="/admin/users/students" element={<UserManagementPage filterRole="STUDENT" />} />
                 <Route path="/admin/users/teachers" element={<UserManagementPage filterRole="TEACHER" />} />
-                <Route path="/admin/users/:id" element={<UserDetailPage onBack={() => window.history.back()} />} />
+                <Route path="/admin/users/:id" element={<UserDetailPage />} />
 
                 {/* Course management */}
                 <Route path="/admin/subjects" element={<SubjectManagementPage />} />
