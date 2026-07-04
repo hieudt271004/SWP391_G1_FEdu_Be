@@ -39,6 +39,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --dashboard-hero-from: #030213;
+  --dashboard-hero-via: #100f24;
+  --dashboard-hero-to: #1c1b33;
 }
 
 .dark {
@@ -76,6 +79,9 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+  --dashboard-hero-from: oklch(0.205 0 0);
+  --dashboard-hero-via: oklch(0.145 0 0);
+  --dashboard-hero-to: oklch(0.120 0 0);
 }
 
 @theme inline {
@@ -118,6 +124,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-dashboard-hero-from: var(--dashboard-hero-from);
+  --color-dashboard-hero-via: var(--dashboard-hero-via);
+  --color-dashboard-hero-to: var(--dashboard-hero-to);
 
   --animate-float-slow: float-slow 8s ease-in-out infinite;
   --animate-float-slower: float-slower 12s ease-in-out infinite;

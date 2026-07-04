@@ -20,15 +20,14 @@ import {
   TrendingUp, 
   User, 
   Mail, 
-  ChevronRight, 
-  ChevronDown, 
-  PlayCircle,
-  FileDown,
+  ChevronRight,
+  ChevronDown,
   AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { classroomService } from '../../services/classroom.service';
 import { studentService } from '../../services/student.service';
+import { MaterialPreview } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
 import {
@@ -214,7 +213,7 @@ export function StudentDashboardPage() {
               <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                 Chào mừng trở lại, {user?.lastName || 'Sinh viên'} {user?.firstName || ''}!
               </h1>
-              <p className="text-slate-350 text-sm mt-1 font-normal">
+              <p className="text-indigo-200/80 text-sm mt-1 font-normal">
                 Hôm nay là {new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Chúc bạn học tập tốt!
               </p>
             </div>
@@ -491,41 +490,16 @@ export function StudentDashboardPage() {
                                     </h5>
                                     <div className="space-y-2 pl-0.5">
                                       {nodeContents[node.nodeId].materials.map((m) => (
-                                        <div key={m.materialId} className="flex items-center justify-between p-2.5 border border-slate-100 bg-white rounded-xl gap-4">
-                                          <div className="flex-1 space-y-0.5">
+                                        <div key={m.materialId} className="p-2.5 border border-slate-100 bg-white rounded-xl">
+                                          <div className="flex items-center justify-between gap-3">
                                             <span className="font-bold text-slate-750 block">{m.title}</span>
-                                            {m.video && (
-                                              <span className="text-[10px] text-slate-400 block font-medium">
-                                                Thời lượng: {Math.round((m.video.durationSeconds || 0) / 60)} phút (Video bài giảng)
+                                            {m.video?.durationSeconds ? (
+                                              <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                                                {Math.round((m.video.durationSeconds || 0) / 60)} phút
                                               </span>
-                                            )}
-                                            {m.file && (
-                                              <span className="text-[10px] text-slate-400 block font-medium">
-                                                Tệp tải xuống ({m.file.fileType || 'PDF/Tài liệu'})
-                                              </span>
-                                            )}
+                                            ) : null}
                                           </div>
-                                          {m.video && (
-                                            <a 
-                                              href={m.video.videoUrl} 
-                                              target="_blank" 
-                                              rel="noopener noreferrer"
-                                              className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
-                                            >
-                                              <PlayCircle className="size-3.5 fill-current" /> Xem bài giảng
-                                            </a>
-                                          )}
-                                          {m.file && (
-                                            <a 
-                                              href={m.file.fileUrl} 
-                                              target="_blank" 
-                                              rel="noopener noreferrer"
-                                              download
-                                              className="h-7 px-3 text-[10px] border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-bold rounded-lg flex items-center gap-1 shrink-0"
-                                            >
-                                              <FileDown className="size-3.5" /> Tải tài liệu
-                                            </a>
-                                          )}
+                                          <MaterialPreview material={m} />
                                         </div>
                                       ))}
                                     </div>
@@ -551,7 +525,6 @@ export function StudentDashboardPage() {
                                           </div>
                                           <Button
                                             onClick={() => navigate(`/student/tests/${t.testId}?csId=${selectedSubject?.classroomSubjectId}`)}
-                                            disabled={node.testLocked}
                                             className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
                                           >
                                             Vào thi <ArrowRight className="size-3" />

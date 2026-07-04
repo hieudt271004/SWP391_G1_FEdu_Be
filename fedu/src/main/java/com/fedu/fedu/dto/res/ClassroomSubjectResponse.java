@@ -20,4 +20,5 @@ public class ClassroomSubjectResponse {
     private String lecturerName;
     private String displayName;   // "className - subjectCode"  (vd "SE1801 - PRJ301")
     private int studentCount;
+    private Boolean isSubmentor;
 }

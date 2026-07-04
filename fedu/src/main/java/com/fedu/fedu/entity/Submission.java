@@ -26,6 +26,10 @@ public class Submission extends AbstractEntity<Long> {
     private LearningNode learningNode;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "exercise_id")
+    private NodeExercise nodeExercise;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
     private UserAccount student;
 

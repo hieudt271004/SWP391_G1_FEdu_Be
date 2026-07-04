@@ -11,40 +11,49 @@ import {
   TableRow,
 } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
-  Circle, 
-  Map, 
-  Loader, 
-  ChevronRight, 
-  Plus, 
-  Trash2, 
-  BookOpen, 
-  X, 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  Map,
+  Loader,
+  ChevronRight,
+  Plus,
+  Trash2,
+  BookOpen,
+  X,
   HelpCircle,
   AlertTriangle,
-  GraduationCap,
-  Video as VideoIcon,
+  Edit2,
   FileText,
-  Eye,
-  Pencil,
-  Loader2,
-  ClipboardList
+  Film,
+  Award,
+  Download,
+  ExternalLink,
+  Users,
+  Undo2,
+  Play
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
-import { 
-  learningPathService, 
-  LearningNodeResponse, 
-  NodeEdgeResponse, 
+import { classroomService } from '../../../services/classroom.service';
+import {
+  learningPathService,
+  LearningNodeResponse,
   ClassroomGraphResponse,
   NodeContentResponse,
-  NodeTestResponse,
-  StudentAttemptResponse,
-  QuestionResponse,
-  AnswerResponse
+  StudentInClassResponse
 } from '../../../services/learningPath.service';
 import { toast } from 'sonner';
+import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
+import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
+import {
+  computeDesiredEdges,
+  syncEdges,
+  resolveNodePlacement,
+  LEVEL_OPTIONS,
+  type AddNodeKind,
+} from '../../../components/learningPath/learningPathWiring';
+import { uploadService } from '../../../services/upload.service';
 import {
   Dialog,
   DialogContent,
@@ -59,16 +68,15 @@ interface Student {
   id: string;
   fullName: string;
   progress: number;
+  userId: number;
 }
 
 export function ClassManagementPage() {
   const navigate = useNavigate();
-  const { classroomId } = useParams();
+  const { classroomSubjectId } = useParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [classInfo, setClassInfo] = useState({ classCode: '', courseCode: '', subjectId: 0 });
-  const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
-  const [edges, setEdges] = useState<NodeEdgeResponse[]>([]);
-  const [pathId, setPathId] = useState<number | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,129 +85,216 @@ export function ClassManagementPage() {
   // Classroom Publish Flow State
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
 
+  // Derive active path details for the selected level
+  const activePath = graphData?.paths?.find((p) => p.level === selectedLevel);
+  const activePathId = activePath?.pathId || graphData?.pathId || null;
+  const nodes = activePath ? activePath.nodes || [] : graphData?.nodes || [];
+  const edges = activePath ? activePath.edges || [] : graphData?.edges || [];
+
+  const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
+
+  // Student Assignment States
+  const [assignedStudentIds, setAssignedStudentIds] = useState<number[]>([]);
+  const [siblingAssignments, setSiblingAssignments] = useState<Record<number, { nodeId: number; nodeTitle: string }>>({});
+  const [loadingNodeStudents, setLoadingNodeStudents] = useState(false);
+  const [savingNodeStudents, setSavingNodeStudents] = useState(false);
+
   // Modals state
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
+  const [isAddContentOpen, setIsAddContentOpen] = useState(false);
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
-  const [isAddTestOpen, setIsAddTestOpen] = useState(false);
-  const [isEditTestOpen, setIsEditTestOpen] = useState(false);
-  const [selectedTestForEdit, setSelectedTestForEdit] = useState<NodeTestResponse | null>(null);
-  const [isAttemptsOpen, setIsAttemptsOpen] = useState(false);
-  const [selectedTestForAttempts, setSelectedTestForAttempts] = useState<NodeTestResponse | null>(null);
-  const [attempts, setAttempts] = useState<StudentAttemptResponse[]>([]);
-  const [loadingAttempts, setLoadingAttempts] = useState(false);
-  
+
   // Custom delete confirm dialog state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ nodeId: number, title: string } | null>(null);
   const [understandDelete, setUnderstandDelete] = useState(false);
 
-  // New Node Form State
+  // Publish / Unpublish states
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [understandPublish, setUnderstandPublish] = useState(false);
+  const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
+  const [understandUnpublish, setUnderstandUnpublish] = useState(false);
+  const [showUnpublishError, setShowUnpublishError] = useState(false);
+  const [unpublishErrorMsg, setUnpublishErrorMsg] = useState('');
+  const [actionState, setActionState] = useState<'idle' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
+
   const [newNodeTitle, setNewNodeTitle] = useState('');
   const [newNodeDesc, setNewNodeDesc] = useState('');
-  const [newNodeType, setNewNodeType] = useState<'AT_HOME' | 'ON_CLASS'>('AT_HOME');
-  const [newNodeStatus, setNewNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
-  const [newNodeOrder, setNewNodeOrder] = useState<number>(1);
-  const [newNodeRequired, setNewNodeRequired] = useState(true);
-  const [newNodeBranch, setNewNodeBranch] = useState('');
-  const [newNodePredecessor, setNewNodePredecessor] = useState<string>('');
+  const [nKind, setNKind] = useState<AddNodeKind>('AT_HOME');
+  const [nLevel, setNLevel] = useState<'' | 1 | 2 | 3>('');
+  const [nStage, setNStage] = useState(1);
+  const [nApplies, setNApplies] = useState<number[]>([]);
+  const [nUpMin, setNUpMin] = useState('');
+  const [nDownMax, setNDownMax] = useState('');
+  const [nYeuMax, setNYeuMax] = useState('');
+  const [nTbMax, setNTbMax] = useState('');
+  const [tDuration, setTDuration] = useState('15');
+  const [numQuestions, setNumQuestions] = useState('0');
+  const [addingNode, setAddingNode] = useState(false);
 
-  // Edge score requirements state
-  const [isPredecessorLocked, setIsPredecessorLocked] = useState(false);
-  const [edgeMinScore, setEdgeMinScore] = useState('');
-  const [edgeMaxScore, setEdgeMaxScore] = useState('');
+  // Edit Node Modal & Form State
+  const [isEditNodeOpen, setIsEditNodeOpen] = useState(false);
+  const [nodeToEdit, setNodeToEdit] = useState<LearningNodeResponse | null>(null);
+  const [editNodeTitle, setEditNodeTitle] = useState('');
+  const [editNodeDesc, setEditNodeDesc] = useState('');
+  const [editNodeType, setEditNodeType] = useState<'AT_HOME' | 'ON_CLASS'>('AT_HOME');
+  const [editNodeStatus, setEditNodeStatus] = useState<'LOCKED' | 'OPEN' | 'HIDDEN'>('LOCKED');
+  const [editNodeOrder, setEditNodeOrder] = useState<number>(1);
+  const [editNodeRequired, setEditNodeRequired] = useState(true);
+  const [editingNode, setEditingNode] = useState(false);
 
-  // New Test Form State
-  const [testTitle, setTestTitle] = useState('');
-  const [testDesc, setTestDesc] = useState('');
-  const [testDuration, setTestDuration] = useState('15');
-  const [testPassPercent, setTestPassPercent] = useState('70.00');
-
-  // Questions management state
-  const [isQuestionsListOpen, setIsQuestionsListOpen] = useState(false);
-  const [isAddEditQuestionOpen, setIsAddEditQuestionOpen] = useState(false);
-  const [selectedTestForQuestions, setSelectedTestForQuestions] = useState<NodeTestResponse | null>(null);
-  const [questionsList, setQuestionsList] = useState<QuestionResponse[]>([]);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<QuestionResponse | null>(null);
-
-  // Form states for single question
-  const [questionContent, setQuestionContent] = useState('');
-  const [questionScore, setQuestionScore] = useState('1');
-  const [questionAnswers, setQuestionAnswers] = useState<Array<{ answerContent: string; isCorrect: boolean }>>([
-    { answerContent: '', isCorrect: false },
-    { answerContent: '', isCorrect: false },
-    { answerContent: '', isCorrect: false },
-    { answerContent: '', isCorrect: false },
-  ]);
-
-  // Material Form State
-  const [isAddMaterialOpen, setIsAddMaterialOpen] = useState(false);
-  const [materialTitle, setMaterialTitle] = useState('');
-  const [materialRequired, setMaterialRequired] = useState(true);
-  const [materialType, setMaterialType] = useState<'video' | 'file'>('video');
-  const [materialVideoUrl, setMaterialVideoUrl] = useState('');
-  const [materialVideoDesc, setMaterialVideoDesc] = useState('');
-  const [materialVideoDur, setMaterialVideoDur] = useState('');
-  const [materialFileUrl, setMaterialFileUrl] = useState('');
-  const [materialFileName, setMaterialFileName] = useState('');
-  const [materialFileDesc, setMaterialFileDesc] = useState('');
-  const [materialSelectedFile, setMaterialSelectedFile] = useState<File | null>(null);
-
-  // Node Content cache & loading state
+  // Node content state
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
-  const [loadingContents, setLoadingContents] = useState<Record<number, boolean>>({});
+  const [nodeContentsLoading, setNodeContentsLoading] = useState<Record<number, boolean>>({});
+
+  // New Content Form State
+  const [contentType, setContentType] = useState<'MATERIAL' | 'TEST'>('MATERIAL');
+  const [materialType, setMaterialType] = useState<'FILE' | 'VIDEO' | 'EXTERNAL'>('FILE');
+  const [contentTitle, setContentTitle] = useState('');
+  const [isMaterialRequired, setIsMaterialRequired] = useState(true);
+
+  // File Upload State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileDescription, setFileDescription] = useState('');
+
+  // Video URL State
+  const [contentVideoUrl, setContentVideoUrl] = useState('');
+  const [videoDuration, setVideoDuration] = useState<number | ''>('');
+  const [videoDescription, setVideoDescription] = useState('');
+
+  // External URL State
+  const [contentFileUrl, setContentFileUrl] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [fileType, setFileType] = useState('');
+
+  // Test State
+  const [testTitle, setTestTitle] = useState('');
+  const [testDescription, setTestDescription] = useState('');
+  const [testDuration, setTestDuration] = useState<number | ''>('');
+  const [testPassingPercentage, setTestPassingPercentage] = useState<number | ''>(80);
+
+  // Submitting state
+  const [submittingContent, setSubmittingContent] = useState(false);
 
   const fetchNodeContent = async (nodeId: number) => {
-    setLoadingContents((prev) => ({ ...prev, [nodeId]: true }));
     try {
-      const data = await learningPathService.getTeacherNodeContent(nodeId);
-      setNodeContents((prev) => ({ ...prev, [nodeId]: data }));
+      setNodeContentsLoading((prev) => ({ ...prev, [nodeId]: true }));
+      const content = await learningPathService.getTeacherNodeContent(nodeId);
+      setNodeContents((prev) => ({ ...prev, [nodeId]: content }));
     } catch (err: any) {
-      console.error('Error fetching node content:', err);
-      toast.error(err.message || 'Failed to fetch node content');
+      console.error(`Error loading content for node ${nodeId}:`, err);
+      toast.error(err.response?.data?.message || 'Không thể tải nội dung bài học');
     } finally {
-      setLoadingContents((prev) => ({ ...prev, [nodeId]: false }));
+      setNodeContentsLoading((prev) => ({ ...prev, [nodeId]: false }));
     }
   };
 
-  const toggleNode = (id: number) => {
-    const isExpanding = !expandedNodes[id];
+  const handleSelectNode = async (node: LearningNodeResponse) => {
+    setSelectedNode(node);
+    await fetchNodeContent(node.nodeId);
+
+    setLoadingNodeStudents(true);
+    try {
+      const currentAssigned = await learningPathService.getNodeStudents(node.nodeId);
+      setAssignedStudentIds(currentAssigned.map(s => s.userId));
+
+      const siblingNodes = nodes.filter(n => n.stageOrder === node.stageOrder && n.nodeId !== node.nodeId);
+      const siblingMap: Record<number, { nodeId: number; nodeTitle: string }> = {};
+
+      await Promise.all(
+        siblingNodes.map(async (sibling) => {
+          const studs = await learningPathService.getNodeStudents(sibling.nodeId);
+          studs.forEach(student => {
+            siblingMap[student.userId] = { nodeId: sibling.nodeId, nodeTitle: sibling.title };
+          });
+        })
+      );
+
+      setSiblingAssignments(siblingMap);
+    } catch (err) {
+      console.error('Error fetching student assignments:', err);
+      toast.error('Không thể tải thông tin phân bổ sinh viên');
+    } finally {
+      setLoadingNodeStudents(false);
+    }
+  };
+
+  const handleAssignStudent = async (studentUserId: number, checked: boolean) => {
+    if (!selectedNode) return;
+
+    let newIds = [...assignedStudentIds];
+    if (checked) {
+      const sibling = siblingAssignments[studentUserId];
+      if (sibling) {
+        toast.info(`Di chuyển sinh viên khỏi bài học: "${sibling.nodeTitle}" sang bài học hiện tại.`);
+      }
+      newIds.push(studentUserId);
+    } else {
+      newIds = newIds.filter(id => id !== studentUserId);
+    }
+
+    setAssignedStudentIds(newIds);
+    if (checked) {
+      const updatedSiblingMap = { ...siblingAssignments };
+      delete updatedSiblingMap[studentUserId];
+      setSiblingAssignments(updatedSiblingMap);
+    }
+
+    try {
+      await learningPathService.assignStudentsToNode(selectedNode.nodeId, newIds);
+      toast.success('Cập nhật phân bổ sinh viên thành công!');
+    } catch (err: any) {
+      console.error('Error assigning student:', err);
+      toast.error(err.response?.data?.message || 'Không thể lưu phân bổ sinh viên');
+      if (checked) {
+        setAssignedStudentIds(assignedStudentIds.filter(id => id !== studentUserId));
+        if (siblingAssignments[studentUserId]) {
+          const revertedMap = { ...siblingAssignments };
+          revertedMap[studentUserId] = siblingAssignments[studentUserId];
+          setSiblingAssignments(revertedMap);
+        }
+      } else {
+        setAssignedStudentIds([...assignedStudentIds, studentUserId]);
+      }
+    }
+  };
+
+  const toggleNode = async (id: number) => {
+    const nextState = !expandedNodes[id];
     setExpandedNodes((prev) => ({
       ...prev,
-      [id]: !prev[id],
+      [id]: nextState,
     }));
-    if (isExpanding && !nodeContents[id]) {
-      fetchNodeContent(id);
+
+    if (nextState) {
+      await fetchNodeContent(id);
     }
   };
 
-  const fetchGraphData = async (classroomIdVal: number) => {
+  const fetchGraphData = async (classroomSubjectIdVal: number) => {
     try {
-      const graph = await learningPathService.getClassroomGraph(classroomIdVal);
+      const graph = await learningPathService.getClassroomGraph(classroomSubjectIdVal);
       setGraphData(graph);
-      setPathId(graph.pathId); 
-      setNodes(graph.nodes || []);
-      setEdges(graph.edges || []);
-      setNewNodeOrder((graph.nodes?.length || 0) + 1);
     } catch (err) {
       console.error('Error fetching classroom learning path graph:', err);
     }
   };
 
+
   useEffect(() => {
     const fetchClassroomData = async () => {
-      if (!classroomId) return;
+      if (!classroomSubjectId) return;
 
       try {
         setLoading(true);
         const [classData, studentsData] = await Promise.all([
-          teacherService.getClassroomById(Number(classroomId)),
-          teacherService.getStudentsInClassroom(Number(classroomId)),
+          teacherService.getClassroomSubjectById(Number(classroomSubjectId)),
+          classroomService.getStudents(Number(classroomSubjectId)),
         ]);
         setClassInfo({
-          classCode: classData.className,       
-          courseCode: classData.subjectCode,     
-          subjectId: classData.subjectId,       
+          classCode: classData.className,
+          courseCode: classData.subjectCode,
+          subjectId: classData.subjectId,
         });
         const formatted = (studentsData ?? []).map((item) => ({
           id: item.email?.split('@')[0].toUpperCase() || `ST${item.userId}`,
@@ -207,9 +302,10 @@ export function ClassManagementPage() {
             ? `${item.lastName || ''} ${item.firstName || ''}`.trim()
             : `Student ${item.userId}`,
           progress: 0,
+          userId: item.userId,
         }));
         setStudents(formatted);
-        await fetchGraphData(Number(classroomId));
+        await fetchGraphData(Number(classroomSubjectId));
       } catch (err: any) {
         console.error('Error loading classroom management:', err);
         setError(err.response?.data?.message || 'Failed to load classroom data');
@@ -219,13 +315,13 @@ export function ClassManagementPage() {
     };
 
     fetchClassroomData();
-  }, [classroomId]);
+  }, [classroomSubjectId]);
 
   // Cross-tab consistency
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && classroomId) {
-        fetchGraphData(Number(classroomId))
+      if (document.visibilityState === 'visible' && classroomSubjectId) {
+        fetchGraphData(Number(classroomSubjectId))
           .catch(err => console.error('Error auto-refreshing graph:', err));
       }
     };
@@ -233,419 +329,155 @@ export function ClassManagementPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [classroomId]);
-
-  // Disable body scroll when modal is open
-  useEffect(() => {
-    const isAnyModalOpen = 
-      isAddNodeOpen || 
-      isAddTestOpen || 
-      isEditTestOpen || 
-      isAttemptsOpen || 
-      isQuestionsListOpen || 
-      isAddEditQuestionOpen || 
-      isAddMaterialOpen ||
-      showDeleteConfirm;
-
-    if (isAnyModalOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [
-    isAddNodeOpen, 
-    isAddTestOpen, 
-    isEditTestOpen, 
-    isAttemptsOpen, 
-    isQuestionsListOpen, 
-    isAddEditQuestionOpen, 
-    isAddMaterialOpen,
-    showDeleteConfirm
-  ]);
+  }, [classroomSubjectId]);
 
   const handleAddNodeClick = () => {
     setNewNodeTitle('');
     setNewNodeDesc('');
-    setNewNodeType('AT_HOME');
-    setNewNodeStatus('LOCKED');
-    setNewNodeRequired(true);
-    setNewNodeBranch('');
-    setNewNodePredecessor('');
-    setIsPredecessorLocked(false);
-    setEdgeMinScore('');
-    setEdgeMaxScore('');
+    setNKind('AT_HOME');
+    setNLevel('');
+    setNStage(1);
+    setNApplies([]);
+    setNUpMin('');
+    setNDownMax('');
+    setNYeuMax('');
+    setNTbMax('');
+    setTDuration('15');
+    setNumQuestions('0');
     setIsAddNodeOpen(true);
   };
 
-  const handleAddNextNodeClick = (node: LearningNodeResponse) => {
-    setNewNodeOrder(node.displayOrder + 1);
-    setNewNodePredecessor(String(node.nodeId));
-    setIsPredecessorLocked(true);
-    setEdgeMinScore('');
-    setEdgeMaxScore('');
-    setIsAddNodeOpen(true);
-  };
-
-  const handleAddTestClick = (node: LearningNodeResponse) => {
+  const handleAddContentClick = (node: LearningNodeResponse) => {
     setSelectedNodeForContent(node);
+    setContentType('MATERIAL');
+    setMaterialType('FILE');
+    setContentTitle('');
+    setIsMaterialRequired(true);
+    setSelectedFile(null);
+    setFileDescription('');
+    setContentVideoUrl('');
+    setVideoDuration('');
+    setVideoDescription('');
+    setContentFileUrl('');
+    setFileName('');
+    setFileType('');
     setTestTitle('');
-    setTestDesc('');
-    setTestDuration('15');
-    setTestPassPercent('70.00');
-    setIsAddTestOpen(true);
+    setTestDescription('');
+    setTestDuration('');
+    setTestPassingPercentage(80);
+    setIsAddContentOpen(true);
   };
 
-  const handleAddMaterialClick = (node: LearningNodeResponse) => {
-    setSelectedNodeForContent(node);
-    setMaterialTitle('');
-    setMaterialRequired(true);
-    setMaterialVideoUrl('');
-    setMaterialVideoDesc('');
-    setMaterialVideoDur('');
-    setMaterialFileUrl('');
-    setMaterialFileName('');
-    setMaterialFileDesc('');
-    setMaterialSelectedFile(null);
-    setIsAddMaterialOpen(true);
-  };
-
-  const handleAddMaterialSubmit = async (e: React.FormEvent) => {
+  const handleAddContentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!materialTitle.trim() || !selectedNodeForContent) {
-      toast.error('Vui lòng nhập tiêu đề tài liệu');
-      return;
-    }
-    try {
-      const formData = new FormData();
-      formData.append('title', materialTitle);
-      formData.append('required', String(materialRequired));
+    if (!selectedNodeForContent) return;
 
-      if (materialType === 'video') {
-        if (!materialVideoUrl.trim()) {
-          toast.error('Vui lòng nhập link video');
+    setSubmittingContent(true);
+    try {
+      if (contentType === 'MATERIAL') {
+        if (!contentTitle.trim()) {
+          toast.error('Tiêu đề tài liệu không được để trống');
+          setSubmittingContent(false);
           return;
         }
-        formData.append('videoUrl', materialVideoUrl);
-        formData.append('videoTitle', materialTitle);
-        if (materialVideoDur) {
-          formData.append('videoDuration', materialVideoDur);
+
+        const formData = new FormData();
+        formData.append('title', contentTitle.trim());
+        formData.append('required', String(isMaterialRequired));
+
+        if (materialType === 'FILE') {
+          if (!selectedFile) {
+            toast.error('Vui lòng chọn file tải lên');
+            setSubmittingContent(false);
+            return;
+          }
+          const uploaded = await uploadService.uploadToCloudinary(selectedFile, 'materials');
+          formData.append('fileUrl', uploaded.url);
+          formData.append('fileName', selectedFile.name);
+          formData.append('fileType', selectedFile.type || uploaded.format || '');
+          formData.append('publicId', uploaded.publicId);
+          if (fileDescription.trim()) {
+            formData.append('fileDescription', fileDescription.trim());
+          }
+        } else if (materialType === 'VIDEO') {
+          if (!contentVideoUrl.trim()) {
+            toast.error('Vui lòng nhập đường dẫn video');
+            setSubmittingContent(false);
+            return;
+          }
+          formData.append('videoUrl', contentVideoUrl.trim());
+          formData.append('videoTitle', contentTitle.trim());
+          if (videoDuration) {
+            formData.append('videoDuration', String(videoDuration));
+          }
+          if (videoDescription.trim()) {
+            formData.append('videoDescription', videoDescription.trim());
+          }
+        } else if (materialType === 'EXTERNAL') {
+          if (!contentFileUrl.trim()) {
+            toast.error('Vui lòng nhập đường dẫn tài liệu');
+            setSubmittingContent(false);
+            return;
+          }
+          formData.append('fileUrl', contentFileUrl.trim());
+          formData.append('fileName', fileName.trim() || contentTitle.trim());
+          if (fileType.trim()) {
+            formData.append('fileType', fileType.trim());
+          }
+          if (fileDescription.trim()) {
+            formData.append('fileDescription', fileDescription.trim());
+          }
         }
-        formData.append('videoDescription', materialVideoDesc);
+
+        await learningPathService.addTeacherNodeMaterial(selectedNodeForContent.nodeId, formData);
+        toast.success('Thêm tài liệu học tập thành công!');
       } else {
-        if (materialSelectedFile) {
-          formData.append('file', materialSelectedFile);
-        } else if (materialFileUrl.trim()) {
-          formData.append('fileUrl', materialFileUrl);
-        } else {
-          toast.error('Vui lòng chọn file tải lên hoặc nhập link file');
+        // Create Test
+        if (!testTitle.trim()) {
+          toast.error('Vui lòng nhập tiêu đề bài kiểm tra');
+          setSubmittingContent(false);
           return;
         }
-        formData.append('fileName', materialFileName || materialSelectedFile?.name || 'Tài liệu');
-        formData.append('fileDescription', materialFileDesc);
+        await learningPathService.addTeacherNodeTest(selectedNodeForContent.nodeId, {
+          title: testTitle.trim(),
+          description: testDescription.trim() || undefined,
+          durationMinutes: testDuration ? Number(testDuration) : undefined,
+          passingPercentage: testPassingPercentage ? Number(testPassingPercentage) : undefined,
+        });
+        toast.success('Thêm bài kiểm tra thành công!');
       }
 
-      await learningPathService.addTeacherNodeMaterial(selectedNodeForContent.nodeId, formData);
-      toast.success('Thêm tài liệu học tập thành công');
-      setIsAddMaterialOpen(false);
-
-      const targetNodeId = selectedNodeForContent.nodeId;
-      setMaterialTitle('');
-      setMaterialRequired(true);
-      setMaterialVideoUrl('');
-      setMaterialVideoDesc('');
-      setMaterialVideoDur('');
-      setMaterialFileUrl('');
-      setMaterialFileName('');
-      setMaterialFileDesc('');
-      setMaterialSelectedFile(null);
-      setSelectedNodeForContent(null);
-
-      await fetchNodeContent(targetNodeId);
+      setIsAddContentOpen(false);
+      await fetchNodeContent(selectedNodeForContent.nodeId);
     } catch (err: any) {
-      toast.error(err.message || 'Thêm tài liệu thất bại');
+      console.error('Lỗi khi thêm nội dung:', err);
+      toast.error(err.response?.data?.message || 'Không thể thêm nội dung cho bài học');
+    } finally {
+      setSubmittingContent(false);
     }
   };
 
-  const handleDeleteMaterial = async (materialId: number, nodeId: number) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
+  const handleDeleteMaterial = async (nodeId: number, materialId: number) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa tài liệu này không?')) return;
     try {
       await learningPathService.deleteTeacherNodeMaterial(materialId);
-      toast.success('Đã xóa tài liệu học tập');
+      toast.success('Xóa tài liệu học tập thành công!');
       await fetchNodeContent(nodeId);
     } catch (err: any) {
-      toast.error(err.message || 'Xóa tài liệu thất bại');
+      console.error('Lỗi khi xóa tài liệu:', err);
+      toast.error(err.response?.data?.message || 'Không thể xóa tài liệu');
     }
   };
 
-  const handleAddTestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!testTitle.trim() || !selectedNodeForContent) {
-      toast.error('Test title is required');
-      return;
-    }
-    try {
-      const targetNodeId = selectedNodeForContent.nodeId;
-      await learningPathService.addTeacherNodeTest(targetNodeId, {
-        title: testTitle,
-        description: testDesc,
-        durationMinutes: testDuration ? Number(testDuration) : undefined,
-        passingPercentage: testPassPercent ? Number(testPassPercent) : undefined,
-      });
-      toast.success('Test added successfully');
-      setIsAddTestOpen(false);
-      setSelectedNodeForContent(null);
-      await fetchNodeContent(targetNodeId);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add test');
-    }
-  };
-
-  const handleEditTestClick = (node: LearningNodeResponse, test: NodeTestResponse) => {
-    setSelectedNodeForContent(node);
-    setSelectedTestForEdit(test);
-    setTestTitle(test.title);
-    setTestDesc(test.description || '');
-    setTestDuration(test.durationMinutes ? String(test.durationMinutes) : '15');
-    setTestPassPercent(test.passingPercentage ? String(test.passingPercentage) : '70.00');
-    setIsEditTestOpen(true);
-  };
-
-  const handleEditTestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!testTitle.trim() || !selectedTestForEdit || !selectedNodeForContent) {
-      toast.error('Test title is required');
-      return;
-    }
-    try {
-      const targetNodeId = selectedNodeForContent.nodeId;
-      await learningPathService.updateTeacherNodeTest(selectedTestForEdit.testId, {
-        title: testTitle,
-        description: testDesc,
-        durationMinutes: testDuration ? Number(testDuration) : undefined,
-        passingPercentage: testPassPercent ? Number(testPassPercent) : undefined,
-      });
-      toast.success('Test updated successfully');
-      setIsEditTestOpen(false);
-      setSelectedTestForEdit(null);
-      setSelectedNodeForContent(null);
-      await fetchNodeContent(targetNodeId);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update test');
-    }
-  };
-
-  const handleDeleteTest = async (testId: number, nodeId: number) => {
-    if (!window.confirm('Are you sure you want to delete this test?')) return;
+  const handleDeleteTest = async (nodeId: number, testId: number) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bài kiểm tra này không?')) return;
     try {
       await learningPathService.deleteTeacherNodeTest(testId);
-      toast.success('Test deleted successfully');
+      toast.success('Xóa bài kiểm tra thành công!');
       await fetchNodeContent(nodeId);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete test');
-    }
-  };
-
-  const handleViewAttemptsClick = async (test: NodeTestResponse) => {
-    setSelectedTestForAttempts(test);
-    setIsAttemptsOpen(true);
-    setLoadingAttempts(true);
-    try {
-      const data = await learningPathService.getTeacherTestAttempts(test.testId);
-      setAttempts(data);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to load test attempts');
-    } finally {
-      setLoadingAttempts(false);
-    }
-  };
-
-  const handleManageQuestionsClick = async (test: NodeTestResponse) => {
-    setSelectedTestForQuestions(test);
-    setIsQuestionsListOpen(true);
-    setLoadingQuestions(true);
-    try {
-      const data = await learningPathService.getTeacherTestQuestions(test.testId);
-      setQuestionsList(data);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to load test questions');
-    } finally {
-      setLoadingQuestions(false);
-    }
-  };
-
-  const reloadQuestionsList = async (testId: number) => {
-    setLoadingQuestions(true);
-    try {
-      const data = await learningPathService.getTeacherTestQuestions(testId);
-      setQuestionsList(data);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to reload test questions');
-    } finally {
-      setLoadingQuestions(false);
-    }
-  };
-
-  const handleDeleteQuestion = async (questionId: number) => {
-    if (!window.confirm('Are you sure you want to delete this question?')) return;
-    try {
-      await learningPathService.deleteTeacherTestQuestion(questionId);
-      toast.success('Question deleted successfully');
-      if (selectedTestForQuestions) {
-        await reloadQuestionsList(selectedTestForQuestions.testId);
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to delete question');
-    }
-  };
-
-  const handleOpenAddQuestion = () => {
-    setEditingQuestion(null);
-    setQuestionContent('');
-    setQuestionScore('1');
-    setQuestionAnswers([
-      { answerContent: '', isCorrect: true },
-      { answerContent: '', isCorrect: false },
-      { answerContent: '', isCorrect: false },
-      { answerContent: '', isCorrect: false },
-    ]);
-    setIsAddEditQuestionOpen(true);
-  };
-
-  const handleOpenEditQuestion = (question: QuestionResponse) => {
-    setEditingQuestion(question);
-    setQuestionContent(question.questionContent);
-    setQuestionScore(String(question.score));
-    
-    // Map existing answers or set defaults if empty
-    const mappedAnswers = (question.answers || []).map(a => ({
-      answerContent: a.answerContent,
-      isCorrect: a.isCorrect
-    }));
-    
-    // Ensure there are at least 4 answers
-    while (mappedAnswers.length < 4) {
-      mappedAnswers.push({ answerContent: '', isCorrect: false });
-    }
-    
-    setQuestionAnswers(mappedAnswers);
-    setIsAddEditQuestionOpen(true);
-  };
-
-  const handleSaveQuestion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!questionContent.trim()) {
-      toast.error('Question content is required');
-      return;
-    }
-    if (!selectedTestForQuestions) return;
-
-    // Validate answers: must have at least one non-empty answer
-    const validAnswers = questionAnswers.filter(a => a.answerContent.trim() !== '');
-    if (validAnswers.length < 2) {
-      toast.error('Please provide at least 2 non-empty answer options');
-      return;
-    }
-
-    // Must have exactly one correct answer selected (since type is MULTIPLE_CHOICE)
-    const correctCount = validAnswers.filter(a => a.isCorrect).length;
-    if (correctCount !== 1) {
-      toast.error('Please select exactly one correct answer option');
-      return;
-    }
-
-    const payload = {
-      questionContent: questionContent.trim(),
-      questionType: 'MULTIPLE_CHOICE' as const,
-      score: questionScore ? Number(questionScore) : 1,
-      answers: validAnswers.map(a => ({
-        answerContent: a.answerContent.trim(),
-        isCorrect: a.isCorrect
-      }))
-    };
-
-    try {
-      if (editingQuestion) {
-        await learningPathService.updateTeacherTestQuestion(editingQuestion.questionId, payload);
-        toast.success('Question updated successfully');
-      } else {
-        await learningPathService.addTeacherTestQuestion(selectedTestForQuestions.testId, payload);
-        toast.success('Question added successfully');
-      }
-      setIsAddEditQuestionOpen(false);
-      await reloadQuestionsList(selectedTestForQuestions.testId);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save question');
-    }
-  };
-
-  const handleAnswerChange = (index: number, value: string) => {
-    setQuestionAnswers(prev => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], answerContent: value };
-      return copy;
-    });
-  };
-
-  const handleCorrectAnswerSelect = (index: number) => {
-    setQuestionAnswers(prev => {
-      return prev.map((ans, idx) => ({
-        ...ans,
-        isCorrect: idx === index
-      }));
-    });
-  };
-
-  const handleAddAnswerRow = () => {
-    setQuestionAnswers(prev => [...prev, { answerContent: '', isCorrect: false }]);
-  };
-
-  const handleRemoveAnswerRow = (index: number) => {
-    setQuestionAnswers(prev => {
-      if (prev.length <= 2) {
-        toast.error('At least 2 answer choices are required');
-        return prev;
-      }
-      const copy = prev.filter((_, idx) => idx !== index);
-      if (!copy.some(a => a.isCorrect)) {
-        copy[0] = { ...copy[0], isCorrect: true };
-      }
-      return copy;
-    });
-  };
-
-  const getSortedTimelineItems = (nodeId: number) => {
-    const content = nodeContents[nodeId];
-    if (!content) return [];
-    const materials = (content.materials || []).map((m) => ({
-      key: `material-${m.materialId}`,
-      id: m.materialId,
-      type: 'MATERIAL' as const,
-      title: m.title,
-      orderIndex: m.orderIndex ?? 9999,
-      data: m,
-    }));
-    const tests = (content.tests || []).map((t) => ({
-      key: `test-${t.testId}`,
-      id: t.testId,
-      type: 'TEST' as const,
-      title: t.title,
-      orderIndex: t.orderIndex ?? 9999,
-      data: t,
-    }));
-    return [...materials, ...tests].sort((a, b) => a.orderIndex - b.orderIndex);
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '—';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString();
-    } catch {
-      return dateString;
+      console.error('Lỗi khi xóa bài kiểm tra:', err);
+      toast.error(err.response?.data?.message || 'Không thể xóa bài kiểm tra');
     }
   };
 
@@ -661,67 +493,248 @@ export function ClassManagementPage() {
       await learningPathService.deleteLearningNode(nodeToDelete.nodeId);
       toast.success(`Node "${nodeToDelete.title}" deleted successfully`);
       setShowDeleteConfirm(false);
+      if (selectedNode && selectedNode.nodeId === nodeToDelete.nodeId) {
+        setSelectedNode(null);
+      }
       setNodeToDelete(null);
-      if (classroomId) {
-        await fetchGraphData(Number(classroomId));
+      if (classroomSubjectId) {
+        await fetchGraphData(Number(classroomSubjectId));
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete node');
     }
   };
 
+  const rewireAll = async () => {
+    if (!classroomSubjectId) return;
+    const g = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+    await syncEdges(g.edges, computeDesiredEdges(g.nodes), {
+      createEdge: (r) => learningPathService.createNodeEdge(r),
+      deleteEdge: (id) => learningPathService.deleteNodeEdge(id),
+    });
+    await fetchGraphData(Number(classroomSubjectId));
+  };
+
   const handleAddNodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNodeTitle.trim()) {
-      toast.error('Node title is required');
+      toast.error('Tiêu đề bài học không được để trống');
       return;
     }
-    if (!pathId) {
-      toast.error('Learning path template not loaded');
+    if (!activePathId) {
+      toast.error('Chưa tải được lộ trình học tập');
+      return;
+    }
+    if (nodes.length === 0 && nKind !== 'PLACEMENT') {
+      toast.error('Node đầu tiên của lộ trình phải là Test năng lực.');
+      return;
+    }
+    if (nKind === 'PLACEMENT' && (!tDuration || Number(tDuration) <= 0)) {
+      toast.error('Thời lượng bài test phải lớn hơn 0');
+      return;
+    }
+
+    const placement = resolveNodePlacement({
+      kind: nKind,
+      stage: nStage,
+      applies: nApplies,
+      level: nLevel,
+      existingNodes: nodes,
+    });
+    if ('error' in placement) {
+      toast.error(placement.error);
+      return;
+    }
+
+    const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
+
+    setAddingNode(true);
+    try {
+      if (nKind === 'FREE_CHOICE') {
+        // Test tự do = 3 node test (Yếu/TB/Khá) cùng chặng; mỗi node route về nhánh của nó.
+        const variants: { lv: 1 | 2 | 3; name: string }[] = [
+          { lv: 1, name: 'Yếu' },
+          { lv: 2, name: 'TB' },
+          { lv: 3, name: 'Khá' },
+        ];
+        for (const v of variants) {
+          await learningPathService.createLearningNode({
+            classroomPathId: activePathId,
+            title: `${newNodeTitle.trim()} – ${v.name}`,
+            description: newNodeDesc.trim() || undefined,
+            nodeType: 'AT_HOME',
+            testKind: 'FREE_CHOICE',
+            appliesLevels: String(v.lv),
+            displayOrder: 0,
+            isRequired: true,
+            stageOrder: nStage,
+            level: v.lv,
+          });
+        }
+      } else {
+        const created = await learningPathService.createLearningNode({
+          classroomPathId: activePathId,
+          title: newNodeTitle.trim(),
+          description: newNodeDesc.trim() || undefined,
+          nodeType: nKind === 'ON_CLASS' ? 'ON_CLASS' : 'AT_HOME',
+          testKind: nKind === 'GATE' ? 'GATE' : nKind === 'PLACEMENT' ? 'PLACEMENT' : 'NONE',
+          appliesLevels: placement.appliesLevels,
+          gateUpMin: nKind === 'GATE' && nUpMin !== '' ? Number(nUpMin) : undefined,
+          gateDownMax: nKind === 'GATE' && nDownMax !== '' ? Number(nDownMax) : undefined,
+          placementYeuMax: nKind === 'PLACEMENT' && nYeuMax !== '' ? Number(nYeuMax) : undefined,
+          placementTbMax: nKind === 'PLACEMENT' && nTbMax !== '' ? Number(nTbMax) : undefined,
+          displayOrder: 0,
+          isRequired: true,
+          stageOrder: nStage,
+          level: placement.level,
+        });
+
+        // Node Test năng lực: tạo luôn bài test + N câu hỏi mẫu (giống admin).
+        if (nKind === 'PLACEMENT') {
+          const testRes = await learningPathService.addTeacherNodeTest(created.nodeId, {
+            title: newNodeTitle.trim(),
+            durationMinutes: Number(tDuration) || 15,
+            passingPercentage: 0,
+          });
+          for (let i = 0; i < numQ; i++) {
+            await learningPathService.addPlacementQuestion(testRes.testId, {
+              questionContent: `Câu hỏi ${i + 1}`,
+              questionType: 'MULTIPLE_CHOICE',
+              score: 1,
+              answers: [
+                { answerContent: 'Đáp án A', isCorrect: true },
+                { answerContent: 'Đáp án B', isCorrect: false },
+                { answerContent: 'Đáp án C', isCorrect: false },
+                { answerContent: 'Đáp án D', isCorrect: false },
+              ],
+            });
+          }
+        }
+      }
+
+      await rewireAll();
+      toast.success('Đã thêm bài học');
+      setIsAddNodeOpen(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || 'Không thể thêm bài học');
+    } finally {
+      setAddingNode(false);
+    }
+  };
+
+  const handleEditNodeClick = (node: LearningNodeResponse) => {
+    setNodeToEdit(node);
+    setEditNodeTitle(node.title);
+    setEditNodeDesc(node.description || '');
+    setEditNodeType(node.nodeType);
+    setEditNodeStatus(node.status);
+    setEditNodeOrder(node.displayOrder);
+    setEditNodeRequired(node.isRequired);
+    setIsEditNodeOpen(true);
+  };
+
+  const handleEditNodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nodeToEdit) return;
+    if (!editNodeTitle.trim()) {
+      toast.error('Tiêu đề node không được để trống');
       return;
     }
 
     try {
-      const createdNode = await learningPathService.createLearningNode({
-        classroomPathId: pathId,
-        title: newNodeTitle,
-        description: newNodeDesc,
-        nodeType: newNodeType,
-        branchName: newNodeBranch || undefined,
-        displayOrder: newNodeOrder,
-        status: newNodeStatus,
-        isRequired: newNodeRequired
+      setEditingNode(true);
+      const updated = await learningPathService.updateLearningNode(nodeToEdit.nodeId, {
+        title: editNodeTitle.trim(),
+        description: editNodeDesc.trim(),
+        nodeType: editNodeType,
+        status: editNodeStatus,
+        displayOrder: editNodeOrder,
+        isRequired: editNodeRequired,
       });
 
-      if (newNodePredecessor) {
-        await learningPathService.createNodeEdge({
-          fromNodeId: Number(newNodePredecessor),
-          toNodeId: createdNode.nodeId,
-          branchName: newNodeBranch || undefined,
-          minScore: edgeMinScore ? Number(edgeMinScore) : undefined,
-          maxScore: edgeMaxScore ? Number(edgeMaxScore) : undefined
-        });
+      toast.success('Cập nhật node thành công!');
+      setIsEditNodeOpen(false);
+      if (selectedNode && selectedNode.nodeId === nodeToEdit.nodeId) {
+        setSelectedNode(updated);
       }
+      setNodeToEdit(null);
 
-      toast.success('Node created successfully');
-      setIsAddNodeOpen(false);
-
-      // Reset Form State
-      setNewNodeTitle('');
-      setNewNodeDesc('');
-      setNewNodeType('AT_HOME');
-      setNewNodeStatus('LOCKED');
-      setNewNodeRequired(true);
-      setNewNodeBranch('');
-      setNewNodePredecessor('');
-      setEdgeMinScore('');
-      setEdgeMaxScore('');
-
-      if (classroomId) {
-        await fetchGraphData(Number(classroomId));
+      if (classroomSubjectId) {
+        await fetchGraphData(Number(classroomSubjectId));
       }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to create node');
+      console.error('Lỗi khi cập nhật node:', err);
+      toast.error(err.response?.data?.message || 'Không thể cập nhật thông tin node');
+    } finally {
+      setEditingNode(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+
+    if (!graphData?.quizStartTestId) {
+      toast.error('Vui lòng khởi tạo và cấu hình bài test phân loại đầu vào trước khi xuất bản lộ trình.');
+      setShowPublishConfirm(false);
+      setUnderstandPublish(false);
+      return;
+    }
+
+    try {
+      setActionState('publishing');
+      const res = await learningPathService.publishClassroomPath(Number(classroomSubjectId), graphData.pathId);
+
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+
+      setShowPublishConfirm(false);
+      setUnderstandPublish(false);
+      toast.success('Xuất bản lộ trình học thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể xuất bản lộ trình học');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+    try {
+      setActionState('unpublishing');
+      await learningPathService.unpublishClassroomPath(Number(classroomSubjectId), graphData.pathId);
+
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+
+      setShowUnpublishConfirm(false);
+      setUnderstandUnpublish(false);
+      toast.success('Gỡ xuất bản lộ trình học thành công!');
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        setUnpublishErrorMsg(err.response?.data?.message || 'Không thể unpublish — đã có học sinh hoàn thành node.');
+        setShowUnpublishError(true);
+      } else {
+        toast.error(err.response?.data?.message || 'Không thể gỡ xuất bản lộ trình học');
+      }
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!classroomSubjectId || !graphData?.pathId) return;
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bản nháp này không? Lộ trình sẽ bị xóa vĩnh viễn.')) return;
+
+    try {
+      setActionState('deleting');
+      await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
+
+      toast.success('Đã xóa bản nháp lộ trình học thành công!');
+      navigate(`/teacher/classroom-subjects/${classroomSubjectId}`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể xóa bản nháp lộ trình học');
+    } finally {
+      setActionState('idle');
     }
   };
 
@@ -774,11 +787,11 @@ export function ClassManagementPage() {
   const lockTooltip = "Lộ trình đã publish. Unpublish trước khi sửa.";
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 relative font-sans text-slate-800">
       {/* Sticky Published Banner */}
       {isPublished && (
-        <div 
-          className="sticky top-0 z-40 w-full bg-emerald-600 text-white py-2.5 px-4 rounded-md shadow-md flex items-center gap-2 mb-4 font-semibold text-sm animate-in slide-in-from-top duration-300"
+        <div
+          className="sticky top-0 z-40 w-full bg-emerald-600 text-white py-2.5 px-4 rounded-[6px] shadow-sm flex items-center gap-2 mb-4 font-semibold text-sm animate-in slide-in-from-top duration-300"
           role="alert"
         >
           <CheckCircle2 className="size-5 shrink-0" />
@@ -788,367 +801,289 @@ export function ClassManagementPage() {
 
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="rounded-[6px] border-slate-200 text-slate-600 hover:text-slate-900"
+          >
             <ArrowLeft className="size-4" />
           </Button>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Class {classInfo.classCode} - {classInfo.courseCode} (Management)
+          <h1 className="text-2xl font-bold text-[#030213] tracking-tight">
+            Lớp {classInfo.classCode} - {classInfo.courseCode} (Quản lý lộ trình)
           </h1>
         </div>
-        
-        {/* Add Node Button Wrapper with Tooltip */}
-        <div title={isPublished ? lockTooltip : undefined}>
-          <Button 
-            onClick={handleAddNodeClick} 
-            disabled={isPublished}
-            aria-describedby={isPublished ? "lock-reason" : undefined}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 disabled:opacity-50"
-          >
-            <Plus className="size-4" />
-            Add Node
-          </Button>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <div title={isPublished ? lockTooltip : undefined}>
+            <Button
+              onClick={handleAddNodeClick}
+              disabled={isPublished}
+              className="text-white flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-xs font-semibold h-9"
+              style={{ backgroundColor: '#030213' }}
+            >
+              <Plus className="size-4" />
+              Thêm bài học
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Manage Class Roadmap</CardTitle>
+      <div className="flex flex-col gap-6">
+        <Card className="rounded-[10px] border border-slate-200/60 shadow-xs overflow-hidden bg-white">
+          <CardHeader className="border-b border-slate-100/80 bg-slate-50/40 py-4">
+            <CardTitle className="text-base font-bold text-[#030213] flex items-center gap-2">
+              <Map className="size-4 text-slate-500" />
+              Thiết lập lộ trình học tập
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            {nodes.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground border-2 border-dashed border-gray-200 rounded-lg">
-                <Map className="size-8 mx-auto text-gray-300 mb-2" />
-                <p className="text-sm mb-4">No nodes present in the subject roadmap.</p>
-                <div title={isPublished ? lockTooltip : undefined}>
-                  <Button onClick={() => setIsAddNodeOpen(true)} disabled={isPublished} size="sm">
-                    Create First Node
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border shadow-sm">
-                {nodes.map((node) => {
-                  const isExpanded = !!expandedNodes[node.nodeId];
-                  const incomingEdges = edges.filter((e) => e.toNodeId === node.nodeId);
-                  const incomingNodes = incomingEdges.map(e => nodes.find(n => n.nodeId === e.fromNodeId)).filter(Boolean);
-
-                  return (
-                    <div
-                      key={node.nodeId}
-                      className={`transition-all duration-200 ${getNodeColorClass(node.status)}`}
-                    >
-                      {/* Header */}
-                      <div
-                        onClick={() => toggleNode(node.nodeId)}
-                        className="flex items-center justify-between p-4 cursor-pointer select-none"
+          <CardContent className="p-5">
+            <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+              {/* Column 1: Roadmap Flow Graph — giới hạn ~3 node ngang, panel chi tiết phủ phần còn lại */}
+              <div className="space-y-3 lg:w-[560px] lg:shrink-0">
+                {nodes.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-[10px] bg-slate-50/40">
+                    <Map className="size-8 mx-auto text-slate-300 mb-2" />
+                    <p className="text-xs font-medium mb-4">Chưa có bài học nào trong lộ trình lớp học.</p>
+                    <div title={isPublished ? lockTooltip : undefined}>
+                      <Button
+                        onClick={() => setIsAddNodeOpen(true)}
+                        disabled={isPublished}
+                        size="sm"
+                        className="text-white rounded-[6px] shadow-xs hover:opacity-95 font-semibold text-xs py-1.5"
+                        style={{ backgroundColor: '#030213' }}
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className={`p-1 rounded transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-90' : ''}`}>
-                            <ChevronRight className="size-4 text-muted-foreground" />
-                          </div>
-                          <div className="shrink-0">
-                            {getNodeIcon(node.status)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`font-semibold text-sm ${node.status === 'LOCKED' ? 'text-muted-foreground' : 'text-foreground'
-                                }`}>
-                                {node.title}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal bg-indigo-50 text-indigo-700 hover:bg-indigo-50 border-indigo-200">
-                                {node.nodeType === 'ON_CLASS' ? 'On Class' : 'At Home'}
-                              </Badge>
-                              {node.isRequired && (
-                                <Badge className="text-[10px] py-0 px-1 font-normal bg-red-50 text-red-700 hover:bg-red-50 border-red-200" variant="outline">
-                                  Required
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider pl-4 shrink-0">
-                          {node.status}
+                        Tạo bài học đầu tiên
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-[550px] overflow-auto rounded-xl border border-slate-200 bg-slate-50/30 p-2">
+                    <LearningPathFlow
+                      nodes={nodes}
+                      edges={edges}
+                      selectedNodeId={selectedNode?.nodeId ?? null}
+                      onNodeClick={(clickedNode) => handleSelectNode(clickedNode)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Column 2: Selected Node Sidebar Details Panel */}
+              <div className="flex-1 min-w-0 border border-slate-200 rounded-xl bg-slate-50/40 p-4 space-y-4 h-[580px] overflow-y-auto">
+                {!selectedNode ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center py-16 text-slate-400">
+                    <Map className="w-10 h-10 mb-2 text-slate-300" />
+                    <p className="text-xs font-bold text-slate-800">Chọn một bài học trên sơ đồ</p>
+                    <p className="text-[10px] text-slate-500 mt-1 max-w-[200px]">Nhấp chọn node trên sơ đồ lộ trình bên trái để xem nội dung chi tiết & chỉnh sửa.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Node Header Info */}
+                    <div className="space-y-2 border-b border-slate-200/80 pb-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                          Chi tiết bài học
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-slate-50 text-slate-650 border-slate-250 rounded-[4px]">
+                            {selectedNode.nodeType === 'ON_CLASS' ? 'Trên lớp' : 'Tự học'}
+                          </Badge>
+                          {selectedNode.isRequired && (
+                            <Badge className="text-[9px] py-0 px-1 font-normal bg-rose-50 text-rose-700 border-rose-250 rounded-[4px]" variant="outline">
+                              Bắt buộc
+                            </Badge>
+                          )}
                         </div>
                       </div>
+                      <h3 className="font-bold text-slate-800 text-sm">{selectedNode.title}</h3>
+                      {selectedNode.description && (
+                        <p className="text-xs text-slate-650 leading-relaxed italic">{selectedNode.description}</p>
+                      )}
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        Trạng thái hiển thị: <span className="font-semibold text-slate-700">{selectedNode.status === 'OPEN' ? 'Mở' : selectedNode.status === 'LOCKED' ? 'Khóa' : 'Ẩn'}</span>
+                      </div>
 
-                      {/* Expanded content */}
-                      {isExpanded && (
-                        <div className="px-4 pb-4 pt-2 bg-muted/5 border-t border-muted/20 space-y-4">
-                          <p className="text-sm text-muted-foreground">
-                            {node.description || 'No description provided.'}
-                          </p>
-
-                          {incomingNodes.length > 0 && (
-                            <div className="text-xs text-gray-500 bg-gray-50 border border-gray-100 p-2 rounded">
-                              <span className="font-semibold text-gray-700">Prerequisites (Edges): </span>
+                      {(() => {
+                        const incomingEdges = edges.filter((e) => e.toNodeId === selectedNode.nodeId);
+                        const incomingNodes = incomingEdges.map(e => nodes.find(n => n.nodeId === e.fromNodeId)).filter(Boolean);
+                        if (incomingNodes.length > 0) {
+                          return (
+                            <div className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200/60 p-1.5 rounded-[4px] mt-1.5">
+                              <span className="font-bold text-slate-800">Yêu cầu trước: </span>
                               {incomingNodes.map(inNode => inNode?.title).join(', ')}
                             </div>
-                          )}
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
 
-                          <div className="text-xs text-muted-foreground">
-                            Display Order: <span className="font-semibold text-foreground">{node.displayOrder}</span>
-                            {node.branchName && <span className="ml-4">Branch: <span className="font-semibold text-foreground">{node.branchName}</span></span>}
-                          </div>
-
-                          {/* Materials & Tests Timeline */}
-                          <div className="space-y-2 pt-2 border-t border-gray-100">
-                            <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Node Contents</h4>
-                            {loadingContents[node.nodeId] ? (
-                              <div className="flex items-center gap-2 py-2 text-xs text-gray-400">
-                                <Loader2 className="size-3.5 animate-spin" />
-                                Loading content...
+                    {/* Check if PLACEMENT test */}
+                    {selectedNode.testKind === 'PLACEMENT' ? (
+                      <div className="space-y-3 bg-amber-50 border border-amber-200/60 p-3 rounded-lg text-xs leading-relaxed text-amber-900 shadow-2xs">
+                        <AlertTriangle className="size-5 text-amber-600 mb-1" />
+                        <p className="font-bold">Bài test năng lực đầu vào</p>
+                        <p className="text-[11px] text-amber-700">
+                          Bài test này được dùng để đánh giá năng lực & tự động phân lộ trình cho học sinh. Vui lòng cấu hình chi tiết câu hỏi & các khoảng điểm phân lớp tại tab **Đánh giá & Phân loại**.
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}?tab=placement`)}
+                          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-md text-[11px] h-8 mt-1"
+                        >
+                          <ArrowLeft className="size-3 mr-1 rotate-180" /> Đi tới tab Đánh giá & Phân loại
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Node Content lists (materials, tests, exercises) */}
+                        <div className="space-y-4">
+                          {/* Materials & Videos */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
+                              <span className="flex items-center gap-1.5">
+                                <BookOpen className="size-3.5 text-slate-500" />
+                                Tài liệu & Video ({nodeContents[selectedNode.nodeId]?.materials?.length || 0})
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={isPublished}
+                                className="h-6 text-[10px] text-primary hover:bg-primary/5 rounded font-bold px-1.5"
+                                onClick={() => handleAddContentClick(selectedNode)}
+                              >
+                                + Thêm tài liệu
+                              </Button>
+                            </div>
+                            {nodeContentsLoading[selectedNode.nodeId] ? (
+                              <div className="flex items-center gap-2 text-xs text-slate-500 py-1 pl-2">
+                                <Loader className="size-3 animate-spin" /> Tải tài liệu...
                               </div>
-                            ) : (() => {
-                              const sortedItems = getSortedTimelineItems(node.nodeId);
-                              if (sortedItems.length === 0) {
-                                return (
-                                  <div className="text-xs text-gray-400 italic py-2 text-center bg-gray-50 rounded border border-dashed border-gray-200">
-                                    No materials or tests added yet.
-                                  </div>
-                                );
-                              }
-                              return (
-                                <div className="space-y-2">
-                                  {sortedItems.map((item) => {
-                                    const isMaterial = item.type === 'MATERIAL';
-                                    const m = isMaterial ? item.data : null;
-                                    const t = !isMaterial ? item.data : null;
-
-                                    return (
-                                      <div
-                                        key={item.key}
-                                        className="flex items-start justify-between gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs hover:border-indigo-200 transition-colors"
+                            ) : !(nodeContents[selectedNode.nodeId]?.materials) || nodeContents[selectedNode.nodeId].materials.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic pl-1">Chưa có tài liệu học tập.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {(nodeContents[selectedNode.nodeId]?.materials || []).map((material) => (
+                                  <div
+                                    key={material.materialId}
+                                    className="rounded-[6px] border border-slate-200/50 bg-white p-2 text-xs shadow-2xs"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                      {material.video ? <Film className="size-3.5 text-slate-500 shrink-0" /> : <FileText className="size-3.5 text-slate-500 shrink-0" />}
+                                      <span className="truncate text-[11px] font-medium text-slate-700">{material.title}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                      {material.video && (
+                                        <a href={material.video.videoUrl} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-750">
+                                          <ExternalLink className="size-3" />
+                                        </a>
+                                      )}
+                                      {material.file && (
+                                        <a href={material.file.fileUrl} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-750">
+                                          <Download className="size-3" />
+                                        </a>
+                                      )}
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-5 rounded text-red-500 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
+                                        disabled={isPublished}
+                                        onClick={() => handleDeleteMaterial(selectedNode.nodeId, material.materialId)}
                                       >
-                                        <div className="space-y-1 flex-1 min-w-0 pr-2">
-                                          <div className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap">
-                                            {isMaterial ? (
-                                              <>
-                                                <BookOpen className="size-3.5 text-indigo-500 shrink-0" />
-                                                <span className="truncate">{item.title}</span>
-                                                {m?.required && (
-                                                  <span className="text-[9px] px-1 bg-red-50 text-red-500 rounded font-bold border border-red-100 shrink-0">
-                                                    Required
-                                                  </span>
-                                                )}
-                                              </>
-                                            ) : (
-                                              <>
-                                                <GraduationCap className="size-3.5 text-teal-500 shrink-0" />
-                                                <span className="truncate">{item.title}</span>
-                                              </>
-                                            )}
-                                          </div>
-
-                                          {isMaterial && m?.video && (
-                                            <div className="text-gray-500 flex items-center gap-1.5 text-[11px]">
-                                              <span className="px-1 py-0.2 bg-teal-50 text-teal-700 border border-teal-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
-                                                <VideoIcon className="size-2.5" /> Video
-                                              </span>
-                                              <a
-                                                href={m.video.videoUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-indigo-600 hover:underline truncate max-w-[250px]"
-                                              >
-                                                {m.video.videoUrl}
-                                              </a>
-                                            </div>
-                                          )}
-
-                                          {isMaterial && m?.file && (
-                                            <div className="text-gray-500 flex items-center gap-1.5 text-[11px]">
-                                              <span className="px-1 py-0.2 bg-orange-50 text-orange-700 border border-orange-100 rounded text-[9px] font-semibold flex items-center gap-0.5 shrink-0">
-                                                <FileText className="size-2.5" /> File
-                                              </span>
-                                              <a
-                                                href={m.file.fileUrl.startsWith('/') ? `http://localhost:8080${m.file.fileUrl}` : m.file.fileUrl}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-indigo-600 hover:underline truncate max-w-[250px]"
-                                              >
-                                                {m.file.fileName || 'Download Document'}
-                                              </a>
-                                            </div>
-                                          )}
-
-                                          {!isMaterial && t && (
-                                            <div className="text-[10px] text-gray-500 flex gap-3 flex-wrap">
-                                              <div>Duration: <span className="font-semibold text-gray-700">{t.durationMinutes || '—'} mins</span></div>
-                                              {t.passingPercentage !== undefined && (
-                                                <div>Passing Score: <span className="font-semibold text-gray-700">{t.passingPercentage}%</span></div>
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        {/* Material operations */}
-                                        {isMaterial && m && (
-                                          <div className="flex items-center gap-1 shrink-0">
-                                            <Button
-                                              size="icon"
-                                              variant="ghost"
-                                              className="size-7 text-gray-500 hover:text-red-650 hover:bg-red-50"
-                                              title="Delete Material"
-                                              disabled={isPublished}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteMaterial(m.materialId, node.nodeId);
-                                              }}
-                                            >
-                                              <Trash2 className="size-3.5" />
-                                            </Button>
-                                          </div>
-                                        )}
-
-                                        {/* Test operations */}
-                                        {!isMaterial && t && (
-                                          <div className="flex items-center gap-1 shrink-0">
-                                            <Button
-                                              size="icon"
-                                              variant="ghost"
-                                              className="size-7 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
-                                              title="Manage Questions"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleManageQuestionsClick(t);
-                                              }}
-                                            >
-                                              <ClipboardList className="size-3.5" />
-                                            </Button>
-                                            <Button
-                                              size="icon"
-                                              variant="ghost"
-                                              className="size-7 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
-                                              title="View Attempts"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleViewAttemptsClick(t);
-                                              }}
-                                            >
-                                              <Eye className="size-3.5" />
-                                            </Button>
-                                            <Button
-                                              size="icon"
-                                              variant="ghost"
-                                              className="size-7 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
-                                              title="Edit Test"
-                                              disabled={isPublished}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleEditTestClick(node, t);
-                                              }}
-                                            >
-                                              <Pencil className="size-3.5" />
-                                            </Button>
-                                            <Button
-                                              size="icon"
-                                              variant="ghost"
-                                              className="size-7 text-gray-500 hover:text-red-650 hover:bg-red-50"
-                                              title="Delete Test"
-                                              disabled={isPublished}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteTest(t.testId, node.nodeId);
-                                              }}
-                                            >
-                                              <Trash2 className="size-3.5" />
-                                            </Button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            })()}
+                                        <X className="size-3" />
+                                      </Button>
+                                    </div>
+                                    </div>
+                                    <div className="max-w-2xl">
+                                      <MaterialPreview material={material} />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
 
-                          {/* Node operations wrapped with tooltips when published */}
-                          <div className="flex gap-2 pt-1 border-t border-gray-100/50 flex-wrap">
-                            <div title={isPublished ? lockTooltip : undefined}>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-card hover:bg-muted text-xs h-8 text-indigo-700 hover:text-indigo-850 hover:bg-indigo-50/50"
-                                onClick={() => handleAddNextNodeClick(node)}
-                                disabled={isPublished}
-                              >
-                                <Plus className="size-3.5 mr-1" />
-                                Add Next Node
-                              </Button>
+                          {/* Quizzes & Tests */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
+                              <span className="flex items-center gap-1.5">
+                                <Award className="size-3.5 text-slate-500" />
+                                Bài kiểm tra ({nodeContents[selectedNode.nodeId]?.tests?.length || 0})
+                              </span>
                             </div>
-
-                            <div title={isPublished ? lockTooltip : undefined}>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-card hover:bg-muted text-xs h-8"
-                                onClick={() => handleAddMaterialClick(node)}
-                                disabled={isPublished}
-                              >
-                                <Plus className="size-3.5 mr-1" />
-                                Add Material
-                              </Button>
-                            </div>
-                            
-                            <div title={isPublished ? lockTooltip : undefined}>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-card hover:bg-muted text-xs h-8"
-                                onClick={() => handleAddTestClick(node)}
-                                disabled={isPublished}
-                              >
-                                <Plus className="size-3.5 mr-1" />
-                                Add Test
-                              </Button>
-                            </div>
-                            
-                            <div title={isPublished ? lockTooltip : undefined}>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive border-destructive/20 hover:border-destructive hover:bg-destructive/5 text-xs h-8"
-                                onClick={() => triggerRemoveNodeDialog(node.nodeId, node.title)}
-                                disabled={isPublished}
-                              >
-                                <Trash2 className="size-3.5 mr-1" />
-                                Remove Node
-                              </Button>
-                            </div>
+                            {nodeContentsLoading[selectedNode.nodeId] ? (
+                              <div className="flex items-center gap-2 text-xs text-slate-500 py-1 pl-2">
+                                <Loader className="size-3 animate-spin" /> Tải kiểm tra...
+                              </div>
+                            ) : !(nodeContents[selectedNode.nodeId]?.tests) || nodeContents[selectedNode.nodeId].tests.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic pl-1">Chưa có bài kiểm tra.</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {(nodeContents[selectedNode.nodeId]?.tests || []).map((test) => (
+                                  <div
+                                    key={test.testId}
+                                    className="flex items-center justify-between p-2 rounded-[6px] border border-slate-200/50 bg-white hover:bg-slate-50/50 text-xs transition-colors shadow-2xs"
+                                  >
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                      <Award className="size-3.5 text-indigo-500 shrink-0" />
+                                      <span className="truncate text-[11px] font-semibold text-slate-700">{test.title}</span>
+                                      <span className="text-[10px] text-slate-400 shrink-0">({test.durationMinutes} ph)</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="size-5 rounded text-red-500 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
+                                        disabled={isPublished}
+                                        onClick={() => handleDeleteTest(selectedNode.nodeId, test.testId)}
+                                      >
+                                        <X className="size-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      </>
+                    )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Student List</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student ID</TableHead>
-                  <TableHead>Full Name</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell className="font-medium">{student.id}</TableCell>
-                    <TableCell>{student.fullName}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    {/* Node actions (edit, delete) */}
+                    <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60 w-full font-sans">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-slate-700 border-slate-250 hover:bg-slate-50 text-xs h-8 rounded-lg font-semibold"
+                        onClick={() => {
+                          setNodeToEdit(selectedNode);
+                          setEditNodeTitle(selectedNode.title);
+                          setEditNodeDesc(selectedNode.description || '');
+                          setEditNodeType(selectedNode.nodeType);
+                          setEditNodeStatus(selectedNode.status);
+                          setEditNodeOrder(selectedNode.displayOrder || 1);
+                          setEditNodeRequired(selectedNode.isRequired ?? true);
+                          setIsEditNodeOpen(true);
+                        }}
+                      >
+                        <Edit2 className="size-3.5 mr-1" /> Sửa bài học
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-8 rounded-lg font-semibold"
+                        disabled={isPublished}
+                        onClick={() => triggerRemoveNodeDialog(selectedNode.nodeId, selectedNode.title)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -1177,13 +1112,13 @@ export function ClassManagementPage() {
               Bạn có chắc chắn muốn xóa bài học <strong>"{nodeToDelete?.title}"</strong>? Mọi liên kết prerequisite edges liên quan đến bài học này cũng sẽ bị xóa.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-delete" 
-                checked={understandDelete} 
-                onCheckedChange={(val) => setUnderstandDelete(!!val)} 
+              <Checkbox
+                id="understand-delete"
+                checked={understandDelete}
+                onCheckedChange={(val) => setUnderstandDelete(!!val)}
               />
-              <label 
-                htmlFor="understand-delete" 
+              <label
+                htmlFor="understand-delete"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi đồng ý xóa bài học và chấp nhận mất các liên kết prerequisites đi kèm.
@@ -1191,16 +1126,17 @@ export function ClassManagementPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowDeleteConfirm(false); setUnderstandDelete(false); }}
+              className="rounded-[6px] border-slate-200"
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handleRemoveNodeConfirm} 
+            <Button
+              onClick={handleRemoveNodeConfirm}
               disabled={!understandDelete}
-              className="bg-red-600 hover:bg-red-700 text-white font-medium"
+              className="bg-red-600 hover:bg-red-700 text-white font-medium rounded-[6px]"
             >
               Xóa bài học
             </Button>
@@ -1211,794 +1147,716 @@ export function ClassManagementPage() {
       {/* ADD NODE MODAL */}
       {isAddNodeOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-gray-150">
-              <h2 className="text-lg font-semibold text-gray-900">Create New Learning Node</h2>
-              <button onClick={() => setIsAddNodeOpen(false)} className="text-gray-400 hover:text-gray-600">
+          <div className="bg-white rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-slate-150">
+              <h2 className="text-base font-bold text-[#030213]">Tạo bài học mới</h2>
+              <button onClick={() => setIsAddNodeOpen(false)} className="text-slate-400 hover:text-slate-650">
                 <X className="size-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddNodeSubmit} className="p-4 space-y-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Node Title *</label>
+                <label className="text-xs font-semibold text-slate-700">Tiêu đề bài học *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Introduction to Git"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Ví dụ: Giới thiệu Git & GitHub..."
+                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                   value={newNodeTitle}
                   onChange={(e) => setNewNodeTitle(e.target.value)}
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Description</label>
+                <label className="text-xs font-semibold text-slate-700">Mô tả bài học</label>
                 <textarea
-                  placeholder="Briefly describe what students will learn..."
+                  placeholder="Nhập mô tả ngắn gọn nội dung bài học..."
                   rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
                   value={newNodeDesc}
                   onChange={(e) => setNewNodeDesc(e.target.value)}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Node Type</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={newNodeType}
-                    onChange={(e) => setNewNodeType(e.target.value as any)}
-                  >
-                    <option value="AT_HOME">At Home</option>
-                    <option value="ON_CLASS">On Class</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Initial Status</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={newNodeStatus}
-                    onChange={(e) => setNewNodeStatus(e.target.value as any)}
-                  >
-                    <option value="LOCKED">Locked</option>
-                    <option value="OPEN">Open</option>
-                    <option value="HIDDEN">Hidden</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Display Order</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={newNodeOrder}
-                    onChange={(e) => setNewNodeOrder(Number(e.target.value))}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Branch Name (Optional)</label>
-                  <select
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={newNodeBranch}
-                    onChange={(e) => setNewNodeBranch(e.target.value)}
-                  >
-                    <option value="">-- Select Branch --</option>
-                    <option value="Main">Main</option>
-                    <option value="Optional">Optional</option>
-                  </select>
-                </div>
-              </div>
-
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Prerequisite Predecessor (Create Edge)</label>
+                <label className="text-xs font-semibold text-slate-700">Loại</label>
                 <select
-                  disabled={isPredecessorLocked}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
-                  value={newNodePredecessor}
-                  onChange={(e) => setNewNodePredecessor(e.target.value)}
+                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
+                  value={nKind}
+                  onChange={(e) => setNKind(e.target.value as AddNodeKind)}
                 >
-                  <option value="">-- No prerequisite (Disconnected) --</option>
-                  {nodes.map(n => (
-                    <option key={n.nodeId} value={n.nodeId}>{n.title} (Order: {n.displayOrder})</option>
-                  ))}
+                  <option value="AT_HOME">Tự học</option>
+                  <option value="GATE">Test phân luồng</option>
+                  <option value="PLACEMENT">Test năng lực</option>
+                  <option value="FREE_CHOICE">Test tự do chọn</option>
                 </select>
               </div>
 
-              {newNodePredecessor && (
-                <div className="grid grid-cols-2 gap-4 border border-indigo-100 bg-indigo-50/20 p-3 rounded-lg animate-in fade-in duration-200">
+              {nKind === 'AT_HOME' || nKind === 'ON_CLASS' ? (
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-indigo-900">Edge Min Score (Optional)</label>
+                    <label className="text-xs font-semibold text-slate-700">Mức năng lực</label>
+                    <select
+                      className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
+                      value={nLevel}
+                      onChange={(e) => setNLevel(e.target.value === '' ? '' : (Number(e.target.value) as 1 | 2 | 3))}
+                    >
+                      {LEVEL_OPTIONS.map((o) => (
+                        <option key={String(o.value)} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
                     <input
                       type="number"
-                      step="0.01"
-                      placeholder="e.g. 8.0"
-                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={edgeMinScore}
-                      onChange={(e) => setEdgeMinScore(e.target.value)}
+                      min={1}
+                      className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                      value={nStage}
+                      onChange={(e) => setNStage(Number(e.target.value) || 1)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {nKind === 'GATE' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Mức làm test</label>
+                        <div className="flex gap-3 pt-2">
+                          {[1, 2, 3].map((lv) => (
+                            <label key={lv} className="flex items-center gap-1 text-sm text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={nApplies.includes(lv)}
+                                onChange={() => setNApplies((p) => (p.includes(lv) ? p.filter((x) => x !== lv) : [...p, lv]))}
+                              />
+                              {lv === 1 ? 'Yếu' : lv === 2 ? 'TB' : 'Khá'}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          value={nStage}
+                          onChange={(e) => setNStage(Number(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Mức làm test</label>
+                        <p className="pt-2 text-sm text-slate-500">
+                          {nKind === 'FREE_CHOICE' ? 'HS tự chọn 1 trong 3 mức' : 'Mọi mức (Yếu · TB · Khá)'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          value={nStage}
+                          onChange={(e) => setNStage(Number(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {nKind === 'PLACEMENT' && (
+                    <>
+                      <p className="text-xs text-slate-500">
+                        Test năng lực phải đứng riêng một chặng; mọi học sinh đều làm và được phân về mức theo điểm.
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Điểm Yếu tối đa (%)</label>
+                          <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nYeuMax} onChange={(e) => setNYeuMax(e.target.value)} placeholder="vd 40" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Điểm TB tối đa (%)</label>
+                          <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nTbMax} onChange={(e) => setNTbMax(e.target.value)} placeholder="vd 70" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Thời lượng làm test (phút)</label>
+                          <input type="number" min={1} className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={tDuration} onChange={(e) => setTDuration(e.target.value)} placeholder="vd 15" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Số lượng câu hỏi</label>
+                          <input type="number" min={0} className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} placeholder="vd 5" />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {nKind === 'GATE' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Ngưỡng lên (≥ %)</label>
+                        <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nUpMin} onChange={(e) => setNUpMin(e.target.value)} placeholder="vd 80" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Ngưỡng xuống (≤ %)</label>
+                        <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nDownMax} onChange={(e) => setNDownMax(e.target.value)} placeholder="vd 40" />
+                      </div>
+                    </div>
+                  )}
+
+                  {nKind === 'FREE_CHOICE' && (
+                    <p className="text-xs text-slate-500">
+                      Sẽ tạo <b>3 node test</b> (Yếu / TB / Khá) cùng chặng. Mọi nhánh đều nối vào cả 3; học sinh tự chọn
+                      làm bài nào, đạt ≥ ngưỡng % của bài đó thì học tiếp nhánh tương ứng. Mỗi node thêm 1 bài test + ngưỡng % ở phần chi tiết.
+                    </p>
+                  )}
+                </>
+              )}
+
+              <div className="flex justify-end gap-2 border-t border-slate-150 pt-4">
+                <Button type="button" variant="outline" className="rounded-[6px] border-slate-200" onClick={() => setIsAddNodeOpen(false)}>
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={addingNode}
+                  className="text-white font-semibold rounded-[6px] shadow-xs px-4 disabled:opacity-60"
+                  style={{ backgroundColor: '#030213' }}
+                >
+                  {addingNode ? 'Đang lưu...' : 'Tạo bài học'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD CONTENT MODAL */}
+      {isAddContentOpen && selectedNodeForContent && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-slate-150">
+              <div>
+                <h2 className="text-base font-bold text-[#030213]">Thêm nội dung bài học</h2>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">Bài học: {selectedNodeForContent.title}</p>
+              </div>
+              <button onClick={() => setIsAddContentOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddContentSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">Loại nội dung</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setContentType('MATERIAL')}
+                    className={`py-2 px-3 text-xs font-semibold rounded-[6px] border transition-colors ${
+                      contentType === 'MATERIAL'
+                        ? 'bg-[#030213]/5 border-[#030213]/25 text-[#030213]'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                    }`}
+                  >
+                    Tài liệu học tập
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setContentType('TEST')}
+                    className={`py-2 px-3 text-xs font-semibold rounded-[6px] border transition-colors ${
+                      contentType === 'TEST'
+                        ? 'bg-[#030213]/5 border-[#030213]/25 text-[#030213]'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                    }`}
+                  >
+                    Bài kiểm tra (Test)
+                  </button>
+                </div>
+              </div>
+
+              {contentType === 'MATERIAL' ? (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Tiêu đề tài liệu *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Slide bài giảng số 1, Video thực hành..."
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      value={contentTitle}
+                      onChange={(e) => setContentTitle(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Hình thức tài liệu</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMaterialType('FILE')}
+                        className={`py-1.5 px-2 text-[11px] font-bold rounded-[6px] border transition-colors ${
+                          materialType === 'FILE'
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                        }`}
+                      >
+                        Tải file lên
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMaterialType('VIDEO')}
+                        className={`py-1.5 px-2 text-[11px] font-bold rounded-[6px] border transition-colors ${
+                          materialType === 'VIDEO'
+                            ? 'bg-blue-50 border-blue-300 text-blue-800'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                        }`}
+                      >
+                        Video URL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMaterialType('EXTERNAL')}
+                        className={`py-1.5 px-2 text-[11px] font-bold rounded-[6px] border transition-colors ${
+                          materialType === 'EXTERNAL'
+                            ? 'bg-amber-50 border-amber-300 text-amber-800'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                        }`}
+                      >
+                        Link ngoài
+                      </button>
+                    </div>
+                  </div>
+
+                  {materialType === 'FILE' && (
+                    <div className="space-y-3 p-3 bg-slate-50/50 border border-slate-200 rounded-[6px] animate-in fade-in duration-200">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-750">Chọn tập tin từ máy *</label>
+                        <input
+                          type="file"
+                          required
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800"
+                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-750">Mô tả file (Tùy chọn)</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Đọc tài liệu PDF trước khi lên lớp..."
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800"
+                          value={fileDescription}
+                          onChange={(e) => setFileDescription(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {materialType === 'VIDEO' && (
+                    <div className="space-y-3 p-3 bg-slate-50/50 border border-slate-200 rounded-[6px] animate-in fade-in duration-200">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-750">Đường dẫn Video URL *</label>
+                        <input
+                          type="url"
+                          required
+                          placeholder="https://youtube.com/watch?v=..."
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          value={contentVideoUrl}
+                          onChange={(e) => setContentVideoUrl(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-750">Thời lượng (giây)</label>
+                          <input
+                            type="number"
+                            placeholder="Ví dụ: 600"
+                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            value={videoDuration}
+                            onChange={(e) => setVideoDuration(e.target.value ? Number(e.target.value) : '')}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-750">Mô tả ngắn</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Video giảng lý thuyết..."
+                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            value={videoDescription}
+                            onChange={(e) => setVideoDescription(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {materialType === 'EXTERNAL' && (
+                    <div className="space-y-3 p-3 bg-slate-50/50 border border-slate-200 rounded-[6px] animate-in fade-in duration-200">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-750">Đường dẫn URL *</label>
+                        <input
+                          type="url"
+                          required
+                          placeholder="https://example.com/document"
+                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          value={contentFileUrl}
+                          onChange={(e) => setContentFileUrl(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-750">Tên hiển thị</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Slide bài đọc..."
+                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            value={fileName}
+                            onChange={(e) => setFileName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-750">Định dạng (Type)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. PDF, Website..."
+                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            value={fileType}
+                            onChange={(e) => setFileType(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="isMatRequiredChk"
+                      className="rounded text-slate-800 focus:ring-slate-800 size-4 cursor-pointer"
+                      checked={isMaterialRequired}
+                      onChange={(e) => setIsMaterialRequired(e.target.checked)}
+                    />
+                    <label htmlFor="isMatRequiredChk" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                      Tài liệu bắt buộc hoàn thành (Required Material)
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Tiêu đề bài kiểm tra *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Bài test trắc nghiệm số 1..."
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      value={testTitle}
+                      onChange={(e) => setTestTitle(e.target.value)}
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-indigo-900">Edge Max Score (Optional)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="e.g. 10.0"
-                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={edgeMaxScore}
-                      onChange={(e) => setEdgeMaxScore(e.target.value)}
+                    <label className="text-xs font-semibold text-slate-700">Mô tả bài kiểm tra</label>
+                    <textarea
+                      placeholder="Mô tả nội dung bài kiểm tra hoặc quy chế thi..."
+                      rows={2}
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      value={testDescription}
+                      onChange={(e) => setTestDescription(e.target.value)}
                     />
                   </div>
-                </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700">Thời gian làm bài (Phút)</label>
+                      <input
+                        type="number"
+                        placeholder="Ví dụ: 15"
+                        min="1"
+                        className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                        value={testDuration}
+                        onChange={(e) => setTestDuration(e.target.value ? Number(e.target.value) : '')}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700">Tỷ lệ điểm đạt (%)</label>
+                      <input
+                        type="number"
+                        placeholder="Ví dụ: 80"
+                        min="0"
+                        max="100"
+                        className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                        value={testPassingPercentage}
+                        onChange={(e) => setTestPassingPercentage(e.target.value ? Number(e.target.value) : '')}
+                      />
+                    </div>
+                  </div>
+                </>
               )}
+
+              <div className="flex justify-end gap-2 border-t border-slate-150 pt-4">
+                <Button type="button" variant="outline" disabled={submittingContent} className="rounded-[6px] border-slate-200" onClick={() => setIsAddContentOpen(false)}>
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submittingContent}
+                  className="text-white flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
+                  style={{ backgroundColor: '#030213' }}
+                >
+                  {submittingContent && <Loader className="size-4 animate-spin" />}
+                  Lưu nội dung
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT NODE MODAL */}
+      {isEditNodeOpen && nodeToEdit && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[10px] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-slate-150">
+              <h2 className="text-base font-bold text-[#030213]">Chỉnh sửa bài học</h2>
+              <button onClick={() => { setIsEditNodeOpen(false); setNodeToEdit(null); }} className="text-slate-400 hover:text-slate-600">
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditNodeSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Tiêu đề bài học *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Giới thiệu, Lab 1..."
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                  value={editNodeTitle}
+                  onChange={(e) => setEditNodeTitle(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Mô tả chi tiết</label>
+                <textarea
+                  placeholder="Nhập mô tả ngắn gọn nội dung bài học..."
+                  rows={3}
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                  value={editNodeDesc}
+                  onChange={(e) => setEditNodeDesc(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Hình thức học</label>
+                  <select
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
+                    value={editNodeType}
+                    onChange={(e) => setEditNodeType(e.target.value as 'AT_HOME' | 'ON_CLASS')}
+                  >
+                    <option value="AT_HOME">Tự học (At Home)</option>
+                    <option value="ON_CLASS">Trên lớp (On Class)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Trạng thái khóa học</label>
+                  <select
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
+                    value={editNodeStatus}
+                    onChange={(e) => setEditNodeStatus(e.target.value as 'LOCKED' | 'OPEN' | 'HIDDEN')}
+                  >
+                    <option value="LOCKED">Bị khóa (LOCKED)</option>
+                    <option value="OPEN">Mở (OPEN)</option>
+                    <option value="HIDDEN">Ẩn (HIDDEN)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Thứ tự hiển thị</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                    value={editNodeOrder}
+                    onChange={(e) => setEditNodeOrder(Number(e.target.value))}
+                  />
+                </div>
+              </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
-                  id="isRequiredChk"
-                  className="rounded text-indigo-600 focus:ring-indigo-500 size-4"
-                  checked={newNodeRequired}
-                  onChange={(e) => setNewNodeRequired(e.target.checked)}
+                  id="editIsRequiredChk"
+                  className="rounded text-slate-800 focus:ring-slate-800 size-4 cursor-pointer"
+                  checked={editNodeRequired}
+                  onChange={(e) => setEditNodeRequired(e.target.checked)}
                 />
-                <label htmlFor="isRequiredChk" className="text-sm font-medium text-gray-700 cursor-pointer">
-                  Is Required Milestone
+                <label htmlFor="editIsRequiredChk" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                  Mốc bài học bắt buộc (Required Milestone)
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-gray-150 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsAddNodeOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                  Create Node
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ADD MATERIAL MODAL */}
-      {isAddMaterialOpen && selectedNodeForContent && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-4 border-b border-gray-150">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Add Learning Material</h2>
-                <p className="text-xs text-gray-500">Node: {selectedNodeForContent.title}</p>
-              </div>
-              <button onClick={() => { setIsAddMaterialOpen(false); setSelectedNodeForContent(null); }} className="text-gray-400 hover:text-gray-600">
-                <X className="size-5" />
-              </button>
-            </div>
-            <form onSubmit={handleAddMaterialSubmit} className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Material Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Lecture slide, Tutorial video..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={materialTitle}
-                  onChange={(e) => setMaterialTitle(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Material Type</label>
-                <div className="flex gap-4 pt-1">
-                  <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input
-                      type="radio"
-                      name="materialType"
-                      value="video"
-                      checked={materialType === 'video'}
-                      onChange={() => setMaterialType('video')}
-                      className="text-indigo-650 focus:ring-indigo-550 size-4 cursor-pointer"
-                    />
-                    Video Link (YouTube...)
-                  </label>
-                  <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-                    <input
-                      type="radio"
-                      name="materialType"
-                      value="file"
-                      checked={materialType === 'file'}
-                      onChange={() => setMaterialType('file')}
-                      className="text-indigo-650 focus:ring-indigo-550 size-4 cursor-pointer"
-                    />
-                    File Upload (Static document)
-                  </label>
-                </div>
-              </div>
-
-              {materialType === 'video' ? (
-                <div className="space-y-3 p-3 bg-gray-50 border border-gray-200 rounded-lg animate-in fade-in duration-200">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-750">Video URL (YouTube URL) *</label>
-                    <input
-                      type="url"
-                      placeholder="https://www.youtube.com/watch?v=..."
-                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={materialVideoUrl}
-                      onChange={(e) => setMaterialVideoUrl(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-750">Video Description</label>
-                    <textarea
-                      placeholder="Short description of the video..."
-                      rows={2}
-                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={materialVideoDesc}
-                      onChange={(e) => setMaterialVideoDesc(e.target.value)}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3 p-3 bg-gray-50 border border-gray-200 rounded-lg animate-in fade-in duration-200">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-750">Choose File to Upload</label>
-                    <input
-                      type="file"
-                      className="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                      onChange={(e) => setMaterialSelectedFile(e.target.files?.[0] || null)}
-                    />
-                  </div>
-                  <div className="text-center text-xs text-gray-400 font-semibold py-1">OR</div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-750">Or enter external file link (Google Drive...)</label>
-                    <input
-                      type="url"
-                      placeholder="https://drive.google.com/..."
-                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={materialFileUrl}
-                      onChange={(e) => setMaterialFileUrl(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-750">Display File Name (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. React Cheatsheet PDF"
-                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={materialFileName}
-                      onChange={(e) => setMaterialFileName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-750">Material Description</label>
-                    <textarea
-                      placeholder="Short description of the material..."
-                      rows={2}
-                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={materialFileDesc}
-                      onChange={(e) => setMaterialFileDesc(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="materialRequiredChk"
-                  className="rounded text-indigo-600 focus:ring-indigo-500 size-4 cursor-pointer"
-                  checked={materialRequired}
-                  onChange={(e) => setMaterialRequired(e.target.checked)}
-                />
-                <label htmlFor="materialRequiredChk" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
-                  Required to complete this node
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <div className="flex justify-end gap-2 border-t border-slate-150 pt-4">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => { setIsAddMaterialOpen(false); setSelectedNodeForContent(null); }}
+                  disabled={editingNode}
+                  className="rounded-[6px] border-slate-200"
+                  onClick={() => { setIsEditNodeOpen(false); setNodeToEdit(null); }}
                 >
-                  Cancel
+                  Hủy
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                  disabled={editingNode}
+                  className="text-white flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
+                  style={{ backgroundColor: '#030213' }}
                 >
-                  Add Material
+                  {editingNode && <Loader className="size-4 animate-spin" />}
+                  Lưu thay đổi
                 </Button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* ADD TEST MODAL */}
-      {isAddTestOpen && selectedNodeForContent && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-gray-150">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Add Test</h2>
-                <p className="text-xs text-gray-500">To node: {selectedNodeForContent.title}</p>
-              </div>
-              <button onClick={() => setIsAddTestOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="size-5" />
-              </button>
+      {/* Confirmation Modal for Publish */}
+      <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Xác nhận Publish lộ trình học</DialogTitle>
+            <DialogDescription>
+              Hành động này sẽ chính thức kích hoạt lộ trình học cho sinh viên.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-600 leading-relaxed">
+              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong>{students.length} học sinh</strong> đang enroll trong lớp học này.
+            </p>
+            <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-100">
+              <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
+            </p>
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox
+                id="understand-publish"
+                checked={understandPublish}
+                onCheckedChange={(val) => setUnderstandPublish(!!val)}
+              />
+              <label
+                htmlFor="understand-publish"
+                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+              >
+                Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
+              </label>
             </div>
-
-            <form onSubmit={handleAddTestSubmit} className="p-4 space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Test Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Chapter 1 Quiz"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={testTitle}
-                  onChange={(e) => setTestTitle(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Description</label>
-                <textarea
-                  placeholder="Short description of the test..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  rows={2}
-                  value={testDesc}
-                  onChange={(e) => setTestDesc(e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Duration (Mins)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="15"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={testDuration}
-                    onChange={(e) => setTestDuration(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Passing Score (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    placeholder="70.00"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={testPassPercent}
-                    onChange={(e) => setTestPassPercent(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-gray-150 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsAddTestOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                  Add Test
-                </Button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
-
-      {/* EDIT TEST MODAL */}
-      {isEditTestOpen && selectedTestForEdit && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-gray-150">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Edit Test</h2>
-                <p className="text-xs text-gray-500">Updating test details</p>
-              </div>
-              <button onClick={() => setIsEditTestOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="size-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditTestSubmit} className="p-4 space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Test Title *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Chapter 1 Quiz"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={testTitle}
-                  onChange={(e) => setTestTitle(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Description</label>
-                <textarea
-                  placeholder="Short description of the test..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  rows={2}
-                  value={testDesc}
-                  onChange={(e) => setTestDesc(e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Duration (Mins)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="15"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={testDuration}
-                    onChange={(e) => setTestDuration(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Passing Score (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    placeholder="70.00"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={testPassPercent}
-                    onChange={(e) => setTestPassPercent(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-gray-150 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsEditTestOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* VIEW ATTEMPTS MODAL */}
-      {isAttemptsOpen && selectedTestForAttempts && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-gray-150">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Student Attempts</h2>
-                <p className="text-xs text-gray-500">Test: {selectedTestForAttempts.title}</p>
-              </div>
-              <button onClick={() => setIsAttemptsOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="size-5" />
-              </button>
-            </div>
-
-            <div className="p-4 overflow-y-auto flex-1">
-              {loadingAttempts ? (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-400 gap-2">
-                  <Loader className="size-8 animate-spin text-indigo-600" />
-                  <p className="text-sm">Loading attempts data...</p>
-                </div>
-              ) : attempts.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 italic">
-                  No student has attempted this test yet.
-                </div>
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setShowPublishConfirm(false); setUnderstandPublish(false); }}
+              disabled={actionState === 'publishing'}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handlePublish}
+              disabled={!understandPublish || actionState === 'publishing'}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium"
+            >
+              {actionState === 'publishing' ? (
+                <>
+                  <Loader className="size-4 animate-spin mr-1" />
+                  Đang seed tiến độ cho {students.length} học sinh...
+                </>
               ) : (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-gray-55">
-                      <TableRow>
-                        <TableHead>Student Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead className="text-center">Score</TableHead>
-                        <TableHead className="text-center">Result</TableHead>
-                        <TableHead>Started At</TableHead>
-                        <TableHead>Submitted At</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {attempts.map((attempt) => (
-                        <TableRow key={attempt.attemptId}>
-                          <TableCell className="font-medium">{attempt.studentName}</TableCell>
-                          <TableCell>{attempt.studentEmail}</TableCell>
-                          <TableCell className="text-center font-semibold text-gray-700">
-                            {attempt.score !== null ? attempt.score.toFixed(1) : '—'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {attempt.passed === null ? (
-                              <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200">Pending</Badge>
-                            ) : attempt.passed ? (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Passed</Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Failed</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-[11px] text-gray-500">
-                            {formatDate(attempt.startedAt)}
-                          </TableCell>
-                          <TableCell className="text-[11px] text-gray-500">
-                            {formatDate(attempt.submittedAt)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                'Publish ngay'
               )}
-            </div>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            <div className="flex justify-end p-4 border-t border-gray-150 bg-gray-50">
-              <Button type="button" onClick={() => setIsAttemptsOpen(false)} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                Close
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* VIEW QUESTIONS MODAL */}
-      {isQuestionsListOpen && selectedTestForQuestions && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-gray-150 bg-indigo-50/50">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <ClipboardList className="size-5 text-indigo-600" />
-                  Manage Questions
-                </h2>
-                <p className="text-xs text-gray-500 font-medium">Test: {selectedTestForQuestions.title}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button 
-                  onClick={handleOpenAddQuestion} 
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 px-3 flex items-center gap-1"
-                >
-                  <Plus className="size-3.5" />
-                  Add Question
-                </Button>
-                <button onClick={() => setIsQuestionsListOpen(false)} className="text-gray-400 hover:text-gray-600">
-                  <X className="size-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-5 overflow-y-auto flex-1 bg-gray-50/30">
-              {loadingQuestions ? (
-                <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
-                  <Loader className="size-8 animate-spin text-indigo-600 animate-spin" />
-                  <p className="text-sm">Loading questions...</p>
-                </div>
-              ) : questionsList.length === 0 ? (
-                <div className="text-center py-16 text-gray-400 flex flex-col items-center justify-center gap-2">
-                  <HelpCircle className="size-12 text-gray-300 stroke-[1.5]" />
-                  <p className="text-sm font-medium">No questions added yet.</p>
-                  <p className="text-xs text-gray-500 max-w-xs">Click the "Add Question" button above to create your first multiple-choice question.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {questionsList.map((q, idx) => (
-                    <div key={q.questionId} className="bg-white border border-gray-150 rounded-xl p-4 shadow-sm hover:border-gray-300 transition-colors">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-2 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md">
-                              Question {idx + 1}
-                            </span>
-                            <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md">
-                              Score: {q.score}
-                            </span>
-                          </div>
-                          <p className="text-sm font-semibold text-gray-800 whitespace-pre-wrap">{q.questionContent}</p>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="size-7 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"
-                            title="Edit Question"
-                            onClick={() => handleOpenEditQuestion(q)}
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="size-7 text-gray-500 hover:text-red-650 hover:bg-red-50"
-                            title="Delete Question"
-                            onClick={() => handleDeleteQuestion(q.questionId)}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Answers choices preview */}
-                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 pl-2">
-                        {(q.answers || []).map((ans, ansIdx) => {
-                          const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-                          const letter = labels[ansIdx] || String(ansIdx + 1);
-                          return (
-                            <div 
-                              key={ans.answerId} 
-                              className={`flex items-start gap-2.5 p-2 rounded-lg text-xs border ${
-                                ans.isCorrect 
-                                  ? 'bg-green-50/60 border-green-200 text-green-800 font-medium' 
-                                  : 'bg-gray-50/50 border-gray-100 text-gray-600'
-                              }`}
-                            >
-                              <span className={`flex items-center justify-center shrink-0 size-5 rounded-full font-bold text-[10px] ${
-                                ans.isCorrect 
-                                  ? 'bg-green-500 text-white' 
-                                  : 'bg-gray-200 text-gray-600'
-                              }`}>
-                                {letter}
-                              </span>
-                              <span className="break-words mt-0.5">{ans.answerContent}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end p-4 border-t border-gray-150 bg-gray-50">
-              <Button type="button" onClick={() => setIsQuestionsListOpen(false)} className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                Close
-              </Button>
+      {/* Confirmation Modal for Unpublish */}
+      <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
+            <DialogDescription>
+              Rút lại lộ trình học để chỉnh sửa thêm bản nháp.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-600 leading-relaxed font-medium">
+              Toàn bộ tiến độ học tập và ghi nhận bài học hiện tại của học sinh sẽ bị xóa sạch khỏi hệ thống.
+            </p>
+            <p className="text-sm text-red-700 bg-red-50 p-3 rounded-md border border-red-100">
+              <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
+            </p>
+            <div className="flex items-start gap-2 pt-2">
+              <Checkbox
+                id="understand-unpublish"
+                checked={understandUnpublish}
+                onCheckedChange={(val) => setUnderstandUnpublish(!!val)}
+              />
+              <label
+                htmlFor="understand-unpublish"
+                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+              >
+                Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
+              </label>
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); }}
+              disabled={actionState === 'unpublishing'}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleUnpublish}
+              disabled={!understandUnpublish || actionState === 'unpublishing'}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+            >
+              {actionState === 'unpublishing' ? <Loader className="size-4 animate-spin mr-1" /> : null}
+              Xác nhận Unpublish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* ADD / EDIT QUESTION FORM MODAL */}
-      {isAddEditQuestionOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-gray-150 bg-indigo-50/50">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {editingQuestion ? 'Edit Question' : 'Add Question'}
-                </h2>
-                <p className="text-xs text-gray-500 font-medium">Type: Multiple Choice (Single correct answer)</p>
-              </div>
-              <button onClick={() => setIsAddEditQuestionOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="size-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveQuestion} className="flex-1 overflow-y-auto flex flex-col">
-              <div className="p-5 space-y-4 flex-1">
-                {/* Question Content */}
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                    Question Content <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={3}
-                    placeholder="Enter the question text here..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={questionContent}
-                    onChange={(e) => setQuestionContent(e.target.value)}
-                  />
-                </div>
-
-                {/* Score */}
-                <div className="space-y-1 w-full md:w-1/3">
-                  <label className="text-sm font-medium text-gray-700">Score</label>
-                  <input
-                    type="number"
-                    min="0.5"
-                    max="100"
-                    step="0.5"
-                    required
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={questionScore}
-                    onChange={(e) => setQuestionScore(e.target.value)}
-                  />
-                </div>
-
-                {/* Answers Builder */}
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-semibold text-gray-800">
-                      Answer Choices <span className="text-red-500">*</span>
-                    </label>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={handleAddAnswerRow}
-                      className="text-xs h-7 px-2 border-dashed border-indigo-400 text-indigo-600 hover:bg-indigo-50"
-                    >
-                      <Plus className="size-3 mr-1" /> Add Option
-                    </Button>
-                  </div>
-                  <p className="text-xs text-gray-500">Provide options and use the radio button to select the single correct answer.</p>
-
-                  <div className="space-y-2.5">
-                    {questionAnswers.map((ans, index) => {
-                      const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-                      const letter = labels[index] || String(index + 1);
-                      return (
-                        <div key={index} className="flex items-center gap-3">
-                          {/* Radio Correct Selection */}
-                          <div className="flex items-center shrink-0">
-                            <input
-                              type="radio"
-                              name="correctAnswerRadio"
-                              id={`correct-radio-${index}`}
-                              className="size-4 text-indigo-600 focus:ring-indigo-500 cursor-pointer border-gray-300"
-                              checked={ans.isCorrect}
-                              onChange={() => handleCorrectAnswerSelect(index)}
-                            />
-                          </div>
-
-                          {/* Option Input */}
-                          <div className="flex-1 flex items-center gap-2 border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 bg-white">
-                            <span className="bg-gray-100 text-gray-500 font-bold text-xs size-9 flex items-center justify-center shrink-0 border-r border-gray-200">
-                              {letter}
-                            </span>
-                            <input
-                              type="text"
-                              placeholder={`Option ${letter} content...`}
-                              required={index < 2} // At least 2 options required
-                              className="w-full px-2 py-1.5 text-sm focus:outline-none border-none bg-transparent"
-                              value={ans.answerContent}
-                              onChange={(e) => handleAnswerChange(index, e.target.value)}
-                            />
-                          </div>
-
-                          {/* Delete Option Row */}
-                          {questionAnswers.length > 2 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="size-8 text-gray-400 hover:text-red-600 shrink-0"
-                              onClick={() => handleRemoveAnswerRow(index)}
-                            >
-                              <X className="size-4" />
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-gray-150 p-4 bg-gray-50 shrink-0">
-                <Button type="button" variant="outline" onClick={() => setIsAddEditQuestionOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                  {editingQuestion ? 'Save Question' : 'Add Question'}
-                </Button>
-              </div>
-            </form>
+      {/* Unpublish Error Modal (already completed nodes) */}
+      <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="size-5 shrink-0" />
+              <span>Không thể unpublish</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 text-sm text-gray-600 leading-relaxed">
+            {unpublishErrorMsg || 'Đã có học sinh hoàn thành node, không thể unpublish.'}
           </div>
-        </div>
-      )}
+          <DialogFooter className="sm:justify-end">
+            <Button onClick={() => setShowUnpublishError(false)}>
+              Đồng ý
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

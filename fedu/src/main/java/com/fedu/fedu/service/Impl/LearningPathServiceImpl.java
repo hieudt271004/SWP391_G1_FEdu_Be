@@ -10,6 +10,7 @@ import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
+import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.NodeStatus;
 import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
@@ -33,15 +34,13 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final UserAccountRepository userAccountRepository;
     private final ClassroomSubjectRepository classroomSubjectRepository;
-    // content repos (clone copy toàn bộ giáo trình)
     private final NodeMaterialRepository nodeMaterialRepository;
     private final VideoRepository videoRepository;
     private final FileEntityRepository fileEntityRepository;
     private final TestRepository testRepository;
     private final TestQuestionRepository testQuestionRepository;
     private final TestAnswerRepository testAnswerRepository;
-
-    // Learning Path (Template)
+    private final NodeExerciseRepository nodeExerciseRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -116,6 +115,22 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Lớp-môn đã có lộ trình. Xóa draft/unpublish trước.");
         }
 
+        
+        if (templatePathId == null) {
+            List<LearningPath> candidates = learningPathRepository
+                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
+                    .stream()
+                    .filter(this::isPathPublishable)
+                    .collect(Collectors.toList());
+            if (candidates.isEmpty()) {
+                throw new InvalidDataException("Môn chưa có lộ trình mẫu đạt điều kiện để clone.");
+            }
+            if (candidates.size() > 1) {
+                throw new InvalidDataException("Môn có nhiều lộ trình mẫu — cần chọn lộ trình cụ thể để clone.");
+            }
+            templatePathId = candidates.get(0).getPathId();
+        }
+
         LearningPath template = learningPathRepository.findById(templatePathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path template not found"));
         if (template.getClassroomSubject() != null || Boolean.TRUE.equals(template.getIsDeleted())
@@ -131,7 +146,6 @@ public class LearningPathServiceImpl implements LearningPathService {
         LearningPath clonedPath = LearningPath.builder()
                 .subject(template.getSubject())
                 .classroomSubject(cs)
-                .originalPath(template)
                 .pathName(template.getPathName())
                 .description(template.getDescription())
                 .isDeleted(false)
@@ -167,8 +181,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             LearningNode t = nodeMap.get(te.getToNode().getNodeId());
             if (f != null && t != null) {
                 nodeEdgeRepository.save(NodeEdge.builder()
-                        .fromNode(f).toNode(t)
-                        .minScore(te.getMinScore()).maxScore(te.getMaxScore()).build());
+                        .fromNode(f).toNode(t).build());
             }
         }
         return mapToResponse(clonedPath);
@@ -232,6 +245,18 @@ public class LearningPathServiceImpl implements LearningPathService {
                             .build());
                 }
             }
+        }
+        
+        for (NodeExercise ex : nodeExerciseRepository.findByLearningNodeNodeIdAndIsDeletedFalse(src.getNodeId())) {
+            nodeExerciseRepository.save(NodeExercise.builder()
+                    .learningNode(dst)
+                    .title(ex.getTitle())
+                    .instructions(ex.getInstructions())
+                    .allowText(ex.getAllowText())
+                    .allowFile(ex.getAllowFile())
+                    .orderIndex(ex.getOrderIndex())
+                    .isDeleted(false)
+                    .build());
         }
     }
 
@@ -298,7 +323,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .collect(Collectors.toList());
     }
 
-    // ── Learning Node ─────────────────────────────────────────────────────────
+    //  Learning Node
 
     @Override
     @Transactional
@@ -310,35 +335,15 @@ public class LearningPathServiceImpl implements LearningPathService {
         LearningPath learningPath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
-        // Chỉ ADMIN (lộ trình gốc, classroomSubject == null) được tạo node loại "Trên lớp".
         if (request.getNodeType() == NodeType.ON_CLASS && learningPath.getClassroomSubject() != null) {
             throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
         }
 
-        // Validate stageOrder trong [1, subject.learningpathLength] và level node hợp lệ (null hoặc 1..3).
-        if (request.getStageOrder() != null) {
-            Integer length = learningPath.getSubject() != null
-                    ? learningPath.getSubject().getLearningpathLength() : null;
-            if (length != null && request.getStageOrder() > length) {
-                throw new InvalidDataException(
-                        "stageOrder phải trong [1, " + length + "] (số chặng của môn)");
-            }
+        if (request.getStageOrder() != null && request.getStageOrder() < 1) {
+            throw new InvalidDataException("stageOrder phải >= 1");
         }
         if (request.getLevel() != null && !com.fedu.fedu.utils.LearningLevels.isValid(request.getLevel())) {
             throw new InvalidDataException("level của node phải null (node chung) hoặc 1=yếu, 2=tb, 3=khá");
-        }
-
-        // Validate learningpathLength limit for template roadmaps (classroomSubject == null)
-        if (learningPath.getClassroomSubject() == null) {
-            Subject subject = learningPath.getSubject();
-            if (subject != null && subject.getLearningpathLength() != null) {
-                List<LearningNode> existingNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(learningPath.getPathId());
-                if (existingNodes.size() >= subject.getLearningpathLength()) {
-                    throw new InvalidDataException(
-                            "Không thể thêm bài học. Lộ trình đã đạt số bài học tối đa cấu hình cho môn học ("
-                            + subject.getLearningpathLength() + " bài học)");
-                }
-            }
         }
 
         LearningNode learningNode = LearningNode.builder()
@@ -444,7 +449,6 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .description(learningPath.getDescription())
                 .createdById(learningPath.getCreatedBy() != null ? learningPath.getCreatedBy().getUserId() : null)
                 .classroomSubjectId(learningPath.getClassroomSubject() != null ? learningPath.getClassroomSubject().getId() : null)
-                .originalPathId(learningPath.getOriginalPath() != null ? learningPath.getOriginalPath().getPathId() : null)
                 .publishedAt(learningPath.getPublishedAt())
                 .publishedById(learningPath.getPublishedBy() != null ? learningPath.getPublishedBy().getUserId() : null)
                 .createdAt(learningPath.getCreatedAt())
@@ -516,9 +520,31 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .edgeId(e.getEdgeId())
                 .fromNodeId(e.getFromNode().getNodeId())
                 .toNodeId(e.getToNode().getNodeId())
-                .minScore(e.getMinScore())
-                .maxScore(e.getMaxScore())
                 .build();
+    }
+
+    private boolean isPathPublishable(LearningPath path) {
+        List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
+        if (nodes.isEmpty()) {
+            return false;
+        }
+        Map<Integer, Set<Integer>> specificByStage = new HashMap<>();
+        for (LearningNode n : nodes) {
+            if (n.getStageOrder() == null) {
+                continue;
+            }
+            boolean isLearning = n.getTestKind() == null
+                    || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.NONE;
+            if (isLearning && n.getLevel() != null) {
+                specificByStage.computeIfAbsent(n.getStageOrder(), k -> new HashSet<>()).add(n.getLevel());
+            }
+        }
+        for (Set<Integer> levels : specificByStage.values()) {
+            if (!levels.contains(1) || !levels.contains(2) || !levels.contains(3)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -531,8 +557,12 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
 
         if (paths.isEmpty()) {
+            // Chỉ liệt kê lộ trình đạt điều kiện xuất bản — teacher không thấy/clone bản nháp.
             List<LearningPath> templates = learningPathRepository
-                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId());
+                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
+                    .stream()
+                    .filter(this::isPathPublishable)
+                    .collect(Collectors.toList());
 
             boolean subjectPublished = "published".equalsIgnoreCase(cs.getSubject().getStatus());
             boolean canClone = subjectPublished && !templates.isEmpty();
@@ -578,6 +608,22 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .edges(edgeResponses)
                 .build();
 
+        List<AvailableTemplateResponse> draftTemplates = null;
+        if ("DRAFT".equals(state)) {
+            draftTemplates = learningPathRepository
+                    .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
+                    .stream()
+                    .filter(this::isPathPublishable)
+                    .map(t -> AvailableTemplateResponse.builder()
+                            .pathId(t.getPathId())
+                            .pathName(t.getPathName())
+                            .description(t.getDescription())
+                            .nodeCount(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(t.getPathId()).size())
+                            .lastUpdatedAt(t.getUpdatedAt())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
         return ClassroomGraphResponse.builder()
                 .classroomSubjectId(classroomSubjectId)
                 .state(state)
@@ -588,7 +634,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .paths(Collections.singletonList(pathDto))
                 .canCloneAll(false)
                 .missingLevels(Collections.emptyList())
-                .availableTemplates(null)
+                .availableTemplates(draftTemplates)
                 .quizStartTestId(cs.getQuizStart() != null ? cs.getQuizStart().getTestId() : null)
                 .build();
     }
@@ -658,24 +704,45 @@ public class LearningPathServiceImpl implements LearningPathService {
         Set<Long> entryIds = nodes.stream().map(LearningNode::getNodeId)
                 .filter(id -> !withIncoming.contains(id)).collect(Collectors.toSet());
 
+        Map<Long, LearningNode> byId = nodes.stream()
+                .collect(Collectors.toMap(LearningNode::getNodeId, n -> n, (a, b) -> a));
+
         for (int level = 1; level <= 3; level++) {
             final int lv = level;
-            List<LearningNode> visible = nodes.stream()
-                    .filter(n -> n.getLevel() == null || n.getLevel().equals(lv))
+
+            // Node "hiện" với mức lv = node chung (level null) hoặc đúng mức lv.
+            List<LearningNode> entries = nodes.stream()
+                    .filter(n -> entryIds.contains(n.getNodeId()) && isVisibleForLevel(n, lv))
                     .collect(Collectors.toList());
 
-            if (visible.stream().noneMatch(n -> entryIds.contains(n.getNodeId()))) {
+            if (entries.isEmpty()) {
                 throw new InvalidDataException("Lộ trình không có node bắt đầu cho học sinh mức "
                         + levelName(lv) + " — mức này sẽ không vào học được.");
             }
 
-            for (LearningNode n : visible) {
-                List<LearningNode> outs = outgoing.getOrDefault(n.getNodeId(), Collections.emptyList());
+            // BFS từ entry của mức, chỉ đi qua node "hiện" với mức → tập node THỰC SỰ tới được.
+            // Node chung nằm trên nhánh của mức khác (vd Test chung chỉ nối Yếu/TB) sẽ không
+            // reachable cho mức Khá nên không bị coi là "kẹt".
+            Set<Long> reachable = new HashSet<>();
+            Deque<LearningNode> queue = new ArrayDeque<>(entries);
+            entries.forEach(n -> reachable.add(n.getNodeId()));
+            while (!queue.isEmpty()) {
+                LearningNode cur = queue.poll();
+                for (LearningNode next : outgoing.getOrDefault(cur.getNodeId(), Collections.emptyList())) {
+                    if (isVisibleForLevel(next, lv) && reachable.add(next.getNodeId())) {
+                        queue.add(next);
+                    }
+                }
+            }
+
+            // Chỉ kiểm node reachable cho mức: có nhánh đi tiếp nhưng không nhánh nào "hiện" → kẹt.
+            for (Long id : reachable) {
+                LearningNode n = byId.get(id);
+                List<LearningNode> outs = outgoing.getOrDefault(id, Collections.emptyList());
                 if (outs.isEmpty()) {
                     continue;
                 }
-                boolean hasVisibleNext = outs.stream()
-                        .anyMatch(t -> t.getLevel() == null || t.getLevel().equals(lv));
+                boolean hasVisibleNext = outs.stream().anyMatch(t -> isVisibleForLevel(t, lv));
                 if (!hasVisibleNext) {
                     throw new InvalidDataException("Lộ trình bị kẹt ở node '" + n.getTitle()
                             + "' cho học sinh mức " + levelName(lv)
@@ -683,6 +750,11 @@ public class LearningPathServiceImpl implements LearningPathService {
                 }
             }
         }
+    }
+
+    /** Node "hiện" (đi được) với một mức: node chung (level null) hoặc đúng mức đó. */
+    private static boolean isVisibleForLevel(LearningNode n, int level) {
+        return n.getLevel() == null || n.getLevel().equals(level);
     }
 
     private String levelName(int level) {
@@ -767,9 +839,6 @@ public class LearningPathServiceImpl implements LearningPathService {
             return;
         }
 
-        UserAccount student = userAccountRepository.findById(studentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-
         if (!studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()).isEmpty()) {
             return;
         }
@@ -784,7 +853,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
             boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS && levelOk;
             progressList.add(StudentNodeProgress.builder()
-                    .student(student)
+                    .classroomSubjectStudent(css)
                     .learningNode(node)
                     .learningPath(path)
                     .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)
@@ -829,9 +898,15 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .findFirst().orElse(null);
             if (target == null || target.getStatus() != StudentProgressStatus.LOCKED) continue;
 
-            // Tôn trọng điều kiện tiên quyết: chỉ mở cho học sinh đã hoàn thành các node trước.
-            boolean prereqMet = incoming.stream().allMatch(
-                    e -> statusMap.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
+            // Lấy thông tin lớp học sinh để biết level hiện tại
+            ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                    .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, student.getUserId())
+                    .orElse(null);
+            if (css == null || css.getCurrentLevel() == null) continue;
+            Integer studentLevel = css.getCurrentLevel();
+
+            // Tôn trọng điều kiện tiên quyết: chỉ mở cho học sinh đã hoàn thành các node trước (bỏ qua các node của level khác)
+            boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusMap, studentLevel);
             if (!prereqMet) continue;
 
             target.setStatus(StudentProgressStatus.OPEN);
@@ -853,6 +928,108 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Unauthorized"));
         if (!classroomSubjectRepository.existsByIdAndLecturerUserId(csId, actor.getUserId())) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StudentInClassResponse> getNodeStudents(Long nodeId) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
+        LearningPath path = node.getLearningPath();
+        if (path == null || path.getClassroomSubject() == null) {
+            return Collections.emptyList();
+        }
+        
+        List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByLearningNodeNodeId(nodeId);
+        List<StudentInClassResponse> responses = new ArrayList<>();
+        for (StudentNodeProgress p : progressList) {
+            ClassroomSubjectStudent css = p.getClassroomSubjectStudent();
+            UserAccount student = css.getStudent();
+            responses.add(StudentInClassResponse.builder()
+                    .userId(student.getUserId())
+                    .email(student.getEmail())
+                    .firstName(student.getFirstName())
+                    .lastName(student.getLastName())
+                    .avatarUrl(student.getAvatarUrl())
+                    .joinedAt(css.getCreatedAt())
+                    .currentLevel(css.getCurrentLevel())
+                    .classroomSubjectStudentId(css.getId())
+                    .build());
+        }
+        return responses;
+    }
+
+    @Override
+    @Transactional
+    public void assignStudentsToNode(Long nodeId, List<Long> studentUserIds) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
+        LearningPath path = node.getLearningPath();
+        if (path == null || path.getClassroomSubject() == null) {
+            throw new InvalidDataException("Node không thuộc lộ trình lớp học");
+        }
+        assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
+
+        Long csId = path.getClassroomSubject().getId();
+        Integer stage = node.getStageOrder();
+        
+        // Find other nodes in the same stage (row)
+        List<LearningNode> sameStageNodes = learningNodeRepository
+                .findByLearningPathPathIdAndIsDeletedFalse(path.getPathId())
+                .stream()
+                .filter(n -> Objects.equals(n.getStageOrder(), stage))
+                .collect(Collectors.toList());
+
+        List<ClassroomSubjectStudent> enrolledStudents = classroomSubjectStudentRepository.findAllByClassroomSubjectId(csId);
+        Set<Long> assignSet = studentUserIds != null ? new HashSet<>(studentUserIds) : Collections.emptySet();
+
+        for (ClassroomSubjectStudent css : enrolledStudents) {
+            Long studentId = css.getStudent().getUserId();
+            boolean shouldAssign = assignSet.contains(studentId);
+
+            if (shouldAssign) {
+                // Remove progress records for other nodes in the same stage
+                for (LearningNode otherNode : sameStageNodes) {
+                    if (!otherNode.getNodeId().equals(nodeId)) {
+                        List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+                        for (StudentNodeProgress p : list) {
+                            if (p.getLearningNode().getNodeId().equals(otherNode.getNodeId())) {
+                                studentNodeProgressRepository.delete(p);
+                            }
+                        }
+                    }
+                }
+                
+                // Ensure progress record exists for target node
+                List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+                boolean exists = list.stream().anyMatch(p -> p.getLearningNode().getNodeId().equals(nodeId));
+                if (!exists) {
+                    // Find entry nodes to decide whether to open it
+                    List<LearningNode> allNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
+                    List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
+                    List<LearningNode> entryNodes = validateAndGetEntryNodes(allNodes, edges);
+                    
+                    boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS;
+                    StudentNodeProgress progress = StudentNodeProgress.builder()
+                            .classroomSubjectStudent(css)
+                            .learningNode(node)
+                            .learningPath(path)
+                            .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)
+                            .status(openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
+                            .unlockedAt(openIt ? LocalDateTime.now() : null)
+                            .build();
+                    studentNodeProgressRepository.save(progress);
+                }
+            } else {
+                // If not assigned, ensure no progress record exists for target node
+                List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+                for (StudentNodeProgress p : list) {
+                    if (p.getLearningNode().getNodeId().equals(nodeId)) {
+                        studentNodeProgressRepository.delete(p);
+                    }
+                }
+            }
         }
     }
 }

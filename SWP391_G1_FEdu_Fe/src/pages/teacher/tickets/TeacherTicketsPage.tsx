@@ -1,38 +1,75 @@
 import { useEffect, useState } from 'react';
 import {
   Loader2, AlertCircle, Search, MessageSquare, Clock, CheckCircle2,
-  Calendar, Users, ArrowRight, X, Send, BookOpen, User, Mail
+  Calendar, Users, ArrowRight, X, Send, User, Mail, BookOpen
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { teacherService } from '../../../services/teacher.service';
-import { SupportTicketResponse, SupportTicketDetailResponse } from '../../../types/ticket';
 import { useAuth } from '../../../context/AuthContext';
+import { getInitials } from '../../../utils/userHelpers';
+
+interface TicketWithClassInfo {
+  ticketId: number;
+  classroomSubjectStudentId: number;
+  studentName: string;
+  studentEmail: string;
+  messageStudent: string;
+  messageResponse?: string | null;
+  status: 'NONE' | 'DONE' | 'SEND';
+  createdAt: string;
+  updatedAt: string;
+  classroomSubjectId: number;
+  className: string;
+  subjectCode: string;
+}
 
 export function TeacherTicketsPage() {
   const { user } = useAuth();
-  const [tickets, setTickets] = useState<SupportTicketResponse[]>([]);
+  const [tickets, setTickets] = useState<TicketWithClassInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'resolved'>('all');
-
-  // Detail Modal State
-  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
-  const [detailTicket, setDetailTicket] = useState<SupportTicketDetailResponse | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  
+  // Response Modal State
+  const [selectedTicket, setSelectedTicket] = useState<TicketWithClassInfo | null>(null);
   const [answerText, setAnswerText] = useState('');
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
 
   const fetchTickets = async () => {
+    if (!user?.userId) return;
     try {
       setLoading(true);
       setError(null);
-      const data = await teacherService.getTickets();
-      setTickets(data ?? []);
+      
+      // 1. Get all classrooms taught by the teacher
+      const classrooms = await teacherService.getClassroomsByTeacher(user.userId);
+      
+      // 2. Fetch escalated tickets for each classroom
+      const allTicketsPromises = (classrooms ?? []).map(async (c) => {
+        try {
+          const classTickets = await teacherService.listEscalatedTickets(c.classroomSubjectId);
+          return (classTickets ?? []).map((t) => ({
+            ...t,
+            classroomSubjectId: c.classroomSubjectId,
+            className: c.className,
+            subjectCode: c.subjectCode,
+          }));
+        } catch (err) {
+          console.error(`Lỗi khi tải ticket cho lớp ${c.className}:`, err);
+          return [];
+        }
+      });
+      
+      const results = await Promise.all(allTicketsPromises);
+      const flattened = results.flat().sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      setTickets(flattened);
     } catch (err: any) {
-      console.error('Lỗi khi tải danh sách ticket:', err);
+      console.error('Lỗi khi tải danh sách ticket tổng hợp:', err);
       setError(err.message || 'Không thể tải danh sách ticket hỗ trợ.');
     } finally {
       setLoading(false);
@@ -41,47 +78,33 @@ export function TeacherTicketsPage() {
 
   useEffect(() => {
     fetchTickets();
-  }, []);
+  }, [user?.userId]);
 
-  const handleOpenDetail = async (ticketId: number) => {
-    setSelectedTicketId(ticketId);
-    setLoadingDetail(true);
+  const handleOpenRespond = (ticket: TicketWithClassInfo) => {
+    setSelectedTicket(ticket);
     setAnswerText('');
-    try {
-      const detail = await teacherService.getTicketDetail(ticketId);
-      setDetailTicket(detail);
-    } catch (err: any) {
-      console.error('Lỗi khi tải chi tiết ticket:', err);
-      toast.error(err.message || 'Không thể tải chi tiết ticket.');
-      setSelectedTicketId(null);
-    } finally {
-      setLoadingDetail(false);
-    }
   };
 
-  const handleCloseDetail = () => {
-    setSelectedTicketId(null);
-    setDetailTicket(null);
+  const handleCloseRespond = () => {
+    setSelectedTicket(null);
     setAnswerText('');
   };
 
   const handleSubmitAnswer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTicketId || !answerText.trim()) return;
+    if (!selectedTicket || !answerText.trim()) return;
 
     try {
       setSubmittingAnswer(true);
-      await teacherService.answerTicket(selectedTicketId, answerText.trim());
+      await teacherService.respondAsTeacher(
+        selectedTicket.classroomSubjectId,
+        selectedTicket.ticketId,
+        { messageResponse: answerText.trim() }
+      );
+      
       toast.success('Đã gửi câu trả lời và giải quyết ticket thành công!');
-      
-      // Reload detail and main list
-      const updatedDetail = await teacherService.getTicketDetail(selectedTicketId);
-      setDetailTicket(updatedDetail);
-      setAnswerText('');
-      
-      // Refresh the background ticket list
-      const data = await teacherService.getTickets();
-      setTickets(data ?? []);
+      handleCloseRespond();
+      fetchTickets(); // Refresh list
     } catch (err: any) {
       console.error('Lỗi khi trả lời ticket:', err);
       toast.error(err.message || 'Không thể gửi câu trả lời.');
@@ -90,417 +113,197 @@ export function TeacherTicketsPage() {
     }
   };
 
-  // Metrics calculations
-  const totalTickets = tickets.length;
-  const pendingTicketsCount = tickets.filter(
-    (t) => t.status === 'OPEN' || t.status === 'PROCESSING'
-  ).length;
-  const resolvedTicketsCount = tickets.filter(
-    (t) => t.status === 'RESOLVED' || t.status === 'CLOSED'
-  ).length;
-
-  // Filter logic
+  // Filtered tickets
   const filteredTickets = tickets.filter((t) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = 
       t.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.studentEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.className.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.subjectName.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const isPending = t.status === 'OPEN' || t.status === 'PROCESSING';
-    const isResolved = t.status === 'RESOLVED' || t.status === 'CLOSED';
-
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'pending' && isPending) ||
-      (statusFilter === 'resolved' && isResolved);
-
-    return matchesSearch && matchesStatus;
+      t.messageStudent.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
-            Chưa xử lý
-          </span>
-        );
-      case 'PROCESSING':
-        return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
-            Đang xử lý
-          </span>
-        );
-      case 'RESOLVED':
-        return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
-            Đã giải quyết
-          </span>
-        );
-      case 'CLOSED':
-        return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shadow-sm">
-            Đã đóng
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-50 text-gray-600 border border-gray-200">
-            {status}
-          </span>
-        );
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-2" />
-        <p className="text-red-600 mb-4">{error}</p>
-        <button
-          onClick={fetchTickets}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          Thử lại
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
-      {/* Header Title */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100">
-            <MessageSquare className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Quản lý Ticket hỗ trợ</h1>
-            <p className="text-sm text-gray-500">Danh sách câu hỏi của sinh viên được chuyển lên từ Sub-mentor</p>
-          </div>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+            <MessageSquare className="w-6 h-6 text-indigo-600" />
+            Ticket Hỗ trợ Leo thang
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Xem và xử lý các câu hỏi phức tạp từ học sinh đã được Sub-mentor leo thang lên giảng viên giải quyết.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold self-start md:self-center">
+          <Clock className="w-3.5 h-3.5" />
+          {tickets.length} ticket đang chờ
         </div>
       </div>
 
-      {/* Stats Summary Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div className="rounded-2xl p-5 bg-white border border-slate-100 shadow-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-slate-500">Tổng số ticket</p>
-            <p className="text-2xl font-extrabold text-slate-800">{totalTickets}</p>
+      {/* Main List */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        {/* Search */}
+        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm theo học sinh, email, lớp học hoặc nội dung câu hỏi..."
+              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 transition-colors"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <div className="p-3 bg-slate-50 text-slate-600 rounded-xl">
-            <MessageSquare className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="rounded-2xl p-5 bg-white border border-slate-100 shadow-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-slate-500">Cần trả lời</p>
-            <p className="text-2xl font-extrabold text-rose-600">{pendingTicketsCount}</p>
-          </div>
-          <div className="p-3 bg-rose-50 text-rose-600 rounded-xl animate-pulse">
-            <Clock className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="rounded-2xl p-5 bg-white border border-slate-100 shadow-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-slate-500">Đã trả lời</p>
-            <p className="text-2xl font-extrabold text-emerald-600">{resolvedTicketsCount}</p>
-          </div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
-
-      {/* Search & Filter Bar */}
-      <div className="rounded-2xl p-4 bg-white border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Search Input */}
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm ticket..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 outline-none focus:border-indigo-500 transition-colors bg-slate-50/50 text-slate-700"
-          />
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-100 w-full sm:w-auto">
-          {(
-            [
-              { key: 'all', label: 'Tất cả' },
-              { key: 'pending', label: 'Chưa trả lời' },
-              { key: 'resolved', label: 'Đã trả lời' },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setStatusFilter(tab.key)}
-              className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                statusFilter === tab.key
-                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {tab.label}
+        {/* Content */}
+        {loading ? (
+          <div className="p-12 text-center">
+            <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto" />
+            <p className="text-sm text-slate-500 mt-3">Đang tải danh sách ticket hỗ trợ...</p>
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center text-red-500">
+            <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+            <p className="font-semibold text-sm">{error}</p>
+            <button onClick={fetchTickets} className="text-xs text-indigo-600 underline mt-2 hover:text-indigo-800">
+              Thử tải lại
             </button>
-          ))}
-        </div>
+          </div>
+        ) : filteredTickets.length === 0 ? (
+          <div className="p-12 text-center">
+            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+            <p className="text-slate-700 font-semibold">Tất cả đều sạch sẽ!</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {searchQuery ? 'Không tìm thấy ticket nào khớp với từ khóa tìm kiếm.' : 'Không có ticket leo thang nào cần xử lý lúc này.'}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filteredTickets.map((ticket) => (
+              <div 
+                key={ticket.ticketId} 
+                className="p-6 hover:bg-slate-50/50 transition-all flex flex-col md:flex-row gap-4 items-start justify-between"
+              >
+                {/* Student Info & Question */}
+                <div className="space-y-3 flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm shrink-0">
+                      {ticket.studentName.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-800 truncate">
+                        {ticket.studentName}
+                      </h3>
+                      <p className="text-xs text-slate-400 truncate flex items-center gap-1.5">
+                        <Mail className="w-3 h-3" />
+                        {ticket.studentEmail}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {ticket.messageStudent}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                      Lớp: <strong className="text-slate-600">{ticket.className}</strong>
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200" />
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      Yêu cầu lúc: {new Date(ticket.createdAt).toLocaleString('vi-VN')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="shrink-0 w-full md:w-auto flex md:flex-col justify-end items-end gap-2 self-stretch md:self-auto border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
+                  <button
+                    onClick={() => handleOpenRespond(ticket)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-semibold w-full md:w-auto justify-center"
+                  >
+                    Trả lời ticket
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Tickets Table / List */}
-      {filteredTickets.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm space-y-3">
-          <MessageSquare className="w-12 h-12 text-slate-300 mx-auto" />
-          <p className="text-slate-500 text-sm font-medium">Không tìm thấy ticket hỗ trợ nào phù hợp</p>
-        </div>
-      ) : (
-        <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
-                  <th className="px-6 py-4">Tiêu đề Ticket</th>
-                  <th className="px-6 py-4">Sinh viên</th>
-                  <th className="px-6 py-4">Lớp học</th>
-                  <th className="px-6 py-4">Môn học</th>
-                  <th className="px-6 py-4">Ngày tạo</th>
-                  <th className="px-6 py-4">Trạng thái</th>
-                  <th className="px-6 py-4 text-right">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredTickets.map((ticket) => (
-                  <tr key={ticket.ticketId} className="hover:bg-slate-55/20 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-800 line-clamp-1 max-w-xs">
-                        {ticket.title}
-                      </div>
-                      <div className="text-xs text-slate-400 line-clamp-1 max-w-xs mt-0.5">
-                        {ticket.description}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-slate-700">{ticket.studentName}</div>
-                      <div className="text-xs text-slate-400">{ticket.studentEmail}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-xs border border-slate-200">
-                        {ticket.className}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-xs font-semibold text-indigo-600">{ticket.subjectName}</div>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
-                      {new Date(ticket.createdAt).toLocaleString('vi-VN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </td>
-                    <td className="px-6 py-4">
-                      {getStatusBadge(ticket.status)}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleOpenDetail(ticket.ticketId)}
-                        className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50/50 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition-colors cursor-pointer"
-                      >
-                        Chi tiết
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Ticket Details Popup Modal */}
-      {selectedTicketId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh] overflow-hidden border border-slate-100">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-lg font-bold text-slate-800">Chi tiết Ticket Hỗ trợ</h3>
+      {/* Respond Modal */}
+      {selectedTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleCloseRespond} />
+          <div className="relative bg-white w-full max-w-xl rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800">Trả lời Ticket Hỗ trợ</h3>
+                <p className="text-xs text-slate-500">Lớp: {selectedTicket.className} ({selectedTicket.subjectCode})</p>
               </div>
-              <button
-                onClick={handleCloseDetail}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 transition-colors cursor-pointer"
-              >
+              <button onClick={handleCloseRespond} className="text-slate-400 hover:text-slate-600 rounded-lg p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {loadingDetail ? (
-                <div className="flex flex-col items-center justify-center py-20 space-y-3">
-                  <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                  <p className="text-sm text-slate-500">Đang tải thông tin chi tiết...</p>
+            {/* Form */}
+            <form onSubmit={handleSubmitAnswer} className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Câu hỏi của học sinh</label>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 max-h-32 overflow-y-auto text-sm text-slate-700 whitespace-pre-wrap">
+                  {selectedTicket.messageStudent}
                 </div>
-              ) : detailTicket ? (
-                <>
-                  {/* Ticket Header Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-indigo-50/30 p-4 rounded-2xl border border-indigo-50/50">
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <User className="w-4 h-4 text-indigo-500" />
-                        <span>Sinh viên: <span className="font-semibold text-slate-800">{detailTicket.studentName}</span></span>
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <Mail className="w-4 h-4 text-indigo-500" />
-                        <span>Email: <span className="font-semibold text-indigo-600">{detailTicket.studentEmail}</span></span>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <Users className="w-4 h-4 text-indigo-500" />
-                        <span>Lớp học: <span className="font-semibold text-slate-800">{detailTicket.className}</span></span>
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <BookOpen className="w-4 h-4 text-indigo-500" />
-                        <span>Môn học: <span className="font-semibold text-slate-800 text-indigo-600">{detailTicket.subjectName}</span></span>
-                      </div>
-                    </div>
-                  </div>
+              </div>
 
-                  {/* Main Ticket Info (Initial Question) */}
-                  <div className="space-y-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <h4 className="text-base font-extrabold text-slate-800 leading-snug">{detailTicket.title}</h4>
-                      <div>{getStatusBadge(detailTicket.status)}</div>
-                    </div>
-                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      {detailTicket.description}
-                    </p>
-                    <div className="text-[11px] text-slate-400 text-right flex items-center justify-end gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>
-                        Gửi lúc: {new Date(detailTicket.createdAt).toLocaleString('vi-VN')}
-                      </span>
-                    </div>
-                  </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Nội dung phản hồi của giảng viên *</label>
+                <textarea
+                  required
+                  placeholder="Nhập nội dung hướng dẫn chi tiết cho học sinh..."
+                  rows={6}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-800 bg-white placeholder-slate-400 transition-all resize-none"
+                  value={answerText}
+                  onChange={(e) => setAnswerText(e.target.value)}
+                />
+              </div>
 
-                  {/* Comments/Answers Section */}
-                  <div className="space-y-4">
-                    <h5 className="text-sm font-bold text-slate-700 border-b border-slate-100 pb-2">
-                      Lịch sử trao đổi ({detailTicket.comments?.length || 0})
-                    </h5>
-
-                    {detailTicket.comments?.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic text-center py-4 bg-slate-50 rounded-xl border border-slate-100">
-                        Chưa có phản hồi nào cho ticket này.
-                      </p>
-                    ) : (
-                      <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                        {detailTicket.comments.map((comment) => {
-                          const isStudent = comment.commenterEmail === detailTicket.studentEmail;
-                          return (
-                            <div
-                              key={comment.commentId}
-                              className={`flex flex-col gap-1 p-3.5 rounded-xl border ${
-                                isStudent
-                                  ? 'bg-slate-50/70 border-slate-150 mr-8'
-                                  : 'bg-indigo-50/20 border-indigo-100/50 ml-8'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5">
-                                <span className={isStudent ? 'text-slate-700' : 'text-indigo-600'}>
-                                  {comment.commenterName} ({isStudent ? 'Sinh viên' : 'Hỗ trợ'})
-                                </span>
-                                <span className="text-[10px] font-normal text-slate-400">
-                                  {new Date(comment.createdAt).toLocaleString('vi-VN')}
-                                </span>
-                              </div>
-                              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                                {comment.content}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Answering text box (Only show if not resolved) */}
-                  {detailTicket.status !== 'RESOLVED' && detailTicket.status !== 'CLOSED' ? (
-                    <form onSubmit={handleSubmitAnswer} className="space-y-3 pt-2">
-                      <label className="block text-sm font-semibold text-slate-700">
-                        Soạn câu trả lời giải quyết ticket:
-                      </label>
-                      <div className="relative">
-                        <textarea
-                          placeholder="Nhập câu trả lời chi tiết và hướng dẫn giải quyết cho sinh viên..."
-                          value={answerText}
-                          onChange={(e) => setAnswerText(e.target.value)}
-                          className="w-full min-h-[100px] max-h-[160px] p-3 text-sm rounded-xl border border-slate-200 outline-none focus:border-indigo-500 transition-colors text-slate-700 bg-slate-50/30"
-                          required
-                        />
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={submittingAnswer || !answerText.trim()}
-                          className="inline-flex items-center gap-2 py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-indigo-150 hover:shadow-lg transition-all cursor-pointer"
-                        >
-                          {submittingAnswer ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              Đang gửi...
-                            </>
-                          ) : (
-                            <>
-                              <Send className="w-3.5 h-3.5" />
-                              Gửi câu trả lời
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </form>
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseRespond}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAnswer || !answerText.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-semibold"
+                >
+                  {submittingAnswer ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Đang gửi...
+                    </>
                   ) : (
-                    <div className="p-4 bg-emerald-50 text-emerald-800 rounded-2xl border border-emerald-100 text-xs font-semibold text-center flex items-center justify-center gap-2 mt-4 shadow-sm">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      Ticket này đã được giải quyết thành công.
-                    </div>
+                    <>
+                      <Send className="w-4 h-4" />
+                      Gửi câu trả lời
+                    </>
                   )}
-                </>
-              ) : (
-                <div className="text-center py-12 text-slate-500">
-                  Không thể hiển thị dữ liệu ticket này.
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-150 flex justify-end shrink-0">
-              <button
-                onClick={handleCloseDetail}
-                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                Đóng
-              </button>
-            </div>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -79,12 +79,6 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                         p -> p.getLearningNode().getNodeId(),
                         p -> p.getStatus().name()
                 ));
-        Map<Long, Boolean> testLockedMap = progressList.stream()
-                .collect(Collectors.toMap(
-                        p -> p.getLearningNode().getNodeId(),
-                        p -> Boolean.TRUE.equals(p.getTestLocked()),
-                        (a, b) -> a
-                ));
 
         List<LearningNodeResponse> nodeResponses = nodes.stream()
                 .map(n -> {
@@ -97,7 +91,6 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                             .nodeType(n.getNodeType())
                             .status(n.getStatus())
                             .studentStatus(studentStatus)
-                            .testLocked(testLockedMap.getOrDefault(n.getNodeId(), false))
                             .displayOrder(n.getDisplayOrder())
                             .isRequired(n.getIsRequired())
                             .isDeleted(n.getIsDeleted())
@@ -112,8 +105,6 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                         .edgeId(e.getEdgeId())
                         .fromNodeId(e.getFromNode().getNodeId())
                         .toNodeId(e.getToNode().getNodeId())
-                        .minScore(e.getMinScore())
-                        .maxScore(e.getMaxScore())
                         .build())
                 .collect(Collectors.toList());
 

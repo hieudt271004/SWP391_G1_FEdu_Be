@@ -2,7 +2,6 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Home, BookOpen, Upload, BarChart3, Settings, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
-import logo from '../../assets/logo.png';
 
 export function StudentLayout() {
   const navigate = useNavigate();
@@ -20,22 +19,23 @@ export function StudentLayout() {
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        {/* Logo */}
-        <div className="p-4 border-b border-gray-200">
+    <div className="h-screen flex bg-gray-50 overflow-hidden">
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
+        <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="FEdu Logo" className="w-10 h-10 rounded-lg object-cover" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-600 to-violet-600">
+              <GraduationCap className="w-6 h-6 text-white" />
+            </div>
             <div>
-              <div className="text-sm font-bold text-gray-900 leading-tight">
-                F<span className="text-[#030213]">Edu</span> Learning
+              <div className="text-lg font-bold text-gray-900">
+                F<span className="text-indigo-600">Edu</span>
               </div>
-              <div className="text-[10px] text-gray-500">Student Portal</div>
+              <div className="text-xs text-gray-500">Student Portal</div>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -45,8 +45,8 @@ export function StudentLayout() {
                 onClick={() => navigate(item.path)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   active
-                    ? 'bg-[#030213]/5 text-[#030213]'
-                    : 'text-gray-700 hover:bg-gray-150'
+                    ? 'bg-indigo-50 text-indigo-600'
+                    : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
                 <Icon className="w-5 h-5" />
@@ -58,8 +58,8 @@ export function StudentLayout() {
 
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-[#030213]/10 flex items-center justify-center">
-              <span className="text-[#030213] font-semibold text-sm">
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+              <span className="text-indigo-600 font-semibold text-sm">
                 {getInitials(user)}
               </span>
             </div>
@@ -79,7 +79,7 @@ export function StudentLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto p-6">
           <Outlet />
         </div>

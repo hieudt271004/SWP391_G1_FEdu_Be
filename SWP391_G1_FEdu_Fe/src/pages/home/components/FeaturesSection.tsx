@@ -64,16 +64,16 @@ function FeatureGroup({
   iconBg,
 }: FeatureGroupProps) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card p-6 shadow-2xs hover:border-border hover:bg-accent/5 transition-all duration-200">
+    <div className="rounded-md border border-white/10 bg-white/5 p-6 shadow-2xs hover:border-white/20 transition-all duration-200">
       <div className="flex items-center gap-3 mb-6">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg} border border-border/40`}>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-md ${iconBg} border border-white/5`}>
           <HeaderIcon className={`h-5 w-5 ${iconColor}`} />
         </div>
         <div>
-          <div className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${badgeBg} ${badgeColor} mb-0.5`}>
+          <div className={`inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${badgeBg} ${badgeColor} mb-0.5`}>
             {badge}
           </div>
-          <h3 className="text-base font-semibold text-foreground">{title}</h3>
+          <h3 className="text-sm font-semibold text-white">{title}</h3>
         </div>
       </div>
       <ul className="space-y-4">
@@ -81,12 +81,12 @@ function FeatureGroup({
           const Icon = feature.icon;
           return (
             <li key={feature.title} className="flex gap-3">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconBg} border border-border/40 shrink-0`}>
+              <div className={`flex h-9 w-9 items-center justify-center rounded-md ${iconBg} border border-white/5 shrink-0`}>
                 <Icon className={`h-4.5 w-4.5 ${iconColor}`} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-foreground mb-0.5">{feature.title}</h4>
-                <p className="text-xs leading-relaxed text-muted-foreground">{feature.description}</p>
+                <h4 className="text-xs font-semibold text-white mb-0.5">{feature.title}</h4>
+                <p className="text-[11px] leading-relaxed text-slate-400">{feature.description}</p>
               </div>
             </li>
           );
@@ -155,116 +155,94 @@ export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps)
   const questions = stats.questions || [];
 
   return (
-    <section id="features" className="bg-background py-12 md:py-16">
+    <section id="features" className="bg-[#030213] py-12 md:py-16 text-white">
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-block rounded-full bg-amber-50 text-amber-700 border border-amber-100/40 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider mb-3 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30">
-            Tính năng
+          <div className="inline-block rounded-md border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300 mb-3">
+            Trải nghiệm nền tảng
           </div>
-          <h2 className="text-2xl font-bold text-foreground md:text-3xl tracking-tight mb-2">
+          <h2 className="text-2xl font-bold text-white md:text-3xl tracking-tight mb-2">
             Một nền tảng, hai trải nghiệm
           </h2>
-          <p className="text-xs text-muted-foreground leading-relaxed max-w-xl mx-auto">
+          <p className="text-xs text-slate-400 leading-relaxed max-w-xl mx-auto">
             FEdu dành cho cả sinh viên và giảng viên — mỗi người một công cụ để học tập và giảng dạy hiệu quả hơn.
           </p>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2">
           <FeatureGroup
             badge="Cho sinh viên"
-            badgeBg="bg-blue-50/50 dark:bg-blue-950/20"
-            badgeColor="text-blue-700 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/30"
+            badgeBg="bg-blue-500/10"
+            badgeColor="text-blue-400 border border-blue-500/20"
             icon={GraduationCap}
             title="Học hiệu quả hơn"
             features={studentFeatures}
-            iconColor="text-blue-700 dark:text-blue-400"
-            iconBg="bg-blue-50 dark:bg-blue-950/30"
+            iconColor="text-blue-400"
+            iconBg="bg-blue-500/10"
           />
           <FeatureGroup
             badge="Cho giảng viên"
-            badgeBg="bg-amber-50/50 dark:bg-amber-950/20"
-            badgeColor="text-amber-700 dark:text-amber-400 border border-amber-100/50 dark:border-amber-900/30"
+            badgeBg="bg-amber-500/10"
+            badgeColor="text-amber-400 border border-amber-500/20"
             icon={Presentation}
             title="Dạy thông minh hơn"
             features={teacherFeatures}
-            iconColor="text-amber-700 dark:text-amber-400"
-            iconBg="bg-amber-50 dark:bg-amber-950/30"
+            iconColor="text-amber-400"
+            iconBg="bg-amber-500/10"
           />
         </div>
 
         {/* Dynamic Data Explorer Section */}
-        <div className="mt-12 border-t border-border/60 pt-10">
+        <div className="mt-16 border-t border-white/10 pt-12">
           <div className="text-center max-w-2xl mx-auto mb-8">
-            <div className="inline-block rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100/40 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider mb-3 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/30">
+            <div className="inline-block rounded-md border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300 mb-3">
               Dữ liệu hệ thống
             </div>
-            <h3 className="text-xl font-bold text-foreground md:text-2xl tracking-tight mb-2">
+            <h3 className="text-xl font-bold text-white md:text-2xl tracking-tight mb-2">
               Khám phá dữ liệu thực tế
             </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
+            <p className="text-xs text-slate-400 leading-relaxed">
               Danh sách chi tiết các bản ghi đang được lưu trữ và vận hành trực tiếp trong cơ sở dữ liệu của FEdu.
             </p>
           </div>
 
           {/* Tab triggers */}
-          <div className="flex flex-wrap justify-center gap-1.5 mb-6">
-            <button
-              onClick={() => setActiveTab('paths')}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
-                activeTab === 'paths'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground border border-border/40'
-              }`}
-            >
-              Lộ trình ({stats.totalPaths})
-            </button>
-            <button
-              onClick={() => setActiveTab('materials')}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
-                activeTab === 'materials'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground border border-border/40'
-              }`}
-            >
-              Tài liệu ({stats.totalMaterials})
-            </button>
-            <button
-              onClick={() => setActiveTab('classrooms')}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
-                activeTab === 'classrooms'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground border border-border/40'
-              }`}
-            >
-              Lớp học ({stats.totalClassrooms})
-            </button>
-            <button
-              onClick={() => setActiveTab('questions')}
-              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition cursor-pointer ${
-                activeTab === 'questions'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground border border-border/40'
-              }`}
-            >
-              Thảo luận ({stats.totalQuestions})
-            </button>
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            {[
+              { id: 'paths', label: 'Lộ trình', count: stats.totalPaths },
+              { id: 'materials', label: 'Tài liệu', count: stats.totalMaterials },
+              { id: 'classrooms', label: 'Lớp học', count: stats.totalClassrooms },
+              { id: 'questions', label: 'Thảo luận', count: stats.totalQuestions },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`rounded-md px-4 py-2 text-xs font-semibold transition cursor-pointer border ${
+                  activeTab === tab.id
+                    ? 'bg-white text-[#030213] border-white shadow-xs'
+                    : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
           </div>
 
           {/* Tab content */}
-          <div className="rounded-xl border border-border/60 bg-card p-5 md:p-6 shadow-2xs">
+          <div className="rounded-md border border-white/10 bg-white/5 p-5 md:p-6 shadow-2xs">
             {activeTab === 'paths' && (
               <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {learningPaths.length > 0 ? (
                   learningPaths.map((path) => (
-                    <div key={path.pathId} className="rounded-lg border border-border/40 bg-muted/20 p-4 transition hover:border-border hover:bg-card hover:shadow-2xs duration-200">
-                      <div className="inline-block rounded-full bg-blue-50 text-blue-700 border border-blue-100/40 px-2 py-0.5 text-[9px] font-medium mb-2.5 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/30">
+                    <div key={path.pathId} className="rounded-md border border-white/10 bg-white/5 p-4 transition hover:border-white/20 duration-200">
+                      <div className="inline-block rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 text-[8px] font-semibold mb-2.5">
                         {path.subjectCode || "SUBJECT"}
                       </div>
-                      <h4 className="font-semibold text-foreground text-sm">{path.pathName}</h4>
-                      <p className="text-[10px] text-muted-foreground mt-1.5">Mã lộ trình: #{path.pathId}</p>
+                      <h4 className="font-semibold text-white text-xs">{path.pathName}</h4>
+                      <p className="text-[9px] text-slate-500 mt-1.5">Mã lộ trình: #{path.pathId}</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-muted-foreground col-span-3 text-center py-6">Chưa có lộ trình nào được khởi tạo.</p>
+                  <p className="text-xs text-slate-400 col-span-3 text-center py-6">Chưa có lộ trình nào được khởi tạo.</p>
                 )}
               </div>
             )}
@@ -273,18 +251,18 @@ export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps)
               <div className="grid gap-3 sm:grid-cols-2">
                 {materials.length > 0 ? (
                   materials.map((mat) => (
-                    <div key={mat.materialId} className="flex items-center gap-3 rounded-lg border border-border/40 bg-muted/20 p-4 transition hover:border-border hover:bg-card hover:shadow-2xs duration-200">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-700 border border-amber-100/50 shrink-0 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/30">
+                    <div key={mat.materialId} className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 p-4 transition hover:border-white/20 duration-200">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
                         <FileText className="h-4.5 w-4.5" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-foreground text-xs">{mat.title}</h4>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">ID tài liệu: #{mat.materialId}</p>
+                        <h4 className="font-semibold text-white text-xs">{mat.title}</h4>
+                        <p className="text-[9px] text-slate-500 mt-0.5">ID tài liệu: #{mat.materialId}</p>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-muted-foreground col-span-2 text-center py-6">Kho tài liệu đang được cập nhật.</p>
+                  <p className="text-xs text-slate-400 col-span-2 text-center py-6">Kho tài liệu đang được cập nhật.</p>
                 )}
               </div>
             )}
@@ -293,16 +271,16 @@ export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps)
               <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {classrooms.length > 0 ? (
                   classrooms.map((cls) => (
-                    <div key={cls.classroomId} className="rounded-lg border border-border/40 bg-muted/20 p-4 transition hover:border-border hover:bg-card hover:shadow-2xs duration-200">
-                      <div className="inline-block rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100/40 px-2 py-0.5 text-[9px] font-medium mb-2.5 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30">
+                    <div key={cls.classroomId} className="rounded-md border border-white/10 bg-white/5 p-4 transition hover:border-white/20 duration-200">
+                      <div className="inline-block rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 text-[8px] font-semibold mb-2.5">
                         {cls.semester || "SEMESTER"}
                       </div>
-                      <h4 className="font-semibold text-foreground text-sm">{cls.className}</h4>
-                      <p className="text-[10px] text-muted-foreground mt-1.5">ID lớp học: #{cls.classroomId}</p>
+                      <h4 className="font-semibold text-white text-xs">{cls.className}</h4>
+                      <p className="text-[9px] text-slate-500 mt-1.5">ID lớp học: #{cls.classroomId}</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-muted-foreground col-span-3 text-center py-6">Chưa có lớp học nào hoạt động.</p>
+                  <p className="text-xs text-slate-400 col-span-3 text-center py-6">Chưa có lớp học nào hoạt động.</p>
                 )}
               </div>
             )}
@@ -311,18 +289,18 @@ export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps)
               <div className="space-y-2.5">
                 {questions.length > 0 ? (
                   questions.map((q) => (
-                    <div key={q.questionId} className="rounded-lg border border-border/40 bg-muted/20 p-4 transition hover:border-border hover:bg-card hover:shadow-2xs duration-200">
-                      <p className="text-xs text-foreground italic">"{q.content}"</p>
+                    <div key={q.questionId} className="rounded-md border border-white/10 bg-white/5 p-4 transition hover:border-white/20 duration-200">
+                      <p className="text-xs text-white italic">"{q.content}"</p>
                       <div className="flex items-center justify-between mt-2.5">
-                        <span className="text-[10px] text-muted-foreground">ID câu hỏi: #{q.questionId}</span>
-                        <span className="inline-block rounded-full bg-violet-50 text-violet-700 border border-violet-100/40 px-2 py-0.5 text-[9px] font-medium dark:bg-violet-950/20 dark:text-violet-400 dark:border-violet-900/30">
+                        <span className="text-[9px] text-slate-500">ID câu hỏi: #{q.questionId}</span>
+                        <span className="inline-block rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2 py-0.5 text-[8px] font-semibold">
                           Hỏi bởi: {q.studentName || "Ẩn danh"}
                         </span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-muted-foreground text-center py-6">Chưa có câu hỏi thảo luận nào.</p>
+                  <p className="text-xs text-slate-400 text-center py-6">Chưa có câu hỏi thảo luận nào.</p>
                 )}
               </div>
             )}

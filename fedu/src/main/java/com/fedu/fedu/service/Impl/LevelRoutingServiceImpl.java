@@ -5,6 +5,7 @@ import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LevelRoutingService;
 import com.fedu.fedu.utils.LearningLevels;
+import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.LevelChangeReason;
 import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
@@ -100,7 +101,32 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel);
     }
 
-    /** Parse "1,2" → {1,2}; bỏ giá trị rỗng/không hợp lệ. */
+    @Override
+    @Transactional
+    public void applyFreeChoiceRouting(Long classroomSubjectId, LearningNode freeChoiceNode, Long studentId) {
+        if (freeChoiceNode == null || freeChoiceNode.getTestKind() != NodeTestKind.FREE_CHOICE) {
+            return; // chỉ áp dụng cho node test tự do chọn
+        }
+        Integer target = freeChoiceNode.getLevel();
+        if (!LearningLevels.isValid(target)) {
+            return; // node free-choice phải gắn mức đích hợp lệ (1/2/3)
+        }
+        ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
+                .orElse(null);
+        if (css == null) {
+            return;
+        }
+        Integer current = css.getCurrentLevel();
+        if (Objects.equals(current, target)) {
+            return; // đã đúng mức, không cần đổi
+        }
+        css.setCurrentLevel(target);
+        classroomSubjectStudentRepository.save(css);
+        writeHistory(css, current, target, LevelChangeReason.FREE_CHOICE);
+        reopenBranchNodesForLevel(classroomSubjectId, studentId, target);
+    }
+
     private static Set<Integer> parseApplies(String s) {
         Set<Integer> out = new LinkedHashSet<>();
         if (s == null || s.isBlank()) {
@@ -119,11 +145,6 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         return out;
     }
 
-    /**
-     * Mở lại node nhánh của các chặng chưa hoàn thành theo mức mới:
-     * node nhánh khớp mức + đủ điều kiện tiên quyết → OPEN; node nhánh khác mức chưa xong → LOCKED.
-     * Node đã COMPLETED và node chung (level == null) giữ nguyên.
-     */
     private void reopenBranchNodesForLevel(Long classroomSubjectId, Long studentId, Integer newLevel) {
         LearningPath path = learningPathRepository
                 .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
@@ -139,16 +160,18 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
 
         for (StudentNodeProgress p : list) {
             LearningNode node = p.getLearningNode();
+            if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
+                continue; // node test — mở theo tiên quyết, không theo mức
+            }
             if (node.getLevel() == null) {
-                continue; // node chung
+                continue; // node học chung
             }
             if (p.getStatus() == StudentProgressStatus.COMPLETED) {
                 continue; // giữ lịch sử đã học
             }
             if (node.getLevel().equals(newLevel)) {
                 List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(node.getNodeId());
-                boolean prereqMet = incoming.isEmpty() || incoming.stream().allMatch(
-                        e -> statusByNode.get(e.getFromNode().getNodeId()) == StudentProgressStatus.COMPLETED);
+                boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusByNode, newLevel);
                 if (p.getStatus() == StudentProgressStatus.LOCKED && prereqMet) {
                     p.setStatus(StudentProgressStatus.OPEN);
                     p.setUnlockedAt(LocalDateTime.now());

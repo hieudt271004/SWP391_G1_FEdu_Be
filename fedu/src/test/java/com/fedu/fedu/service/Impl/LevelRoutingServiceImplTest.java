@@ -3,6 +3,8 @@ package com.fedu.fedu.service.Impl;
 import com.fedu.fedu.entity.ClassroomSubject;
 import com.fedu.fedu.entity.ClassroomSubjectStudent;
 import com.fedu.fedu.entity.LearningNode;
+import com.fedu.fedu.entity.LearningPath;
+import com.fedu.fedu.entity.StudentNodeProgress;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
 import com.fedu.fedu.repository.LearningPathRepository;
@@ -11,6 +13,7 @@ import com.fedu.fedu.repository.QuizScoreBandRepository;
 import com.fedu.fedu.repository.StudentLevelHistoryRepository;
 import com.fedu.fedu.repository.StudentNodeProgressRepository;
 import com.fedu.fedu.utils.enums.NodeTestKind;
+import com.fedu.fedu.utils.enums.StudentProgressStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -18,6 +21,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,6 +74,18 @@ class LevelRoutingServiceImplTest {
         when(classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
                 .thenReturn(Optional.of(css));
+    }
+
+    private LearningNode learnNode(long nodeId, int level) {
+        return LearningNode.builder().nodeId(nodeId).testKind(NodeTestKind.NONE).level(level).build();
+    }
+
+    private LearningNode testNode(long nodeId, NodeTestKind kind, int level) {
+        return LearningNode.builder().nodeId(nodeId).testKind(kind).level(level).build();
+    }
+
+    private StudentNodeProgress prog(LearningNode node, StudentProgressStatus status) {
+        return StudentNodeProgress.builder().learningNode(node).status(status).build();
     }
 
     @Test
@@ -156,6 +173,62 @@ class LevelRoutingServiceImplTest {
                 .build();
 
         service.applyGateRouting(CS_ID, placement, STUDENT_ID, bd(95));
+
+        verifyNoInteractions(classroomSubjectStudentRepository);
+        verifyNoInteractions(studentLevelHistoryRepository);
+    }
+
+    @Test
+    void levelChange_reopensMatchingLearningBranch_locksOtherLevel_keepsTestNodes() {
+        long pathId = 50L;
+        ClassroomSubjectStudent css = css(1); // Yếu → gate {1,2} đạt 85 → lên TB (2)
+        stubFind(css);
+        when(learningPathRepository.findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(CS_ID))
+                .thenReturn(Optional.of(LearningPath.builder().pathId(pathId).build()));
+
+        StudentNodeProgress pTb = prog(learnNode(201L, 2), StudentProgressStatus.LOCKED);   // mức mới
+        StudentNodeProgress pYeu = prog(learnNode(202L, 1), StudentProgressStatus.OPEN);    // mức cũ
+        StudentNodeProgress pFcKha = prog(testNode(203L, NodeTestKind.FREE_CHOICE, 3),
+                StudentProgressStatus.OPEN);                                                // node test mức 3
+        when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(STUDENT_ID, pathId))
+                .thenReturn(new ArrayList<>(List.of(pTb, pYeu, pFcKha)));
+        when(nodeEdgeRepository.findByToNodeNodeId(201L)).thenReturn(List.of()); // TB không tiên quyết → mở
+
+        service.applyGateRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID, bd(85));
+
+        assertEquals(2, css.getCurrentLevel());
+        assertEquals(StudentProgressStatus.OPEN, pTb.getStatus());    // nhánh học TB mở
+        assertEquals(StudentProgressStatus.LOCKED, pYeu.getStatus()); // nhánh học Yếu khóa lại
+        assertEquals(StudentProgressStatus.OPEN, pFcKha.getStatus()); // node test KHÔNG bị khóa theo mức
+    }
+
+    // ── P2c: applyFreeChoiceRouting ───────────────────────────────────────────
+
+    @Test
+    void freeChoice_passSetsLevelToNodeTargetLevel() {
+        ClassroomSubjectStudent css = css(1); // Yếu
+        stubFind(css);
+
+        service.applyFreeChoiceRouting(CS_ID, testNode(300L, NodeTestKind.FREE_CHOICE, 3), STUDENT_ID);
+
+        assertEquals(3, css.getCurrentLevel()); // chọn & đạt bài Khá → lên Khá
+        verify(studentLevelHistoryRepository).save(any());
+    }
+
+    @Test
+    void freeChoice_alreadyAtTargetLevel_noChange() {
+        ClassroomSubjectStudent css = css(3);
+        stubFind(css);
+
+        service.applyFreeChoiceRouting(CS_ID, testNode(300L, NodeTestKind.FREE_CHOICE, 3), STUDENT_ID);
+
+        assertEquals(3, css.getCurrentLevel());
+        verify(studentLevelHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    void freeChoice_nonFreeChoiceNode_isIgnored() {
+        service.applyFreeChoiceRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID);
 
         verifyNoInteractions(classroomSubjectStudentRepository);
         verifyNoInteractions(studentLevelHistoryRepository);

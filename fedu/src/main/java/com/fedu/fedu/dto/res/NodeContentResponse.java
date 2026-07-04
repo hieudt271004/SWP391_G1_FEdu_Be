@@ -11,4 +11,5 @@ import java.util.List;
 public class NodeContentResponse {
     private List<NodeMaterialResponse> materials;
     private List<NodeTestResponse> tests;
+    private List<NodeExerciseResponse> exercises;
 }

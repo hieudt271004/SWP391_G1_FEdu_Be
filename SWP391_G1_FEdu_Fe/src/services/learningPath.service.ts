@@ -3,6 +3,18 @@ import { http } from './http';
 export type LearningPathLevel = 1 | 2 | 3;
 export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
 
+export interface StudentInClassResponse {
+  userId: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl?: string;
+  joinedAt?: string;
+  currentLevel?: number;
+  classroomSubjectStudentId?: number;
+  isSubmentor?: boolean;
+}
+
 export interface CreateLearningPathRequest {
   subjectId: number;
   pathName: string;
@@ -32,7 +44,6 @@ export interface LearningNodeResponse {
   displayOrder: number;
   status: 'LOCKED' | 'OPEN' | 'HIDDEN';
   studentStatus?: 'LOCKED' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
-  testLocked?: boolean;
   isRequired: boolean;
   isDeleted: boolean;
   level?: number | null;
@@ -51,8 +62,6 @@ export interface NodeEdgeResponse {
   edgeId: number;
   fromNodeId: number;
   toNodeId: number;
-  minScore?: number;
-  maxScore?: number;
 }
 
 export interface LearningPathGraphResponse {
@@ -127,8 +136,6 @@ export interface UpdateLearningNodeRequest {
 export interface CreateNodeEdgeRequest {
   fromNodeId: number;
   toNodeId: number;
-  minScore?: number;
-  maxScore?: number;
 }
 
 export interface NodeMaterialResponse {
@@ -161,9 +168,21 @@ export interface NodeTestResponse {
   orderIndex: number;
 }
 
+// Bài tập thực hành — thành phần của node (song song material/test)
+export interface NodeExerciseResponse {
+  exerciseId: number;
+  title: string;
+  instructions?: string;
+  allowText: boolean;
+  allowFile: boolean;
+  orderIndex: number;
+}
+
 export interface NodeContentResponse {
   materials: NodeMaterialResponse[];
   tests: NodeTestResponse[];
+  // BE luôn trả mảng (có thể rỗng); optional để không phá các nơi đang khởi tạo content thủ công.
+  exercises?: NodeExerciseResponse[];
 }
 
 export interface CreateNodeTestRequest {
@@ -173,54 +192,17 @@ export interface CreateNodeTestRequest {
   passingPercentage?: number;
 }
 
+export interface CreateNodeExerciseRequest {
+  title: string;
+  instructions?: string;
+  allowText?: boolean;
+  allowFile?: boolean;
+}
+
 export interface ReorderContentRequest {
   id: number;
-  type: 'MATERIAL' | 'TEST';
+  type: 'MATERIAL' | 'TEST' | 'EXERCISE';
   orderIndex: number;
-}
-
-export interface UpdateTestRequest {
-  title: string;
-  description?: string;
-  durationMinutes?: number;
-  passingPercentage?: number;
-}
-
-export interface StudentAttemptResponse {
-  attemptId: number;
-  studentId: number | null;
-  studentName: string;
-  studentEmail: string;
-  score: number | null;
-  passed: boolean | null;
-  startedAt: string;
-  submittedAt: string | null;
-}
-
-export interface AnswerRequest {
-  answerContent: string;
-  isCorrect?: boolean;
-}
-
-export interface QuestionRequest {
-  questionContent: string;
-  questionType: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY';
-  score?: number;
-  answers: AnswerRequest[];
-}
-
-export interface AnswerResponse {
-  answerId: number;
-  answerContent: string;
-  isCorrect: boolean;
-}
-
-export interface QuestionResponse {
-  questionId: number;
-  questionContent: string;
-  questionType: string;
-  score: number;
-  answers: AnswerResponse[];
 }
 
 
@@ -280,8 +262,12 @@ export const learningPathService = {
   // Admin read-only: xem graph lớp-môn (endpoint riêng cho ADMIN, không đụng /teacher-manage)
   getAdminClassroomGraph: (classroomSubjectId: number) =>
     http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
-  cloneFromTemplate: (classroomSubjectId: number) =>
-    http.post<LearningPathResponse[]>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path`),
+  cloneFromTemplate: (classroomSubjectId: number, templatePathId?: number) =>
+    http.post<LearningPathResponse[]>(
+      `/teacher-manage/classroom-subjects/${classroomSubjectId}/clone-learning-path${
+        templatePathId != null ? `?templatePathId=${templatePathId}` : ''
+      }`
+    ),
   publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
     http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
   unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>
@@ -296,34 +282,8 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/learning-nodes/${nodeId}`),
   createNodeEdge: (request: CreateNodeEdgeRequest) =>
     http.post<NodeEdgeResponse>('/teacher-manage/node-edges', request),
-
-  // Teacher content management endpoints
-  getTeacherNodeContent: (nodeId: number) =>
-    http.get<NodeContentResponse>(`/teacher-manage/learning-nodes/${nodeId}/content`),
-  addTeacherNodeTest: (nodeId: number, request: CreateNodeTestRequest) =>
-    http.post<NodeTestResponse>(`/teacher-manage/learning-nodes/${nodeId}/tests`, request),
-  updateTeacherNodeTest: (testId: number, request: UpdateTestRequest) =>
-    http.put<NodeTestResponse>(`/teacher-manage/tests/${testId}`, request),
-  deleteTeacherNodeTest: (testId: number) =>
-    http.delete<void>(`/teacher-manage/tests/${testId}`),
-  getTeacherTestAttempts: (testId: number) =>
-    http.get<StudentAttemptResponse[]>(`/teacher-manage/tests/${testId}/attempts`),
-  getTeacherTestQuestions: (testId: number) =>
-    http.get<QuestionResponse[]>(`/teacher-manage/tests/${testId}/questions`),
-  addTeacherTestQuestion: (testId: number, request: QuestionRequest) =>
-    http.post<QuestionResponse>(`/teacher-manage/tests/${testId}/questions`, request),
-  updateTeacherTestQuestion: (questionId: number, request: QuestionRequest) =>
-    http.put<QuestionResponse>(`/teacher-manage/test-questions/${questionId}`, request),
-  deleteTeacherTestQuestion: (questionId: number) =>
-    http.delete<void>(`/teacher-manage/test-questions/${questionId}`),
-  addTeacherNodeMaterial: (nodeId: number, formData: FormData) =>
-    http.post<NodeMaterialResponse>(`/teacher-manage/learning-nodes/${nodeId}/materials`, formData, {
-      'Content-Type': 'multipart/form-data',
-    }),
-  deleteTeacherNodeMaterial: (materialId: number) =>
-    http.delete<void>(`/teacher-manage/materials/${materialId}`),
-  reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
-    http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
+  deleteNodeEdge: (edgeId: number) =>
+    http.delete<void>(`/teacher-manage/node-edges/${edgeId}`),
 
   // Admin template endpoints
   getAdminSubjectTemplates: (subjectId: number) =>
@@ -360,12 +320,26 @@ export const learningPathService = {
     http.post<NodeTestResponse>(`/admin/learning-nodes/${nodeId}/tests`, request),
   deleteAdminNodeTest: (testId: number) =>
     http.delete<void>(`/admin/tests/${testId}`),
+  getAdminTestQuestions: (testId: number) =>
+    http.get<TeacherQuestionResponse[]>(`/admin/tests/${testId}/questions`),
+  addAdminTestQuestion: (testId: number, request: TeacherQuestionRequest) =>
+    http.post<TeacherQuestionResponse>(`/admin/tests/${testId}/questions`, request),
+  updateAdminTestQuestion: (questionId: number, request: TeacherQuestionRequest) =>
+    http.put<TeacherQuestionResponse>(`/admin/test-questions/${questionId}`, request),
+  deleteAdminTestQuestion: (questionId: number) =>
+    http.delete<void>(`/admin/test-questions/${questionId}`),
+  addAdminNodeExercise: (nodeId: number, request: CreateNodeExerciseRequest) =>
+    http.post<NodeExerciseResponse>(`/admin/learning-nodes/${nodeId}/exercises`, request),
+  deleteAdminNodeExercise: (exerciseId: number) =>
+    http.delete<void>(`/admin/exercises/${exerciseId}`),
   reorderAdminNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/admin/learning-nodes/${nodeId}/reorder-content`, requests),
 
   // Teacher node content endpoints
   getTeacherNodeContent: (nodeId: number) =>
     http.get<NodeContentResponse>(`/teacher-manage/learning-nodes/${nodeId}/content`),
+  getTeacherTestQuestions: (testId: number) =>
+    http.get<TeacherQuestionResponse[]>(`/teacher-manage/tests/${testId}/questions`),
   addTeacherNodeMaterial: (nodeId: number, formData: FormData) =>
     http.post<NodeMaterialResponse>(`/teacher-manage/learning-nodes/${nodeId}/materials`, formData, {
       'Content-Type': 'multipart/form-data',
@@ -376,6 +350,10 @@ export const learningPathService = {
     http.post<NodeTestResponse>(`/teacher-manage/learning-nodes/${nodeId}/tests`, request),
   deleteTeacherNodeTest: (testId: number) =>
     http.delete<void>(`/teacher-manage/tests/${testId}`),
+  addTeacherNodeExercise: (nodeId: number, request: CreateNodeExerciseRequest) =>
+    http.post<NodeExerciseResponse>(`/teacher-manage/learning-nodes/${nodeId}/exercises`, request),
+  deleteTeacherNodeExercise: (exerciseId: number) =>
+    http.delete<void>(`/teacher-manage/exercises/${exerciseId}`),
   reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
 
@@ -396,4 +374,8 @@ export const learningPathService = {
     http.delete<void>(`/teacher-manage/test-questions/${questionId}`),
   getStudentLevelHistory: (csId: number, studentId: number) =>
     http.get<any[]>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/level-history`),
+  getNodeStudents: (nodeId: number) =>
+    http.get<StudentInClassResponse[]>(`/teacher-manage/learning-nodes/${nodeId}/students`),
+  assignStudentsToNode: (nodeId: number, studentUserIds: number[]) =>
+    http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
 };

@@ -7,7 +7,6 @@ interface SubjectForm {
   subjectCode: string;
   subjectName: string;
   description: string;
-  learningpathLength: string;
 }
 
 export function AddSubjectPage() {
@@ -19,7 +18,6 @@ export function AddSubjectPage() {
     subjectCode: "",
     subjectName: "",
     description: "",
-    learningpathLength: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEdit);
@@ -34,7 +32,6 @@ export function AddSubjectPage() {
             subjectCode: data.subjectCode,
             subjectName: data.subjectName,
             description: data.description || "",
-            learningpathLength: data.learningpathLength ? String(data.learningpathLength) : "",
           });
         } catch (err: unknown) {
           setError(err instanceof Error ? err.message : "Tải thông tin môn học thất bại");
@@ -57,10 +54,7 @@ export function AddSubjectPage() {
       setError("Mã môn học và tên môn học là bắt buộc.");
       return;
     }
-    const payload = {
-      ...form,
-      learningpathLength: form.learningpathLength.trim() ? Number(form.learningpathLength) : undefined,
-    };
+    const payload = { ...form };
     try {
       setSubmitting(true);
       setError(null);
@@ -87,7 +81,7 @@ export function AddSubjectPage() {
     <div className="space-y-6 max-w-4xl">
       {/* Header & Breadcrumb */}
       <div className="flex items-center gap-4 mb-2">
-        <button onClick={() => navigate("/admin/subjects")} className="p-2 rounded-xl hover:bg-gray-100 transition-colors" style={{ color: "#4b5563" }}>
+        <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-gray-100 transition-colors" style={{ color: "#4b5563" }}>
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
@@ -142,24 +136,6 @@ export function AddSubjectPage() {
                 onChange={(e) => handleChange("subjectName", e.target.value)}
                 placeholder="VD: Lập trình Web với React"
                 required
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              />
-            </div>
-
-            {/* Số chặng */}
-            <div>
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Số chặng (learningpathLength)
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={form.learningpathLength}
-                onChange={(e) => handleChange("learningpathLength", e.target.value)}
-                placeholder="VD: 5"
                 className="w-full px-4 py-3 rounded-xl outline-none transition-all"
                 style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
                 onFocus={(e) => (e.target.style.borderColor = "#4338ca")}

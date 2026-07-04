@@ -55,7 +55,6 @@ public class QuestionManagementServiceImpl implements QuestionManagementService 
                 .questionType(request.getQuestionType())
                 .score(request.getScore() != null ? request.getScore() : BigDecimal.ONE)
                 .build();
-
         testQuestionRepository.save(question);
 
         List<TestAnswer> answers = new ArrayList<>();
@@ -85,7 +84,6 @@ public class QuestionManagementServiceImpl implements QuestionManagementService 
         if (request.getScore() != null) {
             question.setScore(request.getScore());
         }
-
         testQuestionRepository.save(question);
 
         // Delete old answers
@@ -114,11 +112,8 @@ public class QuestionManagementServiceImpl implements QuestionManagementService 
     public void deleteQuestion(Long questionId) {
         TestQuestion question = testQuestionRepository.findById(questionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Question not found with id: " + questionId));
-        
-        // Delete associated answers first
         List<TestAnswer> answers = testAnswerRepository.findByQuestionQuestionId(questionId);
         testAnswerRepository.deleteAll(answers);
-        
         testQuestionRepository.delete(question);
     }
 

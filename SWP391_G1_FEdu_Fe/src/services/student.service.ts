@@ -78,6 +78,16 @@ export interface LevelHistoryEntry {
   changedAt: string;
 }
 
+export interface StudentTestAttemptHistoryResponse {
+  attemptId: number;
+  testId: number;
+  classroomSubjectName: string;
+  testTitle: string;
+  testDescription: string;
+  score: number;
+  submittedAt: string;
+}
+
 export const studentService = {
   // Đồ thị lộ trình của một lớp-môn (kèm tiến độ học của SV hiện tại)
   getClassroomSubjectGraph: (classroomSubjectId: number) =>
@@ -102,6 +112,9 @@ export const studentService = {
       body
     ),
 
+  getTestHistory: () =>
+    http.get<StudentTestAttemptHistoryResponse[]>('/student/tests/attempts/history'),
+
   // ── Placement quiz (thi phân loại đầu vào) ───────────────────────────────
   getPlacementQuiz: (csId: number) =>
     http.get<StudentTestDetails>(
@@ -122,5 +135,34 @@ export const studentService = {
   getLevelHistory: (csId: number) =>
     http.get<LevelHistoryEntry[]>(
       `/student/classroom-subjects/${csId}/level-history`
+    ),
+
+  // ── Sub-mentor Support Q&A ───────────────────────────────
+  listAssignedTickets: (csId: number) =>
+    http.get<any[]>(
+      `/student/support-tickets/assigned?classroomSubjectId=${csId}`
+    ),
+
+  respondSupportTicket: (ticketId: number, body: { messageResponse: string }) =>
+    http.put<any>(
+      `/student/support-tickets/${ticketId}/respond`,
+      body
+    ),
+
+  escalateSupportTicket: (ticketId: number) =>
+    http.post<any>(
+      `/student/support-tickets/${ticketId}/escalate`,
+      {}
+    ),
+
+  createSupportTicket: (body: { classroomSubjectId: number; messageStudent: string }) =>
+    http.post<any>(
+      `/student/support-tickets`,
+      body
+    ),
+
+  listMyTickets: (csId: number) =>
+    http.get<any[]>(
+      `/student/support-tickets?classroomSubjectId=${csId}`
     ),
 };

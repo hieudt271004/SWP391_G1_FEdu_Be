@@ -271,6 +271,8 @@ public class AuthenticationService {
                 .gender(user.getGender())
                 .bod(user.getBod())
                 .phone(user.getPhone())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
                 .build();
     }
 }

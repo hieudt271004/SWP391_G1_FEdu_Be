@@ -1,16 +1,19 @@
 package com.fedu.fedu.controller.teacher;
 
+import com.fedu.fedu.dto.req.CreateNodeExerciseRequest;
 import com.fedu.fedu.dto.req.CreateNodeMaterialRequest;
 import com.fedu.fedu.dto.req.CreateNodeTestRequest;
 import com.fedu.fedu.dto.req.ReorderContentRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.LearningNode;
 import com.fedu.fedu.entity.LearningPath;
+import com.fedu.fedu.entity.NodeExercise;
 import com.fedu.fedu.entity.NodeMaterial;
 import com.fedu.fedu.entity.Test;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.LearningNodeRepository;
+import com.fedu.fedu.repository.NodeExerciseRepository;
 import com.fedu.fedu.repository.NodeMaterialRepository;
 import com.fedu.fedu.repository.TestRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
@@ -43,6 +46,7 @@ public class TeacherNodeContentController {
     private final LearningNodeRepository learningNodeRepository;
     private final NodeMaterialRepository nodeMaterialRepository;
     private final TestRepository testRepository;
+    private final NodeExerciseRepository nodeExerciseRepository;
     private final UserAccountRepository userAccountRepository;
 
     private void validateTeacherOwnershipOfNode(Long nodeId) {
@@ -59,6 +63,32 @@ public class TeacherNodeContentController {
             throw new AccessDeniedException("Node này không thuộc lộ trình lớp học");
         }
 
+        if (path.getClassroomSubject().getLecturer() == null ||
+                path.getClassroomSubject().getLecturer().getUserId() != actor.getUserId()) {
+            throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+    }
+
+    /**
+     * Cho phép XEM (read-only) nội dung node: node của TEMPLATE (dùng chung, chưa clone về lớp)
+     * hoặc node clone thuộc lớp-môn teacher phụ trách. Dùng cho endpoint GET (preview lộ trình mẫu).
+     */
+    private void assertTeacherCanViewNode(Long nodeId) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        LearningPath path = node.getLearningPath();
+        if (path == null) {
+            throw new AccessDeniedException("Node không hợp lệ");
+        }
+        // Node template (chưa clone) → catalog dùng chung, cho xem để preview.
+        if (path.getClassroomSubject() == null) {
+            return;
+        }
+        // Node clone → phải là lớp-môn teacher phụ trách.
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return; // test/seed
+        UserAccount actor = userAccountRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new AccessDeniedException("Unauthorized"));
         if (path.getClassroomSubject().getLecturer() == null ||
                 path.getClassroomSubject().getLecturer().getUserId() != actor.getUserId()) {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
@@ -83,12 +113,21 @@ public class TeacherNodeContentController {
         validateTeacherOwnershipOfNode(test.getLearningNode().getNodeId());
     }
 
+    private void validateTeacherOwnershipOfExercise(Long exerciseId) {
+        NodeExercise exercise = nodeExerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + exerciseId));
+        if (exercise.getLearningNode() == null) {
+            throw new AccessDeniedException("Bài tập không hợp lệ");
+        }
+        validateTeacherOwnershipOfNode(exercise.getLearningNode().getNodeId());
+    }
+
     @Operation(summary = "Get materials and tests for a specific node as teacher")
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @GetMapping("/learning-nodes/{nodeId}/content")
     public ResponseData<NodeContentResponse> getNodeContent(@PathVariable Long nodeId) {
         log.info("Teacher retrieving content for learning node ID: {}", nodeId);
-        validateTeacherOwnershipOfNode(nodeId);
+        assertTeacherCanViewNode(nodeId);
         return new ResponseData<>(HttpStatus.OK.value(), "Node content retrieved successfully",
                 nodeContentService.getNodeContent(nodeId));
     }
@@ -140,7 +179,30 @@ public class TeacherNodeContentController {
         return new ResponseData<>(HttpStatus.OK.value(), "Test deleted successfully");
     }
 
-    @Operation(summary = "Reorder materials and tests inside a learning node as teacher")
+    @Operation(summary = "Add practice exercise to a learning node as teacher")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/learning-nodes/{nodeId}/exercises")
+    public ResponseData<NodeExerciseResponse> addExercise(
+            @PathVariable Long nodeId,
+            @Valid @RequestBody CreateNodeExerciseRequest request) {
+        log.info("Teacher adding exercise to node ID: {}, title: {}", nodeId, request.getTitle());
+        validateTeacherOwnershipOfNode(nodeId);
+        return new ResponseData<>(HttpStatus.CREATED.value(), "Exercise added successfully",
+                nodeContentService.addExercise(nodeId, request));
+    }
+
+    @Operation(summary = "Delete practice exercise from a node as teacher")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @DeleteMapping("/exercises/{exerciseId}")
+    public ResponseData<Void> deleteExercise(@PathVariable Long exerciseId) {
+        log.info("Teacher deleting exercise ID: {}", exerciseId);
+        validateTeacherOwnershipOfExercise(exerciseId);
+        nodeContentService.deleteExercise(exerciseId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Exercise deleted successfully");
+    }
+
+    @Operation(summary = "Reorder materials, tests and exercises inside a learning node as teacher")
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @PostMapping("/learning-nodes/{nodeId}/reorder-content")
     public ResponseData<Void> reorderContent(

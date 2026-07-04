@@ -3,15 +3,19 @@ package com.fedu.fedu.controller.teacher;
 import com.fedu.fedu.dto.req.*;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.service.LearningPathService;
+import com.fedu.fedu.service.NodeContentService;
+import com.fedu.fedu.service.NodeEdgeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -24,6 +28,8 @@ import java.util.List;
 public class LearningPathManagementController {
 
         private final LearningPathService learningPathService;
+        private final NodeContentService nodeContentService;
+        private final NodeEdgeService nodeEdgeService;
 
         @Operation(summary = "Create learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
@@ -71,7 +77,7 @@ public class LearningPathManagementController {
         @ResponseStatus(HttpStatus.CREATED)
         @PostMapping("/classroom-subjects/{classroomSubjectId}/clone-learning-path")
         public ResponseData<LearningPathResponse> cloneLearningPath(@PathVariable Long classroomSubjectId,
-                                                                    @RequestParam Long templatePathId) {
+                                                                    @RequestParam(required = false) Long templatePathId) {
             return new ResponseData<>(HttpStatus.CREATED.value(), "Learning path cloned successfully",
                     learningPathService.cloneLearningPath(classroomSubjectId, templatePathId));
         }
@@ -173,6 +179,46 @@ public class LearningPathManagementController {
             return new ResponseData<>(HttpStatus.OK.value(), "Lộ trình nháp đã được xóa thành công");
         }
 
+
+        @Operation(summary = "Update test details")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PutMapping("/tests/{testId}")
+        public ResponseData<NodeTestResponse> updateTest(
+                @PathVariable Long testId,
+                @Valid @RequestBody UpdateTestRequest request) {
+            log.info("Teacher updating test ID: {}", testId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Test updated successfully",
+                    nodeContentService.updateTest(testId, request));
+        }
+
+        @Operation(summary = "Get list of student attempts for a test")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/tests/{testId}/attempts")
+        public ResponseData<List<StudentAttemptResponse>> getTestAttempts(@PathVariable Long testId) {
+            log.info("Teacher fetching student attempts for test ID: {}", testId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved student attempts successfully",
+                    nodeContentService.getTestAttempts(testId));
+        }
+
+
+        @Operation(summary = "Create node edge connection (prerequisite link between nodes)")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @ResponseStatus(HttpStatus.CREATED)
+        @PostMapping("/node-edges")
+        public ResponseData<NodeEdgeResponse> createNodeEdge(@Valid @RequestBody CreateNodeEdgeRequest request) {
+            log.info("Teacher creating node edge from {} to {}", request.getFromNodeId(), request.getToNodeId());
+            return new ResponseData<>(HttpStatus.CREATED.value(), "Node edge created successfully",
+                    nodeEdgeService.createEdge(request));
+        }
+        @Operation(summary = "Delete node edge connection")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @DeleteMapping("/node-edges/{edgeId}")
+        public ResponseData<Void> deleteNodeEdge(@PathVariable Long edgeId) {
+            log.info("Teacher deleting node edge ID: {}", edgeId);
+            nodeEdgeService.deleteEdge(edgeId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Node edge deleted successfully");
+        }
+
         @Operation(summary = "Unlock an ON_CLASS node for the whole class")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @PostMapping("/classroom-subjects/{classroomSubjectId}/nodes/{nodeId}/unlock")
@@ -180,5 +226,25 @@ public class LearningPathManagementController {
             int opened = learningPathService.unlockOnClassNode(classroomSubjectId, nodeId);
             return new ResponseData<>(HttpStatus.OK.value(),
                     "Đã mở khóa node trên lớp cho " + opened + " học sinh", opened);
+        }
+
+        @Operation(summary = "Get list of students assigned to a classroom learning node")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/learning-nodes/{nodeId}/students")
+        public ResponseData<List<StudentInClassResponse>> getNodeStudents(@PathVariable Long nodeId) {
+            log.info("Teacher requests list of students assigned to node ID: {}", nodeId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved node students successfully",
+                    learningPathService.getNodeStudents(nodeId));
+        }
+
+        @Operation(summary = "Assign/unassign students to/from a classroom learning node")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PutMapping("/learning-nodes/{nodeId}/students")
+        public ResponseData<Void> assignStudentsToNode(
+                @PathVariable Long nodeId,
+                @RequestBody List<Long> studentUserIds) {
+            log.info("Teacher assigning students to node ID: {}, students count: {}", nodeId, studentUserIds.size());
+            learningPathService.assignStudentsToNode(nodeId, studentUserIds);
+            return new ResponseData<>(HttpStatus.OK.value(), "Assigned students to node successfully");
         }
 }

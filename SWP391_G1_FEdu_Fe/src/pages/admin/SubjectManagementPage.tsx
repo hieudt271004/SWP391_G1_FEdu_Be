@@ -124,9 +124,9 @@ export function SubjectManagementPage() {
       course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.instructor.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.category.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
     const matchesStatus = statusFilter === "all" || course.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -233,21 +233,21 @@ export function SubjectManagementPage() {
                     const field = sortMap[h];
                     const isSorted = field === sortField;
                     return (
-                      <th 
-                        key={h} 
+                      <th
+                        key={h}
                         className={`text-left px-6 py-4 border-none bg-transparent ${field ? "cursor-pointer select-none hover:bg-[#1c1b2d] transition-colors" : ""}`}
                         onClick={() => field && handleSort(field)}
                       >
                         <span className="flex items-center gap-1" style={{ fontSize: "0.8125rem", fontWeight: 600, color: "white", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                          {h} 
+                          {h}
                           {field && (
-                            <ArrowUpDown 
-                              className="w-3.5 h-3.5 inline" 
-                              style={{ 
+                            <ArrowUpDown
+                              className="w-3.5 h-3.5 inline"
+                              style={{
                                 color: isSorted ? "white" : "#717182",
                                 transform: isSorted && sortOrder === "desc" ? "rotate(180deg)" : "none",
                                 transition: "transform 0.2s"
-                              }} 
+                              }}
                             />
                           )}
                         </span>
@@ -265,8 +265,8 @@ export function SubjectManagementPage() {
                           <span className="text-white" style={{ fontSize: "0.875rem", fontWeight: 700 }}>{course.thumbnail}</span>
                         </div>
                         <div>
-                          <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#030213", marginBottom: "0.125rem" }}>{course.title}</div>
-                          <div style={{ fontSize: "0.8125rem", color: "#717182" }}>{course.category}</div>
+                          <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#030213", marginBottom: "0.125rem" }}>{course.code}</div>
+                          <div style={{ fontSize: "0.8125rem", color: "#717182" }}>{course.title}</div>
                         </div>
                       </div>
                     </td>
@@ -336,8 +336,8 @@ export function SubjectManagementPage() {
                 )}
               </div>
               <div className="p-5">
-                <span className="px-2.5 py-1 inline-block mb-3 text-xs font-semibold" style={{ backgroundColor: "#ececf0", color: "#030213", borderRadius: "6px" }}>{course.category}</span>
-                <h3 style={{ fontSize: "1.0625rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem", lineHeight: 1.4 }}>{course.title}</h3>
+                <span className="px-2.5 py-1 inline-block mb-3 text-xs font-semibold" style={{ backgroundColor: "#ececf0", color: "#030213", borderRadius: "6px" }}>{course.title}</span>
+                <h3 style={{ fontSize: "1.0625rem", fontWeight: 600, color: "#030213", marginBottom: "0.5rem", lineHeight: 1.4 }}>{course.code}</h3>
                 <p style={{ fontSize: "0.9375rem", color: "#717182", marginBottom: "1rem" }}>{course.instructor}</p>
                 <div className="flex flex-col gap-2 mb-4">
                   <div className="flex items-center gap-1.5">
