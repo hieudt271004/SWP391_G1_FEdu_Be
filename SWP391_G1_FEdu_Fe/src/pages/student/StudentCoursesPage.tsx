@@ -387,7 +387,7 @@ export function StudentCoursesPage() {
       {/* Courses Cards Grid */}
       {filteredSubjects.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
-          <BookOpen className="size-12 text-slate-350 mx-auto mb-3" />
+          <BookOpen className="size-12 text-slate-400 mx-auto mb-3" />
           <p className="text-slate-500 text-sm font-semibold">Không tìm thấy khóa học nào phù hợp.</p>
         </div>
       ) : (
@@ -496,6 +496,14 @@ export function StudentCoursesPage() {
                       >
                         <AlertTriangle className="size-3.5 mr-0.5 text-amber-600" /> Gửi câu hỏi hỗ trợ
                       </Button>
+                      {c.isSubmentor && (
+                        <Button
+                          onClick={() => handleOpenSupport(c)}
+                          className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                          <MessageSquare className="size-3.5" /> Thao tác Trợ giảng (Hỗ trợ giải đáp)
+                        </Button>
+                      )}
                     </div>
                   ) : (
                     <div className="w-full space-y-2">
@@ -529,7 +537,7 @@ export function StudentCoursesPage() {
                             onClick={() => handleOpenSupport(c)}
                             className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1.5 shadow-sm"
                           >
-                            <MessageSquare className="size-3.5" /> Thao tác Trợ giảng
+                            <MessageSquare className="size-3.5" /> Thao tác Trợ giảng (Hỗ trợ giải đáp)
                           </Button>
                         )}
                       </div>
@@ -1025,7 +1033,7 @@ export function StudentCoursesPage() {
                   </div>
                 ) : myTickets.length === 0 ? (
                   <div className="text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-white p-6 shadow-xs">
-                    <MessageSquare className="w-8 h-8 text-slate-350 mx-auto mb-2" />
+                    <MessageSquare className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                     <p className="text-xs font-bold text-slate-650">Bạn chưa gửi câu hỏi nào trong môn học này.</p>
                   </div>
                 ) : (
@@ -1174,7 +1182,7 @@ export function SubMentorSupportModal({ isOpen, onClose, subject }: SubMentorSup
             </div>
           ) : assignedTickets.length === 0 ? (
             <div className="text-center py-16 text-slate-400 border border-dashed border-slate-200 rounded-2xl bg-white p-6 shadow-xs">
-              <MessageSquare className="w-10 h-10 text-slate-350 mx-auto mb-2" />
+              <MessageSquare className="w-10 h-10 text-slate-400 mx-auto mb-2" />
               <p className="text-xs font-bold text-slate-650">Hiện tại không có câu hỏi nào cần bạn hỗ trợ.</p>
               <p className="text-[10px] text-slate-400 mt-1">Các câu hỏi từ học sinh bạn phụ trách sẽ xuất hiện ở đây.</p>
             </div>

@@ -291,6 +291,7 @@ CREATE TABLE IF NOT EXISTS student_test_attempts (
                                                      status       VARCHAR(20) DEFAULT 'SUBMITTED', -- IN_PROGRESS | SUBMITTED | CANCELLED (placement cancel/retake)
                                                      started_at   TIMESTAMP,
                                                      submitted_at TIMESTAMP,
+                                                     tab_out_count INT DEFAULT 0, -- số lần học sinh rời tab khi làm bài (chống gian lận)
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -393,7 +394,6 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 INSERT INTO roles(role_name) VALUES ('ADMIN') ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO roles(role_name) VALUES ('TEACHER') ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO roles(role_name) VALUES ('STUDENT') ON CONFLICT (role_name) DO NOTHING;
-INSERT INTO roles(role_name) VALUES ('SUB_MENTOR') ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO roles(role_name) VALUES ('USER') ON CONFLICT (role_name) DO NOTHING;
 
 -- Adaptive placement learning path: tests.node_id nullable (placement quiz không gắn node)

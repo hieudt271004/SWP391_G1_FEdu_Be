@@ -4,7 +4,6 @@ import { AuthLayout } from '../components/layout/AuthLayout';
 import { StudentLayout } from '../components/layout/StudentLayout';
 import { TeacherLayout } from '../components/layout/TeacherLayout';
 import { AdminLayout } from '../components/layout/AdminLayout';
-import { SubMentorLayout } from '../components/layout/SubMentorLayout';
 import { RoleRoute } from './RoleRoute';
 
 import { HomePage } from '../pages/home/HomePage';
@@ -52,6 +51,7 @@ import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
 import { NodeTestPage } from '../pages/student/tests/NodeTestPage';
 import { PlacementPage } from '../pages/student/tests/PlacementPage';
 import { LevelHistoryPage } from '../pages/student/tests/LevelHistoryPage';
+import { StudentSubmissionsPage } from '../pages/student/submissions/StudentSubmissionsPage';
 
 
 // Removed UserDetailPageWrapper, using UserDetailPage directly
@@ -92,6 +92,8 @@ export function AppRoutes() {
                 <Route path="/student/tests/:testId" element={<NodeTestPage />} />
                 <Route path="/student/classroom-subjects/:csId/placement" element={<PlacementPage />} />
                 <Route path="/student/classroom-subjects/:csId/level-history" element={<LevelHistoryPage />} />
+                <Route path="/student/submissions" element={<StudentSubmissionsPage />} />
+                <Route path="/student/profile" element={<ProfileEditPage />} />
             </Route>
 
             <Route
@@ -113,16 +115,6 @@ export function AppRoutes() {
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
             </Route>
 
-            <Route
-                element={
-                    <RoleRoute allowedRoles={['SUB_MENTOR']}>
-                        <SubMentorLayout />
-                    </RoleRoute>
-                }
-            >
-                <Route path="/sub-mentor/dashboard" element={<div>Sub-Mentor Dashboard placeholder</div>} />
-            </Route>
-
             {/* ── ADMIN ─────────────────────────────────────────────── */}
             <Route
                 element={
@@ -137,11 +129,14 @@ export function AppRoutes() {
                 {/* Dashboard */}
                 <Route path="/admin/dashboard" element={<DashboardPage />} />
 
+                {/* Profile */}
+                <Route path="/admin/profile" element={<ProfileEditPage />} />
+
                 {/* User management */}
                 <Route path="/admin/users" element={<UserManagementPage filterRole="all" />} />
                 <Route path="/admin/users/students" element={<UserManagementPage filterRole="STUDENT" />} />
                 <Route path="/admin/users/teachers" element={<UserManagementPage filterRole="TEACHER" />} />
-                <Route path="/admin/users/:id" element={<UserDetailPage onBack={() => window.history.back()} />} />
+                <Route path="/admin/users/:id" element={<UserDetailPage />} />
 
                 {/* Course management */}
                 <Route path="/admin/subjects" element={<SubjectManagementPage />} />

@@ -12,13 +12,13 @@ import {
   TableRow,
 } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
-  Circle, 
-  Settings, 
-  Loader, 
-  ChevronRight, 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  Settings,
+  Loader,
+  ChevronRight,
   HelpCircle,
   AlertTriangle,
   Play,
@@ -40,19 +40,23 @@ import {
   TrendingUp,
   UserCheck,
   UserMinus,
-  MessageSquare
+  MessageSquare,
+  Save,
+  UserPlus
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import type { SubmissionResponse } from '../../../services/student.service';
 import { classroomService } from '../../../services/classroom.service';
-import { 
-  learningPathService, 
-  LearningNodeResponse, 
+import {
+  learningPathService,
+  LearningNodeResponse,
+  NodeEdgeResponse,
   ClassroomGraphResponse,
   NodeContentResponse,
   StudentInClassResponse
 } from '../../../services/learningPath.service';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
+import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import {
   Dialog,
   DialogContent,
@@ -79,37 +83,41 @@ export function ClassOverviewPage() {
   const navigate = useNavigate();
   const { classroomSubjectId } = useParams();
   const [students, setStudents] = useState<Student[]>([]);
-  const [classInfo, setClassInfo] = useState({ 
-    classCode: '', 
+  const [classInfo, setClassInfo] = useState({
+    classCode: '',
     courseCode: '',
     semester: '',
     description: ''
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [classroomStatus, setClassroomStatus] = useState<string>('inactive');
   const [parentClassroomId, setParentClassroomId] = useState<number | null>(null);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [loadingContents, setLoadingContents] = useState<Record<number, boolean>>({});
-  
+
   // New classroom publish flow states
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'cloning' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
-  
+  // Xem trước lộ trình mẫu trước khi áp dụng/đè lên
+  const [templatePreview, setTemplatePreview] = useState<{ pathId: number; nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [showApplyTemplateConfirm, setShowApplyTemplateConfirm] = useState(false);
+
   // Dialog visibility and confirmation states
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [understandPublish, setUnderstandPublish] = useState(false);
-  
+
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
   const [understandUnpublish, setUnderstandUnpublish] = useState(false);
-  
+
   const [showUnpublishError, setShowUnpublishError] = useState(false);
   const [unpublishErrorMsg, setUnpublishErrorMsg] = useState<string | null>(null);
-  
+
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
   // Selected Node Details state
@@ -131,6 +139,31 @@ export function ClassOverviewPage() {
   const [gradeValue, setGradeValue] = useState('');
   const [feedbackValue, setFeedbackValue] = useState('');
   const [submittingGrade, setSubmittingGrade] = useState(false);
+
+  const handleConfirmAssignSubMentors = async () => {
+    if (assignSubMentorIds.length === 0 || !classroomSubjectId) return;
+    try {
+      setLoadingSupport(true);
+      for (const id of assignSubMentorIds) {
+        await teacherService.enableSubMentor(Number(classroomSubjectId), id);
+      }
+      toast.success(`Đã chỉ định ${assignSubMentorIds.length} trợ giảng thành công`);
+      setIsAssignSubMentorModalOpen(false);
+      setAssignSubMentorIds([]);
+      fetchClassroomData();
+      if (activeTab === 'support') {
+        fetchSupportData();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || `Chỉ định trợ giảng thất bại`);
+    } finally {
+      setLoadingSupport(false);
+    }
+  };
+
+  // Support Tab functions
+  const [isAssignSubMentorModalOpen, setIsAssignSubMentorModalOpen] = useState(false);
+  const [assignSubMentorIds, setAssignSubMentorIds] = useState<number[]>([]);
 
   // Sync activeTab from ?tab= query parameter (e.g. when redirected from ClassManagementPage)
   useEffect(() => {
@@ -198,7 +231,7 @@ export function ClassOverviewPage() {
   const [submittingResponse, setSubmittingResponse] = useState(false);
   const [isAssignStudentModalOpen, setIsAssignStudentModalOpen] = useState(false);
   const [selectedSubMentor, setSelectedSubMentor] = useState<Student | null>(null);
-  const [selectedStudentToAssign, setSelectedStudentToAssign] = useState<string>('');
+  const [selectedStudentsToAssign, setSelectedStudentsToAssign] = useState<number[]>([]);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
 
   const handleResetPlacement = async (studentId: number) => {
@@ -254,7 +287,7 @@ export function ClassOverviewPage() {
     if (!classroomSubjectId || !student.classroomSubjectStudentId) return;
     const isCurrentlySub = !!student.isSubmentor;
     const actionText = isCurrentlySub ? "tắt" : "bật";
-    
+
     try {
       if (isCurrentlySub) {
         await teacherService.disableSubMentor(Number(classroomSubjectId), student.classroomSubjectStudentId);
@@ -273,19 +306,21 @@ export function ClassOverviewPage() {
 
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!classroomSubjectId || !selectedSubMentor || !selectedStudentToAssign) return;
+    if (!classroomSubjectId || !selectedSubMentor || selectedStudentsToAssign.length === 0) return;
     if (isMounted.current) {
       setSubmittingAssignment(true);
     }
     try {
-      await teacherService.createAssignment(Number(classroomSubjectId), {
-        subMentorCssId: selectedSubMentor.classroomSubjectStudentId!,
-        studentCssId: Number(selectedStudentToAssign)
-      });
+      for (const studentId of selectedStudentsToAssign) {
+        await teacherService.createAssignment(Number(classroomSubjectId), {
+          subMentorCssId: selectedSubMentor.classroomSubjectStudentId!,
+          studentCssId: studentId
+        });
+      }
       if (isMounted.current) {
-        toast.success("Gán nhóm kèm cặp thành công");
+        toast.success(`Đã gán ${selectedStudentsToAssign.length} học sinh thành công`);
         setIsAssignStudentModalOpen(false);
-        setSelectedStudentToAssign('');
+        setSelectedStudentsToAssign([]);
       }
       fetchSupportData();
     } catch (err: any) {
@@ -433,7 +468,7 @@ export function ClassOverviewPage() {
       toast.success(placementQuiz ? 'Cập nhật bài test thành công!' : 'Khởi tạo bài test thành công!');
       setIsCreateQuizOpen(false);
       await fetchPlacementQuiz();
-      
+
       // Update graphData to check quizStartTestId
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
@@ -498,8 +533,8 @@ export function ClassOverviewPage() {
     if (question) {
       setQuestionContent(question.questionContent);
       setQuestionType(
-        question.questionType === 'ESSAY' 
-          ? 'ESSAY' 
+        question.questionType === 'ESSAY'
+          ? 'ESSAY'
           : (question.questionType === 'MULTIPLE_CHOICE' ? 'SINGLE' : 'MULTIPLE')
       );
       setAnswers(question.answers.map((a: any) => ({
@@ -695,16 +730,16 @@ export function ClassOverviewPage() {
       ]);
 
       const fullClassroom = await teacherService.getClassroomById(classData.classroomId);
-      
+
       setClassInfo({
-        classCode: classData.className,        
+        classCode: classData.className,
         courseCode: classData.subjectCode,
         semester: fullClassroom.semester || '',
         description: fullClassroom.description || '',
       });
       setClassroomStatus(fullClassroom.status || 'inactive');
       setParentClassroomId(fullClassroom.classroomId);
-      
+
       if (!isMounted.current) return;
       const formatted = (studentsData ?? []).map((item) => ({
         id: item.email?.split('@')[0].toUpperCase() || `ST${item.userId}`,
@@ -737,7 +772,7 @@ export function ClassOverviewPage() {
     if (!parentClassroomId) return;
     const actionText = newStatus === 'active' ? 'bắt đầu' : 'kết thúc';
     if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không? (Hành động này ảnh hưởng đến toàn bộ môn học trong lớp)`)) return;
-    
+
     try {
       setActionState(newStatus === 'active' ? 'publishing' : 'unpublishing');
       await classroomService.update(parentClassroomId, {
@@ -828,14 +863,59 @@ export function ClassOverviewPage() {
     if (!classroomSubjectId) return;
     try {
       setActionState('cloning');
-      await learningPathService.cloneFromTemplate(Number(classroomSubjectId));
-      
+      // Truyền template đang chọn (nếu có) — môn nhiều lộ trình mẫu bắt buộc phải chọn cụ thể.
+      await learningPathService.cloneFromTemplate(Number(classroomSubjectId), selectedTemplateId ?? undefined);
+
       // Refetch classroom graph
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
-      toast.success('Khởi tạo lộ trình học (3 mức) thành công!');
+      setTemplatePreview(null);
+      toast.success('Khởi tạo lộ trình học thành công!');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Không thể khởi tạo lộ trình học');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  // Chọn 1 template ở dropdown → tải graph mẫu để xem trước trong khung "Sơ đồ lộ trình học tập".
+  const handlePreviewTemplate = async (templatePathId: number | null) => {
+    setSelectedTemplateId(templatePathId);
+    setSelectedNode(null);
+    if (!templatePathId) {
+      setTemplatePreview(null);
+      return;
+    }
+    try {
+      setPreviewLoading(true);
+      const graph = await learningPathService.getLearningPathGraph(templatePathId);
+      setTemplatePreview({ pathId: templatePathId, nodes: graph.nodes || [], edges: graph.edges || [] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể tải lộ trình mẫu để xem trước');
+      setTemplatePreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Áp dụng template đang xem trước. Nếu lớp đã có bản nháp → xóa nháp cũ rồi clone đè lên.
+  const handleApplyTemplate = async () => {
+    if (!classroomSubjectId || !selectedTemplateId) return;
+    try {
+      setActionState('cloning');
+      if (graphData?.state === 'DRAFT' && graphData.pathId) {
+        await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
+      }
+      await learningPathService.cloneFromTemplate(Number(classroomSubjectId), selectedTemplateId);
+
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+      setTemplatePreview(null);
+      setSelectedTemplateId(null);
+      setShowApplyTemplateConfirm(false);
+      toast.success('Áp dụng lộ trình mẫu thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể áp dụng lộ trình mẫu');
     } finally {
       setActionState('idle');
     }
@@ -855,7 +935,7 @@ export function ClassOverviewPage() {
       setActionState('publishing');
       const res = await learningPathService.publishClassroomPath(Number(classroomSubjectId), graphData.pathId);
       setSeededCount(res.seededStudents);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setShowPublishConfirm(false);
@@ -873,7 +953,7 @@ export function ClassOverviewPage() {
     try {
       setActionState('unpublishing');
       await learningPathService.unpublishClassroomPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setShowUnpublishConfirm(false);
@@ -894,11 +974,11 @@ export function ClassOverviewPage() {
   const handleDeleteDraft = async () => {
     if (!classroomSubjectId || !graphData?.pathId) return;
     if (!window.confirm('Bạn có chắc chắn muốn xóa bản nháp này không? Lộ trình sẽ bị xóa vĩnh viễn.')) return;
-    
+
     try {
       setActionState('deleting');
       await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setSelectedTemplateId(null);
@@ -973,7 +1053,7 @@ export function ClassOverviewPage() {
     const colNodeLabels: Record<number, string> = {};
     const subInfo: Record<number, { base: string; idx: number }> = {};
     let lessonCounter = 0;
-    
+
     // Sort nodes by displayOrder, then nodeId for stable sorting
     const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
 
@@ -1284,13 +1364,26 @@ export function ClassOverviewPage() {
               Bắt đầu lớp học
             </Button>
           )}
-          {classroomStatus === 'active' && (
+          {/* "Kết thúc lớp học" chỉ dành cho admin — đã bỏ ở giao diện giáo viên. */}
+          {graphData?.state === 'DRAFT' && (
             <Button
-              className="bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl flex items-center gap-1.5"
-              onClick={() => handleUpdateStatus('completed')}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
+              onClick={() => setShowPublishConfirm(true)}
               disabled={isNonIdle}
             >
-              Kết thúc lớp học
+              <Play className="size-4" />
+              Publish lộ trình
+            </Button>
+          )}
+          {graphData?.state === 'PUBLISHED' && (
+            <Button
+              variant="outline"
+              className="text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200 font-semibold rounded-xl flex items-center gap-1.5"
+              onClick={() => setShowUnpublishConfirm(true)}
+              disabled={isNonIdle}
+            >
+              <Undo2 className="size-4" />
+              Unpublish lộ trình
             </Button>
           )}
         </div>
@@ -1305,17 +1398,17 @@ export function ClassOverviewPage() {
                 {graphData.canCloneAll ? "Khởi tạo lộ trình học cho lớp" : "Môn học chưa có lộ trình mẫu"}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {graphData.canCloneAll 
-                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa." 
+                {graphData.canCloneAll
+                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa."
                   : "Môn học này chưa được cấu hình lộ trình mẫu công bố từ khoa."}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-wrap">
               {graphData.canCloneAll ? (
-                <Button 
-                  onClick={handleClone} 
-                  disabled={isNonIdle} 
+                <Button
+                  onClick={handleClone}
+                  disabled={isNonIdle}
                   className="w-full md:w-auto bg-primary hover:bg-primary/90 text-white font-medium rounded-xl"
                 >
                   {actionState === 'cloning' ? <Loader className="size-4 animate-spin mr-1" /> : <Play className="size-4 mr-1" />}
@@ -1415,8 +1508,47 @@ export function ClassOverviewPage() {
               </Button>
             )}
           </div>
-          
-          {(!graphData?.paths || graphData.paths.length === 0) && graphData?.state === 'NO_PATH' ? (
+
+          {/* Ô chọn & áp dụng lộ trình mẫu (clone). Hiện khi lớp chưa có lộ trình hoặc còn bản nháp. */}
+          {(graphData?.state === 'NO_PATH' || graphData?.state === 'DRAFT') && (graphData?.availableTemplates?.length ?? 0) > 0 && (
+            <Card className="border border-primary/20 bg-primary/5 rounded-2xl">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex-1 space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                    <BookOpen className="size-3.5" /> Chọn lộ trình mẫu để áp dụng
+                  </label>
+                  <select
+                    value={selectedTemplateId ?? ''}
+                    onChange={(e) => handlePreviewTemplate(e.target.value ? Number(e.target.value) : null)}
+                    disabled={isNonIdle}
+                    className="w-full max-w-md rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">-- Chọn lộ trình mẫu để xem trước --</option>
+                    {graphData?.availableTemplates?.map((t) => (
+                      <option key={t.pathId} value={t.pathId}>
+                        {t.pathName} ({t.nodeCount} bài học)
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    {graphData?.state === 'DRAFT'
+                      ? 'Chọn để xem trước; áp dụng sẽ ghi đè lộ trình nháp hiện tại (kèm mọi chỉnh sửa).'
+                      : 'Chọn để xem trước sơ đồ, sau đó áp dụng để tạo lộ trình cho lớp.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => (graphData?.state === 'DRAFT' ? setShowApplyTemplateConfirm(true) : handleApplyTemplate())}
+                  disabled={isNonIdle || !selectedTemplateId}
+                  className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
+                >
+                  {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
+                  {graphData?.state === 'DRAFT' ? 'Áp dụng lộ trình' : 'Áp dụng lộ trình'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {(!graphData?.paths || graphData.paths.length === 0) && graphData?.state === 'NO_PATH' && !templatePreview ? (
             <Card className="border border-dashed border-slate-200 bg-white p-12 text-center rounded-2xl">
               <Map className="w-12 h-12 mx-auto text-slate-300 mb-3 animate-pulse" />
               <h3 className="text-base font-bold text-slate-800 mb-1">Chưa cấu hình lộ trình</h3>
@@ -1425,19 +1557,35 @@ export function ClassOverviewPage() {
               </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+              <div className="space-y-2 lg:w-[600px] lg:shrink-0">
+                {templatePreview && (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      <Eye className="size-3.5" /> Đang xem trước lộ trình mẫu — chưa áp dụng.
+                    </span>
+                    <button onClick={() => handlePreviewTemplate(null)} className="font-semibold text-amber-700 hover:underline">
+                      Bỏ xem trước
+                    </button>
+                  </div>
+                )}
                 <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)]">
-                  <LearningPathFlow
-                    nodes={graphData?.nodes || []}
-                    edges={graphData?.edges || []}
-                    selectedNodeId={selectedNode?.nodeId || null}
-                    onNodeClick={(node) => handleNodeClick(node)}
-                  />
+                  {previewLoading ? (
+                    <div className="flex h-64 items-center justify-center text-slate-400">
+                      <Loader className="size-6 animate-spin" />
+                    </div>
+                  ) : (
+                    <LearningPathFlow
+                      nodes={templatePreview ? templatePreview.nodes : (graphData?.nodes || [])}
+                      edges={templatePreview ? templatePreview.edges : (graphData?.edges || [])}
+                      selectedNodeId={templatePreview ? null : (selectedNode?.nodeId || null)}
+                      onNodeClick={templatePreview ? undefined : ((node) => handleNodeClick(node))}
+                    />
+                  )}
                 </div>
               </div>
-              
-              <div className="lg:col-span-1">
+
+              <div className="flex-1 min-w-0">
                 {!selectedNode ? (
                   <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white border border-slate-250 rounded-2xl p-6">
                     <Map className="w-10 h-10 text-slate-300 mb-2 animate-bounce" />
@@ -1500,12 +1648,17 @@ export function ClassOverviewPage() {
                             ) : (
                               <div className="space-y-2">
                                 {nodeContent.materials?.map((m) => (
-                                  <div key={m.materialId} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50/50 border border-slate-100 text-xs">
-                                    <div className="text-indigo-600 shrink-0">
-                                      <FileText className="w-4 h-4" />
+                                  <div key={m.materialId} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2 text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <div className="shrink-0 text-indigo-600">
+                                        <FileText className="h-4 w-4" />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate font-medium text-slate-700">{m.title}</p>
+                                      </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-slate-700 truncate">{m.title}</p>
+                                    <div className="mt-1.5 max-w-2xl">
+                                      <MaterialPreview material={m} />
                                     </div>
                                   </div>
                                 ))}
@@ -1532,6 +1685,34 @@ export function ClassOverviewPage() {
           )}
         </div>
       )}
+
+      {/* Xác nhận ghi đè template lên bản nháp hiện tại */}
+      <Dialog open={showApplyTemplateConfirm} onOpenChange={(o) => { if (!o) setShowApplyTemplateConfirm(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle className="size-5 shrink-0" />
+              <span>Ghi đè lộ trình nháp?</span>
+            </DialogTitle>
+            <DialogDescription>
+              Lộ trình nháp hiện tại của lớp (kèm mọi tài liệu/bài kiểm tra đã thêm) sẽ bị xóa và thay bằng lộ trình mẫu đã chọn.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button variant="outline" className="rounded-xl" onClick={() => setShowApplyTemplateConfirm(false)}>
+              Hủy
+            </Button>
+            <Button
+              className="rounded-xl bg-amber-600 font-semibold text-white hover:bg-amber-700"
+              onClick={handleApplyTemplate}
+              disabled={isNonIdle}
+            >
+              {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : null}
+              Ghi đè & áp dụng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {activeTab === 'placement' && (
         <div className="space-y-6">
@@ -1780,12 +1961,12 @@ export function ClassOverviewPage() {
                 ) : (
                   students.map((student) => {
                     const levelLabel = student.currentLevel === 1 ? 'Yếu' : student.currentLevel === 2 ? 'Trung bình' : student.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                    const levelColor = student.currentLevel === 1 
-                      ? 'bg-rose-50 border-rose-200 text-rose-700' 
-                      : student.currentLevel === 2 
-                        ? 'bg-amber-50 border-amber-200 text-amber-700' 
-                        : student.currentLevel === 3 
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                    const levelColor = student.currentLevel === 1
+                      ? 'bg-rose-50 border-rose-200 text-rose-700'
+                      : student.currentLevel === 2
+                        ? 'bg-amber-50 border-amber-200 text-amber-700'
+                        : student.currentLevel === 3
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                           : 'bg-slate-50 border-slate-200 text-slate-500';
 
                     return (
@@ -1832,8 +2013,8 @@ export function ClassOverviewPage() {
                               size="sm"
                               onClick={() => handleToggleSubMentor(student)}
                               className={`h-7 text-xs rounded-lg font-semibold flex items-center gap-1 ${
-                                student.isSubmentor 
-                                  ? 'text-rose-600 hover:bg-rose-50' 
+                                student.isSubmentor
+                                  ? 'text-rose-600 hover:bg-rose-50'
                                   : 'text-emerald-650 hover:bg-emerald-50'
                               }`}
                             >
@@ -1876,7 +2057,7 @@ export function ClassOverviewPage() {
                   type="text"
                   required
                   placeholder="Ví dụ: Bài kiểm tra đánh giá năng lực đầu vào"
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 animate-in fade-in"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 animate-in fade-in"
                   value={quizTitle}
                   onChange={(e) => setQuizTitle(e.target.value)}
                 />
@@ -1886,7 +2067,7 @@ export function ClassOverviewPage() {
                 <textarea
                   placeholder="Nhập hướng dẫn làm bài cho học sinh..."
                   rows={3}
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={quizDescription}
                   onChange={(e) => setQuizDescription(e.target.value)}
                 />
@@ -1898,7 +2079,7 @@ export function ClassOverviewPage() {
                   required
                   min={10}
                   max={180}
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={quizDuration}
                   onChange={(e) => setQuizDuration(e.target.value)}
                 />
@@ -1934,7 +2115,7 @@ export function ClassOverviewPage() {
                   required
                   placeholder="Ví dụ: Đâu là một Hook cơ bản trong React?"
                   rows={2}
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={questionContent}
                   onChange={(e) => setQuestionContent(e.target.value)}
                 />
@@ -1943,7 +2124,7 @@ export function ClassOverviewPage() {
               <div className="space-y-1">
                 <label className="font-bold text-slate-700">Loại câu hỏi</label>
                 <select
-                  className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                   value={questionType}
                   onChange={(e) => {
                     const newType = e.target.value as any;
@@ -1973,7 +2154,7 @@ export function ClassOverviewPage() {
                     required
                     placeholder="Nhập câu trả lời mẫu cho tự luận..."
                     rows={4}
-                    className="w-full border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                     value={answers[0]?.answerContent || ''}
                     onChange={(e) => {
                       const updated = [{ answerContent: e.target.value, isCorrect: true }];
@@ -2000,7 +2181,7 @@ export function ClassOverviewPage() {
                         <input
                           type="text"
                           placeholder={`Nhập đáp án ${String.fromCharCode(65 + aIdx)}...`}
-                          className="flex-1 border border-slate-350/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                          className="flex-1 border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
                           value={answer.answerContent}
                           onChange={(e) => {
                             const updated = [...answers];
@@ -2074,13 +2255,13 @@ export function ClassOverviewPage() {
               <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-publish" 
-                checked={understandPublish} 
-                onCheckedChange={(val) => setUnderstandPublish(!!val)} 
+              <Checkbox
+                id="understand-publish"
+                checked={understandPublish}
+                onCheckedChange={(val) => setUnderstandPublish(!!val)}
               />
-              <label 
-                htmlFor="understand-publish" 
+              <label
+                htmlFor="understand-publish"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
@@ -2088,15 +2269,15 @@ export function ClassOverviewPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowPublishConfirm(false); setUnderstandPublish(false); }}
               disabled={actionState === 'publishing'}
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handlePublish} 
+            <Button
+              onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
               className="bg-green-600 hover:bg-green-700 text-white font-medium"
             >
@@ -2130,13 +2311,13 @@ export function ClassOverviewPage() {
               <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-unpublish" 
-                checked={understandUnpublish} 
-                onCheckedChange={(val) => setUnderstandUnpublish(!!val)} 
+              <Checkbox
+                id="understand-unpublish"
+                checked={understandUnpublish}
+                onCheckedChange={(val) => setUnderstandUnpublish(!!val)}
               />
-              <label 
-                htmlFor="understand-unpublish" 
+              <label
+                htmlFor="understand-unpublish"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
@@ -2144,15 +2325,15 @@ export function ClassOverviewPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); }}
               disabled={actionState === 'unpublishing'}
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handleUnpublish} 
+            <Button
+              onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
             >
@@ -2311,12 +2492,12 @@ export function ClassOverviewPage() {
                         <div className="pt-1">
                           {(() => {
                             const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                            const badgeColor = selectedStudent.currentLevel === 1 
-                              ? 'bg-rose-50 border-rose-200 text-rose-700' 
-                              : selectedStudent.currentLevel === 2 
-                                ? 'bg-amber-50 border-amber-200 text-amber-700' 
-                                : selectedStudent.currentLevel === 3 
-                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                            const badgeColor = selectedStudent.currentLevel === 1
+                              ? 'bg-rose-50 border-rose-200 text-rose-700'
+                              : selectedStudent.currentLevel === 2
+                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                : selectedStudent.currentLevel === 3
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                                   : 'bg-slate-50 border-slate-200 text-slate-500';
                             return (
                               <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 ${badgeColor}`}>
@@ -2440,29 +2621,18 @@ export function ClassOverviewPage() {
                   Danh sách Trợ giảng (Sub-mentors)
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <select
-                    className="border border-slate-200 rounded-[6px] px-2 py-1.5 text-xs bg-white text-slate-700 outline-none"
-                    defaultValue=""
-                    onChange={async (e) => {
-                      const val = e.target.value;
-                      if (!val) return;
-                      const selected = students.find(s => String(s.classroomSubjectStudentId) === val);
-                      if (selected) {
-                        await handleToggleSubMentor(selected);
-                      }
-                      e.target.value = "";
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setAssignSubMentorIds([]);
+                      setIsAssignSubMentorModalOpen(true);
                     }}
+                    className="border-slate-200 text-slate-700 hover:bg-slate-50 gap-2"
                   >
-                    <option value="" disabled>-- Chỉ định trợ giảng mới --</option>
-                    {students
-                      .filter(s => !s.isSubmentor)
-                      .map(s => (
-                        <option key={s.id} value={s.classroomSubjectStudentId}>
-                          {s.fullName} ({s.id})
-                        </option>
-                      ))
-                    }
-                  </select>
+                    <UserPlus className="w-4 h-4" />
+                    Chỉ định trợ giảng mới
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
@@ -2639,28 +2809,46 @@ export function ClassOverviewPage() {
             <div className="py-4 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-600 block">Chọn học sinh trong lớp:</label>
-                <select
-                  required
-                  value={selectedStudentToAssign}
-                  onChange={(e) => setSelectedStudentToAssign(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none"
-                >
-                  <option value="" disabled>-- Chọn học sinh --</option>
-                  {students
-                    .filter(s => {
+                <div className="max-h-[250px] overflow-y-auto pr-2 space-y-2 py-2 border border-slate-200 rounded-xl bg-white p-2">
+                  {students.filter(s => {
+                    if (s.isSubmentor) return false;
+                    if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
+                    const isAssignedToThis = assignments.some(
+                      a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
+                    );
+                    return !isAssignedToThis;
+                  }).length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-4">Tất cả học sinh khả dụng đã được gán.</p>
+                  ) : (
+                    students.filter(s => {
+                      if (s.isSubmentor) return false;
                       if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
                       const isAssignedToThis = assignments.some(
                         a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
                       );
                       return !isAssignedToThis;
-                    })
-                    .map(s => (
-                      <option key={s.id} value={s.classroomSubjectStudentId}>
-                        {s.fullName} ({s.id}) {s.isSubmentor ? "[Trợ giảng]" : ""}
-                      </option>
+                    }).map(s => (
+                      <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                          checked={selectedStudentsToAssign.includes(s.classroomSubjectStudentId!)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedStudentsToAssign(prev => [...prev, s.classroomSubjectStudentId!]);
+                            } else {
+                              setSelectedStudentsToAssign(prev => prev.filter(id => id !== s.classroomSubjectStudentId!));
+                            }
+                          }}
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{s.fullName}</p>
+                          <p className="text-xs text-slate-500">{s.id} {s.isSubmentor ? " [Trợ giảng]" : ""}</p>
+                        </div>
+                      </label>
                     ))
-                  }
-                </select>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -2668,14 +2856,17 @@ export function ClassOverviewPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsAssignStudentModalOpen(false)}
+                onClick={() => {
+                  setIsAssignStudentModalOpen(false);
+                  setSelectedStudentsToAssign([]);
+                }}
                 className="h-9 rounded-xl text-xs border-slate-200"
               >
                 Hủy
               </Button>
               <Button
                 type="submit"
-                disabled={submittingAssignment}
+                disabled={submittingAssignment || selectedStudentsToAssign.length === 0}
                 className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold"
               >
                 {submittingAssignment ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
@@ -2916,6 +3107,68 @@ export function ClassOverviewPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog open={isAssignSubMentorModalOpen} onOpenChange={setIsAssignSubMentorModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+              <UserPlus className="size-5 text-primary" /> Chỉ định trợ giảng
+            </DialogTitle>
+            <DialogDescription>
+              Chọn các học sinh để cấp quyền trợ giảng trong lớp này.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 py-2">
+            {students.filter(s => !s.isSubmentor).length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-4">Không có học sinh nào khả dụng.</p>
+            ) : (
+              students.filter(s => !s.isSubmentor).map(s => (
+                <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                    checked={assignSubMentorIds.includes(s.classroomSubjectStudentId!)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setAssignSubMentorIds(prev => [...prev, s.classroomSubjectStudentId!]);
+                      } else {
+                        setAssignSubMentorIds(prev => prev.filter(id => id !== s.classroomSubjectStudentId!));
+                      }
+                    }}
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{s.fullName}</p>
+                    <p className="text-xs text-slate-500">{s.id}</p>
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+
+          <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsAssignSubMentorModalOpen(false);
+                setAssignSubMentorIds([]);
+              }}
+              className="h-9 rounded-xl text-xs border-slate-200"
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleConfirmAssignSubMentors}
+              className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold flex items-center gap-1.5"
+              disabled={assignSubMentorIds.length === 0 || loadingSupport}
+            >
+              <Save className="size-3.5" />
+              Lưu thay đổi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

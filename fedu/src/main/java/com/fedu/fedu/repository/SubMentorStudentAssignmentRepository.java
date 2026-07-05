@@ -26,4 +26,10 @@ public interface SubMentorStudentAssignmentRepository extends JpaRepository<SubM
 
     /** Xóa một assignment cụ thể theo cặp (sub-mentor, student). */
     void deleteBySubMentorCss_IdAndStudentCss_Id(Long subMentorCssId, Long studentCssId);
+
+    /** Xóa tất cả các assignment mà học sinh này đang được kèm cặp. */
+    void deleteByStudentCss_Id(Long studentCssId);
+
+    /** Xóa tất cả các assignment mà sub-mentor này đang kèm. */
+    void deleteBySubMentorCss_Id(Long subMentorCssId);
 }

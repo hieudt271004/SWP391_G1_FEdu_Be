@@ -6,6 +6,7 @@ import com.fedu.fedu.entity.*;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.service.StudentTestService;
+import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.QuestionType;
@@ -37,6 +38,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     private final NodeEdgeRepository nodeEdgeRepository;
     private final UserAccountRepository userAccountRepository;
     private final com.fedu.fedu.service.LevelRoutingService levelRoutingService;
+    private final ClassroomSubjectRepository classroomSubjectRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -292,7 +294,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElse(null);
     }
 
-    // Mọi test bắt buộc của node đã có ít nhất 1 lượt đạt?
+    // Mọi test bắt buộc của node đã có ít nhất 1 lượt đạt
     private boolean allNodeTestsPassed(Long studentId, LearningNode node) {
         List<com.fedu.fedu.entity.Test> nodeTests =
                 testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(node.getNodeId());
@@ -391,7 +393,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (cs != null) {
             levelRoutingService.applyFreeChoiceRouting(cs.getId(), fcNode, studentId);
         }
-        // 4) Mở node chặng sau khớp mức (xử lý cả khi mức không đổi).
+        // Mở node chặng sau khớp mức (xử lý cả khi mức không đổi).
         for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(fcNode.getNodeId())) {
             openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
         }
@@ -417,19 +419,82 @@ public class StudentTestServiceImpl implements StudentTestService {
 
     private boolean checkIncomingPrerequisites(Long studentId, LearningNode targetNode, Long pathId) {
         List<NodeEdge> incomingEdges = nodeEdgeRepository.findByToNodeNodeId(targetNode.getNodeId());
+        if (incomingEdges.isEmpty()) {
+            return true;
+        }
+
+        Integer studentLevel = null;
+        if (targetNode.getLearningPath() != null && targetNode.getLearningPath().getClassroomSubject() != null) {
+            Long csId = targetNode.getLearningPath().getClassroomSubject().getId();
+            studentLevel = classroomSubjectStudentRepository
+                    .findByClassroomSubject_IdAndStudent_UserId(csId, studentId)
+                    .map(ClassroomSubjectStudent::getCurrentLevel)
+                    .orElse(null);
+        }
+
         List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, pathId);
         Map<Long, StudentProgressStatus> progressMap = progressList.stream()
                 .collect(Collectors.toMap(
                         p -> p.getLearningNode().getNodeId(),
-                        StudentNodeProgress::getStatus
+                        StudentNodeProgress::getStatus,
+                        (a, b) -> a
                 ));
 
-        for (NodeEdge edge : incomingEdges) {
-            StudentProgressStatus status = progressMap.get(edge.getFromNode().getNodeId());
-            if (status != StudentProgressStatus.COMPLETED) {
-                return false;
+        return NodeRoutingUtils.incomingPrereqMet(incomingEdges, progressMap, studentLevel);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StudentTestAttemptHistoryResponse> getStudentTestAttemptHistory(Long studentId) {
+        List<StudentTestAttempt> attempts = studentTestAttemptRepository.findByStudentUserIdOrderBySubmittedAtDesc(studentId);
+        
+        return attempts.stream().map(a -> {
+            com.fedu.fedu.entity.Test t = a.getTest();
+            String csName = "N/A";
+            
+            if (t.getLearningNode() != null) {
+                LearningPath path = t.getLearningNode().getLearningPath();
+                if (path != null && path.getClassroomSubject() != null) {
+                    ClassroomSubject cs = path.getClassroomSubject();
+                    csName = cs.getClassroom().getClassName() + " - " + cs.getSubject().getSubjectName();
+                }
+            } else {
+                Optional<ClassroomSubject> csOpt = classroomSubjectRepository.findByQuizStartTestId(t.getTestId());
+                if (csOpt.isPresent()) {
+                    ClassroomSubject cs = csOpt.get();
+                    csName = cs.getClassroom().getClassName() + " - " + cs.getSubject().getSubjectName();
+                }
             }
+            
+            return StudentTestAttemptHistoryResponse.builder()
+                    .attemptId(a.getAttemptId())
+                    .testId(t.getTestId())
+                    .classroomSubjectName(csName)
+                    .testTitle(t.getTitle())
+                    .testDescription(t.getDescription())
+                    .score(a.getScore())
+                    .submittedAt(a.getSubmittedAt())
+                    .tabOutCount(a.getTabOutCount())
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public int recordTabOut(Long testId, Long attemptId, Long studentId) {
+        StudentTestAttempt attempt = studentTestAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attempt not found with id: " + attemptId));
+        if (attempt.getStudent().getUserId() != studentId) {
+            throw new AccessDeniedException("Lượt thi này không thuộc về bạn");
         }
-        return true;
+        // Chỉ đếm khi đang làm bài; sau khi đã nộp thì giữ nguyên số đếm
+        if (attempt.getStatus() != com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS) {
+            return attempt.getTabOutCount() == null ? 0 : attempt.getTabOutCount();
+        }
+        int next = (attempt.getTabOutCount() == null ? 0 : attempt.getTabOutCount()) + 1;
+        attempt.setTabOutCount(next);
+        studentTestAttemptRepository.save(attempt);
+        log.info("Student {} tab-out #{} on attempt {}", studentId, next, attemptId);
+        return next;
     }
 }

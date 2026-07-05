@@ -69,6 +69,32 @@ public class TeacherNodeContentController {
         }
     }
 
+    /**
+     * Cho phép XEM (read-only) nội dung node: node của TEMPLATE (dùng chung, chưa clone về lớp)
+     * hoặc node clone thuộc lớp-môn teacher phụ trách. Dùng cho endpoint GET (preview lộ trình mẫu).
+     */
+    private void assertTeacherCanViewNode(Long nodeId) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        LearningPath path = node.getLearningPath();
+        if (path == null) {
+            throw new AccessDeniedException("Node không hợp lệ");
+        }
+        // Node template (chưa clone) → catalog dùng chung, cho xem để preview.
+        if (path.getClassroomSubject() == null) {
+            return;
+        }
+        // Node clone → phải là lớp-môn teacher phụ trách.
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return; // test/seed
+        UserAccount actor = userAccountRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new AccessDeniedException("Unauthorized"));
+        if (path.getClassroomSubject().getLecturer() == null ||
+                path.getClassroomSubject().getLecturer().getUserId() != actor.getUserId()) {
+            throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+    }
+
     private void validateTeacherOwnershipOfMaterial(Long materialId) {
         NodeMaterial material = nodeMaterialRepository.findById(materialId)
                 .orElseThrow(() -> new ResourceNotFoundException("Material not found with id: " + materialId));
@@ -101,7 +127,7 @@ public class TeacherNodeContentController {
     @GetMapping("/learning-nodes/{nodeId}/content")
     public ResponseData<NodeContentResponse> getNodeContent(@PathVariable Long nodeId) {
         log.info("Teacher retrieving content for learning node ID: {}", nodeId);
-        validateTeacherOwnershipOfNode(nodeId);
+        assertTeacherCanViewNode(nodeId);
         return new ResponseData<>(HttpStatus.OK.value(), "Node content retrieved successfully",
                 nodeContentService.getNodeContent(nodeId));
     }
