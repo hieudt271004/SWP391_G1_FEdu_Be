@@ -26,6 +26,7 @@ interface AdminUserDetail {
   role: "Học viên" | "Giảng viên";
   status: "active" | "inactive";
   avatar: string;
+  avatarUrl?: string;
 }
 
 interface UserDetailPageProps {
@@ -52,6 +53,7 @@ function mapBeUserToAdminDetail(u: AdminUserResponse): AdminUserDetail {
     role: roleLabel as any,
     status: u.status === "ACTIVE" ? "active" : "inactive",
     avatar: initials,
+    avatarUrl: u.avatarUrl,
   };
 }
 
@@ -150,8 +152,12 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
         {/* Left Column */}
         <div className={isAdmin ? "space-y-6 w-full" : "lg:col-span-1 space-y-6"}>
           <div className="p-6 text-center" style={{ backgroundColor: "#030213", borderRadius: "10px" }}>
-            <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.15)", border: "2px solid white" }}>
-              <span className="text-white text-3xl font-bold">{user.avatar}</span>
+            <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.15)", border: "2px solid white" }}>
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white text-3xl font-bold">{user.avatar}</span>
+              )}
             </div>
             <h2 className="text-white mb-4" style={{ fontSize: "1.25rem", fontWeight: 700 }}>{user.name}</h2>
             {!isAdmin && (

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, ArrowLeft, Loader2 } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
+import { toast } from "sonner";
 
 interface ClassForm {
   className: string;
@@ -60,14 +61,16 @@ export function AddClassPage() {
       setError(null);
       if (isEdit) {
         await classroomService.update(Number(id), form);
+        toast.success(`Đã cập nhật lớp học "${form.className.trim()}" thành công.`);
         navigate("/admin/classes");
       } else {
-        // Tạo lớp = container rỗng. Gán môn + giảng viên ở trang chi tiết.
         const newClass = await classroomService.create(form);
+        toast.success(`Đã tạo lớp học "${form.className.trim()}" thành công.`);
         navigate(`/admin/classes/${newClass.classroomId}?addSubject=true`);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
+      toast.error(err instanceof Error ? err.message : "Thao tác thất bại");
     } finally {
       setSubmitting(false);
     }

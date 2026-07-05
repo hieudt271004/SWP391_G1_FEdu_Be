@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
+import { toast } from "sonner";
 
 interface SubjectEditModalProps {
   isOpen: boolean;
@@ -53,10 +54,13 @@ export function SubjectEditModal({ isOpen, onClose, course, onSuccess }: Subject
         subjectName: formData.subjectName.trim(),
         description: formData.description.trim(),
       });
+      toast.success(`Đã cập nhật môn học "${formData.subjectName.trim()}" thành công.`);
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Cập nhật môn học thất bại.");
+      const errMsg = err instanceof Error ? err.message : "Cập nhật môn học thất bại.";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setSubmitting(false);
     }

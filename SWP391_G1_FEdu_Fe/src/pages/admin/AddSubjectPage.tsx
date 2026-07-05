@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, ArrowLeft, Loader2 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
+import { toast } from "sonner";
 
 interface SubjectForm {
   subjectCode: string;
@@ -60,12 +61,15 @@ export function AddSubjectPage() {
       setError(null);
       if (isEdit) {
         await subjectService.update(Number(id), payload);
+        toast.success(`Đã cập nhật môn học "${form.subjectName.trim()}" thành công.`);
       } else {
         await subjectService.create(payload);
+        toast.success(`Đã tạo môn học "${form.subjectName.trim()}" thành công.`);
       }
       navigate("/admin/subjects");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
+      toast.error(err instanceof Error ? err.message : "Thao tác thất bại");
     } finally {
       setSubmitting(false);
     }

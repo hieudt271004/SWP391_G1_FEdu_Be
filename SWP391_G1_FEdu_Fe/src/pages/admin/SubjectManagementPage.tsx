@@ -6,6 +6,8 @@ import { classroomService } from "../../services/classroom.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
 import { SubjectEditModal } from "./SubjectEditModal";
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from "sonner";
 
 // Map Subject (BE) → AdminCourse (display)
 interface AdminCourse {
@@ -52,6 +54,7 @@ const sortMap: Record<string, SortField> = {
 
 export function SubjectManagementPage() {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,17 +107,28 @@ export function SubjectManagementPage() {
     const course = courses.find(c => c.id === id);
     if (!course) return;
 
-    let confirmMsg = "Xác nhận xóa môn học này?";
+    let confirmMsg = "Bạn có chắc chắn muốn xóa môn học này không?";
+    let isWarning = false;
     if (course.activeClasses > 0) {
-      confirmMsg = `CẢNH BÁO: Môn học này hiện đang có ${course.activeClasses} lớp học đang hoạt động và ${course.students} học viên! Việc xóa môn học có thể làm ảnh hưởng hoặc mất mát dữ liệu lớp học liên quan.\n\nBạn có chắc chắn VẪN MUỐN XÓA môn học này không?`;
+      confirmMsg = `CẢNH BÁO: Môn học này hiện đang có ${course.activeClasses} lớp học đang hoạt động và ${course.students} học viên!\n\nViệc xóa môn học có thể làm ảnh hưởng hoặc mất mát dữ liệu lớp học liên quan. Bạn có chắc chắn vẫn muốn xóa môn học này không?`;
+      isWarning = true;
     }
 
-    if (!confirm(confirmMsg)) return;
+    const isConfirmed = await confirm({
+      title: isWarning ? "Cảnh báo xóa môn học" : "Xác nhận xóa môn học",
+      message: confirmMsg,
+      confirmText: "Xóa",
+      cancelText: "Hủy",
+      type: "danger"
+    });
+
+    if (!isConfirmed) return;
     try {
       await subjectService.delete(id);
       setCourses(prev => prev.filter(c => c.id !== id));
+      toast.success(`Đã xóa môn học "${course.title}" thành công.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
   };
 
@@ -205,8 +219,8 @@ export function SubjectManagementPage() {
             </select>
             <span style={{ fontSize: "0.875rem", color: "#717182" }}>mục</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               <Filter className="w-4 h-4" style={{ color: "#717182" }} />
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 text-sm outline-none cursor-pointer" style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000", fontWeight: 500 }}>
                 <option value="all">Tất cả trạng thái</option>
@@ -214,7 +228,7 @@ export function SubjectManagementPage() {
                 <option value="published">Đã xuất bản</option>
               </select>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 min-w-[250px]" style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px" }}>
+            <div className="flex items-center gap-2 px-3 py-2 min-w-[250px] shrink-0" style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px" }}>
               <Search className="w-4 h-4 shrink-0" style={{ color: "#717182" }} />
               <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Tìm kiếm..." className="flex-1 bg-transparent outline-none text-sm" style={{ color: "#000000" }} />
             </div>

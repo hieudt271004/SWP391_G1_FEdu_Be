@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Search, Filter, Plus, Edit2, Trash2, Eye, ChevronLeft, ChevronRight, List, Grid, ChevronRight as ChevronRightIcon, ArrowUpDown, Loader2, AlertCircle, MoreVertical } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
 import type { ClassroomResponse } from "../../types/classroom";
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from "sonner";
 
 // Map ClassroomResponse (BE) → ClassRecord (display)
 interface ClassRecord {
@@ -30,6 +32,7 @@ type ViewMode = "list" | "grid";
 
 export function ClassListPage() {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,12 +70,24 @@ export function ClassListPage() {
   useEffect(() => { fetchClassrooms(); }, [fetchClassrooms]);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Xác nhận xóa lớp học này?")) return;
+    const classRec = classes.find(c => c.id === id);
+    const className = classRec ? ` "${classRec.className}"` : "";
+    
+    const isConfirmed = await confirm({
+      title: "Xác nhận xóa lớp học",
+      message: `Bạn có chắc chắn muốn xóa lớp học${className}? Hành động này sẽ xóa vĩnh viễn lớp học và các liên kết liên quan.`,
+      confirmText: "Xóa",
+      cancelText: "Hủy",
+      type: "danger"
+    });
+
+    if (!isConfirmed) return;
     try {
       await classroomService.delete(id);
       setClasses(prev => prev.filter(c => c.id !== id));
+      toast.success(`Đã xóa lớp học${className} thành công.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
   };
 
@@ -141,8 +156,8 @@ export function ClassListPage() {
             </select>
             <span style={{ fontSize: "0.875rem", color: "#717182" }}>mục</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               <Filter className="w-4 h-4" style={{ color: "#717182" }} />
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="px-3 py-2 text-sm outline-none cursor-pointer" style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px", color: "#000000", fontWeight: 500 }}>
                 <option value="all">Tất cả trạng thái</option>
@@ -151,7 +166,7 @@ export function ClassListPage() {
                 <option value="completed">Đã hoàn thành</option>
               </select>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 min-w-[250px]" style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px" }}>
+            <div className="flex items-center gap-2 px-3 py-2 min-w-[250px] shrink-0" style={{ backgroundColor: "#ececf0", border: "none", borderRadius: "6px" }}>
               <Search className="w-4 h-4 shrink-0" style={{ color: "#717182" }} />
               <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Tìm kiếm..." className="flex-1 bg-transparent outline-none text-sm" style={{ color: "#000000" }} />
             </div>

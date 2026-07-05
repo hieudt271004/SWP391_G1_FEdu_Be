@@ -11,6 +11,8 @@ import type { ClassroomResponse } from "../../types/classroom";
 import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
 import type { Subject } from "../../types/subject";
 import type { AdminUserResponse } from "../../services/admin.service";
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from "sonner";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -26,6 +28,7 @@ export function ClassDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const classroomId = Number(id);
+  const confirm = useConfirm();
 
   const [classroom, setClassroom] = useState<ClassroomResponse | null>(null);
   const [subjects, setSubjects] = useState<ClassroomSubjectResponse[]>([]);
@@ -107,11 +110,14 @@ export function ClassDetailPage() {
         lecturerId: newLecturerId,
       });
       setSubjects((prev) => [...prev, created]);
+      toast.success(`Đã thêm môn học vào lớp thành công.`);
       setShowAddSubject(false);
       setNewSubjectId(0);
       setNewLecturerId(0);
     } catch (e: unknown) {
-      setAddSubjectError(e instanceof Error ? e.message : "Thêm môn thất bại");
+      const errMsg = e instanceof Error ? e.message : "Thêm môn thất bại";
+      setAddSubjectError(errMsg);
+      toast.error(errMsg);
     } finally {
       setAddSubjectLoading(false);
     }
@@ -121,26 +127,44 @@ export function ClassDetailPage() {
     try {
       const updated = await classroomService.changeLecturer(csId, { lecturerId });
       setSubjects((prev) => prev.map((s) => (s.classroomSubjectId === csId ? updated : s)));
+      toast.success("Đã phân công lại giảng viên thành công.");
       setEditingLecturerCsId(null);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Đổi giảng viên thất bại");
+      toast.error(e instanceof Error ? e.message : "Đổi giảng viên thất bại");
     }
   };
 
   const handleRemoveSubject = async (csId: number) => {
-    if (!confirm("Gỡ môn này khỏi lớp? Toàn bộ sinh viên & lộ trình của lớp-môn sẽ bị xóa.")) return;
+    const subjectRec = subjects.find(s => s.classroomSubjectId === csId);
+    const subjectName = subjectRec ? ` "${subjectRec.subjectName}"` : "";
+    const isConfirmed = await confirm({
+      title: "Gỡ môn học khỏi lớp",
+      message: "Bạn có chắc chắn muốn gỡ môn này khỏi lớp? Toàn bộ sinh viên và tiến trình lộ trình học tập của lớp-môn này sẽ bị xóa vĩnh viễn.",
+      confirmText: "Gỡ môn",
+      cancelText: "Hủy",
+      type: "danger"
+    });
+    if (!isConfirmed) return;
     try {
       await classroomService.removeSubject(csId);
       setSubjects((prev) => prev.filter((s) => s.classroomSubjectId !== csId));
+      toast.success(`Đã gỡ môn học${subjectName} khỏi lớp.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Gỡ môn thất bại");
+      toast.error(e instanceof Error ? e.message : "Gỡ môn thất bại");
     }
   };
 
   const handleUpdateStatus = async (newStatus: string) => {
     if (!classroom) return;
     const actionText = newStatus === "active" ? "bắt đầu" : "kết thúc";
-    if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không?`)) return;
+    const isConfirmed = await confirm({
+      title: `Xác nhận ${actionText} lớp học`,
+      message: `Bạn có chắc chắn muốn ${actionText} lớp học này không? Hành động này sẽ thay đổi trạng thái hoạt động của lớp.`,
+      confirmText: "Xác nhận",
+      cancelText: "Hủy",
+      type: newStatus === "active" ? "info" : "warning"
+    });
+    if (!isConfirmed) return;
     try {
       setUpdatingStatus(true);
       await classroomService.update(classroomId, {
@@ -150,8 +174,9 @@ export function ClassDetailPage() {
         status: newStatus,
       });
       setClassroom(await classroomService.getById(classroomId));
+      toast.success(`Đã ${actionText} lớp học "${classroom.className}" thành công.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Cập nhật trạng thái thất bại");
+      toast.error(e instanceof Error ? e.message : "Cập nhật trạng thái thất bại");
     } finally {
       setUpdatingStatus(false);
     }
