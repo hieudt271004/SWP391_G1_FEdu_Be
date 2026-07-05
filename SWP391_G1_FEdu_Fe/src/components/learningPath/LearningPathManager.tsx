@@ -973,7 +973,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           <p className="text-sm text-slate-500">Môn học chưa có lộ trình mẫu nào.</p>
           <button
             onClick={() => setShowCreateTpl(true)}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             + Tạo lộ trình
           </button>
@@ -1004,7 +1004,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               onClick={() => selectPath(t)}
               className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
                 path.pathId === t.pathId
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  ? "border-primary bg-accent text-foreground"
                   : "border-slate-300 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -1041,7 +1041,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               setActiveQuestionIdx(0);
               setShowAddNode(true);
             }}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             + Thêm bài học
           </button>
@@ -1084,7 +1084,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   <div className="space-y-2">
                     <input className="lp-input" value={eTitle} onChange={(e) => setETitle(e.target.value)} />
                     <textarea className="lp-input" rows={2} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Mô tả (tùy chọn)" />
-                    <button onClick={saveNodeEdit} disabled={saving} className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+                    <button onClick={saveNodeEdit} disabled={saving} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
                       Lưu
                     </button>
                   </div>
@@ -1206,7 +1206,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                                     <button
                                       type="button"
                                       onClick={() => addAnswerOption(activeQuestionIdx)}
-                                      className="text-indigo-600 hover:underline text-[10px]"
+                                      className="text-primary hover:underline text-[10px]"
                                     >
                                       + Thêm đáp án
                                     </button>
@@ -1237,7 +1237,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                                               updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
                                             }
                                           }}
-                                          className="h-3.5 w-3.5 text-indigo-600 cursor-pointer"
+                                          className="h-3.5 w-3.5 text-primary cursor-pointer"
                                         />
                                         {builderQuestions[activeQuestionIdx].answers.length > 2 && (
                                           <button
@@ -1377,10 +1377,10 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                                   <p className="truncate font-medium text-slate-700">{ex.title}</p>
                                   <div className="mt-0.5 flex flex-wrap gap-1">
                                     {ex.allowText && (
-                                      <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">Tự luận</span>
+                                      <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-foreground">Tự luận</span>
                                     )}
                                     {ex.allowFile && (
-                                      <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">Nộp file</span>
+                                      <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Nộp file</span>
                                     )}
                                   </div>
                                 </div>
@@ -1627,7 +1627,7 @@ function ModalActions({ onCancel, onSave, saving }: { onCancel: () => void; onSa
       <button onClick={onCancel} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
         Hủy
       </button>
-      <button onClick={onSave} disabled={saving} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+      <button onClick={onSave} disabled={saving} className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
         {saving ? "Đang lưu…" : "Lưu"}
       </button>
     </div>

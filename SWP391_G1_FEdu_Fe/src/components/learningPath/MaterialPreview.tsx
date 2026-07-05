@@ -101,7 +101,7 @@ export function MaterialPreview({ material }: { material: NodeMaterialResponse }
     return (
       <div className="mt-2">
         <iframe src={url} title={material.title} className="h-96 w-full rounded-md border border-slate-200 bg-white" />
-        <a href={url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-indigo-600 hover:underline">
+        <a href={url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-primary hover:underline font-semibold">
           Mở PDF ↗
         </a>
       </div>
@@ -117,7 +117,7 @@ export function MaterialPreview({ material }: { material: NodeMaterialResponse }
           title={material.title}
           className="h-96 w-full rounded-md border border-slate-200 bg-white"
         />
-        <a href={url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-indigo-600 hover:underline">
+        <a href={url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-primary hover:underline font-semibold">
           Mở / tải bản gốc ↗
         </a>
       </div>
@@ -129,7 +129,7 @@ export function MaterialPreview({ material }: { material: NodeMaterialResponse }
       href={url}
       target="_blank"
       rel="noreferrer"
-      className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+      className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline font-semibold"
     >
       Mở tài liệu ↗{file.fileType ? <span className="text-slate-400">({file.fileType})</span> : null}
     </a>

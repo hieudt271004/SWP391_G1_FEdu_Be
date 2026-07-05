@@ -35,7 +35,7 @@ function SidebarContent({
           <img src={logo} alt="FEdu Logo" className="w-10 h-10 rounded-lg object-cover" />
           <div>
             <div className="text-sm font-bold text-foreground leading-tight">
-              F<span className="text-indigo-600">Edu</span> Learning
+              FEdu Learning
             </div>
             <div className="text-[10px] text-muted-foreground">Teacher Portal</div>
           </div>
@@ -70,8 +70,8 @@ function SidebarContent({
       {/* User Info */}
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-            <span className="text-indigo-600 font-semibold text-sm">
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+            <span className="text-foreground font-semibold text-sm">
               {getInitials(user)}
             </span>
           </div>
@@ -125,7 +125,7 @@ export function TeacherLayout() {
           <img src={logo} alt="FEdu Logo" className="w-8 h-8 rounded-lg object-cover" />
           <div>
             <div className="text-sm font-bold text-foreground leading-tight">
-              F<span className="text-indigo-600">Edu</span> Learning
+              FEdu Learning
             </div>
             <div className="text-[10px] text-muted-foreground">Teacher Portal</div>
           </div>

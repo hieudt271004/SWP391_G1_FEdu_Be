@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -182,23 +183,23 @@ export function ProfileEditPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
         
         {/* Left Column - Profile Overview */}
-        <div className="md:col-span-1 rounded-2xl border border-slate-100 bg-white/70 backdrop-blur-md p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex flex-col items-center text-center relative overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)]">
-          <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 -z-10" />
+        <div className="md:col-span-1 rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col items-center text-center relative overflow-hidden transition-all duration-300 hover:shadow-md">
+          <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-primary/5 to-secondary -z-10" />
           
           <div 
             className="relative group mt-4 cursor-pointer" 
             onClick={() => !isUploading && !loading && fileInputRef.current?.click()}
           >
-            <Avatar className="size-28 border-4 border-white shadow-md transition-transform duration-300 group-hover:scale-105">
+            <Avatar className="size-28 border-4 border-background shadow-md transition-transform duration-300 group-hover:scale-105">
               <AvatarImage src={profileData.avatarUrl} alt={fullName} />
-              <AvatarFallback className="bg-gradient-to-tr from-indigo-500 to-purple-500 text-white text-3xl font-bold">
+              <AvatarFallback className="bg-primary text-primary-foreground text-3xl font-bold">
                 {initials}
               </AvatarFallback>
             </Avatar>
             {isUploading ? (
-              <div className="absolute inset-0 bg-white/80 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-md">
-                <Loader2 className="size-8 text-indigo-600 animate-spin" />
-                <span className="text-[10px] font-bold text-slate-500 mt-1">Đang tải...</span>
+              <div className="absolute inset-0 bg-background/80 rounded-full flex flex-col items-center justify-center border-4 border-background shadow-md">
+                <Loader2 className="size-8 text-primary animate-spin" />
+                <span className="text-[10px] font-bold text-muted-foreground mt-1">Đang tải...</span>
               </div>
             ) : (
               <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -207,19 +208,19 @@ export function ProfileEditPage() {
             )}
           </div>
           
-          <h2 className="mt-4 text-xl font-bold text-slate-800">{fullName || roleName}</h2>
-          <p className="text-sm text-slate-400 mt-1 flex items-center gap-1.5"><Mail className="size-4" />{profileData.email}</p>
+          <h2 className="mt-4 text-xl font-bold text-foreground">{fullName || roleName}</h2>
+          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5"><Mail className="size-4" />{profileData.email}</p>
           
-          <span className="mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+          <Badge variant="secondary" className="mt-4 px-3 py-1 rounded-full text-xs font-semibold">
             {roleName}
-          </span>
+          </Badge>
           
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading || loading}
-            className="mt-6 w-full py-2 bg-white/50 border-slate-200 hover:bg-slate-50 text-slate-600 transition-all font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5"
+            className="mt-6 w-full py-2 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5"
           >
             <Camera className="size-3.5" /> Thay đổi ảnh
           </Button>
@@ -233,18 +234,18 @@ export function ProfileEditPage() {
           />
           
           {/* Preset Avatars Selection */}
-          <div className="mt-6 w-full pt-4 border-t border-slate-100/60">
-            <p className="text-[10px] uppercase font-bold text-slate-400 text-left mb-3">Hoặc chọn ảnh đại diện mẫu</p>
+          <div className="mt-6 w-full pt-4 border-t border-border">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground text-left mb-3">Hoặc chọn ảnh đại diện mẫu</p>
             <div className="grid grid-cols-3 gap-2">
               {PRESET_AVATARS.map((avatar) => (
                 <button
                   type="button"
                   key={avatar.name}
                   onClick={() => !isUploading && !loading && setProfileData((prev) => ({ ...prev, avatarUrl: avatar.url }))}
-                  className={`group rounded-xl border p-1.5 flex flex-col items-center hover:border-indigo-500 hover:bg-indigo-50/10 transition-all ${
+                  className={`group rounded-xl border p-1.5 flex flex-col items-center hover:border-primary hover:bg-accent transition-all ${
                     isUploading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
                   } ${
-                    profileData.avatarUrl === avatar.url ? 'border-indigo-600 bg-indigo-50/20' : 'border-slate-100'
+                    profileData.avatarUrl === avatar.url ? 'border-primary bg-accent' : 'border-border bg-transparent'
                   }`}
                   disabled={isUploading || loading}
                 >
@@ -252,7 +253,7 @@ export function ProfileEditPage() {
                     <AvatarImage src={avatar.url} alt={avatar.name} />
                     <AvatarFallback className="text-[10px]">{avatar.name[0]}</AvatarFallback>
                   </Avatar>
-                  <span className="text-[9px] font-bold text-slate-500 mt-1">{avatar.name}</span>
+                  <span className="text-[9px] font-bold text-muted-foreground mt-1">{avatar.name}</span>
                 </button>
               ))}
             </div>
@@ -260,17 +261,17 @@ export function ProfileEditPage() {
         </div>
 
         {/* Right Column - Profile Details Form */}
-        <Card className="md:col-span-2 rounded-2xl border border-slate-100 bg-white/70 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)]">
-          <CardHeader className="border-b border-slate-100/50 pb-4">
-            <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <UserCheck className="size-5 text-indigo-500" /> Cập nhật thông tin cá nhân
+        <Card className="md:col-span-2 rounded-2xl border border-border bg-card shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+              <UserCheck className="size-5 text-foreground" /> Cập nhật thông tin cá nhân
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <form onSubmit={handleSaveChanges} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-slate-600 font-semibold text-xs">Tên (First Name) *</Label>
+                  <Label htmlFor="firstName" className="text-muted-foreground font-semibold text-xs">Tên (First Name) *</Label>
                   <Input
                     id="firstName"
                     type="text"
@@ -278,12 +279,12 @@ export function ProfileEditPage() {
                     onChange={(e) => handleInputChange('firstName', e.target.value)}
                     placeholder="Nhập tên của bạn"
                     required
-                    className="rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all py-2.5 text-sm"
+                    className="rounded-xl transition-all py-2.5 text-sm"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-slate-600 font-semibold text-xs">Họ (Last Name) *</Label>
+                  <Label htmlFor="lastName" className="text-muted-foreground font-semibold text-xs">Họ (Last Name) *</Label>
                   <Input
                     id="lastName"
                     type="text"
@@ -291,51 +292,51 @@ export function ProfileEditPage() {
                     onChange={(e) => handleInputChange('lastName', e.target.value)}
                     placeholder="Nhập họ của bạn"
                     required
-                    className="rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all py-2.5 text-sm"
+                    className="rounded-xl transition-all py-2.5 text-sm"
                   />
                 </div>
               </div>
 
               <div className="space-y-2 relative">
-                <Label htmlFor="email" className="text-slate-600 font-semibold text-xs flex items-center gap-1">
+                <Label htmlFor="email" className="text-muted-foreground font-semibold text-xs flex items-center gap-1">
                   Địa chỉ Email <ShieldAlert className="size-3.5 text-amber-500" />
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-3.5 size-4 text-slate-400" />
+                  <Mail className="absolute left-3.5 top-3.5 size-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
                     value={profileData.email}
                     disabled
-                    className="bg-slate-50/50 pl-10 rounded-xl border-slate-100 text-slate-500 text-sm cursor-not-allowed py-2.5"
+                    className="bg-accent/40 pl-10 rounded-xl border-border text-muted-foreground text-sm cursor-not-allowed py-2.5"
                   />
                 </div>
-                <p className="text-xxs text-slate-400">Email tài khoản không thể thay đổi</p>
+                <p className="text-[10px] text-muted-foreground">Email tài khoản không thể thay đổi</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-slate-600 font-semibold text-xs">Số điện thoại</Label>
+                  <Label htmlFor="phone" className="text-muted-foreground font-semibold text-xs">Số điện thoại</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3.5 top-3.5 size-4 text-slate-400" />
+                    <Phone className="absolute left-3.5 top-3.5 size-4 text-muted-foreground" />
                     <Input
                       id="phone"
                       type="tel"
                       value={profileData.phone}
                       onChange={(e) => handleInputChange('phone', e.target.value)}
                       placeholder="Nhập số điện thoại"
-                      className="pl-10 rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all py-2.5 text-sm"
+                      className="pl-10 rounded-xl transition-all py-2.5 text-sm"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="gender" className="text-slate-600 font-semibold text-xs">Giới tính</Label>
+                  <Label htmlFor="gender" className="text-muted-foreground font-semibold text-xs">Giới tính</Label>
                   <Select
                     value={profileData.gender}
                     onValueChange={(value) => handleInputChange('gender', value as Gender)}
                   >
-                    <SelectTrigger id="gender" className="rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all py-2.5 text-sm">
+                    <SelectTrigger id="gender" className="rounded-xl transition-all py-2.5 text-sm">
                       <SelectValue placeholder="Chọn giới tính" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -348,24 +349,23 @@ export function ProfileEditPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bod" className="text-slate-600 font-semibold text-xs flex items-center gap-1">
-                  <Calendar className="size-4 text-slate-400" /> Ngày sinh
+                <Label htmlFor="bod" className="text-muted-foreground font-semibold text-xs flex items-center gap-1">
+                  <Calendar className="size-4 text-muted-foreground" /> Ngày sinh
                 </Label>
                 <Input
                   id="bod"
                   type="date"
                   value={profileData.bod}
                   onChange={(e) => handleInputChange('bod', e.target.value)}
-                  className="rounded-xl border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all py-2.5 text-sm"
+                  className="rounded-xl transition-all py-2.5 text-sm"
                 />
               </div>
 
-              <div className="flex gap-4 pt-4 border-t border-slate-100/50">
+              <div className="flex gap-4 pt-4 border-t border-border">
                 <Button 
                   type="submit" 
                   disabled={loading || isUploading}
-                  className="flex-1 py-3 text-white transition-opacity hover:opacity-95 font-bold rounded-xl text-sm"
-                  style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}
+                  className="flex-1 py-3 font-bold rounded-xl text-sm"
                 >
                   {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
                 </Button>
@@ -373,7 +373,7 @@ export function ProfileEditPage() {
                   type="button" 
                   onClick={handleCancel} 
                   variant="outline" 
-                  className="flex-1 py-3 border-slate-200 text-slate-500 font-bold rounded-xl text-sm"
+                  className="flex-1 py-3 border-border text-muted-foreground font-bold rounded-xl text-sm"
                   disabled={loading || isUploading}
                 >
                   Khôi phục
