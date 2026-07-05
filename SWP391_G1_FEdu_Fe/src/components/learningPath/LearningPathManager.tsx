@@ -185,6 +185,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
   const [numQuestions, setNumQuestions] = useState("0");
   const [builderQuestions, setBuilderQuestions] = useState<any[]>([]);
   const [activeQuestionIdx, setActiveQuestionIdx] = useState(0);
+  const [editingNodeTest, setEditingNodeTest] = useState<any | null>(null);
 
   const handleNumQuestionsChange = (val: string) => {
     setNumQuestions(val);
@@ -430,6 +431,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
 
   const openNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
+    setEditingNodeTest(null);
     setETitle(node.title);
     setEDesc(node.description ?? "");
     setContent(null);
@@ -438,7 +440,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       const data = await learningPathService.getAdminNodeContent(node.nodeId);
       setContent(data);
 
-      if (node.testKind === "PLACEMENT" && data.tests && data.tests.length > 0) {
+      const isTestNode = node.testKind === "PLACEMENT" || node.testKind === "GATE" || node.testKind === "FREE_CHOICE";
+      if (isTestNode && data.tests && data.tests.length > 0) {
         const activeTest = data.tests[0];
         setTTitle(activeTest.title);
         setTDuration(String(activeTest.durationMinutes || 15));
@@ -480,6 +483,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
   const closeDetail = () => {
     setSelectedNode(null);
     setContent(null);
+    setEditingNodeTest(null);
     setMTitle("");
     setMVideoUrl("");
     setMFile(null);
@@ -512,9 +516,39 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     }
   };
 
-  const saveSidebarPlacementTest = async () => {
+  const startEditingNodeTest = async (test: any) => {
+    setEditingNodeTest(test);
+    setTTitle(test.title);
+    setTDuration(String(test.durationMinutes || 15));
+    setTPass(String(test.passingPercentage || 0));
+    setSaving(true);
+    try {
+      const qList = await learningPathService.getAdminTestQuestions(test.testId);
+      setNumQuestions(String(qList.length));
+      setBuilderQuestions(qList.map((q) => ({
+        questionType: q.questionType === 'ESSAY' ? 'ESSAY' : (q.questionType === 'MULTIPLE_SELECT' ? 'MULTIPLE_SELECT' : 'MULTIPLE_CHOICE'),
+        questionContent: q.questionContent,
+        answers: q.answers.map((a) => ({
+          answerContent: a.answerContent,
+          isCorrect: a.isCorrect
+        }))
+      })));
+      setActiveQuestionIdx(0);
+    } catch (qErr) {
+      console.error("Failed to load questions", qErr);
+      setNumQuestions("0");
+      setBuilderQuestions([]);
+      setActiveQuestionIdx(0);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveSidebarNodeTest = async () => {
     if (!selectedNode) return;
-    if (!tTitle.trim()) {
+    const isTestNode = selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE' || selectedNode.testKind === 'FREE_CHOICE';
+    const testTitleToUse = isTestNode ? eTitle.trim() : tTitle.trim();
+    if (!testTitleToUse) {
       toast.error("Nhập tiêu đề bài test");
       return;
     }
@@ -551,16 +585,19 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     setSaving(true);
     try {
       // 1. If test already exists, delete it first
-      if (content?.tests && content.tests.length > 0) {
-        const oldTestId = content.tests[0].testId;
-        await learningPathService.deleteAdminNodeTest(oldTestId);
+      const testIdToDelete = isTestNode 
+        ? (content?.tests && content.tests.length > 0 ? content.tests[0].testId : null)
+        : (editingNodeTest ? editingNodeTest.testId : null);
+        
+      if (testIdToDelete) {
+        await learningPathService.deleteAdminNodeTest(testIdToDelete);
       }
 
       // 2. Create new test
       const testRes = await learningPathService.addAdminNodeTest(selectedNode.nodeId, {
-        title: tTitle.trim(),
+        title: testTitleToUse,
         durationMinutes: Number(tDuration) || 15,
-        passingPercentage: 0,
+        passingPercentage: selectedNode.testKind === 'PLACEMENT' ? 0 : (Number(tPass) || 0),
       });
 
       const createdTestId = testRes.testId;
@@ -581,6 +618,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       }
 
       toast.success("Đã cập nhật bài test thành công");
+      setEditingNodeTest(null);
       setContent(await learningPathService.getAdminNodeContent(selectedNode.nodeId));
       await refresh();
     } catch (e: any) {
@@ -994,6 +1032,155 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     );
   }
 
+  const isTestNode = selectedNode && (selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE' || selectedNode.testKind === 'FREE_CHOICE');
+
+  const renderQuestionBuilder = () => {
+    const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
+    if (numQ <= 0) return null;
+    return (
+      <div className="space-y-3 border-t border-slate-100 pt-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+          {Array.from({ length: numQ }).map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setActiveQuestionIdx(idx)}
+              className={`size-7 shrink-0 rounded-md text-xs font-bold transition-all border ${
+                activeQuestionIdx === idx
+                  ? "bg-slate-800 text-white border-slate-800"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              {idx + 1}
+            </button>
+          ))}
+        </div>
+
+        {builderQuestions[activeQuestionIdx] && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Câu hỏi {activeQuestionIdx + 1}
+              </span>
+              <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-md">
+                <button
+                  type="button"
+                  onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_CHOICE')}
+                  className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                    builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE'
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Một đáp án
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_SELECT')}
+                  className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                    builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT'
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Nhiều đáp án
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'ESSAY')}
+                  className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                    builderQuestions[activeQuestionIdx].questionType === 'ESSAY'
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Tự luận
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              className="lp-input text-xs w-full"
+              placeholder="Nhập đề / nội dung câu hỏi..."
+              rows={2}
+              value={builderQuestions[activeQuestionIdx].questionContent}
+              onChange={(e) => updateQuestionField(activeQuestionIdx, 'questionContent', e.target.value)}
+            />
+
+            {builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ||
+            builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT' ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                  <span>
+                    ĐÁP ÁN ({builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'Chọn 1 đáp án đúng' : 'Chọn nhiều đáp án đúng'})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => addAnswerOption(activeQuestionIdx)}
+                    className="text-indigo-600 hover:underline text-[10px]"
+                  >
+                    + Thêm đáp án
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  {builderQuestions[activeQuestionIdx].answers.map((ans: any, aIdx: number) => (
+                    <div key={aIdx} className="flex items-center gap-2">
+                      <span className="font-semibold text-[10px] text-slate-400 shrink-0 w-3">
+                        {String.fromCharCode(65 + aIdx)}
+                      </span>
+                      <input
+                        type="text"
+                        placeholder={`Đáp án ${String.fromCharCode(65 + aIdx)}`}
+                        className="lp-input flex-1 py-1 px-2 text-xs"
+                        value={ans.answerContent}
+                        onChange={(e) => updateAnswerField(activeQuestionIdx, aIdx, 'answerContent', e.target.value)}
+                      />
+                      <input
+                        type={builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
+                        name={`correct-ans-sidebar-${activeQuestionIdx}`}
+                        checked={!!ans.isCorrect}
+                        onChange={(e) => {
+                          if (builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE') {
+                            builderQuestions[activeQuestionIdx].answers.forEach((_: any, i: number) => {
+                              updateAnswerField(activeQuestionIdx, i, 'isCorrect', i === aIdx);
+                            });
+                          } else {
+                            updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
+                          }
+                        }}
+                        className="h-3.5 w-3.5 text-indigo-600 cursor-pointer"
+                      />
+                      {builderQuestions[activeQuestionIdx].answers.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => removeAnswerOption(activeQuestionIdx, aIdx)}
+                          className="text-red-500 hover:text-red-700 text-xs px-1"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-500 block">CÂU TRẢ LỜI MẪU / HƯỚNG DẪN CHẤM</span>
+                <textarea
+                  className="lp-input text-xs w-full"
+                  placeholder="Nhập câu trả lời mẫu cho tự luận..."
+                  rows={3}
+                  value={builderQuestions[activeQuestionIdx].answers[0]?.answerContent || ""}
+                  onChange={(e) => updateAnswerField(activeQuestionIdx, 0, 'answerContent', e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-3">
@@ -1079,20 +1266,19 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               </div>
 
               <div className="space-y-5 p-4">
-                <section>
-                  <SectionTitle>Tên &amp; mô tả</SectionTitle>
-                  <div className="space-y-2">
-                    <input className="lp-input" value={eTitle} onChange={(e) => setETitle(e.target.value)} />
-                    <textarea className="lp-input" rows={2} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Mô tả (tùy chọn)" />
-                    <button onClick={saveNodeEdit} disabled={saving} className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-                      Lưu
-                    </button>
-                  </div>
-                </section>
-
-                {selectedNode.testKind === 'PLACEMENT' ? (
+                {editingNodeTest ? (
                   <section>
-                    <SectionTitle>Cấu hình bài test năng lực</SectionTitle>
+                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cấu hình bài test</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingNodeTest(null)}
+                        className="text-[10px] text-slate-500 hover:text-slate-700 font-bold bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded transition-colors"
+                      >
+                        ← Quay lại
+                      </button>
+                    </div>
+                    
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Tiêu đề bài test</label>
@@ -1103,174 +1289,45 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                           onChange={(e) => setTTitle(e.target.value)} 
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng (phút)</label>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
                           <input 
                             type="number" 
                             min={1} 
-                            className="lp-input mt-1" 
+                            className="lp-input mt-1 text-center" 
                             value={tDuration} 
                             onChange={(e) => setTDuration(e.target.value)} 
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
                           <input 
                             type="number" 
                             min={0} 
-                            className="lp-input mt-1" 
+                            max={100}
+                            className="lp-input mt-1 text-center" 
+                            value={tPass} 
+                            onChange={(e) => setTPass(e.target.value)} 
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu</label>
+                          <input 
+                            type="number" 
+                            min={0} 
+                            className="lp-input mt-1 text-center" 
                             value={numQuestions} 
                             onChange={(e) => handleNumQuestionsChange(e.target.value)} 
                           />
                         </div>
                       </div>
 
-                      {Number(numQuestions) > 0 && (
-                        <div className="space-y-3 border-t border-slate-100 pt-3">
-                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-                            {Array.from({ length: Math.max(0, parseInt(numQuestions, 10) || 0) }).map((_, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => setActiveQuestionIdx(idx)}
-                                className={`size-7 shrink-0 rounded-md text-xs font-bold transition-all border ${
-                                  activeQuestionIdx === idx
-                                    ? "bg-slate-800 text-white border-slate-800"
-                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                                }`}
-                              >
-                                {idx + 1}
-                              </button>
-                            ))}
-                          </div>
-
-                          {builderQuestions[activeQuestionIdx] && (
-                            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 space-y-2.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                  Câu hỏi {activeQuestionIdx + 1}
-                                </span>
-                                <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-md">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_CHOICE')}
-                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
-                                      builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE'
-                                        ? "bg-white text-slate-800 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                                  >
-                                    Một đáp án
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_SELECT')}
-                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
-                                      builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT'
-                                        ? "bg-white text-slate-800 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                                  >
-                                    Nhiều đáp án
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'ESSAY')}
-                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
-                                      builderQuestions[activeQuestionIdx].questionType === 'ESSAY'
-                                        ? "bg-white text-slate-800 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                                  >
-                                    Tự luận
-                                  </button>
-                                </div>
-                              </div>
-
-                              <textarea
-                                className="lp-input text-xs w-full"
-                                placeholder="Nhập đề / nội dung câu hỏi..."
-                                rows={2}
-                                value={builderQuestions[activeQuestionIdx].questionContent}
-                                onChange={(e) => updateQuestionField(activeQuestionIdx, 'questionContent', e.target.value)}
-                              />
-
-                              {builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ||
-                              builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT' ? (
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                                    <span>
-                                      ĐÁP ÁN ({builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'Chọn 1 đáp án đúng' : 'Chọn nhiều đáp án đúng'})
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => addAnswerOption(activeQuestionIdx)}
-                                      className="text-indigo-600 hover:underline text-[10px]"
-                                    >
-                                      + Thêm đáp án
-                                    </button>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    {builderQuestions[activeQuestionIdx].answers.map((ans: any, aIdx: number) => (
-                                      <div key={aIdx} className="flex items-center gap-2">
-                                        <span className="font-semibold text-[10px] text-slate-400 shrink-0 w-3">
-                                          {String.fromCharCode(65 + aIdx)}
-                                        </span>
-                                        <input
-                                          type="text"
-                                          placeholder={`Đáp án ${String.fromCharCode(65 + aIdx)}`}
-                                          className="lp-input flex-1 py-1 px-2 text-xs"
-                                          value={ans.answerContent}
-                                          onChange={(e) => updateAnswerField(activeQuestionIdx, aIdx, 'answerContent', e.target.value)}
-                                        />
-                                        <input
-                                          type={builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
-                                          name={`correct-ans-sidebar-${activeQuestionIdx}`}
-                                          checked={!!ans.isCorrect}
-                                          onChange={(e) => {
-                                            if (builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE') {
-                                              builderQuestions[activeQuestionIdx].answers.forEach((_: any, i: number) => {
-                                                updateAnswerField(activeQuestionIdx, i, 'isCorrect', i === aIdx);
-                                              });
-                                            } else {
-                                              updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
-                                            }
-                                          }}
-                                          className="h-3.5 w-3.5 text-indigo-600 cursor-pointer"
-                                        />
-                                        {builderQuestions[activeQuestionIdx].answers.length > 2 && (
-                                          <button
-                                            type="button"
-                                            onClick={() => removeAnswerOption(activeQuestionIdx, aIdx)}
-                                            className="text-red-500 hover:text-red-700 text-xs px-1"
-                                          >
-                                            ×
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="space-y-1.5">
-                                  <span className="text-[10px] font-bold text-slate-500 block">CÂU TRẢ LỜI MẪU / HƯỚNG DẪN CHẤM</span>
-                                  <textarea
-                                    className="lp-input text-xs w-full"
-                                    placeholder="Nhập câu trả lời mẫu cho tự luận..."
-                                    rows={3}
-                                    value={builderQuestions[activeQuestionIdx].answers[0]?.answerContent || ""}
-                                    onChange={(e) => updateAnswerField(activeQuestionIdx, 0, 'answerContent', e.target.value)}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      {renderQuestionBuilder()}
 
                       <button
-                        onClick={saveSidebarPlacementTest}
+                        type="button"
+                        onClick={saveSidebarNodeTest}
                         disabled={saving}
                         className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 mt-2"
                       >
@@ -1280,137 +1337,213 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   </section>
                 ) : (
                   <>
-                    {isLearningNode(selectedNode) && (
+                    <section>
+                      <SectionTitle>Tên &amp; mô tả</SectionTitle>
+                      <div className="space-y-2">
+                        <input className="lp-input" value={eTitle} onChange={(e) => setETitle(e.target.value)} />
+                        <textarea className="lp-input" rows={2} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Mô tả (tùy chọn)" />
+                        <button onClick={saveNodeEdit} disabled={saving} className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+                          Lưu
+                        </button>
+                      </div>
+                    </section>
+
+                    {isTestNode ? (
                       <section>
-                        <SectionTitle>Học liệu</SectionTitle>
-                        {loadingContent ? (
-                          <p className="text-xs text-slate-400">Đang tải…</p>
-                        ) : (
+                        <SectionTitle>
+                          {selectedNode.testKind === 'PLACEMENT' ? 'Cấu hình bài test năng lực' : 
+                           selectedNode.testKind === 'GATE' ? 'Cấu hình bài test chặng' : 'Cấu hình bài test tự chọn'}
+                        </SectionTitle>
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
+                              <input 
+                                type="number" 
+                                min={1} 
+                                className="lp-input mt-1 text-center" 
+                                value={tDuration} 
+                                onChange={(e) => setTDuration(e.target.value)} 
+                              />
+                            </div>
+                            {selectedNode.testKind !== 'PLACEMENT' && (
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
+                                <input 
+                                  type="number" 
+                                  min={0} 
+                                  max={100}
+                                  className="lp-input mt-1 text-center" 
+                                  value={tPass} 
+                                  onChange={(e) => setTPass(e.target.value)} 
+                                />
+                              </div>
+                            )}
+                            <div className={selectedNode.testKind === 'PLACEMENT' ? 'col-span-2' : ''}>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
+                              <input 
+                                type="number" 
+                                min={0} 
+                                className="lp-input mt-1 text-center" 
+                                value={numQuestions} 
+                                onChange={(e) => handleNumQuestionsChange(e.target.value)} 
+                              />
+                            </div>
+                          </div>
+
+                          {renderQuestionBuilder()}
+
+                          <button
+                            type="button"
+                            onClick={saveSidebarNodeTest}
+                            disabled={saving}
+                            className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 mt-2"
+                          >
+                            Lưu bài test
+                          </button>
+                        </div>
+                      </section>
+                    ) : (
+                      <>
+                        {isLearningNode(selectedNode) && (
+                          <section>
+                            <SectionTitle>Học liệu</SectionTitle>
+                            {loadingContent ? (
+                              <p className="text-xs text-slate-400">Đang tải…</p>
+                            ) : (
+                              <ul className="space-y-1">
+                                {(content?.materials ?? []).map((m) => (
+                                  <li key={m.materialId} className="rounded-md bg-slate-50 p-2.5 text-sm">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="truncate font-medium text-slate-700">{m.title}</span>
+                                      <button onClick={() => removeMaterial(m.materialId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                                        xóa
+                                      </button>
+                                    </div>
+                                    <MaterialPreview material={m} />
+                                  </li>
+                                ))}
+                                {(content?.materials ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có học liệu.</p>}
+                              </ul>
+                            )}
+                            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm học liệu</p>
+                              <input className="lp-input" placeholder="Tiêu đề học liệu" value={mTitle} onChange={(e) => setMTitle(e.target.value)} />
+                              <select className="lp-input" value={mType} onChange={(e) => setMType(e.target.value as "video" | "file")}>
+                                <option value="video">Video (URL)</option>
+                                <option value="file">Tệp tải lên</option>
+                              </select>
+                              {mType === "video" ? (
+                                <>
+                                  <input className="lp-input" placeholder="https://… (YouTube, Vimeo hoặc .mp4)" value={mVideoUrl} onChange={(e) => setMVideoUrl(e.target.value)} />
+                                  {mVideoUrl.trim() && <VideoPreview url={mVideoUrl} />}
+                                </>
+                              ) : (
+                                <input type="file" className="lp-input" onChange={(e) => setMFile(e.target.files?.[0] ?? null)} />
+                              )}
+                              <button onClick={addMaterial} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                                Thêm học liệu
+                              </button>
+                            </div>
+                          </section>
+                        )}
+
+                        <section>
+                          <SectionTitle>Bài test</SectionTitle>
                           <ul className="space-y-1">
-                            {(content?.materials ?? []).map((m) => (
-                              <li key={m.materialId} className="rounded-md bg-slate-50 p-2.5 text-sm">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="truncate font-medium text-slate-700">{m.title}</span>
-                                  <button onClick={() => removeMaterial(m.materialId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                            {(content?.tests ?? []).map((t) => (
+                              <li key={t.testId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
+                                <span className="truncate">
+                                  {t.title}
+                                  <span className="ml-2 text-xs text-slate-400">
+                                    {t.durationMinutes ?? "?"}′ · đạt {t.passingPercentage ?? 0}%
+                                  </span>
+                                </span>
+                                <div className="flex items-center gap-2 shrink-0 text-xs">
+                                  <button type="button" onClick={() => startEditingNodeTest(t)} className="text-indigo-600 hover:underline">
+                                    cấu hình
+                                  </button>
+                                  <span className="text-slate-350">|</span>
+                                  <button type="button" onClick={() => removeTest(t.testId)} className="text-rose-500 hover:underline">
                                     xóa
                                   </button>
                                 </div>
-                                <MaterialPreview material={m} />
                               </li>
                             ))}
-                            {(content?.materials ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có học liệu.</p>}
+                            {(content?.tests ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài test.</p>}
                           </ul>
-                        )}
-                        <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm học liệu</p>
-                          <input className="lp-input" placeholder="Tiêu đề học liệu" value={mTitle} onChange={(e) => setMTitle(e.target.value)} />
-                          <select className="lp-input" value={mType} onChange={(e) => setMType(e.target.value as "video" | "file")}>
-                            <option value="video">Video (URL)</option>
-                            <option value="file">Tệp tải lên</option>
-                          </select>
-                          {mType === "video" ? (
-                            <>
-                              <input className="lp-input" placeholder="https://… (YouTube, Vimeo hoặc .mp4)" value={mVideoUrl} onChange={(e) => setMVideoUrl(e.target.value)} />
-                              {mVideoUrl.trim() && <VideoPreview url={mVideoUrl} />}
-                            </>
+                          {(content?.tests ?? []).length >= (isLearningNode(selectedNode) ? Infinity : 1) ? (
+                            <p className="mt-2 text-xs text-slate-400">Mỗi node test chỉ có 1 bài test.</p>
                           ) : (
-                            <input type="file" className="lp-input" onChange={(e) => setMFile(e.target.files?.[0] ?? null)} />
+                            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài test</p>
+                              <input className="lp-input" placeholder="Tiêu đề test" value={tTitle} onChange={(e) => setTTitle(e.target.value)} />
+                              <div className="flex items-center gap-2">
+                                <label className="flex-1 text-xs text-slate-500">
+                                  Thời lượng (phút)
+                                  <input className="lp-input mt-1" type="number" min={1} value={tDuration} onChange={(e) => setTDuration(e.target.value)} />
+                                </label>
+                                <label className="flex-1 text-xs text-slate-500">
+                                  % đạt
+                                  <input className="lp-input mt-1" type="number" min={0} max={100} value={tPass} onChange={(e) => setTPass(e.target.value)} />
+                                </label>
+                              </div>
+                              <button onClick={addTest} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                                Thêm bài test
+                              </button>
+                            </div>
                           )}
-                          <button onClick={addMaterial} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
-                            Thêm học liệu
-                          </button>
-                        </div>
-                      </section>
-                    )}
+                        </section>
 
-                    <section>
-                      <SectionTitle>Bài test</SectionTitle>
-                      <ul className="space-y-1">
-                        {(content?.tests ?? []).map((t) => (
-                          <li key={t.testId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
-                            <span className="truncate">
-                              {t.title}
-                              <span className="ml-2 text-xs text-slate-400">
-                                {t.durationMinutes ?? "?"}′ · đạt {t.passingPercentage ?? 0}%
-                              </span>
-                            </span>
-                            <button onClick={() => removeTest(t.testId)} className="shrink-0 text-xs text-rose-500 hover:underline">
-                              xóa
-                            </button>
-                          </li>
-                        ))}
-                        {(content?.tests ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài test.</p>}
-                      </ul>
-                      {(content?.tests ?? []).length >= (isLearningNode(selectedNode) ? Infinity : 1) ? (
-                        <p className="mt-2 text-xs text-slate-400">Mỗi node test chỉ có 1 bài test.</p>
-                      ) : (
-                        <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài test</p>
-                          <input className="lp-input" placeholder="Tiêu đề test" value={tTitle} onChange={(e) => setTTitle(e.target.value)} />
-                          <div className="flex items-center gap-2">
-                            <label className="flex-1 text-xs text-slate-500">
-                              Thời lượng (phút)
-                              <input className="lp-input mt-1" type="number" min={1} value={tDuration} onChange={(e) => setTDuration(e.target.value)} />
-                            </label>
-                            <label className="flex-1 text-xs text-slate-500">
-                              % đạt
-                              <input className="lp-input mt-1" type="number" min={0} max={100} value={tPass} onChange={(e) => setTPass(e.target.value)} />
-                            </label>
-                          </div>
-                          <button onClick={addTest} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
-                            Thêm bài test
-                          </button>
-                        </div>
-                      )}
-                    </section>
-
-                    {isLearningNode(selectedNode) && (
-                      <section>
-                        <SectionTitle>Thực hành</SectionTitle>
-                        {loadingContent ? (
-                          <p className="text-xs text-slate-400">Đang tải…</p>
-                        ) : (
-                          <ul className="space-y-1">
-                            {(content?.exercises ?? []).map((ex) => (
-                              <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium text-slate-700">{ex.title}</p>
-                                  <div className="mt-0.5 flex flex-wrap gap-1">
-                                    {ex.allowText && (
-                                      <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">Tự luận</span>
-                                    )}
-                                    {ex.allowFile && (
-                                      <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">Nộp file</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <button onClick={() => removeExercise(ex.exerciseId)} className="shrink-0 text-xs text-rose-500 hover:underline">
-                                  xóa
-                                </button>
-                              </li>
-                            ))}
-                            {(content?.exercises ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài tập.</p>}
-                          </ul>
+                        {isLearningNode(selectedNode) && (
+                          <section>
+                            <SectionTitle>Thực hành</SectionTitle>
+                            {loadingContent ? (
+                              <p className="text-xs text-slate-400">Đang tải…</p>
+                            ) : (
+                              <ul className="space-y-1">
+                                {(content?.exercises ?? []).map((ex) => (
+                                  <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
+                                    <div className="min-w-0">
+                                      <p className="truncate font-medium text-slate-700">{ex.title}</p>
+                                      <div className="mt-0.5 flex flex-wrap gap-1">
+                                        {ex.allowText && (
+                                          <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">Tự luận</span>
+                                        )}
+                                        {ex.allowFile && (
+                                          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">Nộp file</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <button onClick={() => removeExercise(ex.exerciseId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                                      xóa
+                                    </button>
+                                  </li>
+                                ))}
+                                {(content?.exercises ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài tập.</p>}
+                              </ul>
+                            )}
+                            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài tập</p>
+                              <input className="lp-input" placeholder="Tiêu đề bài tập" value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
+                              <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
+                              <div className="flex items-center gap-4 text-sm text-slate-600">
+                                <label className="flex cursor-pointer items-center gap-1.5">
+                                  <input type="checkbox" checked={exAllowText} onChange={(e) => setExAllowText(e.target.checked)} />
+                                  Tự luận
+                                </label>
+                                <label className="flex cursor-pointer items-center gap-1.5">
+                                  <input type="checkbox" checked={exAllowFile} onChange={(e) => setExAllowFile(e.target.checked)} />
+                                  Nộp file
+                                </label>
+                              </div>
+                              <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                                Thêm bài tập
+                              </button>
+                            </div>
+                          </section>
                         )}
-                        <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài tập</p>
-                          <input className="lp-input" placeholder="Tiêu đề bài tập" value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
-                          <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
-                          <div className="flex items-center gap-4 text-sm text-slate-600">
-                            <label className="flex cursor-pointer items-center gap-1.5">
-                              <input type="checkbox" checked={exAllowText} onChange={(e) => setExAllowText(e.target.checked)} />
-                              Tự luận
-                            </label>
-                            <label className="flex cursor-pointer items-center gap-1.5">
-                              <input type="checkbox" checked={exAllowFile} onChange={(e) => setExAllowFile(e.target.checked)} />
-                              Nộp file
-                            </label>
-                          </div>
-                          <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
-                            Thêm bài tập
-                          </button>
-                        </div>
-                      </section>
+                      </>
                     )}
                   </>
                 )}
