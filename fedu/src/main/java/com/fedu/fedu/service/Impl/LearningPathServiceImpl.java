@@ -860,13 +860,22 @@ public class LearningPathServiceImpl implements LearningPathService {
         for (LearningNode node : nodes) {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
             boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS && levelOk;
+
+            // Tự động hoàn thành node test đầu vào (PLACEMENT) khi khởi tạo lộ trình
+            boolean isPlacement = node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT;
+            StudentProgressStatus initialStatus = isPlacement ? StudentProgressStatus.COMPLETED :
+                    (openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED);
+            java.time.LocalDateTime completedTime = isPlacement ? java.time.LocalDateTime.now() : null;
+            java.time.LocalDateTime unlockedTime = (isPlacement || openIt) ? java.time.LocalDateTime.now() : null;
+
             progressList.add(StudentNodeProgress.builder()
                     .classroomSubjectStudent(css)
                     .learningNode(node)
                     .learningPath(path)
                     .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)
-                    .status(openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
-                    .unlockedAt(openIt ? java.time.LocalDateTime.now() : null)
+                    .status(initialStatus)
+                    .unlockedAt(unlockedTime)
+                    .completedAt(completedTime)
                     .build());
         }
         studentNodeProgressRepository.saveAll(progressList);

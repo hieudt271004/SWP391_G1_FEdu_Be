@@ -229,7 +229,10 @@ class LearningPathServiceImplTest {
 
         assertNotNull(response);
         assertEquals("DRAFT", response.getState());
-        assertNull(response.getAvailableTemplates());
+        assertNotNull(response.getAvailableTemplates());
+        java.util.List<?> templates = response.getAvailableTemplates();
+        java.util.Objects.requireNonNull(templates);
+        org.junit.jupiter.api.Assertions.assertTrue(templates.isEmpty());
         clearAuthentication();
     }
 
