@@ -5,6 +5,8 @@ import { classroomService } from "../../services/classroom.service";
 import type { ClassroomResponse } from "../../types/classroom";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from "sonner";
 
 // Map ClassroomResponse (BE) → ClassRecord (display)
 interface ClassRecord {
@@ -32,6 +34,7 @@ type ViewMode = "list" | "grid";
 
 export function ClassListPage() {
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,12 +72,24 @@ export function ClassListPage() {
   useEffect(() => { fetchClassrooms(); }, [fetchClassrooms]);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Xác nhận xóa lớp học này?")) return;
+    const classRec = classes.find(c => c.id === id);
+    const className = classRec ? ` "${classRec.className}"` : "";
+    
+    const isConfirmed = await confirm({
+      title: "Xác nhận xóa lớp học",
+      message: `Bạn có chắc chắn muốn xóa lớp học${className}? Hành động này sẽ xóa vĩnh viễn lớp học và các liên kết liên quan.`,
+      confirmText: "Xóa",
+      cancelText: "Hủy",
+      type: "danger"
+    });
+
+    if (!isConfirmed) return;
     try {
       await classroomService.delete(id);
       setClasses(prev => prev.filter(c => c.id !== id));
+      toast.success(`Đã xóa lớp học${className} thành công.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
   };
 

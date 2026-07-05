@@ -16,16 +16,19 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import logo from "../../assets/logo.png";
 import { getFullName, getInitials } from "../../utils/userHelpers";
+import { useNotifications } from "../../context/NotificationContext";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 
 export function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notiOpen, setNotiOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notiRef = useRef<HTMLDivElement>(null);
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
 
   const menuItems = [
     { icon: Home, label: "Tổng quan", path: "/admin/dashboard" },
@@ -39,6 +42,9 @@ export function AdminLayout() {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (notiRef.current && !notiRef.current.contains(event.target as Node)) {
+        setNotiOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -158,9 +164,87 @@ export function AdminLayout() {
 
             {/* Right side: Notifications + Avatar Dropdown */}
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                <Bell className="w-5 h-5" />
-              </Button>
+              {/* Notifications Bell */}
+              <div className="relative" ref={notiRef}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setNotiOpen(!notiOpen)}
+                  className="relative text-muted-foreground hover:text-foreground"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full ring-2 ring-background animate-pulse" />
+                  )}
+                </Button>
+
+                {/* Notifications Dropdown */}
+                {notiOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 shadow-xl bg-popover text-popover-foreground border border-border overflow-hidden z-50 rounded-lg">
+                    <div className="p-3 border-b border-border flex items-center justify-between bg-accent/30">
+                      <span className="font-semibold text-sm text-foreground">Thông báo</span>
+                      {unreadCount > 0 && (
+                        <Button
+                          variant="link"
+                          onClick={markAllAsRead}
+                          className="text-xs h-auto p-0 text-primary"
+                        >
+                          Đọc tất cả
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="max-h-72 overflow-y-auto divide-y divide-border">
+                      {notifications.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-muted-foreground">
+                          Không có thông báo nào
+                        </div>
+                      ) : (
+                        notifications.map((noti) => (
+                          <div
+                            key={noti.id}
+                            onClick={() => {
+                              markAsRead(noti.id);
+                            }}
+                            className={`p-3 text-left transition-colors cursor-pointer ${
+                              noti.isRead ? 'bg-popover hover:bg-accent/40' : 'bg-accent/20 hover:bg-accent/50'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <span className={`text-xs font-medium ${noti.isRead ? 'text-foreground/80' : 'text-foreground font-bold'}`}>
+                                {noti.title}
+                              </span>
+                              {!noti.isRead && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 mt-1" />
+                              )}
+                            </div>
+                            {noti.message && (
+                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                                {noti.message}
+                              </p>
+                            )}
+                            <span className="text-[9px] text-muted-foreground/60 mt-1 block">
+                              {new Date(noti.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {new Date(noti.createdAt).toLocaleDateString('vi-VN')}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {notifications.length > 0 && (
+                      <div className="p-2 border-t border-border text-center bg-accent/30">
+                        <Button
+                          variant="link"
+                          onClick={clearAll}
+                          className="text-xs h-auto p-0 text-destructive hover:text-destructive/80 font-medium"
+                        >
+                          Xóa tất cả
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* User Dropdown */}
               <div className="relative pl-3 border-l border-border" ref={dropdownRef}>
@@ -168,10 +252,14 @@ export function AdminLayout() {
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 p-1 rounded-lg hover:bg-accent transition-colors cursor-pointer border-none bg-transparent"
                 >
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-muted text-foreground border border-border">
-                    <span className="font-semibold text-sm">
-                      {getInitials(user)}
-                    </span>
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden bg-muted text-foreground border border-border">
+                    {user?.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="font-semibold text-sm">
+                        {getInitials(user)}
+                      </span>
+                    )}
                   </div>
                   <div className="hidden md:block text-left">
                     <div className="text-sm font-semibold text-foreground max-w-[120px] truncate">
@@ -192,10 +280,14 @@ export function AdminLayout() {
                     {/* User Info Header */}
                     <div className="p-4 border-b border-border bg-popover">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 bg-primary text-primary-foreground">
-                          <span className="text-lg font-semibold">
-                            {getInitials(user)}
-                          </span>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 overflow-hidden bg-primary text-primary-foreground">
+                          {user?.avatarUrl ? (
+                            <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-lg font-semibold">
+                              {getInitials(user)}
+                            </span>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-foreground truncate">

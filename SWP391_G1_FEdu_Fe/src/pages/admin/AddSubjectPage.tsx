@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
+import { toast } from "sonner";
 
 interface SubjectForm {
   subjectCode: string;
@@ -64,12 +65,15 @@ export function AddSubjectPage() {
       setError(null);
       if (isEdit) {
         await subjectService.update(Number(id), payload);
+        toast.success(`Đã cập nhật môn học "${form.subjectName.trim()}" thành công.`);
       } else {
         await subjectService.create(payload);
+        toast.success(`Đã tạo môn học "${form.subjectName.trim()}" thành công.`);
       }
       navigate("/admin/subjects");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
+      toast.error(err instanceof Error ? err.message : "Thao tác thất bại");
     } finally {
       setSubmitting(false);
     }
@@ -112,7 +116,7 @@ export function AddSubjectPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Mã khóa học */}
+              {/* Mã môn học */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
                   Mã môn học <span className="text-destructive">*</span>
@@ -126,7 +130,7 @@ export function AddSubjectPage() {
                 />
               </div>
 
-              {/* Tên khóa học */}
+              {/* Tên môn học */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
                   Tên môn học <span className="text-destructive">*</span>

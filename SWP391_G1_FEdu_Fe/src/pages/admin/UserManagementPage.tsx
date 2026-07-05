@@ -10,6 +10,8 @@ import { adminService } from "../../services/admin.service";
 import type { AdminUserResponse } from "../../services/admin.service";
 import { UserRole } from "@/types/user";
 import { useAuth } from "../../context/AuthContext";
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from "sonner";
 
 type ViewMode = "list" | "grid";
 
@@ -76,6 +78,7 @@ interface UserManagementPageProps {
 export function UserManagementPage({ filterRole = "all" }: UserManagementPageProps) {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,12 +148,23 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
   const handleDeleteUser = async (userId: number) => {
     const user = users.find((u) => u.id === userId);
     if (!user) return;
-    if (!confirm(`Xác nhận xóa người dùng "${user.name}"?`)) return;
+    
+    const isConfirmed = await confirm({
+      title: "Xác nhận xóa tài khoản",
+      message: `Bạn có chắc chắn muốn xóa người dùng "${user.name}"? Hành động này sẽ loại bỏ tài khoản khỏi hệ thống và không thể hoàn tác.`,
+      confirmText: "Xóa",
+      cancelText: "Hủy",
+      type: "danger"
+    });
+    
+    if (!isConfirmed) return;
+    
     try {
       await adminService.deleteUser(user.email);
       setUsers((prev) => prev.filter((u) => u.id !== userId));
+      toast.success(`Đã xóa người dùng "${user.name}" thành công.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
     setOpenDropdown(null);
   };
@@ -164,8 +178,9 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
           u.id === user.id ? { ...u, status: newStatus === "ACTIVE" ? "active" : "inactive" } : u
         )
       );
+      toast.success(`Đã cập nhật trạng thái của "${user.name}" thành ${newStatus === "ACTIVE" ? "Hoạt động" : "Ngưng hoạt động"}.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Cập nhật thất bại");
+      toast.error(e instanceof Error ? e.message : "Cập nhật thất bại");
     }
   };
 
@@ -272,7 +287,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
       {/* Filters & Controls */}
       <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm text-muted-foreground">Hiển thị</span>
             <select
               value={itemsPerPage}
@@ -290,9 +305,9 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
             <span className="text-sm text-muted-foreground">mục</span>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto justify-end">
             {filterRole === "all" && (
-              <div className="flex items-center gap-2 bg-input-background px-3 py-2 rounded-lg border border-transparent focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-auto">
+              <div className="flex items-center gap-2 bg-input-background px-3 py-2 rounded-lg border border-transparent focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-auto shrink-0">
                 <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
                 <select
                   value={roleFilter}
@@ -306,7 +321,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
               </div>
             )}
             
-            <div className="flex items-center gap-2 px-3 py-2 bg-input-background rounded-lg border border-transparent focus-within:ring-2 focus-within:ring-primary/10 w-full sm:min-w-[280px]">
+            <div className="flex items-center gap-2 px-3 py-2 bg-input-background rounded-lg border border-transparent focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-[280px] shrink-0">
               <Search className="w-4 h-4 text-muted-foreground shrink-0" />
               <input
                 type="text"
