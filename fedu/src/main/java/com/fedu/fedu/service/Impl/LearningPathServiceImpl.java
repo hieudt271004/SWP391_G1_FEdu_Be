@@ -227,6 +227,14 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .isDeleted(false)
                     .build();
             testRepository.save(nt);
+            
+            if (dst.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT) {
+                ClassroomSubject cs = dst.getLearningPath().getClassroomSubject();
+                if (cs != null) {
+                    cs.setQuizStart(nt);
+                    classroomSubjectRepository.save(cs);
+                }
+            }
 
             for (TestQuestion q : testQuestionRepository.findByTestTestId(t.getTestId())) {
                 TestQuestion nq = TestQuestion.builder()
