@@ -1027,7 +1027,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
             <ModalActions onCancel={() => setShowCreateTpl(false)} onSave={submitCreateTpl} saving={saving} />
           </Modal>
         )}
-        <style>{`.lp-input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:14px;outline:none}.lp-input:focus{border-color:#6366f1}`}</style>
+        <style>{`.lp-input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:14px;outline:none;color:#0f172a !important;background-color:#ffffff !important}.lp-input:focus{border-color:#6366f1}`}</style>
       </>
     );
   }
@@ -1355,7 +1355,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                            selectedNode.testKind === 'GATE' ? 'Cấu hình bài test chặng' : 'Cấu hình bài test tự chọn'}
                         </SectionTitle>
                         <div className="space-y-3">
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className={`grid gap-2 ${selectedNode.testKind === 'PLACEMENT' ? 'grid-cols-2' : 'grid-cols-3'}`}>
                             <div>
                               <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
                               <input 
@@ -1379,7 +1379,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                                 />
                               </div>
                             )}
-                            <div className={selectedNode.testKind === 'PLACEMENT' ? 'col-span-2' : ''}>
+                            <div>
                               <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
                               <input 
                                 type="number" 
@@ -1728,7 +1728,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
         </Modal>
       )}
 
-      <style>{`.lp-input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:14px;outline:none}.lp-input:focus{border-color:#6366f1}`}</style>
+      <style>{`.lp-input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:14px;outline:none;color:#0f172a !important;background-color:#ffffff !important}.lp-input:focus{border-color:#6366f1}`}</style>
     </div>
   );
 }
