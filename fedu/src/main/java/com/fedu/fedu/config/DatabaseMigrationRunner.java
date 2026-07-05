@@ -234,6 +234,8 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 statement.execute("ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL");
                 // Placement cancel/retake: trạng thái lượt làm bài
                 statement.execute("ALTER TABLE student_test_attempts ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'SUBMITTED'");
+                // Số lần học sinh rời tab khi đang làm bài (chống gian lận)
+                statement.execute("ALTER TABLE student_test_attempts ADD COLUMN IF NOT EXISTS tab_out_count INT DEFAULT 0");
                 log.info("Adaptive placement: columns added/verified.");
             }
 
