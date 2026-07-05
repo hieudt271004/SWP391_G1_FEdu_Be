@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { 
   Search, Filter, UserPlus, Edit2, Trash2, Eye, 
   ChevronLeft, ChevronRight, List, Grid, MoreVertical, 
-  ChevronRight as ChevronRightIcon, ArrowUpDown, Loader2, AlertCircle 
+  ChevronRight as ChevronRightIcon, ArrowUpDown, Loader2, AlertCircle, ArrowUp, ArrowDown 
 } from "lucide-react";
 import { UserDetailModal } from "./UserDetailModal";
 import { adminService } from "../../services/admin.service";
@@ -25,6 +25,7 @@ interface AdminUser {
   role: string;
   roleKey: UserRole;
   joinedDate: string;
+  createdAtRaw?: number;
   status: "active" | "inactive";
   avatar: string;
   avatarUrl: string;
@@ -65,6 +66,7 @@ function beUserToAdminUser(u: AdminUserResponse): AdminUser {
     role: roleLabel,
     roleKey,
     joinedDate: u.createdAt ? new Date(u.createdAt).toLocaleDateString("vi-VN") : "—",
+    createdAtRaw: u.createdAt ? new Date(u.createdAt).getTime() : 0,
     status: u.status === "ACTIVE" ? "active" : "inactive",
     avatar: initials,
     avatarUrl: u.avatarUrl || "",
@@ -91,6 +93,8 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [sortField, setSortField] = useState<"name" | "email" | "joinedDate" | "role" | "status" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -184,6 +188,24 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
     }
   };
 
+  const handleSort = (field: "name" | "email" | "joinedDate" | "role" | "status") => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (field: "name" | "email" | "joinedDate" | "role" | "status") => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="w-3.5 h-3.5 text-primary-foreground shrink-0" />
+      : <ArrowDown className="w-3.5 h-3.5 text-primary-foreground shrink-0" />;
+  };
+
   const filteredUsers = users.filter((user) => {
     // Exclude currently logged in admin
     if (currentUser && user.email === currentUser.email) {
@@ -197,8 +219,28 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
     return matchSearch && matchRole;
   });
 
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    let aVal: any = a[sortField];
+    let bVal: any = b[sortField];
+    
+    if (sortField === "joinedDate") {
+      aVal = a.createdAtRaw || 0;
+      bVal = b.createdAtRaw || 0;
+    }
+    
+    if (typeof aVal === "string") {
+      return sortDirection === "asc" 
+        ? aVal.localeCompare(bVal) 
+        : bVal.localeCompare(aVal);
+    }
+    
+    return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+  });
+
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const paginatedUsers = filteredUsers.slice(
+  const paginatedUsers = sortedUsers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -342,19 +384,51 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-primary text-primary-foreground border-b border-border">
-                  {["Name", "EMAIL", "NGÀY THAM GIA", "ROLE", "STATUS", "ACTIONS"].map((h) => (
-                    <th key={h} className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider">
-                      {h !== "ACTIONS" ? (
-                        <button 
-                          className="flex items-center gap-1.5 p-1 -ml-1 rounded text-primary-foreground hover:bg-primary-foreground/10 transition-colors font-semibold border-none bg-transparent cursor-pointer"
-                        >
-                          {h} <ArrowUpDown className="w-3.5 h-3.5 opacity-80" />
-                        </button>
-                      ) : (
-                        <span>{h}</span>
-                      )}
-                    </th>
-                  ))}
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("name")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      HỌ VÀ TÊN {getSortIcon("name")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("email")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      EMAIL {getSortIcon("email")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("joinedDate")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      NGÀY THAM GIA {getSortIcon("joinedDate")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("role")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      VAI TRÒ {getSortIcon("role")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("status")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      TRẠNG THÁI {getSortIcon("status")}
+                    </span>
+                  </th>
+                  <th className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      HÀNH ĐỘNG
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">

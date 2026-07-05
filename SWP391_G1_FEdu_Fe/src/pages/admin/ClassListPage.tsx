@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Plus, Edit2, Trash2, Eye, ChevronLeft, ChevronRight, List, Grid, ChevronRight as ChevronRightIcon, ArrowUpDown, Loader2, AlertCircle, MoreVertical } from "lucide-react";
+import { Search, Filter, Plus, Edit2, Trash2, Eye, ChevronLeft, ChevronRight, List, Grid, ChevronRight as ChevronRightIcon, ArrowUpDown, Loader2, AlertCircle, MoreVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
 import type { ClassroomResponse } from "../../types/classroom";
 import { Button } from "../../components/ui/button";
@@ -45,6 +45,8 @@ export function ClassListPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [sortField, setSortField] = useState<"className" | "subjects" | "students" | "status" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -93,14 +95,48 @@ export function ClassListPage() {
     }
   };
 
+  const handleSort = (field: "className" | "subjects" | "students" | "status") => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (field: "className" | "subjects" | "students" | "status") => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3.5 h-3.5 opacity-40 shrink-0" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="w-3.5 h-3.5 text-primary-foreground shrink-0" />
+      : <ArrowDown className="w-3.5 h-3.5 text-primary-foreground shrink-0" />;
+  };
+
   const filteredClasses = classes.filter((c) => {
     const matchSearch = searchQuery === "" || c.className.toLowerCase().includes(searchQuery.toLowerCase()) || c.courseName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchStatus = statusFilter === "all" || c.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
+  const sortedClasses = [...filteredClasses].sort((a, b) => {
+    if (!sortField) return 0;
+    let aVal: any = a[sortField];
+    let bVal: any = b[sortField];
+    if (sortField === "subjects") {
+      aVal = parseInt(a.courseName) || 0;
+      bVal = parseInt(b.courseName) || 0;
+    }
+    if (typeof aVal === "string") {
+      return sortDirection === "asc" 
+        ? aVal.localeCompare(bVal) 
+        : bVal.localeCompare(aVal);
+    }
+    return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+  });
+
   const totalPages = Math.ceil(filteredClasses.length / itemsPerPage);
-  const paginatedClasses = filteredClasses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedClasses = sortedClasses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-20 gap-2">
@@ -217,13 +253,43 @@ export function ClassListPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-primary text-primary-foreground border-b border-border">
-                  {["TÊN LỚP", "SỐ MÔN", "HỌC VIÊN", "TRẠNG THÁI", "HÀNH ĐỘNG"].map((h) => (
-                    <th key={h} className="text-left px-6 py-4">
-                      <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
-                        {h} {h !== "HÀNH ĐỘNG" && <ArrowUpDown className="w-3.5 h-3.5 inline" />}
-                      </span>
-                    </th>
-                  ))}
+                  <th 
+                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("className")}
+                  >
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
+                      TÊN LỚP {getSortIcon("className")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("subjects")}
+                  >
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
+                      SỐ MÔN {getSortIcon("subjects")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("students")}
+                  >
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
+                      HỌC VIÊN {getSortIcon("students")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("status")}
+                  >
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
+                      TRẠNG THÁI {getSortIcon("status")}
+                    </span>
+                  </th>
+                  <th className="text-left px-6 py-4">
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
+                      HÀNH ĐỘNG
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
