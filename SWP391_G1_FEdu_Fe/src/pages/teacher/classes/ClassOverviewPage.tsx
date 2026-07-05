@@ -1455,16 +1455,7 @@ export function ClassOverviewPage() {
         >
           Lộ trình học tập
         </button>
-        <button
-          onClick={() => setActiveTab('placement')}
-          className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === 'placement'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-          }`}
-        >
-          Đánh giá & Phân loại
-        </button>
+
         <button
           onClick={() => setActiveTab('students')}
           className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
@@ -1714,7 +1705,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {activeTab === 'placement' && (
+      {false && (
         <div className="space-y-6">
           {loadingPlacement ? (
             <div className="flex items-center justify-center py-12">
