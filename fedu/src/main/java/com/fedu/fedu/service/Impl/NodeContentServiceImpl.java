@@ -220,6 +220,14 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .build();
 
         testRepository.save(test);
+
+        if (node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT) {
+            ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
+            if (cs != null) {
+                cs.setQuizStart(test);
+            }
+        }
+
         return mapToTestResponse(test);
     }
 
@@ -231,6 +239,14 @@ public class NodeContentServiceImpl implements NodeContentService {
 
         test.setIsDeleted(true);
         testRepository.save(test);
+
+        LearningNode node = test.getLearningNode();
+        if (node != null && node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT) {
+            ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
+            if (cs != null && cs.getQuizStart() != null && cs.getQuizStart().getTestId().equals(testId)) {
+                cs.setQuizStart(null);
+            }
+        }
     }
 
     @Override

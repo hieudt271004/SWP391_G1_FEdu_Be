@@ -523,12 +523,21 @@ export function StudentDashboardPage() {
                                               <span>Yêu cầu đạt: {t.passingPercentage}%</span>
                                             </div>
                                           </div>
-                                          <Button
-                                            onClick={() => navigate(`/student/tests/${t.testId}?csId=${selectedSubject?.classroomSubjectId}`)}
-                                            className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
-                                          >
-                                            Vào thi <ArrowRight className="size-3" />
-                                          </Button>
+                                          {node.studentStatus === 'COMPLETED' ? (
+                                            <Button
+                                              disabled
+                                              className="h-7 px-3 text-[10px] bg-emerald-500 disabled:opacity-100 text-white font-bold rounded-lg flex items-center gap-1 shrink-0 cursor-not-allowed border-none shadow-none"
+                                            >
+                                              Đã đạt
+                                            </Button>
+                                          ) : (
+                                            <Button
+                                              onClick={() => navigate(`/student/tests/${t.testId}?csId=${selectedSubject?.classroomSubjectId}`)}
+                                              className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
+                                            >
+                                              Vào thi <ArrowRight className="size-3" />
+                                            </Button>
+                                          )}
                                         </div>
                                       ))}
                                     </div>

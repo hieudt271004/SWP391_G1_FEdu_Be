@@ -81,12 +81,73 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public StudentTestDetailsResponse getTestDetailsForPlacement(Long testId) {
+        // Dành riêng cho placement quiz: KHÔNG kiểm tra StudentNodeProgress.
+        // PlacementService đã kiểm soát quyền truy cập (requireNotPlacedYet + requirePlacementQuiz).
+        com.fedu.fedu.entity.Test test = testRepository.findById(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+
+        List<TestQuestion> questions = testQuestionRepository.findByTestTestId(testId);
+        List<QuestionResponse> questionResponses = questions.stream()
+                .map(q -> {
+                    List<TestAnswer> answers = testAnswerRepository.findByQuestionQuestionId(q.getQuestionId());
+                    List<AnswerResponse> answerResponses = answers.stream()
+                            .map(a -> AnswerResponse.builder()
+                                    .answerId(a.getAnswerId())
+                                    .answerContent(a.getAnswerContent())
+                                    .isCorrect(null) // Omit correctness flags for students
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    return QuestionResponse.builder()
+                            .questionId(q.getQuestionId())
+                            .questionContent(q.getQuestionContent())
+                            .questionType(q.getQuestionType())
+                            .score(q.getScore())
+                            .answers(answerResponses)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return StudentTestDetailsResponse.builder()
+                .testId(test.getTestId())
+                .title(test.getTitle())
+                .description(test.getDescription())
+                .durationMinutes(test.getDurationMinutes())
+                .passingPercentage(test.getPassingPercentage())
+                .questions(questionResponses)
+                .build();
+    }
+
+    @Override
     @Transactional
     public StudentTestAttempt startTestAttempt(Long testId, Long studentId) {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         verifyStudentAccess(test.getLearningNode(), studentId);
+
+        UserAccount student = userAccountRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+
+        StudentTestAttempt attempt = StudentTestAttempt.builder()
+                .test(test)
+                .student(student)
+                .startedAt(LocalDateTime.now())
+                .status(com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS)
+                .build();
+
+        return studentTestAttemptRepository.save(attempt);
+    }
+
+    @Override
+    @Transactional
+    public StudentTestAttempt startTestAttemptForPlacement(Long testId, Long studentId) {
+        // Dành riêng cho placement quiz: KHÔNG kiểm tra StudentNodeProgress.
+        // PlacementService đã kiểm soát quyền truy cập (requireNotPlacedYet + requirePlacementQuiz).
+        com.fedu.fedu.entity.Test test = testRepository.findById(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         UserAccount student = userAccountRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));

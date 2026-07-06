@@ -227,6 +227,14 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .isDeleted(false)
                     .build();
             testRepository.save(nt);
+            
+            if (dst.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT) {
+                ClassroomSubject cs = dst.getLearningPath().getClassroomSubject();
+                if (cs != null) {
+                    cs.setQuizStart(nt);
+                    classroomSubjectRepository.save(cs);
+                }
+            }
 
             for (TestQuestion q : testQuestionRepository.findByTestTestId(t.getTestId())) {
                 TestQuestion nq = TestQuestion.builder()
@@ -848,17 +856,39 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
         List<LearningNode> entryNodes = validateAndGetEntryNodes(nodes, edges);
 
+        // Tìm danh sách Node ID nằm ngay sau Node PLACEMENT
+        List<Long> placementNodeIds = nodes.stream()
+                .filter(n -> n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT)
+                .map(LearningNode::getNodeId)
+                .toList();
+        Set<Long> nodesAfterPlacement = edges.stream()
+                .filter(e -> placementNodeIds.contains(e.getFromNode().getNodeId()))
+                .map(e -> e.getToNode().getNodeId())
+                .collect(Collectors.toSet());
+
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
-            boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS && levelOk;
+            // Một node được mở khóa ban đầu nếu nó là entry node HOẶC nằm ngay sau node PLACEMENT (và thỏa mãn level + không phải ON_CLASS)
+            boolean isAfterPlacement = nodesAfterPlacement.contains(node.getNodeId());
+            boolean openIt = (entryNodes.contains(node) || isAfterPlacement)
+                    && node.getNodeType() != NodeType.ON_CLASS && levelOk;
+
+            // Tự động hoàn thành node test đầu vào (PLACEMENT) khi khởi tạo lộ trình
+            boolean isPlacement = node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT;
+            StudentProgressStatus initialStatus = isPlacement ? StudentProgressStatus.COMPLETED :
+                    (openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED);
+            java.time.LocalDateTime completedTime = isPlacement ? java.time.LocalDateTime.now() : null;
+            java.time.LocalDateTime unlockedTime = (isPlacement || openIt) ? java.time.LocalDateTime.now() : null;
+
             progressList.add(StudentNodeProgress.builder()
                     .classroomSubjectStudent(css)
                     .learningNode(node)
                     .learningPath(path)
                     .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)
-                    .status(openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
-                    .unlockedAt(openIt ? java.time.LocalDateTime.now() : null)
+                    .status(initialStatus)
+                    .unlockedAt(unlockedTime)
+                    .completedAt(completedTime)
                     .build());
         }
         studentNodeProgressRepository.saveAll(progressList);

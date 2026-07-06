@@ -44,7 +44,9 @@ public class PlacementServiceImpl implements PlacementService {
     public StudentTestDetailsResponse getPlacementQuiz(Long classroomSubjectId, Long studentId) {
         requireNotPlacedYet(classroomSubjectId, studentId);
         Test quiz = requirePlacementQuiz(classroomSubjectId);
-        return studentTestService.getStudentTestDetails(quiz.getTestId(), studentId);
+        // Dùng getTestDetailsForPlacement để bỏ qua kiểm tra StudentNodeProgress —
+        // placement quiz chưa có tiến độ học tập trước khi học sinh làm bài lần đầu.
+        return studentTestService.getTestDetailsForPlacement(quiz.getTestId());
     }
 
     @Override
@@ -52,7 +54,9 @@ public class PlacementServiceImpl implements PlacementService {
     public StudentTestAttempt startPlacementAttempt(Long classroomSubjectId, Long studentId) {
         requireNotPlacedYet(classroomSubjectId, studentId);
         Test quiz = requirePlacementQuiz(classroomSubjectId);
-        return studentTestService.startTestAttempt(quiz.getTestId(), studentId);
+        // Dùng startTestAttemptForPlacement để bỏ qua kiểm tra StudentNodeProgress —
+        // placement quiz chưa có tiến độ học tập trước khi học sinh làm bài lần đầu.
+        return studentTestService.startTestAttemptForPlacement(quiz.getTestId(), studentId);
     }
 
     @Override

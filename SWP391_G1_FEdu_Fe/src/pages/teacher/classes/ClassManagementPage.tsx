@@ -32,7 +32,8 @@ import {
   ExternalLink,
   Users,
   Undo2,
-  Play
+  Play,
+  Settings
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -143,6 +144,22 @@ export function ClassManagementPage() {
   const [editNodeRequired, setEditNodeRequired] = useState(true);
   const [editingNode, setEditingNode] = useState(false);
 
+  // Edit Node Thresholds
+  const [editPlacementYeuMax, setEditPlacementYeuMax] = useState<string>('');
+  const [editPlacementTbMax, setEditPlacementTbMax] = useState<string>('');
+  const [editGateUpMin, setEditGateUpMin] = useState<string>('');
+  const [editGateDownMax, setEditGateDownMax] = useState<string>('');
+
+  // Sidebar Question Builder States
+  const [editingTTitle, setEditingTTitle] = useState("");
+  const [editingTDuration, setEditingTDuration] = useState("15");
+  const [editingTPass, setEditingTPass] = useState("0");
+  const [editingNumQuestions, setEditingNumQuestions] = useState("0");
+  const [builderQuestions, setBuilderQuestions] = useState<any[]>([]);
+  const [activeQuestionIdx, setActiveQuestionIdx] = useState(0);
+  const [editingNodeTest, setEditingNodeTest] = useState<any | null>(null);
+  const [saving, setSaving] = useState(false);
+
   // Node content state
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [nodeContentsLoading, setNodeContentsLoading] = useState<Record<number, boolean>>({});
@@ -176,11 +193,251 @@ export function ClassManagementPage() {
   // Submitting state
   const [submittingContent, setSubmittingContent] = useState(false);
 
+  const handleNumQuestionsChange = (val: string) => {
+    setEditingNumQuestions(val);
+    const num = Math.max(0, parseInt(val, 10) || 0);
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      while (next.length < num) {
+        next.push({
+          questionContent: "",
+          questionType: "MULTIPLE_CHOICE",
+          answers: [
+            { answerContent: "", isCorrect: false },
+            { answerContent: "", isCorrect: false },
+            { answerContent: "", isCorrect: false },
+            { answerContent: "", isCorrect: false },
+          ],
+        });
+      }
+      return next.slice(0, num);
+    });
+    setActiveQuestionIdx(0);
+  };
+
+  const handleQuestionTypeChange = (idx: number, type: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'ESSAY') => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      if (next[idx]) {
+        next[idx] = {
+          ...next[idx],
+          questionType: type,
+          answers: type === 'ESSAY'
+            ? [{ answerContent: "", isCorrect: true }]
+            : [
+                { answerContent: "", isCorrect: false },
+                { answerContent: "", isCorrect: false },
+                { answerContent: "", isCorrect: false },
+                { answerContent: "", isCorrect: false },
+              ]
+        };
+      }
+      return next;
+    });
+  };
+
+  const updateQuestionField = (idx: number, field: string, value: any) => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      if (next[idx]) {
+        next[idx] = { ...next[idx], [field]: value };
+      }
+      return next;
+    });
+  };
+
+  const addAnswerOption = (qIdx: number) => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      if (next[qIdx]) {
+        next[qIdx] = {
+          ...next[qIdx],
+          answers: [...next[qIdx].answers, { answerContent: "", isCorrect: false }]
+        };
+      }
+      return next;
+    });
+  };
+
+  const updateAnswerField = (qIdx: number, aIdx: number, field: string, value: any) => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      if (next[qIdx] && next[qIdx].answers[aIdx]) {
+        const newAnswers = [...next[qIdx].answers];
+        newAnswers[aIdx] = { ...newAnswers[aIdx], [field]: value };
+        next[qIdx] = { ...next[qIdx], answers: newAnswers };
+      }
+      return next;
+    });
+  };
+
+  const removeAnswerOption = (qIdx: number, aIdx: number) => {
+    setBuilderQuestions((prev) => {
+      const next = [...prev];
+      if (next[qIdx]) {
+        next[qIdx] = {
+          ...next[qIdx],
+          answers: next[qIdx].answers.filter((_: any, i: number) => i !== aIdx)
+        };
+      }
+      return next;
+    });
+  };
+
+  const startEditingNodeTest = async (test: any) => {
+    setEditingNodeTest(test);
+    setEditingTTitle(test.title);
+    setEditingTDuration(String(test.durationMinutes || 15));
+    setEditingTPass(String(test.passingPercentage || 0));
+    setSaving(true);
+    try {
+      const qList = await learningPathService.getTeacherTestQuestions(test.testId);
+      setEditingNumQuestions(String(qList.length));
+      setBuilderQuestions(qList.map((q) => ({
+        questionType: q.questionType === 'ESSAY' ? 'ESSAY' : (q.questionType === 'MULTIPLE_SELECT' ? 'MULTIPLE_SELECT' : 'MULTIPLE_CHOICE'),
+        questionContent: q.questionContent,
+        answers: q.answers.map((a) => ({
+          answerContent: a.answerContent,
+          isCorrect: a.isCorrect
+        }))
+      })));
+      setActiveQuestionIdx(0);
+    } catch (qErr) {
+      console.error("Failed to load questions", qErr);
+      setEditingNumQuestions("0");
+      setBuilderQuestions([]);
+      setActiveQuestionIdx(0);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveSidebarNodeTest = async () => {
+    if (!selectedNode) return;
+    const isTestNode = selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE' || selectedNode.testKind === 'FREE_CHOICE';
+    const testTitleToUse = isTestNode ? selectedNode.title : editingTTitle.trim();
+    if (!testTitleToUse) {
+      toast.error("Nhập tiêu đề bài test");
+      return;
+    }
+    const numQ = Math.max(0, parseInt(editingNumQuestions, 10) || 0);
+    
+    // Validate questions
+    for (let i = 0; i < numQ; i++) {
+      const q = builderQuestions[i];
+      if (!q) continue;
+      if (!q.questionContent.trim()) {
+        toast.error(`Câu hỏi ${i + 1} không được để trống nội dung`);
+        return;
+      }
+      if (q.questionType === 'MULTIPLE_CHOICE' || q.questionType === 'MULTIPLE_SELECT') {
+        const correctAnswers = q.answers.filter((a: any) => a.isCorrect);
+        if (correctAnswers.length === 0) {
+          toast.error(`Câu hỏi ${i + 1} phải có ít nhất 1 đáp án đúng`);
+          return;
+        }
+        for (let j = 0; j < q.answers.length; j++) {
+          if (!q.answers[j].answerContent.trim()) {
+            toast.error(`Đáp án ${String.fromCharCode(65 + j)} của câu hỏi ${i + 1} không được để trống`);
+            return;
+          }
+        }
+      } else if (q.questionType === 'ESSAY') {
+        if (!q.answers[0] || !q.answers[0].answerContent.trim()) {
+          toast.error(`Câu hỏi tự luận ${i + 1} phải nhập câu trả lời mẫu/hướng dẫn chấm`);
+          return;
+        }
+      }
+    }
+
+    setSaving(true);
+    try {
+      // 1. Delete old test first
+      const nodeContent = nodeContents[selectedNode.nodeId];
+      const testIdToDelete = isTestNode 
+        ? (nodeContent?.tests && nodeContent.tests.length > 0 ? nodeContent.tests[0].testId : null)
+        : (editingNodeTest ? editingNodeTest.testId : null);
+        
+      if (testIdToDelete) {
+        await learningPathService.deleteTeacherNodeTest(testIdToDelete);
+      }
+
+      // 2. Create new test
+      const testRes = await learningPathService.addTeacherNodeTest(selectedNode.nodeId, {
+        title: testTitleToUse,
+        durationMinutes: Number(editingTDuration) || 15,
+        passingPercentage: selectedNode.testKind === 'PLACEMENT' ? 0 : (Number(editingTPass) || 0),
+      });
+
+      const createdTestId = testRes.testId;
+
+      // 3. Create questions sequentially
+      for (let i = 0; i < numQ; i++) {
+        const q = builderQuestions[i];
+        if (!q) continue;
+        await learningPathService.addPlacementQuestion(createdTestId, {
+          questionContent: q.questionContent.trim(),
+          questionType: q.questionType,
+          score: 1.0,
+          answers: q.answers.map((a: any) => ({
+            answerContent: a.answerContent.trim(),
+            isCorrect: a.isCorrect
+          }))
+        });
+      }
+
+      toast.success("Đã cập nhật bài test thành công");
+      setEditingNodeTest(null);
+      await fetchNodeContent(selectedNode.nodeId);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.response?.data?.message || "Không lưu được bài test");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const fetchNodeContent = async (nodeId: number) => {
     try {
       setNodeContentsLoading((prev) => ({ ...prev, [nodeId]: true }));
       const content = await learningPathService.getTeacherNodeContent(nodeId);
       setNodeContents((prev) => ({ ...prev, [nodeId]: content }));
+
+      const node = nodes.find(n => n.nodeId === nodeId);
+      const isTestNode = node?.testKind === "PLACEMENT" || node?.testKind === "GATE" || node?.testKind === "FREE_CHOICE";
+      
+      if (isTestNode && content.tests && content.tests.length > 0) {
+        const activeTest = content.tests[0];
+        setEditingTTitle(activeTest.title);
+        setEditingTDuration(String(activeTest.durationMinutes || 15));
+        setEditingTPass(String(activeTest.passingPercentage || 0));
+        
+        try {
+          const qList = await learningPathService.getTeacherTestQuestions(activeTest.testId);
+          setEditingNumQuestions(String(qList.length));
+          setBuilderQuestions(qList.map((q) => ({
+            questionType: q.questionType === 'ESSAY' ? 'ESSAY' : (q.questionType === 'MULTIPLE_SELECT' ? 'MULTIPLE_SELECT' : 'MULTIPLE_CHOICE'),
+            questionContent: q.questionContent,
+            answers: q.answers.map((a) => ({
+              answerContent: a.answerContent,
+              isCorrect: a.isCorrect
+            }))
+          })));
+          setActiveQuestionIdx(0);
+        } catch (qErr) {
+          console.error("Failed to load questions", qErr);
+          setEditingNumQuestions("0");
+          setBuilderQuestions([]);
+          setActiveQuestionIdx(0);
+        }
+      } else {
+        setEditingTTitle("");
+        setEditingTDuration("15");
+        setEditingTPass("0");
+        setEditingNumQuestions("0");
+        setBuilderQuestions([]);
+        setActiveQuestionIdx(0);
+      }
     } catch (err: any) {
       console.error(`Error loading content for node ${nodeId}:`, err);
       toast.error(err.response?.data?.message || 'Không thể tải nội dung bài học');
@@ -191,6 +448,7 @@ export function ClassManagementPage() {
 
   const handleSelectNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
+    setEditingNodeTest(null);
     await fetchNodeContent(node.nodeId);
 
     setLoadingNodeStudents(true);
@@ -628,8 +886,12 @@ export function ClassManagementPage() {
     setEditNodeDesc(node.description || '');
     setEditNodeType(node.nodeType);
     setEditNodeStatus(node.status);
-    setEditNodeOrder(node.displayOrder);
-    setEditNodeRequired(node.isRequired);
+    setEditNodeOrder(node.displayOrder || 1);
+    setEditNodeRequired(node.isRequired ?? true);
+    setEditPlacementYeuMax(node.placementYeuMax != null ? String(node.placementYeuMax) : '');
+    setEditPlacementTbMax(node.placementTbMax != null ? String(node.placementTbMax) : '');
+    setEditGateUpMin(node.gateUpMin != null ? String(node.gateUpMin) : '');
+    setEditGateDownMax(node.gateDownMax != null ? String(node.gateDownMax) : '');
     setIsEditNodeOpen(true);
   };
 
@@ -650,6 +912,10 @@ export function ClassManagementPage() {
         status: editNodeStatus,
         displayOrder: editNodeOrder,
         isRequired: editNodeRequired,
+        placementYeuMax: nodeToEdit.testKind === 'PLACEMENT' ? (editPlacementYeuMax === '' ? null : Number(editPlacementYeuMax)) : undefined,
+        placementTbMax: nodeToEdit.testKind === 'PLACEMENT' ? (editPlacementTbMax === '' ? null : Number(editPlacementTbMax)) : undefined,
+        gateUpMin: nodeToEdit.testKind === 'GATE' ? (editGateUpMin === '' ? null : Number(editGateUpMin)) : undefined,
+        gateDownMax: nodeToEdit.testKind === 'GATE' ? (editGateDownMax === '' ? null : Number(editGateDownMax)) : undefined,
       });
 
       toast.success('Cập nhật node thành công!');
@@ -762,6 +1028,155 @@ export function ClassManagementPage() {
       default:
         return <Circle className="size-5" />;
     }
+  };
+
+  const isTestNode = selectedNode && (selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE' || selectedNode.testKind === 'FREE_CHOICE');
+
+  const renderQuestionBuilder = () => {
+    const numQ = Math.max(0, parseInt(editingNumQuestions, 10) || 0);
+    if (numQ <= 0) return null;
+    return (
+      <div className="space-y-3 border-t border-slate-100 pt-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+          {Array.from({ length: numQ }).map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setActiveQuestionIdx(idx)}
+              className={`size-7 shrink-0 rounded-md text-xs font-bold transition-all border ${
+                activeQuestionIdx === idx
+                  ? "bg-slate-800 text-white border-slate-800"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              {idx + 1}
+            </button>
+          ))}
+        </div>
+
+        {builderQuestions[activeQuestionIdx] && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Câu hỏi {activeQuestionIdx + 1}
+              </span>
+              <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-md">
+                <button
+                  type="button"
+                  onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_CHOICE')}
+                  className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                    builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE'
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Một đáp án
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_SELECT')}
+                  className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                    builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT'
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Nhiều đáp án
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'ESSAY')}
+                  className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                    builderQuestions[activeQuestionIdx].questionType === 'ESSAY'
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Tự luận
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              className="lp-input text-xs w-full border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white"
+              placeholder="Nhập đề / nội dung câu hỏi..."
+              rows={2}
+              value={builderQuestions[activeQuestionIdx].questionContent}
+              onChange={(e) => updateQuestionField(activeQuestionIdx, 'questionContent', e.target.value)}
+            />
+
+            {builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ||
+            builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT' ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                  <span>
+                    ĐÁP ÁN ({builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'Chọn 1 đáp án đúng' : 'Chọn nhiều đáp án đúng'})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => addAnswerOption(activeQuestionIdx)}
+                    className="text-indigo-600 hover:underline text-[10px]"
+                  >
+                    + Thêm đáp án
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  {builderQuestions[activeQuestionIdx].answers.map((ans: any, aIdx: number) => (
+                    <div key={aIdx} className="flex items-center gap-2">
+                      <span className="font-semibold text-[10px] text-slate-400 shrink-0 w-3">
+                        {String.fromCharCode(65 + aIdx)}
+                      </span>
+                      <input
+                        type="text"
+                        placeholder={`Đáp án ${String.fromCharCode(65 + aIdx)}`}
+                        className="lp-input flex-1 py-1 px-2 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white"
+                        value={ans.answerContent}
+                        onChange={(e) => updateAnswerField(activeQuestionIdx, aIdx, 'answerContent', e.target.value)}
+                      />
+                      <input
+                        type={builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
+                        name={`correct-ans-sidebar-${activeQuestionIdx}`}
+                        checked={!!ans.isCorrect}
+                        onChange={(e) => {
+                          if (builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE') {
+                            builderQuestions[activeQuestionIdx].answers.forEach((_: any, i: number) => {
+                              updateAnswerField(activeQuestionIdx, i, 'isCorrect', i === aIdx);
+                            });
+                          } else {
+                            updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
+                          }
+                        }}
+                        className="h-3.5 w-3.5 text-indigo-600 cursor-pointer"
+                      />
+                      {builderQuestions[activeQuestionIdx].answers.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => removeAnswerOption(activeQuestionIdx, aIdx)}
+                          className="text-red-500 hover:text-red-700 text-xs px-1"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-slate-500 block">CÂU TRẢ LỜI MẪU / HƯỚNG DẪN CHẤM</span>
+                <textarea
+                  className="lp-input text-xs w-full border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white"
+                  placeholder="Nhập câu trả lời mẫu cho tự luận..."
+                  rows={3}
+                  value={builderQuestions[activeQuestionIdx].answers[0]?.answerContent || ""}
+                  onChange={(e) => updateAnswerField(activeQuestionIdx, 0, 'answerContent', e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (loading) {
@@ -917,21 +1332,123 @@ export function ClassManagementPage() {
                       })()}
                     </div>
 
-                    {/* Check if PLACEMENT test */}
-                    {selectedNode.testKind === 'PLACEMENT' ? (
-                      <div className="space-y-3 bg-amber-50 border border-amber-200/60 p-3 rounded-lg text-xs leading-relaxed text-amber-900 shadow-2xs">
-                        <AlertTriangle className="size-5 text-amber-600 mb-1" />
-                        <p className="font-bold">Bài test năng lực đầu vào</p>
-                        <p className="text-[11px] text-amber-700">
-                          Bài test này được dùng để đánh giá năng lực & tự động phân lộ trình cho học sinh. Vui lòng cấu hình chi tiết câu hỏi & các khoảng điểm phân lớp tại tab **Đánh giá & Phân loại**.
-                        </p>
-                        <Button
-                          size="sm"
-                          onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}?tab=placement`)}
-                          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-md text-[11px] h-8 mt-1"
-                        >
-                          <ArrowLeft className="size-3 mr-1 rotate-180" /> Đi tới tab Đánh giá & Phân loại
-                        </Button>
+                    {isTestNode ? (
+                      <div className="space-y-3 bg-indigo-50/20 border border-indigo-100 p-3.5 rounded-lg shadow-2xs">
+                        <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
+                          {selectedNode.testKind === 'PLACEMENT' ? 'Cấu hình bài test năng lực' : 
+                           selectedNode.testKind === 'GATE' ? 'Cấu hình bài test chặng' : 'Cấu hình bài test tự chọn'}
+                        </h4>
+                        <div className="space-y-3">
+                          <div className={`grid gap-3 ${selectedNode.testKind === 'PLACEMENT' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
+                              <input 
+                                type="number" 
+                                min={1} 
+                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                value={editingTDuration} 
+                                onChange={(e) => setEditingTDuration(e.target.value)} 
+                              />
+                            </div>
+                            {selectedNode.testKind !== 'PLACEMENT' && (
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
+                                <input 
+                                  type="number" 
+                                  min={0} 
+                                  max={100}
+                                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                  value={editingTPass} 
+                                  onChange={(e) => setEditingTPass(e.target.value)} 
+                                />
+                              </div>
+                            )}
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
+                              <input 
+                                type="number" 
+                                min={0} 
+                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                value={editingNumQuestions} 
+                                onChange={(e) => handleNumQuestionsChange(e.target.value)} 
+                              />
+                            </div>
+                          </div>
+
+                          {renderQuestionBuilder()}
+
+                          <Button
+                            type="button"
+                            onClick={saveSidebarNodeTest}
+                            disabled={saving}
+                            className="w-full text-white font-semibold rounded-[6px] shadow-xs px-4 text-xs h-8 mt-2"
+                            style={{ backgroundColor: '#030213' }}
+                          >
+                            {saving ? 'Đang lưu...' : 'Lưu bài test'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : editingNodeTest ? (
+                      <div className="space-y-3 bg-indigo-50/20 border border-indigo-100 p-3.5 rounded-lg shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-indigo-700 text-[11px] uppercase tracking-wider">
+                            Cấu hình: {editingNodeTest.title}
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => setEditingNodeTest(null)}
+                            className="text-xs text-slate-500 hover:text-slate-700 underline"
+                          >
+                            Quay lại
+                          </button>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1 col-span-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
+                              <input 
+                                type="number" 
+                                min={1} 
+                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                value={editingTDuration} 
+                                onChange={(e) => setEditingTDuration(e.target.value)} 
+                              />
+                            </div>
+                            <div className="space-y-1 col-span-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
+                              <input 
+                                type="number" 
+                                min={0} 
+                                max={100}
+                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                value={editingTPass} 
+                                onChange={(e) => setEditingTPass(e.target.value)} 
+                              />
+                            </div>
+                            <div className="space-y-1 col-span-1">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
+                              <input 
+                                type="number" 
+                                min={0} 
+                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                value={editingNumQuestions} 
+                                onChange={(e) => handleNumQuestionsChange(e.target.value)} 
+                              />
+                            </div>
+                          </div>
+
+                          {renderQuestionBuilder()}
+
+                          <Button
+                            type="button"
+                            onClick={saveSidebarNodeTest}
+                            disabled={saving}
+                            className="w-full text-white font-semibold rounded-[6px] shadow-xs px-4 text-xs h-8 mt-2"
+                            style={{ backgroundColor: '#030213' }}
+                          >
+                            {saving ? 'Đang lưu...' : 'Lưu bài test'}
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <>
@@ -1033,6 +1550,15 @@ export function ClassManagementPage() {
                                       <Button
                                         size="icon"
                                         variant="ghost"
+                                        className="size-5 rounded text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 shrink-0"
+                                        disabled={isPublished}
+                                        onClick={() => startEditingNodeTest(test)}
+                                      >
+                                        <Settings className="size-3" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
                                         className="size-5 rounded text-red-500 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
                                         disabled={isPublished}
                                         onClick={() => handleDeleteTest(selectedNode.nodeId, test.testId)}
@@ -1055,16 +1581,7 @@ export function ClassManagementPage() {
                         size="sm"
                         variant="outline"
                         className="flex-1 text-slate-700 border-slate-250 hover:bg-slate-50 text-xs h-8 rounded-lg font-semibold"
-                        onClick={() => {
-                          setNodeToEdit(selectedNode);
-                          setEditNodeTitle(selectedNode.title);
-                          setEditNodeDesc(selectedNode.description || '');
-                          setEditNodeType(selectedNode.nodeType);
-                          setEditNodeStatus(selectedNode.status);
-                          setEditNodeOrder(selectedNode.displayOrder || 1);
-                          setEditNodeRequired(selectedNode.isRequired ?? true);
-                          setIsEditNodeOpen(true);
-                        }}
+                        onClick={() => handleEditNodeClick(selectedNode)}
                       >
                         <Edit2 className="size-3.5 mr-1" /> Sửa bài học
                       </Button>
@@ -1684,12 +2201,62 @@ export function ClassManagementPage() {
                     type="number"
                     min="0"
                     required
-                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
                     value={editNodeOrder}
                     onChange={(e) => setEditNodeOrder(Number(e.target.value))}
                   />
                 </div>
               </div>
+
+              {nodeToEdit.testKind === 'PLACEMENT' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Điểm Yếu tối đa (%)</label>
+                    <input
+                      type="number"
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                      value={editPlacementYeuMax}
+                      onChange={(e) => setEditPlacementYeuMax(e.target.value)}
+                      placeholder="vd 40"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Điểm TB tối đa (%)</label>
+                    <input
+                      type="number"
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                      value={editPlacementTbMax}
+                      onChange={(e) => setEditPlacementTbMax(e.target.value)}
+                      placeholder="vd 70"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {nodeToEdit.testKind === 'GATE' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Ngưỡng lên (≥ %)</label>
+                    <input
+                      type="number"
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                      value={editGateUpMin}
+                      onChange={(e) => setEditGateUpMin(e.target.value)}
+                      placeholder="vd 80"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Ngưỡng xuống (≤ %)</label>
+                    <input
+                      type="number"
+                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                      value={editGateDownMax}
+                      onChange={(e) => setEditGateDownMax(e.target.value)}
+                      placeholder="vd 40"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 pt-2">
                 <input
@@ -1852,6 +2419,12 @@ export function ClassManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <style>{`
+        .lp-input {
+          color: #0f172a !important;
+          background-color: #ffffff !important;
+        }
+      `}</style>
     </div>
   );
 }
