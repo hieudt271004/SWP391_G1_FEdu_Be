@@ -2,25 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Loader2, GraduationCap, AlertCircle, Search, Users, ArrowRight,
-  BookOpen, Clock, Calendar, CheckCircle2, Circle
+  Clock, CheckCircle2, Calendar
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { Classroom } from '../../../types/teacher';
 import { useAuth } from '../../../context/AuthContext';
-
-const getSubjectGradient = (subjectCode: string) => {
-  const code = (subjectCode || '').toUpperCase();
-  if (code.startsWith('SE') || code.startsWith('PR')) {
-    return 'linear-gradient(135deg, #4f46e5, #7c3aed)'; // Indigo to Purple
-  }
-  if (code.startsWith('IA') || code.startsWith('IS')) {
-    return 'linear-gradient(135deg, #f59e0b, #d97706)'; // Amber to Orange
-  }
-  if (code.startsWith('GD') || code.startsWith('MC')) {
-    return 'linear-gradient(135deg, #ec4899, #be185d)'; // Pink to Deep Pink
-  }
-  return 'linear-gradient(135deg, #06b6d4, #0891b2)'; // Cyan to Teal
-};
+import { Button } from '../../../components/ui/button';
+import { Badge } from '../../../components/ui/badge';
+import { Input } from '../../../components/ui/input';
+import { Card, CardContent } from '../../../components/ui/card';
 
 const getStatusDetails = (status?: string) => {
   switch (status) {
@@ -100,23 +90,24 @@ export function TeacherClassesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#030213]" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-12 bg-white rounded-[10px] border border-[rgba(0,0,0,0.1)] max-w-md mx-auto">
-        <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-2" />
-        <p className="text-red-600 mb-4 text-sm">{error}</p>
-        <button
+      <Card className="max-w-md mx-auto mt-8 text-center p-6 border-destructive/20 bg-destructive/10">
+        <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-2" />
+        <p className="text-destructive mb-4 text-sm font-semibold">{error}</p>
+        <Button
           onClick={() => navigate('/teacher/dashboard')}
-          className="px-4 py-2 bg-[#030213] text-white rounded-[6px] hover:bg-[#1c1b2d] transition-colors text-sm font-medium border-0"
+          variant="outline"
+          className="mx-auto"
         >
           Quay lại Dashboard
-        </button>
-      </div>
+        </Button>
+      </Card>
     );
   }
 
@@ -141,67 +132,73 @@ export function TeacherClassesPage() {
   });
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-6">
       {/* Header Title */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-[6px] flex items-center justify-center bg-[#ececf0] text-[#030213] border border-[rgba(0,0,0,0.1)]">
+          <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-muted text-primary border border-border">
             <GraduationCap className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[#030213] tracking-tight">Lớp học của tôi</h1>
-            <p className="text-sm text-[#717182] font-normal">Tất cả lớp học bạn đang phụ trách giảng dạy</p>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Lớp học của tôi</h1>
+            <p className="text-sm text-muted-foreground font-normal">Tất cả lớp học bạn đang phụ trách giảng dạy</p>
           </div>
         </div>
       </div>
 
       {/* Stats Summary Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div className="rounded-[10px] p-5 bg-white border border-[rgba(0,0,0,0.1)] shadow-none flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-[#717182]">Tổng số lớp học</p>
-            <p className="text-2xl font-bold text-[#030213]">{totalClasses}</p>
-          </div>
-          <div className="p-3 bg-[#ececf0] text-[#030213] rounded-[6px]">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="rounded-[10px] p-5 bg-white border border-[rgba(0,0,0,0.1)] shadow-none flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-[#717182]">Đang hoạt động</p>
-            <p className="text-2xl font-bold text-[#030213]">{activeClassesCount}</p>
-          </div>
-          <div className="p-3 bg-[#ececf0] text-[#030213] rounded-[6px]">
-            <Clock className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="rounded-[10px] p-5 bg-white border border-[rgba(0,0,0,0.1)] shadow-none flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-[#717182]">Đã hoàn thành</p>
-            <p className="text-2xl font-bold text-[#030213]">{completedClassesCount}</p>
-          </div>
-          <div className="p-3 bg-[#ececf0] text-[#030213] rounded-[6px]">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-        </div>
+        <Card className="shadow-none">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Tổng số lớp học</p>
+              <p className="text-2xl font-bold text-foreground">{totalClasses}</p>
+            </div>
+            <div className="p-3 bg-muted text-primary rounded-lg border border-border">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-none">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Đang hoạt động</p>
+              <p className="text-2xl font-bold text-foreground">{activeClassesCount}</p>
+            </div>
+            <div className="p-3 bg-muted text-primary rounded-lg border border-border">
+              <Clock className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-none">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Đã hoàn thành</p>
+              <p className="text-2xl font-bold text-foreground">{completedClassesCount}</p>
+            </div>
+            <div className="p-3 bg-muted text-primary rounded-lg border border-border">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="rounded-[10px] p-4 bg-white border border-[rgba(0,0,0,0.1)] shadow-none flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="rounded-lg p-4 bg-card border border-border flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Search Input */}
         <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#717182]" />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
             type="text"
             placeholder="Tìm lớp học hoặc môn học..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm rounded-[6px] border border-[rgba(0,0,0,0.1)] outline-none focus:border-[#030213] focus:ring-1 focus:ring-[#030213] transition-colors bg-[#ececf0]/30 text-[#030213] placeholder:text-[#717182]"
+            className="w-full pl-9 rounded-md border border-input bg-input-background text-foreground"
           />
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#ececf0] rounded-[6px] border border-[rgba(0,0,0,0.05)] w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-muted rounded-lg border border-border w-full sm:w-auto">
           {(
             [
               { key: 'all', label: 'Tất cả' },
@@ -213,10 +210,10 @@ export function TeacherClassesPage() {
             <button
               key={tab.key}
               onClick={() => setStatusFilter(tab.key)}
-              className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-[6px] text-xs font-semibold tracking-wide transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all cursor-pointer border-none bg-transparent ${
                 statusFilter === tab.key
-                  ? 'bg-[#030213] text-white shadow-none'
-                  : 'text-[#717182] hover:bg-[#ececf0]/50'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
               }`}
             >
               {tab.label}
@@ -227,9 +224,9 @@ export function TeacherClassesPage() {
 
       {/* Classrooms Grid */}
       {filteredClassrooms.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-[10px] border border-[rgba(0,0,0,0.1)] shadow-none space-y-3">
-          <GraduationCap className="w-12 h-12 text-[#717182] mx-auto animate-pulse" />
-          <p className="text-[#717182] text-sm font-normal">Không tìm thấy lớp học nào phù hợp</p>
+        <div className="text-center py-20 bg-card rounded-lg border border-border space-y-3">
+          <GraduationCap className="w-12 h-12 text-muted-foreground/40 mx-auto animate-pulse" />
+          <p className="text-muted-foreground text-sm font-normal">Không tìm thấy lớp học nào phù hợp</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -240,24 +237,23 @@ export function TeacherClassesPage() {
             return (
               <div
                 key={classroom.classroomSubjectId || classroom.classroomId}
-                className="group rounded-[10px] bg-white border border-[rgba(0,0,0,0.1)] shadow-none hover:border-[#030213]/30 transition-colors duration-200 flex flex-col overflow-hidden"
+                className="group rounded-lg bg-card border border-border hover:border-primary/30 transition-all duration-200 flex flex-col overflow-hidden text-card-foreground"
               >
                 {/* Card Top / Header */}
                 <div className="p-6 flex-1 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {/* Dynamic Gradient Icon -> Simplified flat logo */}
-                      <div className="w-10 h-10 rounded-[6px] bg-[#ececf0] text-[#030213] border border-[rgba(0,0,0,0.1)] flex items-center justify-center text-xs font-bold shrink-0">
+                      <div className="w-10 h-10 rounded-md bg-muted text-primary border border-border flex items-center justify-center text-xs font-bold shrink-0">
                         {subjectInitials}
                       </div>
-                      <h3 className="text-base font-bold text-[#030213] truncate max-w-[150px]">
+                      <h3 className="text-base font-bold text-foreground truncate max-w-[150px]">
                         {classroom.classroomName}
                       </h3>
                     </div>
                     {/* Status Badge */}
                     <span
-                      className="px-2.5 py-1 rounded-[6px] text-[10px] font-semibold tracking-wide border"
-                      style={{ backgroundColor: statusBadge.bg, color: statusBadge.color, borderColor: 'rgba(0,0,0,0.05)' }}
+                      className="px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide border border-border bg-background"
+                      style={{ backgroundColor: statusBadge.bg, color: statusBadge.color, borderColor: 'transparent' }}
                     >
                       {statusBadge.label}
                     </span>
@@ -265,40 +261,40 @@ export function TeacherClassesPage() {
 
                   {/* Course Details */}
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-[#030213] tracking-wider uppercase">
+                    <p className="text-xs font-bold text-foreground tracking-wider uppercase">
                       {classroom.subjectCode || '—'}
                     </p>
-                    <p className="text-sm font-semibold text-[#030213] line-clamp-1 leading-snug">
+                    <p className="text-sm font-semibold text-foreground line-clamp-1 leading-snug">
                       {classroom.subjectName || 'Môn học chưa gán tên'}
                     </p>
                   </div>
 
                   {/* Metadata Info */}
-                  <div className="pt-3 flex flex-col gap-2 border-t border-[rgba(0,0,0,0.1)] text-xs text-[#717182]">
+                  <div className="pt-3 flex flex-col gap-2 border-t border-border text-xs text-muted-foreground">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5 text-[#717182]" />
+                      <Calendar className="w-3.5 h-3.5" />
                       <span>
-                        Học kỳ: <span className="font-semibold text-[#030213]">{classroom.semester || '—'}</span>
+                        Học kỳ: <span className="font-semibold text-foreground">{classroom.semester || '—'}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 text-[#717182]" />
+                      <Users className="w-3.5 h-3.5" />
                       <span>
-                        Sĩ số: <span className="font-semibold text-[#030213]">{classroom.studentCount ?? 0} học viên</span>
+                        Sĩ số: <span className="font-semibold text-foreground">{classroom.studentCount ?? 0} học viên</span>
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Card Action Button */}
-                <div className="px-6 pb-6 pt-0">
-                  <button
+                <div className="px-6 pb-6 pt-0 mt-auto">
+                  <Button
                     onClick={() => handleEnterClass(classroom.classroomSubjectId || classroom.classroomId)}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[6px] bg-[#030213] hover:bg-[#1c1b2d] text-white text-xs font-medium transition-colors border-0 shadow-none cursor-pointer"
+                    className="w-full text-xs font-medium h-9 gap-2 group"
                   >
                     Vào lớp học
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                  </button>
+                  </Button>
                 </div>
               </div>
             );

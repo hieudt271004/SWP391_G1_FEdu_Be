@@ -7,6 +7,9 @@ import {
 import { classroomService } from "../../services/classroom.service";
 import { subjectService } from "../../services/subject.service";
 import { adminService } from "../../services/admin.service";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
 import type { ClassroomResponse } from "../../types/classroom";
 import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
 import type { Subject } from "../../types/subject";
@@ -184,16 +187,16 @@ export function ClassDetailPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
-      <span style={{ marginLeft: "0.75rem", color: "#6b7280" }}>Đang tải lớp học...</span>
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <span className="ml-3 text-sm text-muted-foreground">Đang tải lớp học...</span>
     </div>
   );
 
   if (error) return (
     <div className="flex flex-col items-center justify-center py-20 gap-3">
-      <AlertCircle className="w-10 h-10" style={{ color: "#ef4444" }} />
-      <p style={{ color: "#374151" }}>{error}</p>
-      <button onClick={fetchData} className="px-4 py-2 rounded-lg text-white text-sm" style={{ background: "#4338ca" }}>Thử lại</button>
+      <AlertCircle className="w-10 h-10 text-destructive" />
+      <p className="text-sm text-muted-foreground">{error}</p>
+      <Button onClick={fetchData} variant="outline">Thử lại</Button>
     </div>
   );
 
@@ -202,146 +205,150 @@ export function ClassDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
-          </button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
+            <ArrowLeft className="w-5 h-5 text-foreground" />
+          </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>{classroom?.className}</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{classroom?.className}</h1>
               {classroom?.status && (() => {
                 const badge = getStatusBadge(classroom.status);
                 return (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: badge.bg, color: badge.color }}>
+                  <Badge variant="outline" className="px-2.5 py-1 rounded-full text-xs font-semibold border-transparent" style={{ backgroundColor: badge.bg, color: badge.color }}>
                     {badge.label}
-                  </span>
+                  </Badge>
                 );
               })()}
             </div>
-            <p style={{ fontSize: "0.875rem", color: "#6b7280", marginTop: "0.25rem" }}>
+            <p className="text-sm text-muted-foreground mt-1">
               {subjects.length} môn học{classroom?.semester ? ` · Học kỳ: ${classroom.semester}` : ""}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {classroom?.status === "active" && (
-            <button onClick={() => handleUpdateStatus("completed")} disabled={updatingStatus}
-              className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
-              style={{ backgroundColor: "#4338ca", border: "none", cursor: updatingStatus ? "not-allowed" : "pointer" }}>
+            <Button onClick={() => handleUpdateStatus("completed")} disabled={updatingStatus} className="gap-1.5">
               {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />} Kết thúc lớp học
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {/* Danh sách lớp-môn */}
-      <div className="rounded-xl p-6" style={{ backgroundColor: "white", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>Các môn học của lớp</h2>
-          <button onClick={() => setShowAddSubject(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-white hover:opacity-90 transition-opacity"
-            style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer", fontSize: "0.875rem", fontWeight: 600 }}>
-            <Plus className="w-4 h-4" /> Thêm môn
-          </button>
-        </div>
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold text-foreground">Các môn học của lớp</h2>
+            <Button onClick={() => setShowAddSubject(true)} className="gap-2">
+              <Plus className="w-4 h-4" /> Thêm môn
+            </Button>
+          </div>
 
-        {subjects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2">
-            <BookOpen className="w-12 h-12" style={{ color: "#d1d5db" }} />
-            <p style={{ color: "#9ca3af", fontSize: "0.875rem" }}>Lớp chưa có môn nào. Bấm "Thêm môn" để gán môn + giảng viên.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {subjects.map((cs) => (
-              <div
-                key={cs.classroomSubjectId}
-                onClick={() => navigate(`/admin/classes/${classroomId}/subjects/${cs.classroomSubjectId}`)}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer hover:shadow-md transition-shadow"
-                style={{ border: "1px solid #e5e7eb" }}
-                title="Mở chi tiết lớp-môn"
-              >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#eef2ff" }}>
-                  <BookOpen className="w-5 h-5" style={{ color: "#4338ca" }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>{cs.displayName}</div>
-                  <div className="flex items-center gap-2 mt-0.5" style={{ fontSize: "0.8125rem", color: "#6b7280" }}>
-                    <span>{cs.subjectName}</span>
-                    <span>·</span>
-                    {editingLecturerCsId === cs.classroomSubjectId ? (
-                      <select
-                        autoFocus
-                        defaultValue={cs.lecturerId}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => { e.stopPropagation(); handleChangeLecturer(cs.classroomSubjectId, Number(e.target.value)); }}
-                        onBlur={() => setEditingLecturerCsId(null)}
-                        className="px-2 py-1 rounded border text-xs"
-                        style={{ borderColor: "#e5e7eb" }}
-                      >
-                        {teachers.map((t) => (
-                          <option key={t.userId} value={t.userId}>{t.firstName} {t.lastName} ({t.email})</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="flex items-center gap-1">
-                        GV: {cs.lecturerName}
-                        <button onClick={(e) => { e.stopPropagation(); setEditingLecturerCsId(cs.classroomSubjectId); }} className="p-0.5 rounded hover:bg-gray-100" title="Đổi giảng viên">
-                          <Pencil className="w-3 h-3" style={{ color: "#9ca3af" }} />
-                        </button>
-                      </span>
-                    )}
+          {subjects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <BookOpen className="w-12 h-12 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Lớp chưa có môn nào. Bấm "Thêm môn" để gán môn + giảng viên.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {subjects.map((cs) => (
+                <div
+                  key={cs.classroomSubjectId}
+                  onClick={() => navigate(`/admin/classes/${classroomId}/subjects/${cs.classroomSubjectId}`)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border cursor-pointer hover:bg-accent hover:shadow-sm transition-all"
+                  title="Mở chi tiết lớp-môn"
+                >
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-secondary text-foreground">
+                    <BookOpen className="w-5 h-5" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-foreground">{cs.displayName}</div>
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                      <span>{cs.subjectName}</span>
+                      <span>·</span>
+                      {editingLecturerCsId === cs.classroomSubjectId ? (
+                        <select
+                          autoFocus
+                          defaultValue={cs.lecturerId}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => { e.stopPropagation(); handleChangeLecturer(cs.classroomSubjectId, Number(e.target.value)); }}
+                          onBlur={() => setEditingLecturerCsId(null)}
+                          className="px-2 py-1 rounded border bg-background text-foreground text-xs focus:ring-1 focus:ring-ring outline-none"
+                        >
+                          {teachers.map((t) => (
+                            <option key={t.userId} value={t.userId}>{t.firstName} {t.lastName} ({t.email})</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          GV: {cs.lecturerName}
+                          <button onClick={(e) => { e.stopPropagation(); setEditingLecturerCsId(cs.classroomSubjectId); }} className="p-0.5 rounded hover:bg-background border-none bg-transparent cursor-pointer" title="Đổi giảng viên">
+                            <Pencil className="w-3 h-3 text-muted-foreground/60 hover:text-foreground" />
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="px-3 py-1.5 rounded-lg text-xs font-semibold text-foreground bg-accent/25 border-border">
+                    {cs.studentCount} SV
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0"
+                    onClick={(e) => { e.stopPropagation(); handleRemoveSubject(cs.classroomSubjectId); }}
+                    title="Gỡ môn khỏi lớp"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                  <ChevronRight className="w-5 h-5 shrink-0 text-muted-foreground/50" />
                 </div>
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm" style={{ border: "1px solid #e5e7eb", color: "#4338ca", fontWeight: 600 }}>
-                  {cs.studentCount} SV
-                </span>
-                <button onClick={(e) => { e.stopPropagation(); handleRemoveSubject(cs.classroomSubjectId); }} className="p-1.5 rounded-lg hover:bg-red-50" title="Gỡ môn khỏi lớp">
-                  <Trash2 className="w-4 h-4" style={{ color: "#ef4444" }} />
-                </button>
-                <ChevronRight className="w-5 h-5 shrink-0" style={{ color: "#9ca3af" }} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modal thêm môn */}
       {showAddSubject && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddSubject(false)}>
-          <div className="rounded-2xl w-full max-w-md overflow-hidden" style={{ backgroundColor: "white" }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid #e5e7eb" }}>
-              <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#111827" }}>Thêm môn vào lớp</h3>
-              <button onClick={() => setShowAddSubject(false)} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5" style={{ color: "#6b7280" }} /></button>
+          <div className="rounded-xl w-full max-w-md overflow-hidden border bg-background text-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Thêm môn vào lớp</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowAddSubject(false)}>
+                <X className="w-4 h-4" />
+              </Button>
             </div>
             <div className="px-6 py-5 space-y-4">
               {addSubjectError && (
-                <div className="px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>{addSubjectError}</div>
+                <div className="px-4 py-3 rounded-lg text-sm bg-destructive/10 border border-destructive/20 text-destructive">{addSubjectError}</div>
               )}
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>Môn học <span style={{ color: "#ef4444" }}>*</span></label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">Môn học <span className="text-destructive">*</span></label>
                 <select value={newSubjectId} onChange={(e) => setNewSubjectId(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-lg outline-none cursor-pointer" style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.875rem" }}>
+                  className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-foreground"
+                >
                   <option value={0} disabled>-- Chọn môn học --</option>
                   {allSubjects
                     .filter((s) => !subjects.some((cs) => cs.subjectId === s.subjectId))
                     .map((s) => (<option key={s.subjectId} value={s.subjectId}>{s.subjectCode} - {s.subjectName}</option>))}
                 </select>
               </div>
-              <div>
-                <label style={{ display: "block", fontSize: "0.875rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>Giảng viên phụ trách <span style={{ color: "#ef4444" }}>*</span></label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">Giảng viên phụ trách <span className="text-destructive">*</span></label>
                 <select value={newLecturerId} onChange={(e) => setNewLecturerId(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-lg outline-none cursor-pointer" style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.875rem" }}>
+                  className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-foreground"
+                >
                   <option value={0} disabled>-- Chọn giảng viên --</option>
                   {teachers.map((t) => (<option key={t.userId} value={t.userId}>{t.firstName} {t.lastName} ({t.email})</option>))}
                 </select>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4" style={{ borderTop: "1px solid #e5e7eb" }}>
-              <button onClick={() => setShowAddSubject(false)} className="px-5 py-2.5 rounded-lg hover:bg-gray-100" style={{ border: "1px solid #e5e7eb", backgroundColor: "white", color: "#374151", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer" }}>Hủy</button>
-              <button onClick={handleAddSubject} disabled={addSubjectLoading || !newSubjectId || !newLecturerId}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-white hover:opacity-90 disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", fontSize: "0.875rem", fontWeight: 600, cursor: "pointer" }}>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t">
+              <Button variant="outline" onClick={() => setShowAddSubject(false)}>Hủy</Button>
+              <Button onClick={handleAddSubject} disabled={addSubjectLoading || !newSubjectId || !newLecturerId} className="gap-2">
                 {addSubjectLoading && <Loader2 className="w-4 h-4 animate-spin" />} Thêm môn
-              </button>
+              </Button>
             </div>
           </div>
         </div>

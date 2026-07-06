@@ -1,5 +1,6 @@
 import { Shield, ArrowLeft } from "lucide-react";
 import { LeftPanel } from "../components/LeftPanel";
+import { Button } from "../../../components/ui/button";
 
 const PRIVACY_SECTIONS = [
   {
@@ -43,29 +44,20 @@ export function PrivacyPage() {
   return (
     <div className="flex h-screen w-full">
       <LeftPanel />
-      <div className="w-full lg:w-1/2 flex flex-col bg-white">
+      <div className="w-full lg:w-1/2 flex flex-col bg-background text-foreground">
         {/* Header */}
-        <div
-          className="flex items-center gap-3 px-8 py-5"
-          style={{ borderBottom: "1px solid #e5e7eb" }}
-        >
-          <button
+        <div className="flex items-center gap-3 px-8 py-5 border-b border-border bg-card">
+          <Button
+            variant="ghost"
             onClick={() => window.close()}
-            className="flex items-center gap-1.5"
-            style={{
-              color: "#6b7280",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-            }}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground p-0 h-auto hover:bg-transparent hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" /> Đóng
-          </button>
+          </Button>
           <div className="flex-1 text-center">
             <div className="flex items-center justify-center gap-2">
-              <Shield className="w-4 h-4" style={{ color: "#4338ca" }} />
-              <span style={{ color: "#111827", fontWeight: 600, fontSize: "0.9375rem" }}>
+              <Shield className="w-4 h-4 text-foreground" />
+              <span className="text-sm font-semibold text-foreground">
                 Chính sách bảo mật
               </span>
             </div>
@@ -75,32 +67,27 @@ export function PrivacyPage() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 py-6">
-          <div style={{ color: "#374151", fontSize: "0.9rem", lineHeight: 1.8 }}>
-            <p style={{ color: "#6b7280", fontSize: "0.8125rem", marginBottom: "1.5rem" }}>
+          <div className="text-sm leading-relaxed text-muted-foreground">
+            <p className="text-xs text-muted-foreground/80 mb-6">
               Cập nhật lần cuối: 17/05/2026
             </p>
             {PRIVACY_SECTIONS.map(({ title, content }) => (
-              <div key={title} className="mb-5">
-                <h3 style={{ color: "#111827", marginBottom: "0.5rem" }}>{title}</h3>
-                <p style={{ color: "#6b7280", margin: 0, lineHeight: 1.8 }}>{content}</p>
+              <div key={title} className="mb-6">
+                <h3 className="text-base font-semibold text-foreground mb-2">{title}</h3>
+                <p className="text-muted-foreground leading-relaxed m-0">{content}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5" style={{ borderTop: "1px solid #e5e7eb" }}>
-          <button
+        <div className="px-8 py-5 border-t border-border bg-card">
+          <Button
             onClick={() => window.close()}
-            className="w-full py-3 rounded-xl text-white transition-opacity hover:opacity-90"
-            style={{
-              background: "linear-gradient(135deg, #4338ca, #7c3aed)",
-              border: "none",
-              cursor: "pointer",
-            }}
+            className="w-full py-3 h-auto rounded-xl"
           >
             Đã hiểu và đồng ý
-          </button>
+          </Button>
         </div>
       </div>
     </div>
