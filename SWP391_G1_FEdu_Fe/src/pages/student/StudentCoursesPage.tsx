@@ -33,7 +33,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { classroomService } from '../../services/classroom.service';
 import { studentService, type SubmissionResponse } from '../../services/student.service';
-import { MaterialPreview } from '../../components/learningPath/MaterialPreview';
+import { MaterialPreview, resolveAssetUrl } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { SupportTicketResponse } from '../../types/submentor';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
@@ -767,12 +767,14 @@ export function StudentCoursesPage() {
                                                       )}
                                                     </div>
                                                   </div>
-                                                  <Button
-                                                    onClick={() => handleOpenExerciseModal(ex)}
-                                                    className="h-7 px-3 text-[10px] bg-slate-800 hover:bg-slate-750 text-white font-bold rounded-lg shrink-0"
-                                                  >
-                                                    {sub ? 'Nộp lại' : 'Làm bài'}
-                                                  </Button>
+                                                  {sub && sub.status === 'GRADED' ? null : (
+                                                    <Button
+                                                      onClick={() => handleOpenExerciseModal(ex)}
+                                                      className="h-7 px-3 text-[10px] bg-slate-800 hover:bg-slate-750 text-white font-bold rounded-lg shrink-0"
+                                                    >
+                                                      {sub ? 'Nộp lại' : 'Làm bài'}
+                                                    </Button>
+                                                  )}
                                                 </div>
                                               );
                                             })}
@@ -863,7 +865,7 @@ export function StudentCoursesPage() {
                     <div className="text-[10px] text-slate-400 mt-1">
                       Đã nộp trước đó:{' '}
                       <a
-                        href={exerciseSubmissions[selectedExercise.exerciseId]?.fileUrl || undefined}
+                        href={resolveAssetUrl(exerciseSubmissions[selectedExercise.exerciseId]?.fileUrl) || undefined}
                         target="_blank"
                         rel="noreferrer"
                         className="text-indigo-650 underline font-bold"
