@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Route,
   FileText,
@@ -10,6 +11,7 @@ import {
   MessageCircle,
   GraduationCap,
   Presentation,
+  Search,
 } from "lucide-react";
 import { http } from "../../../services/http";
 
@@ -102,8 +104,14 @@ export interface FeaturesSectionProps {
 }
 
 export function FeaturesSection({ stats: propStats }: FeaturesSectionProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'paths' | 'classrooms' | 'materials' | 'questions'>('paths');
   const [stats, setStats] = useState<FeaturesStats>(propStats || DEFAULT_STATS);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    setSearchQuery("");
+  }, [activeTab]);
 
   useEffect(() => {
     if (propStats) {
@@ -177,6 +185,30 @@ export function FeaturesSection({ stats: propStats }: FeaturesSectionProps) {
   const classrooms = stats.classrooms || [];
   const materials = stats.materials || [];
   const questions = stats.questions || [];
+
+  const filteredPaths = learningPaths.filter(path => 
+    path.pathName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (path.subjectCode && path.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredClassrooms = classrooms.filter(cls => 
+    cls.className.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (cls.semester && cls.semester.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredMaterials = materials.filter(mat => 
+    mat.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredQuestions = questions.filter(q => 
+    q.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (q.studentName && q.studentName.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const displayedPaths = filteredPaths.slice(0, 6);
+  const displayedClassrooms = filteredClassrooms.slice(0, 6);
+  const displayedMaterials = filteredMaterials.slice(0, 6);
+  const displayedQuestions = filteredQuestions.slice(0, 5);
 
   return (
     <section id="features" className="bg-background py-16 text-foreground border-t border-border">
@@ -254,78 +286,142 @@ export function FeaturesSection({ stats: propStats }: FeaturesSectionProps) {
 
           {/* Tab content */}
           <div className="rounded-2xl border border-border bg-muted/30 p-5 md:p-6 shadow-2xs">
+            {/* Search Box */}
+            <div className="relative mb-5 max-w-md mx-auto">
+              <input
+                type="text"
+                placeholder={`Tìm kiếm ${
+                  activeTab === 'paths'
+                    ? 'lộ trình'
+                    : activeTab === 'materials'
+                    ? 'tài liệu'
+                    : activeTab === 'classrooms'
+                    ? 'lớp học'
+                    : 'thảo luận'
+                }...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 pl-9 text-xs rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20 focus:border-foreground/30 transition-all duration-200"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+
             {activeTab === 'paths' && (
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                {learningPaths.length > 0 ? (
-                  learningPaths.map((path) => (
-                    <div key={path.pathId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
-                      <div className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold mb-2.5">
-                        {path.subjectCode || "SUBJECT"}
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 max-h-[350px] overflow-y-auto pr-1">
+                  {displayedPaths.length > 0 ? (
+                    displayedPaths.map((path) => (
+                      <div key={path.pathId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
+                        <div className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold mb-2.5">
+                          {path.subjectCode || "SUBJECT"}
+                        </div>
+                        <h4 className="font-bold text-foreground text-xs">{path.pathName}</h4>
                       </div>
-                      <h4 className="font-bold text-foreground text-xs">{path.pathName}</h4>
-                      <p className="text-[9px] text-muted-foreground mt-1.5">Mã lộ trình: #{path.pathId}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground col-span-3 text-center py-6">Chưa có lộ trình nào được khởi tạo.</p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground col-span-3 text-center py-6">Không tìm thấy lộ trình nào phù hợp.</p>
+                  )}
+                </div>
+                {filteredPaths.length > 6 && (
+                  <div className="text-center pt-2 border-t border-border/40 mt-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      Và hơn {filteredPaths.length - 6} lộ trình khác.{" "}
+                      <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate("/login")}>
+                        Đăng nhập để xem đầy đủ →
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}
 
             {activeTab === 'materials' && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {materials.length > 0 ? (
-                  materials.map((mat) => (
-                    <div key={mat.materialId} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground border border-border shrink-0">
-                        <FileText className="h-4.5 w-4.5" />
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 max-h-[350px] overflow-y-auto pr-1">
+                  {displayedMaterials.length > 0 ? (
+                    displayedMaterials.map((mat) => (
+                      <div key={mat.materialId} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground border border-border shrink-0">
+                          <FileText className="h-4.5 w-4.5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-foreground text-xs">{mat.title}</h4>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-foreground text-xs">{mat.title}</h4>
-                        <p className="text-[9px] text-muted-foreground mt-0.5">ID tài liệu: #{mat.materialId}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground col-span-2 text-center py-6">Kho tài liệu đang được cập nhật.</p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground col-span-2 text-center py-6">Không tìm thấy tài liệu nào phù hợp.</p>
+                  )}
+                </div>
+                {filteredMaterials.length > 6 && (
+                  <div className="text-center pt-2 border-t border-border/40 mt-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      Và hơn {filteredMaterials.length - 6} tài liệu học tập khác.{" "}
+                      <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate("/login")}>
+                        Đăng nhập để xem đầy đủ →
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}
 
             {activeTab === 'classrooms' && (
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                {classrooms.length > 0 ? (
-                  classrooms.map((cls) => (
-                    <div key={cls.classroomId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
-                      <div className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold mb-2.5">
-                        {cls.semester || "SEMESTER"}
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 max-h-[350px] overflow-y-auto pr-1">
+                  {displayedClassrooms.length > 0 ? (
+                    displayedClassrooms.map((cls) => (
+                      <div key={cls.classroomId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
+                        <div className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold mb-2.5">
+                          {cls.semester || "SEMESTER"}
+                        </div>
+                        <h4 className="font-bold text-foreground text-xs">{cls.className}</h4>
                       </div>
-                      <h4 className="font-bold text-foreground text-xs">{cls.className}</h4>
-                      <p className="text-[9px] text-muted-foreground mt-1.5">ID lớp học: #{cls.classroomId}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground col-span-3 text-center py-6">Chưa có lớp học nào hoạt động.</p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground col-span-3 text-center py-6">Không tìm thấy lớp học nào phù hợp.</p>
+                  )}
+                </div>
+                {filteredClassrooms.length > 6 && (
+                  <div className="text-center pt-2 border-t border-border/40 mt-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      Và hơn {filteredClassrooms.length - 6} lớp học khác đang hoạt động.{" "}
+                      <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate("/login")}>
+                        Đăng nhập để xem đầy đủ →
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}
 
             {activeTab === 'questions' && (
-              <div className="space-y-2.5">
-                {questions.length > 0 ? (
-                  questions.map((q) => (
-                    <div key={q.questionId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
-                      <p className="text-xs text-foreground italic">"{q.content}"</p>
-                      <div className="flex items-center justify-between mt-2.5">
-                        <span className="text-[9px] text-muted-foreground">ID câu hỏi: #{q.questionId}</span>
-                        <span className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold">
-                          Hỏi bởi: {q.studentName || "Ẩn danh"}
-                        </span>
+              <div className="space-y-4">
+                <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+                  {displayedQuestions.length > 0 ? (
+                    displayedQuestions.map((q) => (
+                      <div key={q.questionId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
+                        <p className="text-xs text-foreground italic">"{q.content}"</p>
+                        <div className="flex items-center justify-between mt-2.5">
+                          <span className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold">
+                            Hỏi bởi: {q.studentName || "Ẩn danh"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground text-center py-6">Chưa có câu hỏi thảo luận nào.</p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-6">Không tìm thấy thảo luận nào phù hợp.</p>
+                  )}
+                </div>
+                {filteredQuestions.length > 5 && (
+                  <div className="text-center pt-2 border-t border-border/40 mt-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      Và hơn {filteredQuestions.length - 5} thảo luận lớp học khác.{" "}
+                      <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate("/login")}>
+                        Đăng nhập để xem đầy đủ →
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}
