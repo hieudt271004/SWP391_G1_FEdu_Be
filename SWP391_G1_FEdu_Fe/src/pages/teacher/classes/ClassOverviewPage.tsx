@@ -44,7 +44,9 @@ import {
   Save,
   UserPlus,
   Calendar,
-  Clock
+  Clock,
+  Unlock,
+  Lock
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -238,6 +240,23 @@ export function ClassOverviewPage() {
       toast.error(err.response?.data?.message || `Chỉ định trợ giảng thất bại`);
     } finally {
       setLoadingSupport(false);
+    }
+  };
+
+  const [unlockingNode, setUnlockingNode] = useState(false);
+
+  const handleUnlockOnClassNode = async () => {
+    if (!selectedNode || !classroomSubjectId) return;
+    try {
+      setUnlockingNode(true);
+      const opened = await learningPathService.unlockOnClassNode(Number(classroomSubjectId), selectedNode.nodeId);
+      toast.success(`Đã mở khóa buổi học cho ${opened} học sinh đủ điều kiện!`);
+      setSelectedNode(prev => prev ? { ...prev, status: 'OPEN' } : null);
+      fetchClassroomData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Lỗi khi mở khóa buổi học");
+    } finally {
+      setUnlockingNode(false);
     }
   };
 
@@ -1663,6 +1682,38 @@ export function ClassOverviewPage() {
                                   {selectedNode.studyDate ? "Thay đổi lịch học" : "Xếp lịch học"}
                                 </Button>
                               </div>
+                            </div>
+                          )}
+
+                          {/* Unlocking status and action for ON_CLASS nodes */}
+                          {selectedNode.nodeType === 'ON_CLASS' && (
+                            <div className="space-y-2 border-t border-slate-100 pt-3">
+                              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái buổi học</h4>
+                              {selectedNode.status === 'OPEN' ? (
+                                <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-100 text-emerald-750 rounded-xl text-xs font-semibold">
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                  <span>Buổi học đã được mở khóa cho cả lớp</span>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-100 text-amber-700 rounded-xl text-xs">
+                                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 animate-pulse" />
+                                    <span>Buổi học đang khóa. Giáo viên cần mở khóa để học sinh đủ điều kiện vào học.</span>
+                                  </div>
+                                  <Button
+                                    onClick={handleUnlockOnClassNode}
+                                    disabled={unlockingNode}
+                                    className="w-full bg-indigo-600 text-white font-semibold hover:bg-indigo-700 rounded-xl text-xs py-2 flex items-center justify-center gap-1.5"
+                                  >
+                                    {unlockingNode ? (
+                                      <Loader className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Unlock className="h-3.5 w-3.5" />
+                                    )}
+                                    <span>Mở khóa buổi học</span>
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           )}
 

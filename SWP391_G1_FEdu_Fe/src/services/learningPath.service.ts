@@ -384,6 +384,8 @@ export const learningPathService = {
     http.get<StudentInClassResponse[]>(`/teacher-manage/learning-nodes/${nodeId}/students`),
   assignStudentsToNode: (nodeId: number, studentUserIds: number[]) =>
     http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
+  unlockOnClassNode: (classroomSubjectId: number, nodeId: number) =>
+    http.post<number>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/nodes/${nodeId}/unlock`),
   scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean }): Promise<LearningNodeResponse> => {
     const response = await apiClient.put<{ status?: number; message?: string; data?: LearningNodeResponse }>(
       `/teacher-manage/learning-nodes/${nodeId}/schedule`,

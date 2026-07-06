@@ -860,7 +860,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
-            boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS && levelOk;
+            boolean openIt = entryNodes.contains(node) && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN) && levelOk;
             progressList.add(StudentNodeProgress.builder()
                     .classroomSubjectStudent(css)
                     .learningNode(node)
@@ -888,6 +888,9 @@ public class LearningPathServiceImpl implements LearningPathService {
                 || !path.getClassroomSubject().getId().equals(classroomSubjectId)) {
             throw new InvalidDataException("Node không thuộc lộ trình của lớp-môn này");
         }
+
+        node.setStatus(NodeStatus.OPEN);
+        learningNodeRepository.save(node);
 
         // TODO: sau này tự mở theo thời gian buổi học (chưa có thuộc tính thời gian) — hiện giáo viên mở thủ công.
         List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(nodeId);
@@ -1019,7 +1022,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
                     List<LearningNode> entryNodes = validateAndGetEntryNodes(allNodes, edges);
                     
-                    boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS;
+                    boolean openIt = entryNodes.contains(node) && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN);
                     StudentNodeProgress progress = StudentNodeProgress.builder()
                             .classroomSubjectStudent(css)
                             .learningNode(node)
