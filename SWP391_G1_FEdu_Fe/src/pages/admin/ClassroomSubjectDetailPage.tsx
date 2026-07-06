@@ -18,6 +18,8 @@ import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
 import type { StudentInClass, ImportStudentsResult } from "../../types/student";
 import type { ClassroomGraphResponse, LearningNodeResponse, NodeContentResponse } from "../../services/learningPath.service";
 import type { AdminUserResponse } from "../../services/admin.service";
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from "sonner";
 
 const pathStateBadge = (state: ClassroomGraphResponse["state"]) => {
   switch (state) {
@@ -32,6 +34,7 @@ export function ClassroomSubjectDetailPage() {
   const navigate = useNavigate();
   const classroomId = Number(classroomIdParam);
   const csId = Number(csIdParam);
+  const confirm = useConfirm();
 
   const [cs, setCs] = useState<ClassroomSubjectResponse | null>(null);
   const [roster, setRoster] = useState<StudentInClass[]>([]);
@@ -152,9 +155,10 @@ export function ClassroomSubjectDetailPage() {
     try {
       const updated = await classroomService.changeLecturer(cs.classroomSubjectId, { lecturerId });
       setCs(updated);
+      toast.success("Đã phân công lại giảng viên cho lớp-môn này.");
       setEditingLecturer(false);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Đổi giảng viên thất bại");
+      toast.error(e instanceof Error ? e.message : "Đổi giảng viên thất bại");
     }
   };
 
@@ -166,10 +170,13 @@ export function ClassroomSubjectDetailPage() {
       const newStudent = await classroomService.addStudent(cs.classroomSubjectId, { email: addEmail });
       setRoster((prev) => [...prev, newStudent]);
       setCs((prev) => (prev ? { ...prev, studentCount: prev.studentCount + 1 } : prev));
+      toast.success(`Đã thêm học sinh "${newStudent.firstName} ${newStudent.lastName}" vào lớp-môn.`);
       setAddEmail("");
       setShowAddStudent(false);
     } catch (e: unknown) {
-      setAddError(e instanceof Error ? e.message : "Thêm học sinh thất bại");
+      const errMsg = e instanceof Error ? e.message : "Thêm học sinh thất bại";
+      setAddError(errMsg);
+      toast.error(errMsg);
     } finally {
       setAddLoading(false);
     }
@@ -186,8 +193,9 @@ export function ClassroomSubjectDetailPage() {
     if (!cs) return;
     try {
       await classroomService.downloadImportTemplate(cs.classroomSubjectId);
+      toast.success("Đã tải tệp mẫu Excel thành công.");
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Tải file mẫu thất bại");
+      toast.error(e instanceof Error ? e.message : "Tải file mẫu thất bại");
     }
   };
 
@@ -199,9 +207,12 @@ export function ClassroomSubjectDetailPage() {
       setImportResult(null);
       const result = await classroomService.importStudents(cs.classroomSubjectId, importFile);
       setImportResult(result);
+      toast.success(`Đã import thành công danh sách học sinh.`);
       await fetchData(); // refresh roster + studentCount
     } catch (e: unknown) {
-      setImportError(e instanceof Error ? e.message : "Import thất bại");
+      const errMsg = e instanceof Error ? e.message : "Import thất bại";
+      setImportError(errMsg);
+      toast.error(errMsg);
     } finally {
       setImporting(false);
     }
@@ -212,13 +223,27 @@ export function ClassroomSubjectDetailPage() {
       alert("Lớp đã bắt đầu (lộ trình đã xuất bản) — không thể xóa sinh viên. Dữ liệu được giữ lại, SV chỉ là không qua môn.");
       return;
     }
-    if (!cs || !confirm("Xác nhận xóa học sinh khỏi lớp-môn?")) return;
+    if (!cs) return;
+
+    const student = roster.find(s => s.userId === studentId);
+    const studentName = student ? ` "${student.firstName} ${student.lastName}"` : "";
+
+    const isConfirmed = await confirm({
+      title: "Xác nhận xóa học sinh",
+      message: `Bạn có chắc chắn muốn xóa học sinh${studentName} khỏi lớp-môn này không?`,
+      confirmText: "Xóa",
+      cancelText: "Hủy",
+      type: "danger"
+    });
+
+    if (!isConfirmed) return;
     try {
       await classroomService.removeStudent(cs.classroomSubjectId, studentId);
       setRoster((prev) => prev.filter((s) => s.userId !== studentId));
       setCs((prev) => (prev ? { ...prev, studentCount: Math.max(0, prev.studentCount - 1) } : prev));
+      toast.success(`Đã xóa học sinh${studentName} khỏi lớp-môn.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
   };
 

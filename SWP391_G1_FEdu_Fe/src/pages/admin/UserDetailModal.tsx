@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { X, Loader2, Upload, Trash2, Calendar, Phone, Mail, User, Shield, Info } from "lucide-react";
 import { adminService } from "../../services/admin.service";
 import { uploadService } from "../../services/upload.service";
+import { toast } from "sonner";
 
 interface AdminUser {
   id?: number;
@@ -173,6 +174,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
           status: formData.status as "ACTIVE" | "INACTIVE" | "NONE",
           userRole: formData.role,
         });
+        toast.success(`Đã thêm mới người dùng "${formData.firstName} ${formData.lastName}" thành công.`);
       } else {
         if (!user || !user.id) {
           throw new Error("Không tìm thấy thông tin người dùng cần cập nhật");
@@ -188,12 +190,14 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
           status: formData.status as "ACTIVE" | "INACTIVE" | "NONE",
           userRole: formData.role,
         });
+        toast.success(`Đã cập nhật thông tin người dùng "${formData.firstName} ${formData.lastName}" thành công.`);
       }
 
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
+      toast.error(err instanceof Error ? err.message : "Thao tác thất bại");
     } finally {
       setSubmitting(false);
     }

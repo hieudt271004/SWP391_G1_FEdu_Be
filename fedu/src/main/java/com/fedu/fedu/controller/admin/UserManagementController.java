@@ -52,7 +52,8 @@ public class UserManagementController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @DeleteMapping("/delete")
     public ResponseData<Void> deleteUser(@RequestBody String username) {
-        userAccountService.deleteByEmail(username);
+        String email = username != null ? username.replace("\"", "").trim() : "";
+        userAccountService.deleteByEmail(email);
         return new ResponseData<>(HttpStatus.OK.value(), "User deleted successfully");
     }
 
