@@ -13,6 +13,7 @@ import {
   ChevronDown,
   UserCircle,
   LogOut,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import logo from "../../assets/logo.png";
@@ -35,6 +36,7 @@ export function AdminLayout() {
     { icon: Users, label: "Quản lý Người dùng", path: "/admin/users" },
     { icon: BookOpen, label: "Quản lý Môn học", path: "/admin/subjects" },
     { icon: GraduationCap, label: "Quản lý Lớp học", path: "/admin/classes" },
+    { icon: Clock, label: "Quản lý Ca học", path: "/admin/slots" },
   ];
 
   // Close dropdown when clicking outside

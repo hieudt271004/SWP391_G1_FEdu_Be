@@ -42,7 +42,9 @@ import {
   UserMinus,
   MessageSquare,
   Save,
-  UserPlus
+  UserPlus,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -54,6 +56,7 @@ import {
   NodeContentResponse,
   StudentInClassResponse
 } from '../../../services/learningPath.service';
+import { slotService, SlotResponse } from '../../../services/slot.service';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import {
@@ -124,6 +127,95 @@ export function ClassOverviewPage() {
   const [nodeStudents, setNodeStudents] = useState<StudentInClassResponse[]>([]);
   const [nodeContent, setNodeContent] = useState<NodeContentResponse | null>(null);
   const [loadingNodeDetails, setLoadingNodeDetails] = useState(false);
+
+  // Node scheduling states
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [schedulingNode, setSchedulingNode] = useState<LearningNodeResponse | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleSlotId, setScheduleSlotId] = useState("");
+  const [slotsList, setSlotsList] = useState<SlotResponse[]>([]);
+  const [scheduleConflict, setScheduleConflict] = useState<any | null>(null);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
+  const openScheduleModal = async (node: LearningNodeResponse) => {
+    setSchedulingNode(node);
+    setScheduleDate(node.studyDate || "");
+    setScheduleSlotId(node.slotId ? String(node.slotId) : "");
+    setScheduleConflict(null);
+    setIsScheduleModalOpen(true);
+    
+    try {
+      const res = await slotService.getAllSlots();
+      setSlotsList(res || []);
+    } catch (err) {
+      console.error("Failed to load slots list:", err);
+      toast.error("Không thể tải danh sách ca học");
+    }
+  };
+
+  const handleSaveSchedule = async (force = false) => {
+    if (!schedulingNode) return;
+    if (!scheduleDate || !scheduleSlotId) {
+      toast.error("Vui lòng chọn đầy đủ cả Ngày học và Ca học để lưu lịch.");
+      return;
+    }
+    try {
+      setSavingSchedule(true);
+      setScheduleConflict(null);
+      
+      const payload = {
+        studyDate: scheduleDate,
+        slotId: Number(scheduleSlotId),
+        force,
+      };
+
+      const res = await learningPathService.scheduleNode(schedulingNode.nodeId, payload);
+      toast.success("Xếp lịch học thành công!");
+      
+      setSelectedNode(res);
+      setIsScheduleModalOpen(false);
+      fetchClassroomData();
+    } catch (err: any) {
+      const responseData = err.response?.data;
+      if (err.response?.status === 409 && responseData?.data?.hasConflict) {
+        setScheduleConflict(responseData.data);
+        toast.warning("Phát hiện trùng lịch học!");
+      } else {
+        toast.error(responseData?.message || err.message || "Lỗi khi xếp lịch học");
+      }
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleClearSchedule = async () => {
+    if (!schedulingNode) return;
+    try {
+      setSavingSchedule(true);
+      setScheduleConflict(null);
+      
+      const payload = {
+        studyDate: null,
+        slotId: null,
+        force: false,
+      };
+
+      const res = await learningPathService.scheduleNode(schedulingNode.nodeId, payload);
+      toast.success("Hủy lịch học thành công!");
+      
+      setScheduleDate("");
+      setScheduleSlotId("");
+      
+      setSelectedNode(res);
+      setIsScheduleModalOpen(false);
+      fetchClassroomData();
+    } catch (err: any) {
+      const responseData = err.response?.data;
+      toast.error(responseData?.message || err.message || "Lỗi khi hủy lịch học");
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
 
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
@@ -1543,8 +1635,39 @@ export function ClassOverviewPage() {
                             )}
                           </div>
 
+                          {/* Scheduling for ON_CLASS nodes */}
+                          {selectedNode.nodeType === 'ON_CLASS' && (
+                            <div className="space-y-2 border-t border-slate-100 pt-3">
+                              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lịch học trên lớp</h4>
+                              <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-xs flex flex-col gap-2">
+                                {selectedNode.studyDate ? (
+                                  <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                                      <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                                      <span>Ngày: {new Date(selectedNode.studyDate).toLocaleDateString("vi-VN")}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                                      <Clock className="h-3.5 w-3.5 text-slate-500" />
+                                      <span>Ca: {selectedNode.slotName} ({selectedNode.startTime?.substring(0, 5)} - {selectedNode.endTime?.substring(0, 5)})</span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-slate-400 italic">Chưa xếp lịch học trên lớp</p>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openScheduleModal(selectedNode)}
+                                  className="w-full mt-1 border-slate-200 text-xs hover:bg-slate-100 text-primary font-semibold"
+                                >
+                                  {selectedNode.studyDate ? "Thay đổi lịch học" : "Xếp lịch học"}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Materials */}
-                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                          <div className="space-y-2 pt-3 border-t border-slate-100">
                             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tài liệu học tập</h4>
                             {!nodeContent || (!nodeContent.materials?.length && !nodeContent.tests?.length) ? (
                               <p className="text-xs text-slate-400 italic">Node này chưa có tài liệu hay bài kiểm tra nào.</p>
@@ -2899,6 +3022,120 @@ export function ClassOverviewPage() {
             >
               <Save className="size-3.5" />
               Lưu thay đổi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Xếp lịch học cho node trên lớp */}
+      <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl text-xs">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+              <Calendar className="size-5 text-primary" /> Xếp lịch học trên lớp
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+              Xếp ca học và ngày học cho bài học: <strong className="text-primary font-bold">"{schedulingNode?.title}"</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {scheduleConflict?.hasConflict && (
+              <div className="bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-800 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-red-700 dark:text-red-300 font-bold">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>Cảnh báo trùng lịch học!</span>
+                </div>
+                <div className="space-y-1.5 text-[11px] text-red-650 dark:text-red-400">
+                  {scheduleConflict.teacherConflictMessage && (
+                    <p className="leading-relaxed">• {scheduleConflict.teacherConflictMessage}</p>
+                  )}
+                  {scheduleConflict.studentConflicts && scheduleConflict.studentConflicts.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="font-bold">• Trùng lịch học của ({scheduleConflict.studentConflicts.length}) sinh viên:</p>
+                      <div className="max-h-24 overflow-y-auto pl-2 space-y-0.5 font-mono text-[10px] text-red-600 dark:text-red-400/90 leading-tight">
+                        {scheduleConflict.studentConflicts.map((st: any, sIdx: number) => (
+                          <div key={sIdx}>
+                            - {st.studentName} ({st.email}): Trùng ca học ở môn {st.conflictingSubjectName} (Lớp {st.conflictingClassName})
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="pt-1">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => handleSaveSchedule(true)}
+                    className="w-full text-xs h-8 font-semibold"
+                    disabled={savingSchedule}
+                  >
+                    Cưỡng bức xếp lịch (Vẫn xếp ca này)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700">Ngày học</label>
+              <input
+                type="date"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
+                value={scheduleDate}
+                onChange={(e) => {
+                  setScheduleDate(e.target.value);
+                  setScheduleConflict(null); // Clear previous conflicts on change
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700">Ca học (Slot)</label>
+              <select
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
+                value={scheduleSlotId}
+                onChange={(e) => {
+                  setScheduleSlotId(e.target.value);
+                  setScheduleConflict(null); // Clear previous conflicts on change
+                }}
+              >
+                <option value="">-- Chọn ca học --</option>
+                {slotsList.map((slot) => (
+                  <option key={slot.slotId} value={slot.slotId}>
+                    {slot.slotName} ({slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClearSchedule}
+              disabled={savingSchedule}
+              className="h-9 rounded-xl text-xs border-slate-200 text-destructive hover:bg-destructive/10"
+            >
+              Hủy lịch học
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsScheduleModalOpen(false)}
+              className="h-9 rounded-xl text-xs border-slate-200"
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleSaveSchedule(false)}
+              disabled={savingSchedule}
+              className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold"
+            >
+              {savingSchedule ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
+              Lưu lịch học
             </Button>
           </DialogFooter>
         </DialogContent>

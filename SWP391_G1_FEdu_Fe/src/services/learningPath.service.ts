@@ -1,4 +1,5 @@
 import { http } from './http';
+import { apiClient } from './api.client';
 
 export type LearningPathLevel = 1 | 2 | 3;
 export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
@@ -54,6 +55,11 @@ export interface LearningNodeResponse {
   placementYeuMax?: number | null;
   placementTbMax?: number | null;
   stageOrder?: number | null;
+  studyDate?: string | null;
+  slotId?: number | null;
+  slotName?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -378,4 +384,11 @@ export const learningPathService = {
     http.get<StudentInClassResponse[]>(`/teacher-manage/learning-nodes/${nodeId}/students`),
   assignStudentsToNode: (nodeId: number, studentUserIds: number[]) =>
     http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
+  scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean }): Promise<LearningNodeResponse> => {
+    const response = await apiClient.put<{ status?: number; message?: string; data?: LearningNodeResponse }>(
+      `/teacher-manage/learning-nodes/${nodeId}/schedule`,
+      request
+    );
+    return response.data.data!;
+  },
 };
