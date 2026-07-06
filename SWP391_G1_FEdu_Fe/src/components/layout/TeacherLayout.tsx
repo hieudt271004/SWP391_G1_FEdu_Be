@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Settings, GraduationCap, MessageSquare, Menu } from 'lucide-react';
+import { Home, BookOpen, Settings, GraduationCap, MessageSquare, Menu, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
 import logo from '../../assets/logo.png';
@@ -27,6 +28,7 @@ function SidebarContent({
   logout,
   onItemClick,
 }: SidebarContentProps) {
+  const { theme, toggleTheme } = useTheme();
   return (
     <div className="flex flex-col h-full bg-sidebar">
       {/* Logo */}
@@ -35,7 +37,7 @@ function SidebarContent({
           <img src={logo} alt="FEdu Logo" className="w-10 h-10 rounded-lg object-cover" />
           <div>
             <div className="text-sm font-bold text-foreground leading-tight">
-              F<span className="text-indigo-600">Edu</span> Learning
+              FEdu Learning
             </div>
             <div className="text-[10px] text-muted-foreground">Teacher Portal</div>
           </div>
@@ -67,13 +69,29 @@ function SidebarContent({
         })}
       </nav>
 
+      {/* Theme Toggle */}
+      <div className="px-4 py-2.5 border-t border-sidebar-border flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Giao diện</span>
+        <button
+          onClick={toggleTheme}
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer border-none bg-transparent"
+          aria-label="Toggle theme"
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+      </div>
+
       {/* User Info */}
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-            <span className="text-indigo-600 font-semibold text-sm">
-              {getInitials(user)}
-            </span>
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-foreground font-semibold text-sm">
+                {getInitials(user)}
+              </span>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-foreground truncate">
@@ -126,7 +144,7 @@ export function TeacherLayout() {
           <img src={logo} alt="FEdu Logo" className="w-8 h-8 rounded-lg object-cover" />
           <div>
             <div className="text-sm font-bold text-foreground leading-tight">
-              F<span className="text-indigo-600">Edu</span> Learning
+              FEdu Learning
             </div>
             <div className="text-[10px] text-muted-foreground">Teacher Portal</div>
           </div>

@@ -161,6 +161,15 @@ CREATE TABLE IF NOT EXISTS learning_paths (
                                               updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS slots (
+                                     slot_id      BIGSERIAL PRIMARY KEY,
+                                     slot_name    VARCHAR(50) NOT NULL UNIQUE,
+                                     start_time   TIME NOT NULL,
+                                     end_time     TIME NOT NULL,
+                                     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                     updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS learning_nodes (
                                               node_id       BIGSERIAL PRIMARY KEY,
                                               path_id       BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
@@ -179,6 +188,8 @@ CREATE TABLE IF NOT EXISTS learning_nodes (
                                               placement_yeu_max DECIMAL(5,2),   -- PLACEMENT: <= -> Yếu
                                               placement_tb_max  DECIMAL(5,2),   -- PLACEMENT: <= -> TB, còn lại Khá
                                               is_deleted    BOOLEAN DEFAULT FALSE,
+                                              study_date    DATE NULL,
+                                              slot_id       BIGINT REFERENCES slots(slot_id) ON DELETE SET NULL,
                                               created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                               updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

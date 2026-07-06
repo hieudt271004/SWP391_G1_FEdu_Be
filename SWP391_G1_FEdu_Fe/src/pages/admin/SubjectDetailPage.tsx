@@ -4,6 +4,9 @@ import { ArrowLeft, Plus, Users, Loader2, GraduationCap, X, Map, CheckCircle } f
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
 import { adminService } from "../../services/admin.service";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
 import type { AdminUserResponse } from "../../services/admin.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
@@ -31,8 +34,6 @@ export function SubjectDetailPage() {
   const [newClassLecturerId, setNewClassLecturerId] = useState(0);
   const [addClassLoading, setAddClassLoading] = useState(false);
   const [addClassError, setAddClassError] = useState<string | null>(null);
-
-
 
   // Fetch all core page data
   const fetchData = useCallback(async () => {
@@ -73,7 +74,6 @@ export function SubjectDetailPage() {
     };
     loadCatalog();
   }, []);
-
 
   const handlePublish = async () => {
     if (!subject) return;
@@ -126,136 +126,136 @@ export function SubjectDetailPage() {
     }
   };
 
-  const isSubjectPublished = subject?.status === "published";
-
   const totalStudents = classroomSubjects.reduce((sum, cs) => sum + cs.studentCount, 0);
   const enrolledClassroomIds = new Set(classroomSubjects.map((cs) => cs.classroomId));
   const availableClassrooms = allClassrooms.filter(
     (c) => c.status === "active" && !enrolledClassroomIds.has(c.classroomId)
   );
 
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <span className="ml-3 text-sm text-muted-foreground">Đang tải môn học...</span>
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center py-20 gap-3">
+      <AlertCircle className="w-10 h-10 text-destructive" />
+      <p className="text-sm text-muted-foreground">{error}</p>
+      <Button onClick={fetchData} variant="outline">Thử lại</Button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4 flex-wrap">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" style={{ color: "#6b7280" }} />
-        </button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap mb-1">
-            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827" }}>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
               {subject?.subjectCode} — {subject?.subjectName}
             </h1>
             {subject?.status && (
-              <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+              <Badge variant="outline" className="px-2.5 py-1 rounded-full text-xs font-semibold border-transparent"
                 style={subject.status === "published"
                   ? { backgroundColor: "#d1fae5", color: "#065f46" }
                   : { backgroundColor: "#fef3c7", color: "#92400e" }}>
                 {subject.status === "published" ? "Đã xuất bản" : "Bản nháp"}
-              </span>
+              </Badge>
             )}
           </div>
           {subject?.description && (
-            <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>{subject.description}</p>
+            <p className="text-sm text-muted-foreground">{subject.description}</p>
           )}
         </div>
         {/* Stats */}
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg"
-            style={{ backgroundColor: "#eef2ff", fontSize: "0.875rem", color: "#4338ca", fontWeight: 600 }}>
+          <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border-transparent"
+            style={{ backgroundColor: "#eef2ff", color: "#3730a3" }}>
             <GraduationCap className="w-4 h-4" />
             {classroomSubjects.length} lớp học
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg"
-            style={{ backgroundColor: "#f0fdf4", fontSize: "0.875rem", color: "#15803d", fontWeight: 600 }}>
+          </Badge>
+          <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border-transparent"
+            style={{ backgroundColor: "#f0fdf4", color: "#166534" }}>
             <Users className="w-4 h-4" />
             {totalStudents} học sinh
-          </div>
+          </Badge>
           {subject && (subject.status === "published" ? (
-            <button onClick={handleUnpublish} disabled={publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-55 disabled:opacity-50"
-              style={{ border: "1px solid #e5e7eb", backgroundColor: "white", color: "#374151", cursor: publishing ? "not-allowed" : "pointer" }}>
+            <Button onClick={handleUnpublish} disabled={publishing} variant="outline" className="gap-1.5">
               {publishing && <Loader2 className="w-4 h-4 animate-spin" />} Gỡ xuất bản
-            </button>
+            </Button>
           ) : (
-            <button onClick={handlePublish} disabled={publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: "#059669", border: "none", cursor: publishing ? "not-allowed" : "pointer" }}>
+            <Button onClick={handlePublish} disabled={publishing} className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border-transparent">
               {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Xuất bản
-            </button>
+            </Button>
           ))}
         </div>
       </div>
 
       {/* Classrooms List Section */}
-      <div className="rounded-xl p-6 bg-white border border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-gray-900">
-              Lớp đang học môn này ({classroomSubjects.length})
-            </h2>
-          </div>
-          <button
-            onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-white transition-opacity hover:opacity-90 font-semibold"
-            style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer" }}
-          >
-            <Plus className="w-4 h-4" /> Thêm lớp
-          </button>
-        </div>
-
-        {classroomSubjects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <GraduationCap className="w-12 h-12 text-gray-300" />
-            <p className="text-sm text-gray-500">Chưa có lớp nào học môn này</p>
-            <button
-              onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm text-white font-semibold"
-              style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer" }}
-            >
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-foreground" />
+              <h2 className="text-lg font-bold text-foreground">
+                Lớp đang học môn này ({classroomSubjects.length})
+              </h2>
+            </div>
+            <Button onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }} className="gap-2">
               <Plus className="w-4 h-4" /> Thêm lớp
-            </button>
+            </Button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-            {classroomSubjects.map((cs) => (
-              <div
-                key={cs.classroomSubjectId}
-                className="p-4 rounded-xl border border-gray-200 hover:shadow-md transition-all bg-white"
-              >
-                <div className="mb-2">
-                  <span className="font-bold text-gray-900 text-base">
-                    {cs.className}
-                  </span>
-                </div>
-                <div className="text-xs mb-3 truncate text-gray-400" title={cs.lecturerName}>
-                  GV: {cs.lecturerName}
-                </div>
-                <div className="flex items-center gap-2 mb-4 text-gray-500 text-sm">
-                  <Users className="w-4 h-4 text-gray-450" />
-                  <span>{cs.studentCount} học sinh</span>
-                </div>
-                <button
-                  onClick={() => navigate(`/admin/classes/${cs.classroomId}/subjects/${cs.classroomSubjectId}`)}
-                  className="w-full py-2 rounded-lg text-white text-sm font-semibold transition-opacity hover:opacity-90"
-                  style={{ background: "linear-gradient(135deg, #334155, #111827)", border: "none", cursor: "pointer" }}
+
+          {classroomSubjects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <GraduationCap className="w-12 h-12 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Chưa có lớp nào học môn này</p>
+              <Button onClick={() => { setShowAddClass(true); setNewClassId(0); setNewClassLecturerId(0); setAddClassError(null); }} className="gap-2">
+                <Plus className="w-4 h-4" /> Thêm lớp
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              {classroomSubjects.map((cs) => (
+                <div
+                  key={cs.classroomSubjectId}
+                  className="p-4 rounded-xl border border-border hover:shadow-md transition-all bg-card text-card-foreground flex flex-col justify-between"
                 >
-                  Vào lớp-môn
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  <div className="space-y-1.5 mb-4">
+                    <span className="font-bold text-foreground text-base block">
+                      {cs.className}
+                    </span>
+                    <div className="text-xs truncate text-muted-foreground" title={cs.lecturerName}>
+                      GV: {cs.lecturerName}
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Users className="w-4 h-4" />
+                      <span>{cs.studentCount} học sinh</span>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => navigate(`/admin/classes/${cs.classroomId}/subjects/${cs.classroomSubjectId}`)}
+                    className="w-full"
+                    variant="default"
+                  >
+                    Vào lớp-môn
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Learning path (single differentiated path) */}
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 pl-1">
-          <Map className="w-5 h-5 text-indigo-600" />
+        <h2 className="text-xl font-bold text-foreground flex items-center gap-2 pl-1">
+          <Map className="w-5 h-5 text-foreground" />
           Thiết kế lộ trình học tập
         </h2>
         <LearningPathManager subjectId={subjectId} />
@@ -263,22 +263,24 @@ export function SubjectDetailPage() {
 
       {/* MODAL THÊM LỚP */}
       {showAddClass && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowAddClass(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-100" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-150">
-              <h2 className="text-lg font-bold text-gray-900">Thêm lớp vào môn này</h2>
-              <button onClick={() => setShowAddClass(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAddClass(false)}>
+          <div className="rounded-xl w-full max-w-md overflow-hidden border bg-background text-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Thêm lớp vào môn này</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowAddClass(false)}>
+                <X className="w-4 h-4" />
+              </Button>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="px-6 py-5 space-y-4">
               {addClassError && (
-                <div className="px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>{addClassError}</div>
+                <div className="px-4 py-3 rounded-lg text-sm bg-destructive/10 border border-destructive/20 text-destructive">{addClassError}</div>
               )}
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Lớp (đang hoạt động) *</label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">Lớp (đang hoạt động) *</label>
                 <select
                   value={newClassId}
                   onChange={(e) => setNewClassId(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-foreground"
                 >
                   <option value={0} disabled>-- Chọn lớp --</option>
                   {availableClassrooms.length === 0 ? (
@@ -288,12 +290,12 @@ export function SubjectDetailPage() {
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Giảng viên phụ trách *</label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">Giảng viên phụ trách *</label>
                 <select
                   value={newClassLecturerId}
                   onChange={(e) => setNewClassLecturerId(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-foreground"
                 >
                   <option value={0} disabled>-- Chọn giảng viên --</option>
                   {teachers.map((t) => (
@@ -302,19 +304,15 @@ export function SubjectDetailPage() {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end gap-2 p-4 border-t border-gray-100">
-              <button onClick={() => setShowAddClass(false)} className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50">Hủy</button>
-              <button onClick={handleAddClass} disabled={addClassLoading || !newClassId || !newClassLecturerId}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)" }}>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t">
+              <Button variant="outline" onClick={() => setShowAddClass(false)}>Hủy</Button>
+              <Button onClick={handleAddClass} disabled={addClassLoading || !newClassId || !newClassLecturerId} className="gap-2">
                 {addClassLoading && <Loader2 className="w-4 h-4 animate-spin" />} Thêm vào môn
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
-
-      {/* CREATE TEMPLATE MODAL */}
     </div>
   );
 }

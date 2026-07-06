@@ -1,4 +1,6 @@
-import logo from "../../../assets/logo.png";
+import { Link } from "react-router-dom";
+import { BookOpen } from "lucide-react";
+
 export function LeftPanel() {
   return (
     <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
@@ -7,26 +9,32 @@ export function LeftPanel() {
         alt="Students learning"
         className="w-full h-full object-cover"
       />
-      <div className="absolute inset-0 bg-slate-950/55" />
-      <div className="absolute inset-0 flex flex-col justify-between p-12">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="FEdu Logo" className="w-10 h-10 rounded-lg object-cover shadow-lg" />
-          <span className="text-white font-bold tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" style={{ fontSize: "1.25rem" }}>
-            FEdu Learning
+      {/* Static overlay */}
+      <div className="absolute inset-0 bg-slate-900/60" />
+      
+      <div className="absolute inset-0 flex flex-col justify-between p-12 z-10">
+        <Link to="/" className="flex items-center gap-2.5 w-fit group hover:opacity-90 transition-all duration-200">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-white text-slate-900 shadow-md group-hover:scale-105 transition-all duration-300">
+            <BookOpen className="w-4.5 h-4.5" />
+          </div>
+          <span className="text-white font-extrabold text-base tracking-tight drop-shadow-md">
+            FEdu
           </span>
-        </div>
+        </Link>
         <div>
-          <h2 className="text-white mb-4 font-extrabold leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.7)]" style={{ fontSize: "2rem", lineHeight: 1.2 }}>
-            Học tập không giới hạn,<br />thành công không có điểm dừng
+          <h2 className="text-white mb-4 text-3xl font-black leading-tight drop-shadow-md">
+            Học tập không giới hạn,
+            <br />
+            thành công không có điểm dừng
           </h2>
-          <p className="text-white max-w-xl leading-relaxed drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" style={{ fontSize: "1rem" }}>
+          <p className="text-slate-200 text-sm max-w-xl leading-relaxed drop-shadow-sm">
             Hơn 10.000+ môn học từ các chuyên gia hàng đầu đang chờ bạn khám phá.
           </p>
-          <div className="flex flex-wrap gap-6 mt-8">
+          <div className="flex flex-wrap gap-8 mt-8">
             {[["10K+", "Môn học"], ["500K+", "Học viên"], ["98%", "Hài lòng"]].map(([num, label]) => (
-              <div key={label}>
-                <div className="text-white font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" style={{ fontSize: "1.5rem" }}>{num}</div>
-                <div className="text-white leading-snug drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]" style={{ fontSize: "0.875rem" }}>{label}</div>
+              <div key={label} className="space-y-1">
+                <div className="text-white text-2xl font-extrabold drop-shadow-md">{num}</div>
+                <div className="text-slate-300 text-xs font-semibold tracking-wider uppercase drop-shadow-sm">{label}</div>
               </div>
             ))}
           </div>

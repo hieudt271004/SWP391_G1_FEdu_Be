@@ -165,4 +165,23 @@ export const studentService = {
     http.get<any[]>(
       `/student/support-tickets?classroomSubjectId=${csId}`
     ),
+
+  getStudentSchedule: () =>
+    http.get<StudentScheduleEntry[]>('/student/schedule'),
 };
+
+export interface StudentScheduleEntry {
+  nodeId: number;
+  title: string;
+  description: string;
+  studyDate: string;
+  slotId?: number;
+  slotName?: string;
+  startTime?: string;
+  endTime?: string;
+  subjectName: string;
+  subjectCode: string;
+  className: string;
+  classroomSubjectId: number;
+  status: 'LOCKED' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
+}

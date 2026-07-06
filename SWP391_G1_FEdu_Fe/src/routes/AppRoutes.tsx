@@ -31,6 +31,7 @@ import { ClassListPage } from '../pages/admin/ClassListPage';
 import { ClassDetailPage } from '../pages/admin/ClassDetailPage';
 import { ClassroomSubjectDetailPage } from '../pages/admin/ClassroomSubjectDetailPage';
 import { AddClassPage } from '../pages/admin/AddClassPage';
+import { SlotManagementPage } from '../pages/admin/SlotManagementPage';
 
 // Teacher pages
 import { TeacherDashboardPage } from '../pages/teacher/TeacherDashboardPage';
@@ -52,6 +53,7 @@ import { NodeTestPage } from '../pages/student/tests/NodeTestPage';
 import { PlacementPage } from '../pages/student/tests/PlacementPage';
 import { LevelHistoryPage } from '../pages/student/tests/LevelHistoryPage';
 import { StudentSubmissionsPage } from '../pages/student/submissions/StudentSubmissionsPage';
+import { StudentSchedulePage } from '../pages/student/StudentSchedulePage';
 
 
 // Removed UserDetailPageWrapper, using UserDetailPage directly
@@ -93,6 +95,7 @@ export function AppRoutes() {
                 <Route path="/student/classroom-subjects/:csId/placement" element={<PlacementPage />} />
                 <Route path="/student/classroom-subjects/:csId/level-history" element={<LevelHistoryPage />} />
                 <Route path="/student/submissions" element={<StudentSubmissionsPage />} />
+                <Route path="/student/schedule" element={<StudentSchedulePage />} />
                 <Route path="/student/profile" element={<ProfileEditPage />} />
             </Route>
 
@@ -128,6 +131,9 @@ export function AppRoutes() {
 
                 {/* Dashboard */}
                 <Route path="/admin/dashboard" element={<DashboardPage />} />
+
+                {/* Slots management */}
+                <Route path="/admin/slots" element={<SlotManagementPage />} />
 
                 {/* Profile */}
                 <Route path="/admin/profile" element={<ProfileEditPage />} />

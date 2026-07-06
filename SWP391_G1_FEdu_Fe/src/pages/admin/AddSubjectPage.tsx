@@ -2,6 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, ArrowLeft, Loader2 } from "lucide-react";
 import { subjectService } from "../../services/subject.service";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { toast } from "sonner";
 
 interface SubjectForm {
   subjectCode: string;
@@ -60,12 +65,15 @@ export function AddSubjectPage() {
       setError(null);
       if (isEdit) {
         await subjectService.update(Number(id), payload);
+        toast.success(`Đã cập nhật môn học "${form.subjectName.trim()}" thành công.`);
       } else {
         await subjectService.create(payload);
+        toast.success(`Đã tạo môn học "${form.subjectName.trim()}" thành công.`);
       }
       navigate("/admin/subjects");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
+      toast.error(err instanceof Error ? err.message : "Thao tác thất bại");
     } finally {
       setSubmitting(false);
     }
@@ -73,115 +81,100 @@ export function AddSubjectPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
     </div>
   );
 
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header & Breadcrumb */}
-      <div className="flex items-center gap-4 mb-2">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-gray-100 transition-colors" style={{ color: "#4b5563" }}>
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </Button>
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827", marginBottom: "0.25rem" }}>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {isEdit ? "Chỉnh sửa môn học" : "Thêm môn học mới"}
           </h1>
-          <div className="flex items-center gap-2" style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-            <button type="button" onClick={() => navigate("/admin/subjects")} style={{ background: "none", border: "none", color: "#4338ca", cursor: "pointer", fontWeight: 600 }}>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+            <Button variant="link" type="button" onClick={() => navigate("/admin/subjects")} className="p-0 h-auto font-semibold text-primary hover:no-underline">
               Quản lý Môn học
-            </button>
-            <ChevronRight className="w-3 h-3" />
-            <span style={{ color: "#4338ca", fontWeight: 600 }}>{isEdit ? "Chỉnh sửa" : "Thêm mới"}</span>
+            </Button>
+            <ChevronRight className="w-3 h-3 text-muted-foreground/60" />
+            <span className="text-foreground font-semibold">{isEdit ? "Chỉnh sửa" : "Thêm mới"}</span>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="rounded-2xl p-6 bg-white" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          {error && (
-            <div className="px-4 py-3 rounded-lg mb-6" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "0.875rem" }}>
-              {error}
-            </div>
-          )}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardContent className="p-6 space-y-6">
+            {error && (
+              <div className="px-4 py-3 rounded-lg border border-destructive/20 bg-destructive/10 text-destructive text-sm">
+                {error}
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Mã khóa học */}
-            <div>
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Mã môn học <span style={{ color: "#ef4444" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.subjectCode}
-                onChange={(e) => handleChange("subjectCode", e.target.value)}
-                placeholder="VD: REACT101"
-                required
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Mã môn học */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">
+                  Mã môn học <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  type="text"
+                  value={form.subjectCode}
+                  onChange={(e) => handleChange("subjectCode", e.target.value)}
+                  placeholder="VD: REACT101"
+                  required
+                />
+              </div>
 
-            {/* Tên khóa học */}
-            <div>
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Tên môn học <span style={{ color: "#ef4444" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.subjectName}
-                onChange={(e) => handleChange("subjectName", e.target.value)}
-                placeholder="VD: Lập trình Web với React"
-                required
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              />
-            </div>
+              {/* Tên môn học */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">
+                  Tên môn học <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  type="text"
+                  value={form.subjectName}
+                  onChange={(e) => handleChange("subjectName", e.target.value)}
+                  placeholder="VD: Lập trình Web với React"
+                  required
+                />
+              </div>
 
-            {/* Mô tả */}
-            <div className="md:col-span-2">
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Mô tả
-              </label>
-              <textarea
-                value={form.description}
-                onChange={(e) => handleChange("description", e.target.value)}
-                placeholder="Mô tả ngắn về nội dung và mục tiêu của môn học..."
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all resize-none"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              />
+              {/* Mô tả */}
+              <div className="md:col-span-2 space-y-2">
+                <label className="block text-sm font-semibold text-foreground">
+                  Mô tả
+                </label>
+                <Textarea
+                  value={form.description}
+                  onChange={(e) => handleChange("description", e.target.value)}
+                  placeholder="Mô tả ngắn về nội dung và mục tiêu của môn học..."
+                  rows={4}
+                />
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 mt-6">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex items-center gap-2 px-8 py-3 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: submitting ? "not-allowed" : "pointer", fontSize: "0.9375rem", fontWeight: 600 }}
-          >
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={submitting} className="px-8">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {submitting ? "Đang xử lý..." : isEdit ? "Lưu thay đổi" : "Tạo môn học"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => navigate("/admin/subjects")}
             disabled={submitting}
-            className="px-8 py-3 rounded-xl transition-colors hover:bg-red-50"
-            style={{ backgroundColor: "#ffe5e5", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.9375rem", fontWeight: 600 }}
+            className="px-8 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20 hover:border-destructive"
           >
             Hủy
-          </button>
+          </Button>
         </div>
       </form>
     </div>

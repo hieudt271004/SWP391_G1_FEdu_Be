@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, FileText, ClipboardCheck, PenLine, Loader2, 
 import { learningPathService } from "../../services/learningPath.service";
 import type { NodeContentResponse, TeacherQuestionResponse } from "../../services/learningPath.service";
 import { MaterialPreview } from "./MaterialPreview";
+import { Badge } from "../ui/badge";
 
 interface NodeContentReadOnlyPanelProps {
   nodeId: number;
@@ -200,9 +201,9 @@ export function NodeContentReadOnlyPanel({
                                 <span className="text-slate-400">Câu {qi + 1}. </span>
                                 {q.questionContent}
                               </p>
-                              <span className="shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                              <Badge variant="secondary" className="shrink-0 text-[10px] font-medium">
                                 {qTypeLabel(q.questionType)}
-                              </span>
+                              </Badge>
                             </div>
                             {isEssay(q.questionType) ? (
                               q.answers[0]?.answerContent ? (
@@ -263,10 +264,10 @@ export function NodeContentReadOnlyPanel({
                     <span className="flex-1 truncate text-sm font-semibold text-slate-700">{ex.title}</span>
                     <span className="flex shrink-0 gap-1">
                       {ex.allowText && (
-                        <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">Tự luận</span>
+                        <Badge variant="outline" className="px-1.5 py-0.5 text-[10px] font-medium border-transparent bg-secondary text-secondary-foreground">Tự luận</Badge>
                       )}
                       {ex.allowFile && (
-                        <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">Nộp file</span>
+                        <Badge variant="outline" className="px-1.5 py-0.5 text-[10px] font-medium border-transparent bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Nộp file</Badge>
                       )}
                     </span>
                   </button>

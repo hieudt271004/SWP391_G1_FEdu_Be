@@ -1,7 +1,7 @@
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { CheckCircle } from "lucide-react";
 import { LeftPanel } from "../components/LeftPanel";
-
+import { Button } from "../../../components/ui/button";
 
 export function ForgotSuccess() {
   const navigate = useNavigate();
@@ -27,55 +27,51 @@ export function ForgotSuccess() {
   return (
     <div className="flex h-screen w-full">
       <LeftPanel />
-      <div className="w-full lg:w-1/2 flex bg-white overflow-y-auto p-4 lg:p-8">
+      <div className="w-full lg:w-1/2 flex bg-background text-foreground overflow-y-auto p-4 lg:p-8">
         <div className="m-auto w-full max-w-md text-center py-8">
 
           <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #eef2ff, #ede9fe)" }}>
-              <CheckCircle className="w-10 h-10" style={{ color: "#4338ca" }} />
+            <div className="w-20 h-20 rounded-full flex items-center justify-center bg-accent text-accent-foreground">
+              <CheckCircle className="w-10 h-10 text-primary" />
             </div>
           </div>
 
-          <h1 className="mb-3" style={{ color: "#111827" }}>Email đã được gửi!</h1>
-          <p style={{ color: "#6b7280", fontSize: "0.9375rem", lineHeight: 1.6 }}>
+          <h1 className="text-2xl font-bold mb-3">Email đã được gửi!</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             Chúng tôi đã gửi đường dẫn đặt lại mật khẩu đến email <strong>{userEmail}</strong>.
             Vui lòng kiểm tra hộp thư (kể cả thư mục Spam).
           </p>
 
-          <div className="mt-4 px-4 py-3 rounded-xl"
-            style={{ backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-            <p style={{ color: "#15803d", fontSize: "0.875rem" }}>
-              Đường dẫn sẽ hết hạn sau <strong>15 phút</strong>
-            </p>
+          <div className="mt-4 px-4 py-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-sm">
+            Đường dẫn sẽ hết hạn sau <strong>15 phút</strong>
           </div>
 
           <div className="mt-8 space-y-3">
-            <button
+            <Button
               onClick={handleOpenEmail}
-              className="w-full py-3 rounded-xl text-white transition-opacity hover:opacity-90"
-              style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: "pointer" }}
+              className="w-full py-3 h-auto rounded-xl"
             >
               Mở ứng dụng Email
-            </button>
+            </Button>
 
-            <button
+            <Button
               onClick={() => navigate("/forgot-password")}
-              className="w-full py-3 rounded-xl transition-colors hover:bg-gray-50"
-              style={{ border: "1px solid #e5e7eb", background: "white", cursor: "pointer", color: "#374151" }}
+              variant="outline"
+              className="w-full py-3 h-auto rounded-xl"
             >
               Gửi lại email
-            </button>
+            </Button>
           </div>
 
-          <p className="mt-6" style={{ color: "#9ca3af", fontSize: "0.875rem" }}>
+          <p className="mt-6 text-sm text-muted-foreground">
             Nhớ mật khẩu rồi?{" "}
-            <button
+            <Button
+              variant="link"
               onClick={() => navigate("/login")}
-              style={{ color: "#4338ca", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
+              className="p-0 h-auto font-semibold text-primary hover:no-underline align-baseline"
             >
               Đăng nhập
-            </button>
+            </Button>
           </p>
         </div>
       </div>

@@ -39,6 +39,31 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 
+const getOnClassStatus = (node: any) => {
+  if (!node.studyDate || !node.startTime || !node.endTime) {
+    return { text: "Chưa xếp lịch", color: "text-slate-400 bg-slate-50 border-slate-100" };
+  }
+  try {
+    const now = new Date();
+    const startStr = `${node.studyDate}T${node.startTime.substring(0, 5)}:00`;
+    const endStr = `${node.studyDate}T${node.endTime.substring(0, 5)}:00`;
+    const startTimeObj = new Date(startStr);
+    const endTimeObj = new Date(endStr);
+    if (isNaN(startTimeObj.getTime()) || isNaN(endTimeObj.getTime())) {
+      return { text: "Lỗi lịch học", color: "text-slate-400 bg-slate-50 border-slate-100" };
+    }
+    if (now < startTimeObj) {
+      return { text: "Chưa bắt đầu", color: "text-amber-600 bg-amber-50 border-amber-200" };
+    } else if (now >= startTimeObj && now <= endTimeObj) {
+      return { text: "Đang diễn ra", color: "text-emerald-600 bg-emerald-50 border-emerald-250 animate-pulse" };
+    } else {
+      return { text: "Đã kết thúc", color: "text-slate-500 bg-slate-100 border-slate-200" };
+    }
+  } catch (e) {
+    return { text: "Lỗi lịch học", color: "text-slate-400 bg-slate-50 border-slate-100" };
+  }
+};
+
 export function StudentDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -141,6 +166,18 @@ export function StudentDashboardPage() {
 
   const handleToggleNode = async (nodeId: number, studentStatus: string | undefined) => {
     if (studentStatus === 'LOCKED') {
+      const node = nodes.find(n => n.nodeId === nodeId);
+      if (node && node.nodeType === 'ON_CLASS') {
+        const statusInfo = getOnClassStatus(node);
+        if (statusInfo.text === "Đã kết thúc") {
+          toast.error("Buổi học trên lớp này đã kết thúc!");
+          return;
+        }
+        if (node.status !== 'OPEN') {
+          toast.error("Buổi học trên lớp này chưa được giáo viên mở khóa!");
+          return;
+        }
+      }
       toast.error("Bài học này đang bị khóa. Hãy hoàn thành các bài học trước!");
       return;
     }
@@ -465,11 +502,38 @@ export function StudentDashboardPage() {
                               </p>
                             )}
                           </div>
-                          {!isLocked && (
-                            <div className="text-slate-400 hover:text-slate-600 pt-0.5 shrink-0">
-                              {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                            </div>
-                          )}
+                          {/* Right side: Slot details & status (for ON_CLASS nodes) */}
+                          <div className="flex flex-col items-end gap-1.5 text-right shrink-0">
+                            {node.nodeType === 'ON_CLASS' && (
+                              <>
+                                <div className="text-[10px] text-slate-500 font-medium space-y-0.5">
+                                  {node.studyDate && (
+                                    <p className="font-semibold text-slate-600">
+                                      {new Date(node.studyDate).toLocaleDateString("vi-VN")}
+                                    </p>
+                                  )}
+                                  {node.slotName && (
+                                    <p className="text-slate-500">
+                                      {node.slotName} ({node.startTime?.substring(0, 5)} - {node.endTime?.substring(0, 5)})
+                                    </p>
+                                  )}
+                                </div>
+                                {(() => {
+                                  const statusInfo = getOnClassStatus(node);
+                                  return (
+                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusInfo.color}`}>
+                                      {statusInfo.text}
+                                    </span>
+                                  );
+                                })()}
+                              </>
+                            )}
+                            {!isLocked && (
+                              <div className="text-slate-400 hover:text-slate-600 pt-0.5">
+                                {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Expanded details (Materials and tests) */}

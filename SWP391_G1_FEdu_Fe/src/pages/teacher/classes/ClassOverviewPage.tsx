@@ -12,13 +12,13 @@ import {
   TableRow,
 } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
-import { 
-  ArrowLeft, 
-  CheckCircle2, 
-  Circle, 
-  Settings, 
-  Loader, 
-  ChevronRight, 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  Settings,
+  Loader,
+  ChevronRight,
   HelpCircle,
   AlertTriangle,
   Play,
@@ -42,11 +42,15 @@ import {
   UserMinus,
   MessageSquare,
   Save,
-  UserPlus
+  UserPlus,
+  Calendar,
+  Clock,
+  Unlock,
+  Lock
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
-import { 
+import {
   learningPathService,
   LearningNodeResponse,
   NodeEdgeResponse,
@@ -54,6 +58,7 @@ import {
   NodeContentResponse,
   StudentInClassResponse
 } from '../../../services/learningPath.service';
+import { slotService, SlotResponse } from '../../../services/slot.service';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import {
@@ -82,22 +87,22 @@ export function ClassOverviewPage() {
   const navigate = useNavigate();
   const { classroomSubjectId } = useParams();
   const [students, setStudents] = useState<Student[]>([]);
-  const [classInfo, setClassInfo] = useState({ 
-    classCode: '', 
+  const [classInfo, setClassInfo] = useState({
+    classCode: '',
     courseCode: '',
     semester: '',
     description: ''
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [classroomStatus, setClassroomStatus] = useState<string>('inactive');
   const [parentClassroomId, setParentClassroomId] = useState<number | null>(null);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [loadingContents, setLoadingContents] = useState<Record<number, boolean>>({});
-  
+
   // New classroom publish flow states
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'cloning' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
@@ -110,13 +115,13 @@ export function ClassOverviewPage() {
   // Dialog visibility and confirmation states
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [understandPublish, setUnderstandPublish] = useState(false);
-  
+
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
   const [understandUnpublish, setUnderstandUnpublish] = useState(false);
-  
+
   const [showUnpublishError, setShowUnpublishError] = useState(false);
   const [unpublishErrorMsg, setUnpublishErrorMsg] = useState<string | null>(null);
-  
+
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
   // Selected Node Details state
@@ -124,6 +129,95 @@ export function ClassOverviewPage() {
   const [nodeStudents, setNodeStudents] = useState<StudentInClassResponse[]>([]);
   const [nodeContent, setNodeContent] = useState<NodeContentResponse | null>(null);
   const [loadingNodeDetails, setLoadingNodeDetails] = useState(false);
+
+  // Node scheduling states
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [schedulingNode, setSchedulingNode] = useState<LearningNodeResponse | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleSlotId, setScheduleSlotId] = useState("");
+  const [slotsList, setSlotsList] = useState<SlotResponse[]>([]);
+  const [scheduleConflict, setScheduleConflict] = useState<any | null>(null);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
+  const openScheduleModal = async (node: LearningNodeResponse) => {
+    setSchedulingNode(node);
+    setScheduleDate(node.studyDate || "");
+    setScheduleSlotId(node.slotId ? String(node.slotId) : "");
+    setScheduleConflict(null);
+    setIsScheduleModalOpen(true);
+    
+    try {
+      const res = await slotService.getAllSlots();
+      setSlotsList(res || []);
+    } catch (err) {
+      console.error("Failed to load slots list:", err);
+      toast.error("Không thể tải danh sách ca học");
+    }
+  };
+
+  const handleSaveSchedule = async (force = false) => {
+    if (!schedulingNode) return;
+    if (!scheduleDate || !scheduleSlotId) {
+      toast.error("Vui lòng chọn đầy đủ cả Ngày học và Ca học để lưu lịch.");
+      return;
+    }
+    try {
+      setSavingSchedule(true);
+      setScheduleConflict(null);
+      
+      const payload = {
+        studyDate: scheduleDate,
+        slotId: Number(scheduleSlotId),
+        force,
+      };
+
+      const res = await learningPathService.scheduleNode(schedulingNode.nodeId, payload);
+      toast.success("Xếp lịch học thành công!");
+      
+      setSelectedNode(res);
+      setIsScheduleModalOpen(false);
+      fetchClassroomData();
+    } catch (err: any) {
+      const responseData = err.response?.data;
+      if (err.response?.status === 409 && responseData?.data?.hasConflict) {
+        setScheduleConflict(responseData.data);
+        toast.warning("Phát hiện trùng lịch học!");
+      } else {
+        toast.error(responseData?.message || err.message || "Lỗi khi xếp lịch học");
+      }
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleClearSchedule = async () => {
+    if (!schedulingNode) return;
+    try {
+      setSavingSchedule(true);
+      setScheduleConflict(null);
+      
+      const payload = {
+        studyDate: null,
+        slotId: null,
+        force: false,
+      };
+
+      const res = await learningPathService.scheduleNode(schedulingNode.nodeId, payload);
+      toast.success("Hủy lịch học thành công!");
+      
+      setScheduleDate("");
+      setScheduleSlotId("");
+      
+      setSelectedNode(res);
+      setIsScheduleModalOpen(false);
+      fetchClassroomData();
+    } catch (err: any) {
+      const responseData = err.response?.data;
+      toast.error(responseData?.message || err.message || "Lỗi khi hủy lịch học");
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
 
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
@@ -146,6 +240,23 @@ export function ClassOverviewPage() {
       toast.error(err.response?.data?.message || `Chỉ định trợ giảng thất bại`);
     } finally {
       setLoadingSupport(false);
+    }
+  };
+
+  const [unlockingNode, setUnlockingNode] = useState(false);
+
+  const handleUnlockOnClassNode = async () => {
+    if (!selectedNode || !classroomSubjectId) return;
+    try {
+      setUnlockingNode(true);
+      const opened = await learningPathService.unlockOnClassNode(Number(classroomSubjectId), selectedNode.nodeId);
+      toast.success(`Đã mở khóa buổi học cho ${opened} học sinh đủ điều kiện!`);
+      setSelectedNode(prev => prev ? { ...prev, status: 'OPEN' } : null);
+      fetchClassroomData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Lỗi khi mở khóa buổi học");
+    } finally {
+      setUnlockingNode(false);
     }
   };
 
@@ -275,7 +386,7 @@ export function ClassOverviewPage() {
     if (!classroomSubjectId || !student.classroomSubjectStudentId) return;
     const isCurrentlySub = !!student.isSubmentor;
     const actionText = isCurrentlySub ? "tắt" : "bật";
-    
+
     try {
       if (isCurrentlySub) {
         await teacherService.disableSubMentor(Number(classroomSubjectId), student.classroomSubjectStudentId);
@@ -456,7 +567,7 @@ export function ClassOverviewPage() {
       toast.success(placementQuiz ? 'Cập nhật bài test thành công!' : 'Khởi tạo bài test thành công!');
       setIsCreateQuizOpen(false);
       await fetchPlacementQuiz();
-      
+
       // Update graphData to check quizStartTestId
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
@@ -521,8 +632,8 @@ export function ClassOverviewPage() {
     if (question) {
       setQuestionContent(question.questionContent);
       setQuestionType(
-        question.questionType === 'ESSAY' 
-          ? 'ESSAY' 
+        question.questionType === 'ESSAY'
+          ? 'ESSAY'
           : (question.questionType === 'MULTIPLE_CHOICE' ? 'SINGLE' : 'MULTIPLE')
       );
       setAnswers(question.answers.map((a: any) => ({
@@ -657,16 +768,16 @@ export function ClassOverviewPage() {
       ]);
 
       const fullClassroom = await teacherService.getClassroomById(classData.classroomId);
-      
+
       setClassInfo({
-        classCode: classData.className,        
+        classCode: classData.className,
         courseCode: classData.subjectCode,
         semester: fullClassroom.semester || '',
         description: fullClassroom.description || '',
       });
       setClassroomStatus(fullClassroom.status || 'inactive');
       setParentClassroomId(fullClassroom.classroomId);
-      
+
       if (!isMounted.current) return;
       const formatted = (studentsData ?? []).map((item) => ({
         id: item.email?.split('@')[0].toUpperCase() || `ST${item.userId}`,
@@ -699,7 +810,7 @@ export function ClassOverviewPage() {
     if (!parentClassroomId) return;
     const actionText = newStatus === 'active' ? 'bắt đầu' : 'kết thúc';
     if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không? (Hành động này ảnh hưởng đến toàn bộ môn học trong lớp)`)) return;
-    
+
     try {
       setActionState(newStatus === 'active' ? 'publishing' : 'unpublishing');
       await classroomService.update(parentClassroomId, {
@@ -862,7 +973,7 @@ export function ClassOverviewPage() {
       setActionState('publishing');
       const res = await learningPathService.publishClassroomPath(Number(classroomSubjectId), graphData.pathId);
       setSeededCount(res.seededStudents);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setShowPublishConfirm(false);
@@ -880,7 +991,7 @@ export function ClassOverviewPage() {
     try {
       setActionState('unpublishing');
       await learningPathService.unpublishClassroomPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setShowUnpublishConfirm(false);
@@ -901,11 +1012,11 @@ export function ClassOverviewPage() {
   const handleDeleteDraft = async () => {
     if (!classroomSubjectId || !graphData?.pathId) return;
     if (!window.confirm('Bạn có chắc chắn muốn xóa bản nháp này không? Lộ trình sẽ bị xóa vĩnh viễn.')) return;
-    
+
     try {
       setActionState('deleting');
       await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
-      
+
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
       setSelectedTemplateId(null);
@@ -980,7 +1091,7 @@ export function ClassOverviewPage() {
     const colNodeLabels: Record<number, string> = {};
     const subInfo: Record<number, { base: string; idx: number }> = {};
     let lessonCounter = 0;
-    
+
     // Sort nodes by displayOrder, then nodeId for stable sorting
     const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
 
@@ -1301,17 +1412,17 @@ export function ClassOverviewPage() {
                 {graphData.canCloneAll ? "Khởi tạo lộ trình học cho lớp" : "Môn học chưa có lộ trình mẫu"}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {graphData.canCloneAll 
-                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa." 
+                {graphData.canCloneAll
+                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa."
                   : "Môn học này chưa được cấu hình lộ trình mẫu công bố từ khoa."}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-wrap">
               {graphData.canCloneAll ? (
-                <Button 
-                  onClick={handleClone} 
-                  disabled={isNonIdle} 
+                <Button
+                  onClick={handleClone}
+                  disabled={isNonIdle}
                   className="w-full md:w-auto bg-primary hover:bg-primary/90 text-white font-medium rounded-xl"
                 >
                   {actionState === 'cloning' ? <Loader className="size-4 animate-spin mr-1" /> : <Play className="size-4 mr-1" />}
@@ -1411,7 +1522,7 @@ export function ClassOverviewPage() {
               </Button>
             )}
           </div>
-          
+
           {/* Ô chọn & áp dụng lộ trình mẫu (clone). Hiện khi lớp chưa có lộ trình hoặc còn bản nháp. */}
           {(graphData?.state === 'NO_PATH' || graphData?.state === 'DRAFT') && (graphData?.availableTemplates?.length ?? 0) > 0 && (
             <Card className="border border-primary/20 bg-primary/5 rounded-2xl">
@@ -1445,7 +1556,7 @@ export function ClassOverviewPage() {
                   className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
                 >
                   {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
-                  {graphData?.state === 'DRAFT' ? 'Đè lộ trình này' : 'Áp dụng lộ trình'}
+                  {graphData?.state === 'DRAFT' ? 'Áp dụng lộ trình' : 'Áp dụng lộ trình'}
                 </Button>
               </CardContent>
             </Card>
@@ -1543,8 +1654,71 @@ export function ClassOverviewPage() {
                             )}
                           </div>
 
+                          {/* Scheduling for ON_CLASS nodes */}
+                          {selectedNode.nodeType === 'ON_CLASS' && (
+                            <div className="space-y-2 border-t border-slate-100 pt-3">
+                              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lịch học trên lớp</h4>
+                              <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-xs flex flex-col gap-2">
+                                {selectedNode.studyDate ? (
+                                  <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                                      <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                                      <span>Ngày: {new Date(selectedNode.studyDate).toLocaleDateString("vi-VN")}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                                      <Clock className="h-3.5 w-3.5 text-slate-500" />
+                                      <span>Ca: {selectedNode.slotName} ({selectedNode.startTime?.substring(0, 5)} - {selectedNode.endTime?.substring(0, 5)})</span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-slate-400 italic">Chưa xếp lịch học trên lớp</p>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openScheduleModal(selectedNode)}
+                                  className="w-full mt-1 border-slate-200 text-xs hover:bg-slate-100 text-primary font-semibold"
+                                >
+                                  {selectedNode.studyDate ? "Thay đổi lịch học" : "Xếp lịch học"}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Unlocking status and action for ON_CLASS nodes */}
+                          {selectedNode.nodeType === 'ON_CLASS' && (
+                            <div className="space-y-2 border-t border-slate-100 pt-3">
+                              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái buổi học</h4>
+                              {selectedNode.status === 'OPEN' ? (
+                                <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-100 text-emerald-750 rounded-xl text-xs font-semibold">
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                  <span>Buổi học đã được mở khóa cho cả lớp</span>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-100 text-amber-700 rounded-xl text-xs">
+                                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 animate-pulse" />
+                                    <span>Buổi học đang khóa. Giáo viên cần mở khóa để học sinh đủ điều kiện vào học.</span>
+                                  </div>
+                                  <Button
+                                    onClick={handleUnlockOnClassNode}
+                                    disabled={unlockingNode}
+                                    className="w-full bg-indigo-600 text-white font-semibold hover:bg-indigo-700 rounded-xl text-xs py-2 flex items-center justify-center gap-1.5"
+                                  >
+                                    {unlockingNode ? (
+                                      <Loader className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Unlock className="h-3.5 w-3.5" />
+                                    )}
+                                    <span>Mở khóa buổi học</span>
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {/* Materials */}
-                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                          <div className="space-y-2 pt-3 border-t border-slate-100">
                             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tài liệu học tập</h4>
                             {!nodeContent || (!nodeContent.materials?.length && !nodeContent.tests?.length) ? (
                               <p className="text-xs text-slate-400 italic">Node này chưa có tài liệu hay bài kiểm tra nào.</p>
@@ -1864,12 +2038,12 @@ export function ClassOverviewPage() {
                 ) : (
                   students.map((student) => {
                     const levelLabel = student.currentLevel === 1 ? 'Yếu' : student.currentLevel === 2 ? 'Trung bình' : student.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                    const levelColor = student.currentLevel === 1 
-                      ? 'bg-rose-50 border-rose-200 text-rose-700' 
-                      : student.currentLevel === 2 
-                        ? 'bg-amber-50 border-amber-200 text-amber-700' 
-                        : student.currentLevel === 3 
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                    const levelColor = student.currentLevel === 1
+                      ? 'bg-rose-50 border-rose-200 text-rose-700'
+                      : student.currentLevel === 2
+                        ? 'bg-amber-50 border-amber-200 text-amber-700'
+                        : student.currentLevel === 3
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                           : 'bg-slate-50 border-slate-200 text-slate-500';
 
                     return (
@@ -1916,8 +2090,8 @@ export function ClassOverviewPage() {
                               size="sm"
                               onClick={() => handleToggleSubMentor(student)}
                               className={`h-7 text-xs rounded-lg font-semibold flex items-center gap-1 ${
-                                student.isSubmentor 
-                                  ? 'text-rose-600 hover:bg-rose-50' 
+                                student.isSubmentor
+                                  ? 'text-rose-600 hover:bg-rose-50'
                                   : 'text-emerald-650 hover:bg-emerald-50'
                               }`}
                             >
@@ -2158,13 +2332,13 @@ export function ClassOverviewPage() {
               <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-publish" 
-                checked={understandPublish} 
-                onCheckedChange={(val) => setUnderstandPublish(!!val)} 
+              <Checkbox
+                id="understand-publish"
+                checked={understandPublish}
+                onCheckedChange={(val) => setUnderstandPublish(!!val)}
               />
-              <label 
-                htmlFor="understand-publish" 
+              <label
+                htmlFor="understand-publish"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
@@ -2172,15 +2346,15 @@ export function ClassOverviewPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowPublishConfirm(false); setUnderstandPublish(false); }}
               disabled={actionState === 'publishing'}
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handlePublish} 
+            <Button
+              onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
               className="bg-green-600 hover:bg-green-700 text-white font-medium"
             >
@@ -2214,13 +2388,13 @@ export function ClassOverviewPage() {
               <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
-              <Checkbox 
-                id="understand-unpublish" 
-                checked={understandUnpublish} 
-                onCheckedChange={(val) => setUnderstandUnpublish(!!val)} 
+              <Checkbox
+                id="understand-unpublish"
+                checked={understandUnpublish}
+                onCheckedChange={(val) => setUnderstandUnpublish(!!val)}
               />
-              <label 
-                htmlFor="understand-unpublish" 
+              <label
+                htmlFor="understand-unpublish"
                 className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
@@ -2228,15 +2402,15 @@ export function ClassOverviewPage() {
             </div>
           </div>
           <DialogFooter className="sm:justify-end gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); }}
               disabled={actionState === 'unpublishing'}
             >
               Hủy
             </Button>
-            <Button 
-              onClick={handleUnpublish} 
+            <Button
+              onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
             >
@@ -2395,12 +2569,12 @@ export function ClassOverviewPage() {
                         <div className="pt-1">
                           {(() => {
                             const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                            const badgeColor = selectedStudent.currentLevel === 1 
-                              ? 'bg-rose-50 border-rose-200 text-rose-700' 
-                              : selectedStudent.currentLevel === 2 
-                                ? 'bg-amber-50 border-amber-200 text-amber-700' 
-                                : selectedStudent.currentLevel === 3 
-                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                            const badgeColor = selectedStudent.currentLevel === 1
+                              ? 'bg-rose-50 border-rose-200 text-rose-700'
+                              : selectedStudent.currentLevel === 2
+                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                : selectedStudent.currentLevel === 3
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                                   : 'bg-slate-50 border-slate-200 text-slate-500';
                             return (
                               <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 ${badgeColor}`}>
@@ -2899,6 +3073,120 @@ export function ClassOverviewPage() {
             >
               <Save className="size-3.5" />
               Lưu thay đổi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Xếp lịch học cho node trên lớp */}
+      <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl text-xs">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+              <Calendar className="size-5 text-primary" /> Xếp lịch học trên lớp
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+              Xếp ca học và ngày học cho bài học: <strong className="text-primary font-bold">"{schedulingNode?.title}"</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {scheduleConflict?.hasConflict && (
+              <div className="bg-red-50 border border-red-200 dark:bg-red-950/20 dark:border-red-800 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-red-700 dark:text-red-300 font-bold">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>Cảnh báo trùng lịch học!</span>
+                </div>
+                <div className="space-y-1.5 text-[11px] text-red-650 dark:text-red-400">
+                  {scheduleConflict.teacherConflictMessage && (
+                    <p className="leading-relaxed">• {scheduleConflict.teacherConflictMessage}</p>
+                  )}
+                  {scheduleConflict.studentConflicts && scheduleConflict.studentConflicts.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="font-bold">• Trùng lịch học của ({scheduleConflict.studentConflicts.length}) sinh viên:</p>
+                      <div className="max-h-24 overflow-y-auto pl-2 space-y-0.5 font-mono text-[10px] text-red-600 dark:text-red-400/90 leading-tight">
+                        {scheduleConflict.studentConflicts.map((st: any, sIdx: number) => (
+                          <div key={sIdx}>
+                            - {st.studentName} ({st.email}): Trùng ca học ở môn {st.conflictingSubjectName} (Lớp {st.conflictingClassName})
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="pt-1">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => handleSaveSchedule(true)}
+                    className="w-full text-xs h-8 font-semibold"
+                    disabled={savingSchedule}
+                  >
+                    Cưỡng bức xếp lịch (Vẫn xếp ca này)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700">Ngày học</label>
+              <input
+                type="date"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
+                value={scheduleDate}
+                onChange={(e) => {
+                  setScheduleDate(e.target.value);
+                  setScheduleConflict(null); // Clear previous conflicts on change
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700">Ca học (Slot)</label>
+              <select
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
+                value={scheduleSlotId}
+                onChange={(e) => {
+                  setScheduleSlotId(e.target.value);
+                  setScheduleConflict(null); // Clear previous conflicts on change
+                }}
+              >
+                <option value="">-- Chọn ca học --</option>
+                {slotsList.map((slot) => (
+                  <option key={slot.slotId} value={slot.slotId}>
+                    {slot.slotName} ({slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClearSchedule}
+              disabled={savingSchedule}
+              className="h-9 rounded-xl text-xs border-slate-200 text-destructive hover:bg-destructive/10"
+            >
+              Hủy lịch học
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsScheduleModalOpen(false)}
+              className="h-9 rounded-xl text-xs border-slate-200"
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleSaveSchedule(false)}
+              disabled={savingSchedule}
+              className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold"
+            >
+              {savingSchedule ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
+              Lưu lịch học
             </Button>
           </DialogFooter>
         </DialogContent>

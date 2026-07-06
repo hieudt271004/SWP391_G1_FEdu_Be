@@ -59,25 +59,26 @@ export function StatsSection() {
   ];
 
   return (
-    <section className="bg-[#030213] border-y border-white/10 py-16 font-sans text-white relative overflow-hidden">
-      <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-blue-500/5 blur-[80px] pointer-events-none" />
+    <section className="bg-background border-y border-border py-16 font-sans text-foreground relative overflow-hidden">
+      {/* Subtle backdrop light glow */}
+      <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-muted/30 blur-[80px] pointer-events-none" />
       
       <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-10 items-center relative">
         <div className="space-y-3">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kết quả FEdu</span>
-          <h2 className="text-2xl font-bold text-white leading-tight">Những con số<br />tạo nên niềm tin</h2>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Kết quả FEdu</span>
+          <h2 className="text-2xl font-extrabold text-foreground leading-tight tracking-tight md:text-3xl">Những con số<br />tạo nên niềm tin</h2>
         </div>
         <div className="grid grid-cols-2 gap-4">
           {statsItems.map((stat) => {
             const Icon = stat.icon;
             return (
-              <div key={stat.label} className="p-5 rounded-md border border-white/10 bg-white/5 flex items-center gap-4 hover:border-white/20 transition-all duration-300">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-white/10 text-white shrink-0 border border-white/5">
+              <div key={stat.label} className="p-5 rounded-2xl border border-border bg-card flex items-center gap-4 hover:border-foreground/20 hover:shadow-xs transition-all duration-300">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-foreground shrink-0 border border-border">
                   <Icon className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <div className="text-xl font-bold text-white tracking-tight leading-none">{stat.value}</div>
-                  <div className="text-[10px] font-medium text-slate-400 mt-2.5 leading-none">{stat.label}</div>
+                  <div className="text-xl font-extrabold text-foreground tracking-tight leading-none">{stat.value}</div>
+                  <div className="text-[10px] font-semibold text-muted-foreground mt-2 leading-none">{stat.label}</div>
                 </div>
               </div>
             );

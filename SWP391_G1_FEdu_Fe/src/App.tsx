@@ -1,13 +1,22 @@
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './routes/AppRoutes';
 import { Toaster } from './components/ui/sonner';
+import { NotificationProvider } from './context/NotificationContext';
+import { ConfirmProvider } from './context/ConfirmContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-      <Toaster />
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <NotificationProvider>
+          <ConfirmProvider>
+            <AppRoutes />
+            <Toaster />
+          </ConfirmProvider>
+        </NotificationProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

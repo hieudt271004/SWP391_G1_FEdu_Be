@@ -767,7 +767,7 @@ export function ClassManagementPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader className="w-8 h-8 animate-spin text-indigo-600" />
+        <Loader className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -809,7 +809,7 @@ export function ClassManagementPage() {
           >
             <ArrowLeft className="size-4" />
           </Button>
-          <h1 className="text-2xl font-bold text-[#030213] tracking-tight">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Lớp {classInfo.classCode} - {classInfo.courseCode} (Quản lý lộ trình)
           </h1>
         </div>
@@ -820,7 +820,6 @@ export function ClassManagementPage() {
               onClick={handleAddNodeClick}
               disabled={isPublished}
               className="text-white flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-xs font-semibold h-9"
-              style={{ backgroundColor: '#030213' }}
             >
               <Plus className="size-4" />
               Thêm bài học
@@ -832,7 +831,7 @@ export function ClassManagementPage() {
       <div className="flex flex-col gap-6">
         <Card className="rounded-[10px] border border-slate-200/60 shadow-xs overflow-hidden bg-white">
           <CardHeader className="border-b border-slate-100/80 bg-slate-50/40 py-4">
-            <CardTitle className="text-base font-bold text-[#030213] flex items-center gap-2">
+            <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
               <Map className="size-4 text-slate-500" />
               Thiết lập lộ trình học tập
             </CardTitle>
@@ -841,9 +840,6 @@ export function ClassManagementPage() {
             <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
               {/* Column 1: Roadmap Flow Graph — giới hạn ~3 node ngang, panel chi tiết phủ phần còn lại */}
               <div className="space-y-3 lg:w-[560px] lg:shrink-0">
-                <div className="text-xs font-semibold text-slate-500 mb-2">
-                  * Nhấp chuột vào một bài học trên sơ đồ dưới đây để xem & cấu hình chi tiết học liệu.
-                </div>
                 {nodes.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-[10px] bg-slate-50/40">
                     <Map className="size-8 mx-auto text-slate-300 mb-2" />
@@ -854,7 +850,6 @@ export function ClassManagementPage() {
                         disabled={isPublished}
                         size="sm"
                         className="text-white rounded-[6px] shadow-xs hover:opacity-95 font-semibold text-xs py-1.5"
-                        style={{ backgroundColor: '#030213' }}
                       >
                         Tạo bài học đầu tiên
                       </Button>
@@ -1030,7 +1025,7 @@ export function ClassManagementPage() {
                                     className="flex items-center justify-between p-2 rounded-[6px] border border-slate-200/50 bg-white hover:bg-slate-50/50 text-xs transition-colors shadow-2xs"
                                   >
                                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                      <Award className="size-3.5 text-indigo-500 shrink-0" />
+                                      <Award className="size-3.5 text-foreground shrink-0" />
                                       <span className="truncate text-[11px] font-semibold text-slate-700">{test.title}</span>
                                       <span className="text-[10px] text-slate-400 shrink-0">({test.durationMinutes} ph)</span>
                                     </div>
@@ -1152,7 +1147,7 @@ export function ClassManagementPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between p-4 border-b border-slate-150">
-              <h2 className="text-base font-bold text-[#030213]">Tạo bài học mới</h2>
+              <h2 className="text-base font-bold text-foreground">Tạo bài học mới</h2>
               <button onClick={() => setIsAddNodeOpen(false)} className="text-slate-400 hover:text-slate-650">
                 <X className="size-5" />
               </button>
@@ -1330,7 +1325,6 @@ export function ClassManagementPage() {
                   type="submit"
                   disabled={addingNode}
                   className="text-white font-semibold rounded-[6px] shadow-xs px-4 disabled:opacity-60"
-                  style={{ backgroundColor: '#030213' }}
                 >
                   {addingNode ? 'Đang lưu...' : 'Tạo bài học'}
                 </Button>
@@ -1346,7 +1340,7 @@ export function ClassManagementPage() {
           <div className="bg-white rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between p-4 border-b border-slate-150">
               <div>
-                <h2 className="text-base font-bold text-[#030213]">Thêm nội dung bài học</h2>
+                <h2 className="text-base font-bold text-foreground">Thêm nội dung bài học</h2>
                 <p className="text-[11px] text-slate-500 font-medium mt-0.5">Bài học: {selectedNodeForContent.title}</p>
               </div>
               <button onClick={() => setIsAddContentOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -1363,7 +1357,7 @@ export function ClassManagementPage() {
                     onClick={() => setContentType('MATERIAL')}
                     className={`py-2 px-3 text-xs font-semibold rounded-[6px] border transition-colors ${
                       contentType === 'MATERIAL'
-                        ? 'bg-[#030213]/5 border-[#030213]/25 text-[#030213]'
+                        ? 'bg-primary/10 border-primary/20 text-primary'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-750'
                     }`}
                   >
@@ -1374,7 +1368,7 @@ export function ClassManagementPage() {
                     onClick={() => setContentType('TEST')}
                     className={`py-2 px-3 text-xs font-semibold rounded-[6px] border transition-colors ${
                       contentType === 'TEST'
-                        ? 'bg-[#030213]/5 border-[#030213]/25 text-[#030213]'
+                        ? 'bg-primary/10 border-primary/20 text-primary'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-750'
                     }`}
                   >
@@ -1611,7 +1605,6 @@ export function ClassManagementPage() {
                   type="submit"
                   disabled={submittingContent}
                   className="text-white flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
-                  style={{ backgroundColor: '#030213' }}
                 >
                   {submittingContent && <Loader className="size-4 animate-spin" />}
                   Lưu nội dung
@@ -1627,7 +1620,7 @@ export function ClassManagementPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[10px] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between p-4 border-b border-slate-150">
-              <h2 className="text-base font-bold text-[#030213]">Chỉnh sửa bài học</h2>
+              <h2 className="text-base font-bold text-foreground">Chỉnh sửa bài học</h2>
               <button onClick={() => { setIsEditNodeOpen(false); setNodeToEdit(null); }} className="text-slate-400 hover:text-slate-600">
                 <X className="size-5" />
               </button>
@@ -1725,7 +1718,6 @@ export function ClassManagementPage() {
                   type="submit"
                   disabled={editingNode}
                   className="text-white flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
-                  style={{ backgroundColor: '#030213' }}
                 >
                   {editingNode && <Loader className="size-4 animate-spin" />}
                   Lưu thay đổi
