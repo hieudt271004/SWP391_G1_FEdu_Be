@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Upload, BarChart3, Settings, GraduationCap } from 'lucide-react';
+import { Home, BookOpen, Upload, Settings, GraduationCap, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
 
@@ -11,8 +11,8 @@ export function StudentLayout() {
   const menuItems = [
     { icon: Home, label: 'Dashboard', path: '/student/dashboard' },
     { icon: BookOpen, label: 'My Courses', path: '/student/courses' },
+    { icon: Calendar, label: 'Timetable', path: '/student/schedule' },
     { icon: Upload, label: 'Submissions', path: '/student/submissions' },
-    { icon: BarChart3, label: 'Progress', path: '/student/progress' },
     { icon: Settings, label: 'Settings', path: '/student/profile' },
   ];
 

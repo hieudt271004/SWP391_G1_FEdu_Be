@@ -4,10 +4,12 @@ import com.fedu.fedu.dto.req.CreateLearningNodeRequest;
 import com.fedu.fedu.dto.req.CreateLearningPathRequest;
 import com.fedu.fedu.dto.req.UpdateLearningNodeRequest;
 import com.fedu.fedu.dto.req.UpdateLearningPathRequest;
+import com.fedu.fedu.dto.req.ScheduleNodeRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.exception.InvalidDataException;
+import com.fedu.fedu.exception.ScheduleConflictException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
 import com.fedu.fedu.utils.NodeRoutingUtils;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -41,6 +44,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final TestQuestionRepository testQuestionRepository;
     private final TestAnswerRepository testAnswerRepository;
     private final NodeExerciseRepository nodeExerciseRepository;
+    private final SlotRepository slotRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -510,6 +514,11 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .gateDownMax(node.getGateDownMax())
                 .placementYeuMax(node.getPlacementYeuMax())
                 .placementTbMax(node.getPlacementTbMax())
+                .studyDate(node.getStudyDate())
+                .slotId(node.getSlot() != null ? node.getSlot().getSlotId() : null)
+                .slotName(node.getSlot() != null ? node.getSlot().getSlotName() : null)
+                .startTime(node.getSlot() != null ? node.getSlot().getStartTime() : null)
+                .endTime(node.getSlot() != null ? node.getSlot().getEndTime() : null)
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
                 .build();
@@ -851,7 +860,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
-            boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS && levelOk;
+            boolean openIt = entryNodes.contains(node) && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN) && levelOk;
             progressList.add(StudentNodeProgress.builder()
                     .classroomSubjectStudent(css)
                     .learningNode(node)
@@ -879,6 +888,9 @@ public class LearningPathServiceImpl implements LearningPathService {
                 || !path.getClassroomSubject().getId().equals(classroomSubjectId)) {
             throw new InvalidDataException("Node không thuộc lộ trình của lớp-môn này");
         }
+
+        node.setStatus(NodeStatus.OPEN);
+        learningNodeRepository.save(node);
 
         // TODO: sau này tự mở theo thời gian buổi học (chưa có thuộc tính thời gian) — hiện giáo viên mở thủ công.
         List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(nodeId);
@@ -1010,7 +1022,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
                     List<LearningNode> entryNodes = validateAndGetEntryNodes(allNodes, edges);
                     
-                    boolean openIt = entryNodes.contains(node) && node.getNodeType() != NodeType.ON_CLASS;
+                    boolean openIt = entryNodes.contains(node) && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN);
                     StudentNodeProgress progress = StudentNodeProgress.builder()
                             .classroomSubjectStudent(css)
                             .learningNode(node)
@@ -1031,5 +1043,102 @@ public class LearningPathServiceImpl implements LearningPathService {
                 }
             }
         }
+    }
+
+    @Override
+    @Transactional
+    public LearningNodeResponse scheduleNode(Long nodeId, ScheduleNodeRequest request) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bài học với id: " + nodeId));
+
+        LearningPath path = node.getLearningPath();
+        if (path.getClassroomSubject() == null) {
+            throw new InvalidDataException("Không thể xếp lịch cho bài học thuộc lộ trình mẫu");
+        }
+
+        assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
+
+        if (request.getStudyDate() == null || request.getSlotId() == null) {
+            // Xóa lịch học
+            node.setStudyDate(null);
+            node.setSlot(null);
+            learningNodeRepository.save(node);
+            return mapToLearningNodeResponse(node);
+        }
+
+        Slot slot = slotRepository.findById(request.getSlotId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca học với id: " + request.getSlotId()));
+
+        Long csId = path.getClassroomSubject().getId();
+        Long lecturerId = path.getClassroomSubject().getLecturer().getUserId();
+
+        // 1. Kiểm tra trùng lịch giảng viên (KHÔNG cho phép ghi đè kể cả force = true)
+        List<LearningNode> teacherClashes = learningNodeRepository.findTeacherConflicts(
+                lecturerId, request.getStudyDate(), request.getSlotId(), nodeId
+        );
+        String teacherMsg = null;
+        if (!teacherClashes.isEmpty()) {
+            LearningNode clashNode = teacherClashes.get(0);
+            teacherMsg = String.format("Giảng viên đã có lịch dạy lớp '%s' (môn %s, bài '%s') vào ca học này.",
+                    clashNode.getLearningPath().getClassroomSubject().getClassroom().getClassName(),
+                    clashNode.getLearningPath().getClassroomSubject().getSubject().getSubjectCode(),
+                    clashNode.getTitle());
+        }
+
+        if (teacherMsg != null) {
+            throw new InvalidDataException("Không thể xếp lịch học: " + teacherMsg + " Lịch trùng của giảng viên không được phép ghi đè.");
+        }
+
+        // 2. Kiểm tra trùng lịch sinh viên (cho phép ghi đè bằng cờ force)
+        if (!request.isForce()) {
+            List<ClassroomSubjectStudent> enrolledStudents = classroomSubjectStudentRepository.findAllByClassroomSubjectId(csId);
+            List<StudentConflictDto> studentConflicts = new ArrayList<>();
+            if (!enrolledStudents.isEmpty()) {
+                List<Long> studentIds = enrolledStudents.stream()
+                        .map(css -> css.getStudent().getUserId())
+                        .collect(Collectors.toList());
+
+                List<LearningNode> studentClashes = learningNodeRepository.findStudentsConflicts(
+                        studentIds, request.getStudyDate(), request.getSlotId(), csId
+                );
+
+                for (LearningNode cn : studentClashes) {
+                    List<ClassroomSubjectStudent> clashCssList = classroomSubjectStudentRepository.findAllByClassroomSubjectId(
+                            cn.getLearningPath().getClassroomSubject().getId()
+                    );
+                    Set<Long> clashStudentIds = clashCssList.stream()
+                            .map(css -> css.getStudent().getUserId())
+                            .collect(Collectors.toSet());
+
+                    for (ClassroomSubjectStudent css : enrolledStudents) {
+                        if (clashStudentIds.contains(css.getStudent().getUserId())) {
+                            studentConflicts.add(StudentConflictDto.builder()
+                                    .studentId(css.getStudent().getUserId())
+                                    .studentName(css.getStudent().getFirstName() + " " + css.getStudent().getLastName())
+                                    .email(css.getStudent().getEmail())
+                                    .conflictingSubjectName(cn.getLearningPath().getClassroomSubject().getSubject().getSubjectName())
+                                    .conflictingClassName(cn.getLearningPath().getClassroomSubject().getClassroom().getClassName())
+                                    .build());
+                        }
+                    }
+                }
+            }
+
+            if (!studentConflicts.isEmpty()) {
+                ScheduleConflictResponse conflictResponse = ScheduleConflictResponse.builder()
+                        .hasConflict(true)
+                        .teacherConflictMessage(null) // Giảng viên không trùng (vì đã bị chặn ở trên)
+                        .studentConflicts(studentConflicts)
+                        .build();
+                throw new ScheduleConflictException(conflictResponse);
+            }
+        }
+
+        // Lưu lịch học
+        node.setStudyDate(request.getStudyDate());
+        node.setSlot(slot);
+        learningNodeRepository.save(node);
+
+        return mapToLearningNodeResponse(node);
     }
 }

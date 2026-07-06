@@ -247,4 +247,16 @@ public class LearningPathManagementController {
             learningPathService.assignStudentsToNode(nodeId, studentUserIds);
             return new ResponseData<>(HttpStatus.OK.value(), "Assigned students to node successfully");
         }
+
+        @Operation(summary = "Schedule ca học/ngày học for learning node")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PutMapping("/learning-nodes/{nodeId}/schedule")
+        public ResponseData<LearningNodeResponse> scheduleNode(
+                @PathVariable Long nodeId,
+                @RequestBody ScheduleNodeRequest request) {
+            log.info("Teacher scheduling node ID: {}, date: {}, slot: {}, force: {}",
+                    nodeId, request.getStudyDate(), request.getSlotId(), request.isForce());
+            return new ResponseData<>(HttpStatus.OK.value(), "Lưu lịch học cho bài học thành công",
+                    learningPathService.scheduleNode(nodeId, request));
+        }
 }

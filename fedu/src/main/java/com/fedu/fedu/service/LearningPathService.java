@@ -41,4 +41,6 @@ public interface LearningPathService {
 
     List<StudentInClassResponse> getNodeStudents(Long nodeId);
     void assignStudentsToNode(Long nodeId, List<Long> studentUserIds);
+
+    LearningNodeResponse scheduleNode(Long nodeId, com.fedu.fedu.dto.req.ScheduleNodeRequest request);
 }
