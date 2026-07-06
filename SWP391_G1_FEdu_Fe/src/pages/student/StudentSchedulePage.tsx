@@ -114,6 +114,34 @@ export function StudentSchedulePage() {
     }
   };
 
+  const getTimeStatusBadge = (studyDate: string | undefined, startTime: string | undefined, endTime: string | undefined) => {
+    if (!studyDate || !startTime || !endTime) {
+      return <Badge className="bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full border border-border">Chưa xếp lịch</Badge>;
+    }
+    try {
+      const now = new Date();
+      const startStr = `${studyDate}T${startTime.substring(0, 5)}:00`;
+      const endStr = `${studyDate}T${endTime.substring(0, 5)}:00`;
+      
+      const startTimeObj = new Date(startStr);
+      const endTimeObj = new Date(endStr);
+      
+      if (isNaN(startTimeObj.getTime()) || isNaN(endTimeObj.getTime())) {
+        return <Badge className="bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full border border-border">Chưa xếp lịch</Badge>;
+      }
+      
+      if (now < startTimeObj) {
+        return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Chưa bắt đầu</Badge>;
+      } else if (now >= startTimeObj && now <= endTimeObj) {
+        return <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-250 text-[10px] px-1.5 py-0.5 rounded-full font-bold animate-pulse">Đang diễn ra</Badge>;
+      } else {
+        return <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Đã kết thúc</Badge>;
+      }
+    } catch (e) {
+      return <Badge className="bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full border border-border">Lỗi lịch học</Badge>;
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 max-w-7xl px-4 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
@@ -240,15 +268,8 @@ export function StudentSchedulePage() {
                           <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">
                             {entry.description}
                           </p>
-                          <div className="flex items-center justify-between gap-1 pt-1 mt-auto border-t border-dashed border-border">
-                            {statusBadge(entry.status)}
-                            <Link
-                              to={`/student/classroom-subjects/${entry.classroomSubjectId}`}
-                              className="text-[10px] font-semibold text-primary flex items-center gap-0.5 hover:underline"
-                            >
-                              <span>Vào học</span>
-                              <ArrowRight className="h-2.5 w-2.5" />
-                            </Link>
+                          <div className="flex items-center pt-1 mt-auto border-t border-dashed border-border">
+                            {getTimeStatusBadge(entry.studyDate, entry.startTime, entry.endTime)}
                           </div>
                         </div>
                       ))}
@@ -293,7 +314,7 @@ export function StudentSchedulePage() {
                                   {entry.startTime?.substring(0, 5)} - {entry.endTime?.substring(0, 5)}
                                 </span>
                               </div>
-                              {statusBadge(entry.status)}
+                              {getTimeStatusBadge(entry.studyDate, entry.startTime, entry.endTime)}
                             </div>
 
                             {isConflict && (
@@ -314,14 +335,6 @@ export function StudentSchedulePage() {
                                 </p>
                               )}
                             </div>
-
-                            <Link
-                              to={`/student/classroom-subjects/${entry.classroomSubjectId}`}
-                              className="text-xs font-semibold text-primary flex items-center gap-1 hover:underline mt-1 w-fit"
-                            >
-                              <span>Đi đến lớp học môn</span>
-                              <ArrowRight className="h-3 w-3" />
-                            </Link>
                           </div>
                         );
                       })
