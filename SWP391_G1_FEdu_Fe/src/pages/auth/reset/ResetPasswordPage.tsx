@@ -4,6 +4,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { LeftPanel } from "../components/LeftPanel";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
+import { API_BASE_URL } from "../../../services/api.client";
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export function ResetPasswordPage() {
   useEffect(() => {
     if (!token) { setTokenValid(false); return; }
 
-    fetch("http://localhost:8080/auth/reset-password", {
+    fetch(`${API_BASE_URL}/auth/reset-password`, {
       headers: { "X-Secret-Key": token }
     })
       .then(res => setTokenValid(res.ok))
@@ -40,7 +41,7 @@ export function ResetPasswordPage() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8080/auth/change-password", {
+      const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

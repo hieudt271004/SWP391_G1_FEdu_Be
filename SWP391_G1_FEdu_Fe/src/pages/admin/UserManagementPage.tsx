@@ -12,6 +12,8 @@ import { UserRole } from "@/types/user";
 import { useAuth } from "../../context/AuthContext";
 import { useConfirm } from "../../context/ConfirmContext";
 import { toast } from "sonner";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 
 type ViewMode = "list" | "grid";
 
@@ -317,12 +319,12 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
           </button>
         </div>
         {filterRole === "all" && (
-          <button
+          <Button
             onClick={handleAddUser}
-            className="flex items-center gap-2 px-4 py-2.5 text-white bg-primary hover:bg-primary/95 font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+            className="gap-2 h-9 text-xs font-semibold"
           >
             <UserPlus className="w-4 h-4" /> Thêm mới
-          </button>
+          </Button>
         )}
       </div>
 
@@ -337,7 +339,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 bg-input-background border-none rounded-lg text-sm text-foreground font-semibold outline-none cursor-pointer focus:ring-2 focus:ring-primary/10"
+              className="px-3 py-1.5 text-xs outline-none cursor-pointer bg-muted text-foreground border border-input rounded-md font-medium"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -349,7 +351,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
           
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto justify-end">
             {filterRole === "all" && (
-              <div className="flex items-center gap-2 bg-input-background px-3 py-2 rounded-lg border border-transparent focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-auto shrink-0">
+              <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md border border-input focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-auto shrink-0">
                 <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
                 <select
                   value={roleFilter}
@@ -363,14 +365,14 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
               </div>
             )}
             
-            <div className="flex items-center gap-2 px-3 py-2 bg-input-background rounded-lg border border-transparent focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-[280px] shrink-0">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md border border-input focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-[280px] shrink-0">
               <Search className="w-4 h-4 text-muted-foreground shrink-0" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm kiếm theo tên, email..."
-                className="flex-1 bg-transparent border-none text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="flex-1 bg-transparent outline-none border-none text-xs text-foreground placeholder:text-muted-foreground focus:ring-0"
               />
             </div>
           </div>

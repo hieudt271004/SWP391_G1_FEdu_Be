@@ -12,7 +12,10 @@ import {
   UserCircle,
   LogOut,
   Search,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import logo from "../../assets/logo.png";
 import { getFullName, getInitials } from "../../utils/userHelpers";
@@ -23,6 +26,7 @@ export function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notiOpen, setNotiOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -164,6 +168,17 @@ export function AdminLayout() {
 
             {/* Right side: Notifications + Avatar Dropdown */}
             <div className="flex items-center gap-3">
+              {/* Theme Toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="w-9 h-9 text-muted-foreground hover:text-foreground"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+              </Button>
+
               {/* Notifications Bell */}
               <div className="relative" ref={notiRef}>
                 <Button

@@ -1,9 +1,10 @@
-import { BookOpen, Menu, X } from "lucide-react";
+import { BookOpen, Menu, X, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { UserMenu } from "./UserMenu";
 import { Button } from "../ui/button";
+import { useTheme } from "../../context/ThemeContext";
 
 const NAV_LINKS = [
   { label: "Về FEdu", to: "/about" },
@@ -15,8 +16,9 @@ export function Navbar() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border">
+    <header className="sticky top-0 z-50 bg-[#ececf0] dark:bg-[#030213] border-b border-border transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
         <button
           onClick={() => navigate("/")}
@@ -49,6 +51,15 @@ export function Navbar() {
           ))}
         </nav>
         <div className="hidden md:flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="w-8 h-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg"
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
           {isAuthenticated ? (
             <UserMenu />
           ) : (
@@ -80,7 +91,7 @@ export function Navbar() {
         </button>
       </div>
       {mobileOpen && (
-        <div className="md:hidden px-6 pb-4 space-y-3 border-t border-border bg-background">
+        <div className="md:hidden px-6 pb-4 space-y-3 border-t border-border bg-[#ececf0] dark:bg-[#030213] transition-colors duration-300">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.label}
@@ -98,6 +109,17 @@ export function Navbar() {
             </NavLink>
           ))}
           <div className="pt-2 flex flex-col gap-2">
+            <div className="flex items-center justify-between px-3.5 py-1.5 border-b border-border/50">
+              <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Giao diện</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="w-8 h-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg"
+              >
+                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </Button>
+            </div>
             {isAuthenticated ? (
               <UserMenu />
             ) : (

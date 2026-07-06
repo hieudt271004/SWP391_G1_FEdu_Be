@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Settings, GraduationCap, MessageSquare, Menu } from 'lucide-react';
+import { Home, BookOpen, Settings, GraduationCap, MessageSquare, Menu, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
 import logo from '../../assets/logo.png';
@@ -27,6 +28,7 @@ function SidebarContent({
   logout,
   onItemClick,
 }: SidebarContentProps) {
+  const { theme, toggleTheme } = useTheme();
   return (
     <div className="flex flex-col h-full bg-sidebar">
       {/* Logo */}
@@ -66,6 +68,18 @@ function SidebarContent({
           );
         })}
       </nav>
+
+      {/* Theme Toggle */}
+      <div className="px-4 py-2.5 border-t border-sidebar-border flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Giao diện</span>
+        <button
+          onClick={toggleTheme}
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer border-none bg-transparent"
+          aria-label="Toggle theme"
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+      </div>
 
       {/* User Info */}
       <div className="p-4 border-t border-sidebar-border">
