@@ -46,7 +46,7 @@ import {
 } from '../../../services/learningPath.service';
 import { toast } from 'sonner';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
-import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
+import { MaterialPreview, resolveAssetUrl } from '../../../components/learningPath/MaterialPreview';
 import {
   computeDesiredEdges,
   syncEdges,
@@ -1498,7 +1498,7 @@ export function ClassManagementPage() {
                                         </a>
                                       )}
                                       {material.file && (
-                                        <a href={material.file.fileUrl} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-750">
+                                        <a href={resolveAssetUrl(material.file.fileUrl)} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-750">
                                           <Download className="size-3" />
                                         </a>
                                       )}
