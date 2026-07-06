@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Route,
   FileText,
@@ -10,7 +11,9 @@ import {
   MessageCircle,
   GraduationCap,
   Presentation,
+  Search,
 } from "lucide-react";
+import { http } from "../../../services/http";
 
 export interface FeaturesStats {
   totalPaths: number;
@@ -64,16 +67,16 @@ function FeatureGroup({
   iconBg,
 }: FeatureGroupProps) {
   return (
-    <div className="rounded-md border border-white/10 bg-white/5 p-6 shadow-2xs hover:border-white/20 transition-all duration-200">
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-xs hover:border-foreground/20 transition-all duration-200">
       <div className="flex items-center gap-3 mb-6">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-md ${iconBg} border border-white/5`}>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg} border border-border`}>
           <HeaderIcon className={`h-5 w-5 ${iconColor}`} />
         </div>
         <div>
-          <div className={`inline-block rounded-full px-2.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${badgeBg} ${badgeColor} mb-0.5`}>
+          <div className={`inline-block rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${badgeBg} ${badgeColor}`}>
             {badge}
           </div>
-          <h3 className="text-sm font-semibold text-white">{title}</h3>
+          <h3 className="text-sm font-bold text-foreground mt-0.5">{title}</h3>
         </div>
       </div>
       <ul className="space-y-4">
@@ -81,12 +84,12 @@ function FeatureGroup({
           const Icon = feature.icon;
           return (
             <li key={feature.title} className="flex gap-3">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-md ${iconBg} border border-white/5 shrink-0`}>
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl bg-muted border border-border shrink-0`}>
                 <Icon className={`h-4.5 w-4.5 ${iconColor}`} />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-white mb-0.5">{feature.title}</h4>
-                <p className="text-[11px] leading-relaxed text-slate-400">{feature.description}</p>
+                <h4 className="text-xs font-bold text-foreground mb-0.5">{feature.title}</h4>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">{feature.description}</p>
               </div>
             </li>
           );
@@ -100,8 +103,37 @@ export interface FeaturesSectionProps {
   stats?: FeaturesStats;
 }
 
-export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps) {
+export function FeaturesSection({ stats: propStats }: FeaturesSectionProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'paths' | 'classrooms' | 'materials' | 'questions'>('paths');
+  const [stats, setStats] = useState<FeaturesStats>(propStats || DEFAULT_STATS);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    setSearchQuery("");
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (propStats) {
+      setStats(propStats);
+      return;
+    }
+
+    let isMounted = true;
+    http.get<FeaturesStats>("/public/about/features")
+      .then((data) => {
+        if (!isMounted) return;
+        if (data) {
+          setStats(data);
+        }
+      })
+      .catch((err) => {
+        console.error("Lỗi lấy dữ liệu thực tế hệ thống:", err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [propStats]);
 
   const studentFeatures = [
     {
@@ -154,53 +186,78 @@ export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps)
   const materials = stats.materials || [];
   const questions = stats.questions || [];
 
+  const filteredPaths = learningPaths.filter(path => 
+    path.pathName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (path.subjectCode && path.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredClassrooms = classrooms.filter(cls => 
+    cls.className.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (cls.semester && cls.semester.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const filteredMaterials = materials.filter(mat => 
+    mat.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredQuestions = questions.filter(q => 
+    q.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (q.studentName && q.studentName.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const displayedPaths = filteredPaths.slice(0, 6);
+  const displayedClassrooms = filteredClassrooms.slice(0, 6);
+  const displayedMaterials = filteredMaterials.slice(0, 6);
+  const displayedQuestions = filteredQuestions.slice(0, 5);
+
   return (
-    <section id="features" className="bg-[#030213] py-12 md:py-16 text-white">
+    <section id="features" className="bg-background py-16 text-foreground border-t border-border">
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-block rounded-md border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300 mb-3">
+          <div className="inline-block rounded-lg border border-border bg-muted/60 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Trải nghiệm nền tảng
           </div>
-          <h2 className="text-2xl font-bold text-white md:text-3xl tracking-tight mb-2">
+          <h2 className="text-2xl font-extrabold text-foreground md:text-3xl tracking-tight mb-2">
             Một nền tảng, hai trải nghiệm
           </h2>
-          <p className="text-xs text-slate-400 leading-relaxed max-w-xl mx-auto">
-            FEdu dành cho cả sinh viên và giảng viên — mỗi người một công cụ để học tập và giảng dạy hiệu quả hơn.
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-xl mx-auto">
+            FEdu dành cho cả sinh viên và giảng viên — mỗi đối tượng có bộ công cụ riêng biệt để nâng cao hiệu quả học tập và giảng dạy.
           </p>
         </div>
+        
         <div className="grid gap-6 md:grid-cols-2">
           <FeatureGroup
             badge="Cho sinh viên"
-            badgeBg="bg-blue-500/10"
-            badgeColor="text-blue-400 border border-blue-500/20"
+            badgeBg="bg-primary/5"
+            badgeColor="text-foreground border border-border"
             icon={GraduationCap}
             title="Học hiệu quả hơn"
             features={studentFeatures}
-            iconColor="text-blue-400"
-            iconBg="bg-blue-500/10"
+            iconColor="text-foreground"
+            iconBg="bg-muted"
           />
           <FeatureGroup
             badge="Cho giảng viên"
-            badgeBg="bg-amber-500/10"
-            badgeColor="text-amber-400 border border-amber-500/20"
+            badgeBg="bg-primary/5"
+            badgeColor="text-foreground border border-border"
             icon={Presentation}
             title="Dạy thông minh hơn"
             features={teacherFeatures}
-            iconColor="text-amber-400"
-            iconBg="bg-amber-500/10"
+            iconColor="text-foreground"
+            iconBg="bg-muted"
           />
         </div>
 
         {/* Dynamic Data Explorer Section */}
-        <div className="mt-16 border-t border-white/10 pt-12">
+        <div className="mt-16 border-t border-border pt-12">
           <div className="text-center max-w-2xl mx-auto mb-8">
-            <div className="inline-block rounded-md border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300 mb-3">
+            <div className="inline-block rounded-lg border border-border bg-muted/60 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
               Dữ liệu hệ thống
             </div>
-            <h3 className="text-xl font-bold text-white md:text-2xl tracking-tight mb-2">
+            <h3 className="text-xl font-extrabold text-foreground md:text-2xl tracking-tight mb-2">
               Khám phá dữ liệu thực tế
             </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Danh sách chi tiết các bản ghi đang được lưu trữ và vận hành trực tiếp trong cơ sở dữ liệu của FEdu.
             </p>
           </div>
@@ -216,10 +273,10 @@ export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps)
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`rounded-md px-4 py-2 text-xs font-semibold transition cursor-pointer border ${
+                className={`rounded-xl px-4 py-2 text-xs font-semibold transition cursor-pointer border ${
                   activeTab === tab.id
-                    ? 'bg-white text-[#030213] border-white shadow-xs'
-                    : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10 hover:text-white'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                    : 'bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground'
                 }`}
               >
                 {tab.label} ({tab.count})
@@ -228,79 +285,143 @@ export function FeaturesSection({ stats = DEFAULT_STATS }: FeaturesSectionProps)
           </div>
 
           {/* Tab content */}
-          <div className="rounded-md border border-white/10 bg-white/5 p-5 md:p-6 shadow-2xs">
+          <div className="rounded-2xl border border-border bg-muted/30 p-5 md:p-6 shadow-2xs">
+            {/* Search Box */}
+            <div className="relative mb-5 max-w-md mx-auto">
+              <input
+                type="text"
+                placeholder={`Tìm kiếm ${
+                  activeTab === 'paths'
+                    ? 'lộ trình'
+                    : activeTab === 'materials'
+                    ? 'tài liệu'
+                    : activeTab === 'classrooms'
+                    ? 'lớp học'
+                    : 'thảo luận'
+                }...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 pl-9 text-xs rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20 focus:border-foreground/30 transition-all duration-200"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+
             {activeTab === 'paths' && (
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                {learningPaths.length > 0 ? (
-                  learningPaths.map((path) => (
-                    <div key={path.pathId} className="rounded-md border border-white/10 bg-white/5 p-4 transition hover:border-white/20 duration-200">
-                      <div className="inline-block rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 text-[8px] font-semibold mb-2.5">
-                        {path.subjectCode || "SUBJECT"}
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 max-h-[350px] overflow-y-auto pr-1">
+                  {displayedPaths.length > 0 ? (
+                    displayedPaths.map((path) => (
+                      <div key={path.pathId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
+                        <div className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold mb-2.5">
+                          {path.subjectCode || "SUBJECT"}
+                        </div>
+                        <h4 className="font-bold text-foreground text-xs">{path.pathName}</h4>
                       </div>
-                      <h4 className="font-semibold text-white text-xs">{path.pathName}</h4>
-                      <p className="text-[9px] text-slate-500 mt-1.5">Mã lộ trình: #{path.pathId}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-400 col-span-3 text-center py-6">Chưa có lộ trình nào được khởi tạo.</p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground col-span-3 text-center py-6">Không tìm thấy lộ trình nào phù hợp.</p>
+                  )}
+                </div>
+                {filteredPaths.length > 6 && (
+                  <div className="text-center pt-2 border-t border-border/40 mt-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      Và hơn {filteredPaths.length - 6} lộ trình khác.{" "}
+                      <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate("/login")}>
+                        Đăng nhập để xem đầy đủ →
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}
 
             {activeTab === 'materials' && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {materials.length > 0 ? (
-                  materials.map((mat) => (
-                    <div key={mat.materialId} className="flex items-center gap-3 rounded-md border border-white/10 bg-white/5 p-4 transition hover:border-white/20 duration-200">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
-                        <FileText className="h-4.5 w-4.5" />
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 max-h-[350px] overflow-y-auto pr-1">
+                  {displayedMaterials.length > 0 ? (
+                    displayedMaterials.map((mat) => (
+                      <div key={mat.materialId} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground border border-border shrink-0">
+                          <FileText className="h-4.5 w-4.5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-foreground text-xs">{mat.title}</h4>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-semibold text-white text-xs">{mat.title}</h4>
-                        <p className="text-[9px] text-slate-500 mt-0.5">ID tài liệu: #{mat.materialId}</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-400 col-span-2 text-center py-6">Kho tài liệu đang được cập nhật.</p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground col-span-2 text-center py-6">Không tìm thấy tài liệu nào phù hợp.</p>
+                  )}
+                </div>
+                {filteredMaterials.length > 6 && (
+                  <div className="text-center pt-2 border-t border-border/40 mt-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      Và hơn {filteredMaterials.length - 6} tài liệu học tập khác.{" "}
+                      <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate("/login")}>
+                        Đăng nhập để xem đầy đủ →
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}
 
             {activeTab === 'classrooms' && (
-              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                {classrooms.length > 0 ? (
-                  classrooms.map((cls) => (
-                    <div key={cls.classroomId} className="rounded-md border border-white/10 bg-white/5 p-4 transition hover:border-white/20 duration-200">
-                      <div className="inline-block rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 text-[8px] font-semibold mb-2.5">
-                        {cls.semester || "SEMESTER"}
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 max-h-[350px] overflow-y-auto pr-1">
+                  {displayedClassrooms.length > 0 ? (
+                    displayedClassrooms.map((cls) => (
+                      <div key={cls.classroomId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
+                        <div className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold mb-2.5">
+                          {cls.semester || "SEMESTER"}
+                        </div>
+                        <h4 className="font-bold text-foreground text-xs">{cls.className}</h4>
                       </div>
-                      <h4 className="font-semibold text-white text-xs">{cls.className}</h4>
-                      <p className="text-[9px] text-slate-500 mt-1.5">ID lớp học: #{cls.classroomId}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-400 col-span-3 text-center py-6">Chưa có lớp học nào hoạt động.</p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground col-span-3 text-center py-6">Không tìm thấy lớp học nào phù hợp.</p>
+                  )}
+                </div>
+                {filteredClassrooms.length > 6 && (
+                  <div className="text-center pt-2 border-t border-border/40 mt-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      Và hơn {filteredClassrooms.length - 6} lớp học khác đang hoạt động.{" "}
+                      <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate("/login")}>
+                        Đăng nhập để xem đầy đủ →
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}
 
             {activeTab === 'questions' && (
-              <div className="space-y-2.5">
-                {questions.length > 0 ? (
-                  questions.map((q) => (
-                    <div key={q.questionId} className="rounded-md border border-white/10 bg-white/5 p-4 transition hover:border-white/20 duration-200">
-                      <p className="text-xs text-white italic">"{q.content}"</p>
-                      <div className="flex items-center justify-between mt-2.5">
-                        <span className="text-[9px] text-slate-500">ID câu hỏi: #{q.questionId}</span>
-                        <span className="inline-block rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2 py-0.5 text-[8px] font-semibold">
-                          Hỏi bởi: {q.studentName || "Ẩn danh"}
-                        </span>
+              <div className="space-y-4">
+                <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+                  {displayedQuestions.length > 0 ? (
+                    displayedQuestions.map((q) => (
+                      <div key={q.questionId} className="rounded-xl border border-border bg-card p-4 transition hover:border-foreground/20 duration-200">
+                        <p className="text-xs text-foreground italic">"{q.content}"</p>
+                        <div className="flex items-center justify-between mt-2.5">
+                          <span className="inline-block rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-[8px] font-bold">
+                            Hỏi bởi: {q.studentName || "Ẩn danh"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-slate-400 text-center py-6">Chưa có câu hỏi thảo luận nào.</p>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-6">Không tìm thấy thảo luận nào phù hợp.</p>
+                  )}
+                </div>
+                {filteredQuestions.length > 5 && (
+                  <div className="text-center pt-2 border-t border-border/40 mt-3">
+                    <p className="text-[11px] text-muted-foreground font-semibold">
+                      Và hơn {filteredQuestions.length - 5} thảo luận lớp học khác.{" "}
+                      <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate("/login")}>
+                        Đăng nhập để xem đầy đủ →
+                      </span>
+                    </p>
+                  </div>
                 )}
               </div>
             )}

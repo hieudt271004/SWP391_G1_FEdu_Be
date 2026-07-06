@@ -2,6 +2,7 @@ package com.fedu.fedu.exception;
 
 import com.fedu.fedu.dto.res.ResponseData;
 import com.fedu.fedu.dto.res.ResponseError;
+import com.fedu.fedu.dto.res.ScheduleConflictResponse;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -109,6 +110,13 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ResponseError(HttpStatus.CONFLICT.value(), msg));
+    }
+
+    @ExceptionHandler(ScheduleConflictException.class)
+    public ResponseEntity<ResponseData<ScheduleConflictResponse>> handleScheduleConflict(ScheduleConflictException e) {
+        log.warn("Schedule conflict: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ResponseData<>(HttpStatus.CONFLICT.value(), "Trùng lịch ca học", e.getConflictResponse()));
     }
 
     /** Fallback */

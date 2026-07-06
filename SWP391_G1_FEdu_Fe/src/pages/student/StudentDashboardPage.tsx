@@ -39,6 +39,31 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 
+const getOnClassStatus = (node: any) => {
+  if (!node.studyDate || !node.startTime || !node.endTime) {
+    return { text: "Chưa xếp lịch", color: "text-slate-400 bg-slate-50 border-slate-100" };
+  }
+  try {
+    const now = new Date();
+    const startStr = `${node.studyDate}T${node.startTime.substring(0, 5)}:00`;
+    const endStr = `${node.studyDate}T${node.endTime.substring(0, 5)}:00`;
+    const startTimeObj = new Date(startStr);
+    const endTimeObj = new Date(endStr);
+    if (isNaN(startTimeObj.getTime()) || isNaN(endTimeObj.getTime())) {
+      return { text: "Lỗi lịch học", color: "text-slate-400 bg-slate-50 border-slate-100" };
+    }
+    if (now < startTimeObj) {
+      return { text: "Chưa bắt đầu", color: "text-amber-600 bg-amber-50 border-amber-200" };
+    } else if (now >= startTimeObj && now <= endTimeObj) {
+      return { text: "Đang diễn ra", color: "text-emerald-600 bg-emerald-50 border-emerald-250 animate-pulse" };
+    } else {
+      return { text: "Đã kết thúc", color: "text-slate-500 bg-slate-100 border-slate-200" };
+    }
+  } catch (e) {
+    return { text: "Lỗi lịch học", color: "text-slate-400 bg-slate-50 border-slate-100" };
+  }
+};
+
 export function StudentDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -141,6 +166,18 @@ export function StudentDashboardPage() {
 
   const handleToggleNode = async (nodeId: number, studentStatus: string | undefined) => {
     if (studentStatus === 'LOCKED') {
+      const node = nodes.find(n => n.nodeId === nodeId);
+      if (node && node.nodeType === 'ON_CLASS') {
+        const statusInfo = getOnClassStatus(node);
+        if (statusInfo.text === "Đã kết thúc") {
+          toast.error("Buổi học trên lớp này đã kết thúc!");
+          return;
+        }
+        if (node.status !== 'OPEN') {
+          toast.error("Buổi học trên lớp này chưa được giáo viên mở khóa!");
+          return;
+        }
+      }
       toast.error("Bài học này đang bị khóa. Hãy hoàn thành các bài học trước!");
       return;
     }
@@ -196,7 +233,7 @@ export function StudentDashboardPage() {
   return (
     <div className="space-y-6 font-sans">
       {/* Welcome Banner */}
-      <div className="rounded-2xl bg-[#030213] p-6 text-white border border-[#030213] shadow-lg relative overflow-hidden">
+      <div className="rounded-xl bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 p-6 text-white border border-border/40 shadow-md relative overflow-hidden">
         <div className="absolute right-0 bottom-0 top-0 opacity-10 flex items-center justify-center pr-12 hidden md:flex pointer-events-none select-none">
           <GraduationCap className="size-48" />
         </div>
@@ -223,58 +260,58 @@ export function StudentDashboardPage() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        <Card className="bg-white border border-slate-105 rounded-2xl shadow-xs flex flex-col justify-between p-5">
+        <Card className="bg-card border border-border/60 rounded-xl shadow-xs hover:shadow-md hover:border-border/80 transition-all duration-300 flex flex-col justify-between p-5">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-bold text-slate-500">Môn học đăng ký</span>
-            <div className="p-2 bg-slate-50 text-primary rounded-xl border border-slate-100">
-              <BookOpen className="w-5 h-5" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Môn học đăng ký</span>
+            <div className="p-2.5 bg-muted/65 text-primary rounded-lg border border-border/40">
+              <BookOpen className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-extrabold text-slate-800">{totalCourses}</div>
-            <p className="text-xs text-slate-400 mt-1">Các lớp môn học phân phối lộ trình cá nhân hóa.</p>
+            <div className="text-2xl font-bold text-foreground tracking-tight">{totalCourses}</div>
+            <p className="text-[11px] text-muted-foreground mt-1">Các lớp môn học phân phối lộ trình cá nhân hóa.</p>
           </div>
         </Card>
 
-        <Card className="bg-white border border-slate-105 rounded-2xl shadow-xs flex flex-col justify-between p-5">
+        <Card className="bg-card border border-border/60 rounded-xl shadow-xs hover:shadow-md hover:border-border/80 transition-all duration-300 flex flex-col justify-between p-5">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-bold text-slate-500">Đã kiểm tra đầu vào</span>
-            <div className="p-2 bg-slate-50 text-primary rounded-xl border border-slate-100">
-              <Award className="w-5 h-5" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Đã kiểm tra đầu vào</span>
+            <div className="p-2.5 bg-muted/65 text-primary rounded-lg border border-border/40">
+              <Award className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-extrabold text-slate-800">{placementDone} / {totalCourses}</div>
-            <p className="text-xs text-slate-400 mt-1">Số môn học đã hoàn tất phân loại học lực đầu vào.</p>
+            <div className="text-2xl font-bold text-foreground tracking-tight">{placementDone} / {totalCourses}</div>
+            <p className="text-[11px] text-muted-foreground mt-1">Số môn học đã hoàn tất phân loại học lực đầu vào.</p>
           </div>
         </Card>
 
-        <Card className="bg-white border border-slate-105 rounded-2xl shadow-xs flex flex-col justify-between p-5">
+        <Card className="bg-card border border-border/60 rounded-xl shadow-xs hover:shadow-md hover:border-border/80 transition-all duration-300 flex flex-col justify-between p-5">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-bold text-slate-500">Học kỳ hiện tại</span>
-            <div className="p-2 bg-slate-50 text-primary rounded-xl border border-slate-100">
-              <Calendar className="w-5 h-5" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Học kỳ hiện tại</span>
+            <div className="p-2.5 bg-muted/65 text-primary rounded-lg border border-border/40">
+              <Calendar className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-extrabold text-slate-800">
+            <div className="text-2xl font-bold text-foreground tracking-tight">
               {subjects[0]?.className?.substring(0, 4) || '2026'}
             </div>
-            <p className="text-xs text-slate-400 mt-1">Đang trong thời gian học tập chính thức.</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Đang trong thời gian học tập chính thức.</p>
           </div>
         </Card>
       </div>
 
       {/* Enrolled Courses Section */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-slate-850 flex items-center gap-2">
+        <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
           <GraduationCap className="size-5 text-primary" /> Danh sách môn học của tôi
         </h2>
 
         {subjects.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200">
-            <BookOpen className="size-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm font-medium">Bạn chưa tham gia lớp học môn học nào.</p>
+          <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border/60">
+            <BookOpen className="size-12 text-muted-foreground/60 mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm font-medium">Bạn chưa tham gia lớp học môn học nào.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -290,37 +327,37 @@ export function StudentDashboardPage() {
               };
 
               const getLvlColor = (lvl: number | null | undefined) => {
-                if (lvl === 1) return 'bg-rose-50 border-rose-200 text-rose-700';
-                if (lvl === 2) return 'bg-amber-50 border-amber-200 text-amber-700';
-                if (lvl === 3) return 'bg-emerald-50 border-emerald-200 text-emerald-700';
-                return 'bg-slate-100 border-slate-200 text-slate-550';
+                if (lvl === 1) return 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/20 dark:text-rose-450';
+                if (lvl === 2) return 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/20 dark:text-amber-450';
+                if (lvl === 3) return 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-450';
+                return 'bg-muted/80 border-border/50 text-muted-foreground';
               };
 
               return (
-                <Card key={c.classroomSubjectId} className="bg-white border border-slate-150 shadow-xs rounded-2xl hover:shadow-md transition-all flex flex-col justify-between overflow-hidden">
+                <Card key={c.classroomSubjectId} className="bg-card border border-border/60 shadow-xs rounded-xl hover:shadow-md hover:-translate-y-1 hover:border-border/80 transition-all duration-300 flex flex-col justify-between overflow-hidden group">
                   <div className="p-5 space-y-4">
                     {/* Header */}
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Lớp: {c.className}</span>
-                      <h3 className="font-extrabold text-slate-800 text-base leading-snug mt-0.5 group-hover:text-primary truncate" title={c.subjectName}>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground/75 tracking-wider">Lớp: {c.className}</span>
+                      <h3 className="font-bold text-foreground text-base leading-snug mt-1 group-hover:text-primary transition-colors truncate" title={c.subjectName}>
                         {c.subjectName}
                       </h3>
-                      <p className="text-xs text-slate-500 mt-1 font-medium flex items-center gap-1">
-                        <span className="font-bold text-slate-400">Mã môn:</span> {c.subjectCode}
+                      <p className="text-xs text-muted-foreground mt-1.5 font-medium flex items-center gap-1">
+                        <span className="font-bold text-muted-foreground/60">Mã môn:</span> {c.subjectCode}
                       </p>
                     </div>
 
                     {/* Divider */}
-                    <div className="border-t border-slate-100" />
+                    <div className="border-t border-border/50" />
 
                     {/* Details Info */}
-                    <div className="space-y-2.5 text-xs text-slate-600">
+                    <div className="space-y-2.5 text-xs text-muted-foreground/95">
                       <div className="flex justify-between items-center">
-                        <span className="font-medium text-slate-400">Giảng viên:</span>
-                        <span className="font-semibold text-slate-700">{c.lecturerName || 'Chưa phân công'}</span>
+                        <span className="font-medium text-muted-foreground/75">Giảng viên:</span>
+                        <span className="font-semibold text-foreground">{c.lecturerName || 'Chưa phân công'}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="font-medium text-slate-400">Trạng thái xếp lớp:</span>
+                        <span className="font-medium text-muted-foreground/75">Trạng thái xếp lớp:</span>
                         <Badge variant="outline" className={`text-[10px] font-bold border rounded-[6px] px-2 py-0.5 ${getLvlColor(currentLevel)}`}>
                           {getLvlLabel(currentLevel)}
                         </Badge>
@@ -329,7 +366,7 @@ export function StudentDashboardPage() {
                   </div>
 
                   {/* Actions footer */}
-                  <CardFooter className="bg-slate-50/50 p-4 border-t border-slate-100 flex flex-col gap-3">
+                  <CardFooter className="bg-muted/15 p-4 border-t border-border/40 flex flex-col gap-3">
                     {currentLevel === null ? (
                       <div className="w-full space-y-2">
                         <div className="p-2.5 bg-amber-50/50 border border-amber-100 rounded-xl text-center">
@@ -339,7 +376,7 @@ export function StudentDashboardPage() {
                         </div>
                         <Button
                           onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/placement`)}
-                          className="w-full bg-[#030213] hover:bg-[#1c1b2d] text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs"
+                          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
                         >
                           <Play className="size-3.5 fill-current" /> Làm bài test đầu vào
                         </Button>
@@ -349,14 +386,14 @@ export function StudentDashboardPage() {
                         <Button
                           variant="outline"
                           onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/level-history`)}
-                          className="flex-1 text-[#030213] border-slate-200 hover:bg-slate-100 font-semibold rounded-xl text-xs py-2 px-3 h-9"
+                          className="flex-1 bg-card text-foreground border border-border/80 hover:bg-accent font-semibold rounded-lg text-xs py-2 px-3 h-9 flex items-center justify-center transition-all cursor-pointer"
                           title="Lịch sử thay đổi mức"
                         >
                           <History className="size-3.5 mr-1" /> Lịch sử
                         </Button>
                         <Button
                           onClick={() => handleOpenRoadmap(c)}
-                          className="flex-1 bg-[#030213] hover:bg-[#1c1b2d] text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1 shadow-xs"
+                          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg text-xs py-2 px-3 h-9 flex items-center justify-center gap-1 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
                         >
                           <TrendingUp className="size-3.5" /> Lộ trình học
                         </Button>
@@ -465,11 +502,38 @@ export function StudentDashboardPage() {
                               </p>
                             )}
                           </div>
-                          {!isLocked && (
-                            <div className="text-slate-400 hover:text-slate-600 pt-0.5 shrink-0">
-                              {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                            </div>
-                          )}
+                          {/* Right side: Slot details & status (for ON_CLASS nodes) */}
+                          <div className="flex flex-col items-end gap-1.5 text-right shrink-0">
+                            {node.nodeType === 'ON_CLASS' && (
+                              <>
+                                <div className="text-[10px] text-slate-500 font-medium space-y-0.5">
+                                  {node.studyDate && (
+                                    <p className="font-semibold text-slate-600">
+                                      {new Date(node.studyDate).toLocaleDateString("vi-VN")}
+                                    </p>
+                                  )}
+                                  {node.slotName && (
+                                    <p className="text-slate-500">
+                                      {node.slotName} ({node.startTime?.substring(0, 5)} - {node.endTime?.substring(0, 5)})
+                                    </p>
+                                  )}
+                                </div>
+                                {(() => {
+                                  const statusInfo = getOnClassStatus(node);
+                                  return (
+                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusInfo.color}`}>
+                                      {statusInfo.text}
+                                    </span>
+                                  );
+                                })()}
+                              </>
+                            )}
+                            {!isLocked && (
+                              <div className="text-slate-400 hover:text-slate-600 pt-0.5">
+                                {isExpanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Expanded details (Materials and tests) */}

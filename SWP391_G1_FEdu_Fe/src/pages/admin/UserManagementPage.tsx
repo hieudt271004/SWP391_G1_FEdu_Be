@@ -3,13 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { 
   Search, Filter, UserPlus, Edit2, Trash2, Eye, 
   ChevronLeft, ChevronRight, List, Grid, MoreVertical, 
-  ChevronRight as ChevronRightIcon, ArrowUpDown, Loader2, AlertCircle 
+  ChevronRight as ChevronRightIcon, ArrowUpDown, Loader2, AlertCircle, ArrowUp, ArrowDown 
 } from "lucide-react";
 import { UserDetailModal } from "./UserDetailModal";
 import { adminService } from "../../services/admin.service";
 import type { AdminUserResponse } from "../../services/admin.service";
 import { UserRole } from "@/types/user";
 import { useAuth } from "../../context/AuthContext";
+import { useConfirm } from "../../context/ConfirmContext";
+import { toast } from "sonner";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 
 type ViewMode = "list" | "grid";
 
@@ -23,6 +27,7 @@ interface AdminUser {
   role: string;
   roleKey: UserRole;
   joinedDate: string;
+  createdAtRaw?: number;
   status: "active" | "inactive";
   avatar: string;
   avatarUrl: string;
@@ -63,6 +68,7 @@ function beUserToAdminUser(u: AdminUserResponse): AdminUser {
     role: roleLabel,
     roleKey,
     joinedDate: u.createdAt ? new Date(u.createdAt).toLocaleDateString("vi-VN") : "—",
+    createdAtRaw: u.createdAt ? new Date(u.createdAt).getTime() : 0,
     status: u.status === "ACTIVE" ? "active" : "inactive",
     avatar: initials,
     avatarUrl: u.avatarUrl || "",
@@ -76,6 +82,7 @@ interface UserManagementPageProps {
 export function UserManagementPage({ filterRole = "all" }: UserManagementPageProps) {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +95,8 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [sortField, setSortField] = useState<"name" | "email" | "joinedDate" | "role" | "status" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -145,12 +154,23 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
   const handleDeleteUser = async (userId: number) => {
     const user = users.find((u) => u.id === userId);
     if (!user) return;
-    if (!confirm(`Xác nhận xóa người dùng "${user.name}"?`)) return;
+    
+    const isConfirmed = await confirm({
+      title: "Xác nhận xóa tài khoản",
+      message: `Bạn có chắc chắn muốn xóa người dùng "${user.name}"? Hành động này sẽ loại bỏ tài khoản khỏi hệ thống và không thể hoàn tác.`,
+      confirmText: "Xóa",
+      cancelText: "Hủy",
+      type: "danger"
+    });
+    
+    if (!isConfirmed) return;
+    
     try {
       await adminService.deleteUser(user.email);
       setUsers((prev) => prev.filter((u) => u.id !== userId));
+      toast.success(`Đã xóa người dùng "${user.name}" thành công.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Xóa thất bại");
+      toast.error(e instanceof Error ? e.message : "Xóa thất bại");
     }
     setOpenDropdown(null);
   };
@@ -164,9 +184,28 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
           u.id === user.id ? { ...u, status: newStatus === "ACTIVE" ? "active" : "inactive" } : u
         )
       );
+      toast.success(`Đã cập nhật trạng thái của "${user.name}" thành ${newStatus === "ACTIVE" ? "Hoạt động" : "Ngưng hoạt động"}.`);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Cập nhật thất bại");
+      toast.error(e instanceof Error ? e.message : "Cập nhật thất bại");
     }
+  };
+
+  const handleSort = (field: "name" | "email" | "joinedDate" | "role" | "status") => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (field: "name" | "email" | "joinedDate" | "role" | "status") => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="w-3.5 h-3.5 text-primary-foreground shrink-0" />
+      : <ArrowDown className="w-3.5 h-3.5 text-primary-foreground shrink-0" />;
   };
 
   const filteredUsers = users.filter((user) => {
@@ -182,8 +221,28 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
     return matchSearch && matchRole;
   });
 
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    let aVal: any = a[sortField];
+    let bVal: any = b[sortField];
+    
+    if (sortField === "joinedDate") {
+      aVal = a.createdAtRaw || 0;
+      bVal = b.createdAtRaw || 0;
+    }
+    
+    if (typeof aVal === "string") {
+      return sortDirection === "asc" 
+        ? aVal.localeCompare(bVal) 
+        : bVal.localeCompare(aVal);
+    }
+    
+    return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+  });
+
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const paginatedUsers = filteredUsers.slice(
+  const paginatedUsers = sortedUsers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -260,19 +319,19 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
           </button>
         </div>
         {filterRole === "all" && (
-          <button
+          <Button
             onClick={handleAddUser}
-            className="flex items-center gap-2 px-4 py-2.5 text-white bg-primary hover:bg-primary/95 font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+            className="gap-2 h-9 text-xs font-semibold"
           >
             <UserPlus className="w-4 h-4" /> Thêm mới
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Filters & Controls */}
       <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm text-muted-foreground">Hiển thị</span>
             <select
               value={itemsPerPage}
@@ -280,7 +339,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 bg-input-background border-none rounded-lg text-sm text-foreground font-semibold outline-none cursor-pointer focus:ring-2 focus:ring-primary/10"
+              className="px-3 py-1.5 text-xs outline-none cursor-pointer bg-muted text-foreground border border-input rounded-md font-medium"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -290,9 +349,9 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
             <span className="text-sm text-muted-foreground">mục</span>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto justify-end">
             {filterRole === "all" && (
-              <div className="flex items-center gap-2 bg-input-background px-3 py-2 rounded-lg border border-transparent focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-auto">
+              <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md border border-input focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-auto shrink-0">
                 <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
                 <select
                   value={roleFilter}
@@ -306,14 +365,14 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
               </div>
             )}
             
-            <div className="flex items-center gap-2 px-3 py-2 bg-input-background rounded-lg border border-transparent focus-within:ring-2 focus-within:ring-primary/10 w-full sm:min-w-[280px]">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md border border-input focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-[280px] shrink-0">
               <Search className="w-4 h-4 text-muted-foreground shrink-0" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm kiếm theo tên, email..."
-                className="flex-1 bg-transparent border-none text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                className="flex-1 bg-transparent outline-none border-none text-xs text-foreground placeholder:text-muted-foreground focus:ring-0"
               />
             </div>
           </div>
@@ -327,19 +386,51 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-primary text-primary-foreground border-b border-border">
-                  {["Name", "EMAIL", "NGÀY THAM GIA", "ROLE", "STATUS", "ACTIONS"].map((h) => (
-                    <th key={h} className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider">
-                      {h !== "ACTIONS" ? (
-                        <button 
-                          className="flex items-center gap-1.5 p-1 -ml-1 rounded text-primary-foreground hover:bg-primary-foreground/10 transition-colors font-semibold border-none bg-transparent cursor-pointer"
-                        >
-                          {h} <ArrowUpDown className="w-3.5 h-3.5 opacity-80" />
-                        </button>
-                      ) : (
-                        <span>{h}</span>
-                      )}
-                    </th>
-                  ))}
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("name")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      HỌ VÀ TÊN {getSortIcon("name")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("email")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      EMAIL {getSortIcon("email")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("joinedDate")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      NGÀY THAM GIA {getSortIcon("joinedDate")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("role")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      VAI TRÒ {getSortIcon("role")}
+                    </span>
+                  </th>
+                  <th 
+                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    onClick={() => handleSort("status")}
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      TRẠNG THÁI {getSortIcon("status")}
+                    </span>
+                  </th>
+                  <th className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
+                      HÀNH ĐỘNG
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">

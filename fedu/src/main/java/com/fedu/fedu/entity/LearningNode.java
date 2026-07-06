@@ -5,6 +5,7 @@ import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -79,6 +80,13 @@ public class LearningNode extends AbstractEntity<Long> {
 
     @Column(name = "placement_tb_max", precision = 5, scale = 2)
     private java.math.BigDecimal placementTbMax;
+
+    @Column(name = "study_date")
+    private LocalDate studyDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "slot_id")
+    private Slot slot;
 
     @Builder.Default
     @Column(name = "is_deleted")

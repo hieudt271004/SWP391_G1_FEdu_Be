@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Upload, BarChart3, Settings, GraduationCap } from 'lucide-react';
+import { Home, BookOpen, Upload, Settings, GraduationCap, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
 
@@ -11,8 +11,8 @@ export function StudentLayout() {
   const menuItems = [
     { icon: Home, label: 'Dashboard', path: '/student/dashboard' },
     { icon: BookOpen, label: 'My Courses', path: '/student/courses' },
+    { icon: Calendar, label: 'Timetable', path: '/student/schedule' },
     { icon: Upload, label: 'Submissions', path: '/student/submissions' },
-    { icon: BarChart3, label: 'Progress', path: '/student/progress' },
     { icon: Settings, label: 'Settings', path: '/student/profile' },
   ];
 
@@ -58,10 +58,14 @@ export function StudentLayout() {
 
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-              <span className="text-indigo-600 font-semibold text-sm">
-                {getInitials(user)}
-              </span>
+            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden shrink-0">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-indigo-600 font-semibold text-sm">
+                  {getInitials(user)}
+                </span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-900 truncate">
@@ -71,7 +75,10 @@ export function StudentLayout() {
             </div>
           </div>
           <button
-            onClick={logout}
+            onClick={() => {
+              logout();
+              window.location.href = "/";
+            }}
             className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
             Đăng xuất

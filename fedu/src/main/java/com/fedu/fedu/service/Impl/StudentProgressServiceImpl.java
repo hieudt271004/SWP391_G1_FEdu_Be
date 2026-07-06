@@ -94,6 +94,11 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                             .displayOrder(n.getDisplayOrder())
                             .isRequired(n.getIsRequired())
                             .isDeleted(n.getIsDeleted())
+                            .studyDate(n.getStudyDate())
+                            .slotId(n.getSlot() != null ? n.getSlot().getSlotId() : null)
+                            .slotName(n.getSlot() != null ? n.getSlot().getSlotName() : null)
+                            .startTime(n.getSlot() != null ? n.getSlot().getStartTime() : null)
+                            .endTime(n.getSlot() != null ? n.getSlot().getEndTime() : null)
                             .createdAt(n.getCreatedAt())
                             .updatedAt(n.getUpdatedAt())
                             .build();

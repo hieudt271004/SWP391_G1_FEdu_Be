@@ -7,6 +7,7 @@ import com.fedu.fedu.repository.*;
 import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.service.StudentTestService;
 import com.fedu.fedu.utils.NodeRoutingUtils;
+import com.fedu.fedu.utils.enums.NodeStatus;
 import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.QuestionType;
@@ -383,7 +384,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     // Mở node kế nhánh chính nếu đủ điều kiện tiên quyết; node ON_CLASS chờ giáo viên mở
     private void openMainTargetIfEligible(Long studentId, LearningNode target, Long pathId) {
         // TODO: tự mở node ON_CLASS khi tới giờ buổi học (chưa có thuộc tính thời gian) — hiện chỉ giáo viên mở.
-        if (target.getNodeType() == NodeType.ON_CLASS) return;
+        if (target.getNodeType() == NodeType.ON_CLASS && target.getStatus() != NodeStatus.OPEN) return;
         if (target.getLevel() != null && !matchesStudentLevel(studentId, target)) return;
         if (!checkIncomingPrerequisites(studentId, target, pathId)) return;
         openNode(studentId, target, pathId);

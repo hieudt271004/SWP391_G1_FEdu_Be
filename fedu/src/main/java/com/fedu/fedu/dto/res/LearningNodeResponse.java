@@ -30,6 +30,11 @@ public class LearningNodeResponse {
     private java.math.BigDecimal gateDownMax;
     private java.math.BigDecimal placementYeuMax;
     private java.math.BigDecimal placementTbMax;
+    private java.time.LocalDate studyDate;
+    private Long slotId;
+    private String slotName;
+    private java.time.LocalTime startTime;
+    private java.time.LocalTime endTime;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

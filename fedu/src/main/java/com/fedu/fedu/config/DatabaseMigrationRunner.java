@@ -300,6 +300,56 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                     log.info("Migration successful: student_node_progress now links classroom_subject_student.");
                 }
             }
+
+            // Check if slots table exists
+            boolean hasSlotsTable = false;
+            try (ResultSet resultSet = metaData.getTables(null, null, "slots", null)) {
+                if (resultSet.next()) {
+                    hasSlotsTable = true;
+                }
+            }
+            if (!hasSlotsTable) {
+                log.info("Table 'slots' does not exist. Creating table...");
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute(
+                        "CREATE TABLE slots (" +
+                        "    slot_id BIGSERIAL PRIMARY KEY," +
+                        "    slot_name VARCHAR(50) NOT NULL UNIQUE," +
+                        "    start_time TIME NOT NULL," +
+                        "    end_time TIME NOT NULL," +
+                        "    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                        "    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                        ")"
+                    );
+                    log.info("Migration successful: created 'slots' table.");
+                }
+                // Insert default slots
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("INSERT INTO slots(slot_name, start_time, end_time) VALUES ('Slot 1', '07:30:00', '09:50:00') ON CONFLICT (slot_name) DO NOTHING");
+                    statement.execute("INSERT INTO slots(slot_name, start_time, end_time) VALUES ('Slot 2', '10:00:00', '12:20:00') ON CONFLICT (slot_name) DO NOTHING");
+                    statement.execute("INSERT INTO slots(slot_name, start_time, end_time) VALUES ('Slot 3', '12:50:00', '15:10:00') ON CONFLICT (slot_name) DO NOTHING");
+                    statement.execute("INSERT INTO slots(slot_name, start_time, end_time) VALUES ('Slot 4', '15:20:00', '17:40:00') ON CONFLICT (slot_name) DO NOTHING");
+                    statement.execute("INSERT INTO slots(slot_name, start_time, end_time) VALUES ('Slot 5', '17:50:00', '20:10:00') ON CONFLICT (slot_name) DO NOTHING");
+                    statement.execute("INSERT INTO slots(slot_name, start_time, end_time) VALUES ('Slot 6', '20:20:00', '22:40:00') ON CONFLICT (slot_name) DO NOTHING");
+                    log.info("Migration successful: seeded default slots.");
+                }
+            }
+
+            // Check if study_date column exists in learning_nodes
+            boolean hasStudyDate = false;
+            try (ResultSet resultSet = metaData.getColumns(null, null, "learning_nodes", "study_date")) {
+                if (resultSet.next()) {
+                    hasStudyDate = true;
+                }
+            }
+            if (!hasStudyDate) {
+                log.info("Columns 'study_date' and 'slot_id' do not exist in 'learning_nodes' table. Running migration...");
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("ALTER TABLE learning_nodes ADD COLUMN study_date DATE NULL");
+                    statement.execute("ALTER TABLE learning_nodes ADD COLUMN slot_id BIGINT REFERENCES slots(slot_id) ON DELETE SET NULL");
+                    log.info("Migration successful: added 'study_date' and 'slot_id' columns to 'learning_nodes' table.");
+                }
+            }
         } catch (Exception e) {
             log.error("Failed to run database migration: {}", e.getMessage(), e);
         }

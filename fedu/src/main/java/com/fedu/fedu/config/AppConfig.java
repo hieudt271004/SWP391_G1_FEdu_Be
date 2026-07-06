@@ -52,6 +52,8 @@ public class AppConfig {
             "/auth/reset-all-passwords",
             "/auth/setup-admin",
             "/public/about/**",
+            "/public/slots/**",
+            "/public/slots",
             "/uploads/**"
     };
 

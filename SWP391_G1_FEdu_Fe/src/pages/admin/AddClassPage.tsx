@@ -2,6 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, ArrowLeft, Loader2 } from "lucide-react";
 import { classroomService } from "../../services/classroom.service";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { toast } from "sonner";
 
 interface ClassForm {
   className: string;
@@ -60,14 +65,16 @@ export function AddClassPage() {
       setError(null);
       if (isEdit) {
         await classroomService.update(Number(id), form);
+        toast.success(`Đã cập nhật lớp học "${form.className.trim()}" thành công.`);
         navigate("/admin/classes");
       } else {
-        // Tạo lớp = container rỗng. Gán môn + giảng viên ở trang chi tiết.
         const newClass = await classroomService.create(form);
+        toast.success(`Đã tạo lớp học "${form.className.trim()}" thành công.`);
         navigate(`/admin/classes/${newClass.classroomId}?addSubject=true`);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Thao tác thất bại");
+      toast.error(err instanceof Error ? err.message : "Thao tác thất bại");
     } finally {
       setSubmitting(false);
     }
@@ -76,142 +83,124 @@ export function AddClassPage() {
   if (loading)
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#4338ca" }} />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
 
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header & Breadcrumb */}
-      <div className="flex items-center gap-4 mb-2">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-gray-100 transition-colors" style={{ color: "#4b5563" }}>
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
+          <ArrowLeft className="w-5 h-5 text-foreground" />
+        </Button>
         <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827", marginBottom: "0.25rem" }}>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             {isEdit ? "Chỉnh sửa lớp học" : "Thêm lớp học mới"}
           </h1>
-          <div className="flex items-center gap-2" style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-            <button type="button" onClick={() => navigate("/admin/classes")} style={{ background: "none", border: "none", color: "#4338ca", cursor: "pointer", fontWeight: 600 }}>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+            <Button variant="link" type="button" onClick={() => navigate("/admin/classes")} className="p-0 h-auto font-semibold text-primary hover:no-underline">
               Quản lý Lớp học
-            </button>
-            <ChevronRight className="w-3 h-3" />
-            <span style={{ color: "#4338ca", fontWeight: 600 }}>{isEdit ? "Chỉnh sửa" : "Thêm mới"}</span>
+            </Button>
+            <ChevronRight className="w-3 h-3 text-muted-foreground/60" />
+            <span className="text-foreground font-semibold">{isEdit ? "Chỉnh sửa" : "Thêm mới"}</span>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="rounded-2xl p-6 bg-white" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          {error && (
-            <div className="px-4 py-3 rounded-lg mb-6" style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "0.875rem" }}>
-              {error}
-            </div>
-          )}
-
-          {!isEdit && (
-            <div className="px-4 py-3 rounded-lg mb-6" style={{ backgroundColor: "#eef2ff", border: "1px solid #c7d2fe", color: "#4338ca", fontSize: "0.875rem" }}>
-              Sau khi tạo lớp, bạn sẽ thêm <strong>các môn học</strong> cho lớp (mỗi môn chọn giảng viên & danh sách sinh viên riêng).
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Tên lớp học */}
-            <div>
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Tên lớp học <span style={{ color: "#ef4444" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.className}
-                onChange={(e) => handleChange("className", e.target.value)}
-                placeholder="VD: SE1601"
-                required
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              />
-            </div>
-
-            {/* Học kỳ */}
-            <div>
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Học kỳ
-              </label>
-              <input
-                type="text"
-                value={form.semester}
-                onChange={(e) => handleChange("semester", e.target.value)}
-                placeholder="VD: Fall 2024"
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              />
-            </div>
-
-            {/* Trạng thái lớp học (Chỉ hiển thị ở chế độ Edit) */}
-            {isEdit && (
-              <div>
-                <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                  Trạng thái lớp học
-                </label>
-                <select
-                  value={form.status || "inactive"}
-                  onChange={(e) => handleChange("status", e.target.value)}
-                  disabled={form.status === "inactive"}
-                  className="w-full px-4 py-3 rounded-xl outline-none transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                  onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                  onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-                >
-                  <option value="inactive">Chưa bắt đầu (Giảng viên sẽ kích hoạt)</option>
-                  <option value="active">Đang hoạt động</option>
-                  <option value="completed">Đã hoàn thành</option>
-                </select>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardContent className="p-6 space-y-6">
+            {error && (
+              <div className="px-4 py-3 rounded-lg border border-destructive/20 bg-destructive/10 text-destructive text-sm">
+                {error}
               </div>
             )}
 
-            {/* Mô tả */}
-            <div className="md:col-span-2">
-              <label style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "#374151", marginBottom: "0.5rem" }}>
-                Mô tả
-              </label>
-              <textarea
-                value={form.description}
-                onChange={(e) => handleChange("description", e.target.value)}
-                placeholder="Mô tả ngắn về lớp học này..."
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl outline-none transition-all resize-none"
-                style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", fontSize: "0.9375rem", color: "#111827" }}
-                onFocus={(e) => (e.target.style.borderColor = "#4338ca")}
-                onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
-              />
+            {!isEdit && (
+              <div className="px-4 py-3 rounded-lg border bg-accent/50 text-foreground text-sm">
+                Sau khi tạo lớp, bạn sẽ thêm <strong>các môn học</strong> cho lớp (mỗi môn chọn giảng viên & danh sách sinh viên riêng).
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tên lớp học */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">
+                  Tên lớp học <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  type="text"
+                  value={form.className}
+                  onChange={(e) => handleChange("className", e.target.value)}
+                  placeholder="VD: SE1601"
+                  required
+                />
+              </div>
+
+              {/* Học kỳ */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">
+                  Học kỳ
+                </label>
+                <Input
+                  type="text"
+                  value={form.semester}
+                  onChange={(e) => handleChange("semester", e.target.value)}
+                  placeholder="VD: Fall 2024"
+                />
+              </div>
+
+              {/* Trạng thái lớp học (Chỉ hiển thị ở chế độ Edit) */}
+              {isEdit && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-foreground">
+                    Trạng thái lớp học
+                  </label>
+                  <select
+                    value={form.status || "inactive"}
+                    onChange={(e) => handleChange("status", e.target.value)}
+                    disabled={form.status === "inactive"}
+                    className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
+                  >
+                    <option value="inactive">Chưa bắt đầu (Giảng viên sẽ kích hoạt)</option>
+                    <option value="active">Đang hoạt động</option>
+                    <option value="completed">Đã hoàn thành</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Mô tả */}
+              <div className="md:col-span-2 space-y-2">
+                <label className="block text-sm font-semibold text-foreground">
+                  Mô tả
+                </label>
+                <Textarea
+                  value={form.description}
+                  onChange={(e) => handleChange("description", e.target.value)}
+                  placeholder="Mô tả ngắn về lớp học này..."
+                  rows={4}
+                />
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 mt-6">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex items-center gap-2 px-8 py-3 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ background: "linear-gradient(135deg, #4338ca, #7c3aed)", border: "none", cursor: submitting ? "not-allowed" : "pointer", fontSize: "0.9375rem", fontWeight: 600 }}
-          >
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={submitting} className="px-8">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {submitting ? "Đang xử lý..." : isEdit ? "Lưu thay đổi" : "Tạo lớp học"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => navigate("/admin/classes")}
             disabled={submitting}
-            className="px-8 py-3 rounded-xl transition-colors hover:bg-red-50"
-            style={{ backgroundColor: "#ffe5e5", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "0.9375rem", fontWeight: 600 }}
+            className="px-8 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20 hover:border-destructive"
           >
             Hủy
-          </button>
+          </Button>
         </div>
       </form>
     </div>

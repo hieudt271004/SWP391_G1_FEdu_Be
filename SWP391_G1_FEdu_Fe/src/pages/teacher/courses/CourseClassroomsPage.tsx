@@ -4,12 +4,12 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card';
 import { ArrowLeft, Loader2, AlertCircle, GraduationCap, Map } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
-import { classroomService } from '../../../services/classroom.service';
 import { Classroom } from '../../../types/teacher';
 import { Subject } from '../../../types/subject';
 import { useAuth } from '../../../context/AuthContext';
 import { learningPathService, LearningNodeResponse } from '../../../services/learningPath.service';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
+import { Badge } from '../../../components/ui/badge';
 
 export function CourseClassroomsPage() {
   const navigate = useNavigate();
@@ -86,18 +86,18 @@ export function CourseClassroomsPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-2">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-        <span className="text-sm text-gray-500">Đang tải thông tin chi tiết môn học...</span>
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="text-sm text-muted-foreground">Đang tải thông tin chi tiết môn học...</span>
       </div>
     );
   }
 
   if (error || !subject) {
     return (
-      <div className="text-center py-12">
-        <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-2" />
-        <p className="text-red-600 mb-4">{error || 'Không tìm thấy môn học'}</p>
-        <Button onClick={() => navigate('/teacher/courses')}>
+      <div className="text-center py-12 text-destructive">
+        <AlertCircle className="w-10 h-10 mx-auto mb-2 text-destructive" />
+        <p className="mb-4 text-sm font-semibold">{error || 'Không tìm thấy môn học'}</p>
+        <Button onClick={() => navigate('/teacher/courses')} variant="outline">
           Quay lại danh sách môn học
         </Button>
       </div>
@@ -110,27 +110,27 @@ export function CourseClassroomsPage() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-foreground bg-background">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" onClick={() => navigate('/teacher/courses')}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{subject.subjectCode} - {subject.subjectName}</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{subject.subjectCode} - {subject.subjectName}</h1>
+          <p className="text-sm text-muted-foreground">
             {view === 'template' ? 'Chi tiết lộ trình học tập gốc' : 'Chi tiết môn học và danh sách lớp giảng dạy'}
           </p>
         </div>
       </div>
 
       {/* Description */}
-      <Card className="bg-white border border-gray-200">
+      <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Mô tả môn học</CardTitle>
+          <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Mô tả môn học</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-700 leading-relaxed text-sm">
+          <p className="leading-relaxed text-sm text-foreground">
             {subject.description || 'Không có mô tả chi tiết cho môn học này.'}
           </p>
         </CardContent>
@@ -139,16 +139,16 @@ export function CourseClassroomsPage() {
       {view === 'template' ? (
         /* Template learning path view */
         <div className="space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
-            <Map className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-gray-900">Sơ đồ lộ trình học tập gốc (Template)</h2>
+          <div className="flex items-center gap-2 pb-2 border-b border-border">
+            <Map className="w-5 h-5 text-foreground" />
+            <h2 className="text-lg font-bold text-foreground">Sơ đồ lộ trình học tập gốc (Template)</h2>
           </div>
           {loadingTemplateGraph ? (
             <div className="flex items-center justify-center h-48">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)]">
+            <div className="max-h-[70vh] overflow-auto rounded-xl border border-border bg-accent/25 p-3 lg:max-h-[calc(100vh-2rem)]">
               <LearningPathFlow
                 nodes={templateNodes}
                 edges={templateEdges}
@@ -161,38 +161,38 @@ export function CourseClassroomsPage() {
       ) : (
         /* Classrooms Section */
         <div className="space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-200">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
             <div className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-emerald-600" />
-              <h2 className="text-lg font-bold text-gray-900">Danh sách lớp học phụ trách</h2>
+              <GraduationCap className="w-5 h-5 text-foreground" />
+              <h2 className="text-lg font-bold text-foreground">Danh sách lớp học phụ trách</h2>
             </div>
           </div>
 
           {myClassrooms.length === 0 ? (
-            <div className="text-center py-8 bg-white rounded-xl border border-gray-200 text-gray-500 text-sm">
+            <div className="text-center py-8 bg-card text-muted-foreground rounded-xl border border-border text-sm">
               Bạn chưa phụ trách lớp học nào cho môn học này.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
               {myClassrooms.map((classroom) => (
-                <Card key={classroom.classroomSubjectId || classroom.classroomId} className="hover:shadow-sm transition-all border-l-4 border-l-emerald-500 flex flex-col justify-between">
+                <Card key={classroom.classroomSubjectId || classroom.classroomId} className="hover:shadow-sm transition-all border-l-4 border-l-primary flex flex-col justify-between">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base font-bold text-emerald-950">{classroom.classroomName}</CardTitle>
-                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-semibold">
+                      <CardTitle className="text-base font-bold text-foreground">{classroom.classroomName}</CardTitle>
+                      <Badge variant="outline" className="px-2 py-0.5 rounded text-[10px] font-semibold border-transparent bg-secondary text-secondary-foreground">
                         Lớp bạn dạy
-                      </span>
+                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3 pb-2">
                     <div className="flex gap-4 text-xs text-muted-foreground">
-                      {classroom.semester && <div>Học kỳ: <span className="font-semibold text-gray-700">{classroom.semester}</span></div>}
-                      {classroom.year && <div>Năm học: <span className="font-semibold text-gray-700">{classroom.year}</span></div>}
+                      {classroom.semester && <div>Học kỳ: <span className="font-semibold text-foreground">{classroom.semester}</span></div>}
+                      {classroom.year && <div>Năm học: <span className="font-semibold text-foreground">{classroom.year}</span></div>}
                     </div>
                   </CardContent>
-                  <CardFooter className="pt-2 border-t border-gray-50">
+                  <CardFooter className="pt-2 border-t border-border">
                     <Button
-                      className="w-full text-xs font-semibold py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                      className="w-full text-xs font-semibold py-1.5"
                       onClick={() => handleEnterClass(classroom.classroomSubjectId || classroom.classroomId)}
                     >
                       Vào quản lý lớp
