@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -74,6 +74,20 @@ export function PlacementPage() {
     }
   };
 
+  // Rời tab khi đang làm bài phân loại → ghi nhận về BE (chống gian lận) + cảnh báo khi quay lại.
+  const testId = details?.testId;
+  const handleTabOut = useCallback(async () => {
+    if (attemptId == null || testId == null) return;
+    try {
+      const count = await studentService.recordTabOut(testId, attemptId);
+      toast.warning(`Bạn vừa rời khỏi tab khi đang làm bài (lần ${count}). Hành vi này được ghi nhận.`, {
+        duration: 8000,
+      });
+    } catch {
+      // Không chặn việc làm bài nếu ghi nhận thất bại
+    }
+  }, [testId, attemptId]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -146,6 +160,7 @@ export function PlacementPage() {
         submitting={submitting}
         onStart={handleStart}
         onSubmit={handleSubmit}
+        onTabOut={handleTabOut}
         startLabel="Bắt đầu thi phân loại"
         submitLabel="Nộp bài phân loại"
       />
