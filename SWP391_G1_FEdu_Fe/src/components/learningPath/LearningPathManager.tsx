@@ -1011,7 +1011,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           <p className="text-sm text-slate-500">Môn học chưa có lộ trình mẫu nào.</p>
           <button
             onClick={() => setShowCreateTpl(true)}
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + Tạo lộ trình
           </button>
@@ -1191,7 +1191,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               onClick={() => selectPath(t)}
               className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
                 path.pathId === t.pathId
-                  ? "border-primary bg-accent text-foreground"
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
                   : "border-slate-300 text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -1228,7 +1228,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               setActiveQuestionIdx(0);
               setShowAddNode(true);
             }}
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
           >
             + Thêm bài học
           </button>
@@ -1756,7 +1756,7 @@ function ModalActions({ onCancel, onSave, saving }: { onCancel: () => void; onSa
       <button onClick={onCancel} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
         Hủy
       </button>
-      <button onClick={onSave} disabled={saving} className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+      <button onClick={onSave} disabled={saving} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
         {saving ? "Đang lưu…" : "Lưu"}
       </button>
     </div>

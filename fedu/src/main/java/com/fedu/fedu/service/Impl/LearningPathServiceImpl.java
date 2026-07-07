@@ -878,7 +878,8 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
-            // Một node được mở khóa ban đầu nếu nó là entry node HOẶC nằm ngay sau node PLACEMENT (và thỏa mãn level + không phải ON_CLASS hoặc đã được giáo viên mở)
+            // Một node được mở khóa ban đầu nếu nó là entry node HOẶC nằm ngay sau node PLACEMENT,
+            // thỏa mãn level; node ON_CLASS chỉ mở khi teacher đã mở khóa (status OPEN).
             boolean isAfterPlacement = nodesAfterPlacement.contains(node.getNodeId());
             boolean openIt = (entryNodes.contains(node) || isAfterPlacement)
                     && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN)
@@ -890,6 +891,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     (openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED);
             java.time.LocalDateTime completedTime = isPlacement ? java.time.LocalDateTime.now() : null;
             java.time.LocalDateTime unlockedTime = (isPlacement || openIt) ? java.time.LocalDateTime.now() : null;
+
             progressList.add(StudentNodeProgress.builder()
                     .classroomSubjectStudent(css)
                     .learningNode(node)

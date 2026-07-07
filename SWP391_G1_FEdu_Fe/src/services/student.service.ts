@@ -183,6 +183,9 @@ export const studentService = {
       `/student/support-tickets?classroomSubjectId=${csId}`
     ),
 
+  getStudentSchedule: () =>
+    http.get<StudentScheduleEntry[]>('/student/schedule'),
+
   submitExercise: (exerciseId: number, content?: string, file?: File) => {
     const formData = new FormData();
     if (content) {
@@ -198,9 +201,6 @@ export const studentService = {
 
   getMySubmission: (exerciseId: number) =>
     http.get<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions/me`),
-
-  getStudentSchedule: () =>
-    http.get<StudentScheduleEntry[]>('/student/schedule'),
 };
 
 export interface StudentScheduleEntry {
