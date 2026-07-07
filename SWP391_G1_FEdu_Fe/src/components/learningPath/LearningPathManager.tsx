@@ -1266,22 +1266,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               </div>
 
               <div className="space-y-5 p-4">
-<<<<<<< ours
                 {editingNodeTest ? (
-=======
-                <section>
-                  <SectionTitle>Tên &amp; mô tả</SectionTitle>
-                  <div className="space-y-2">
-                    <input className="lp-input" value={eTitle} onChange={(e) => setETitle(e.target.value)} />
-                    <textarea className="lp-input" rows={2} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Mô tả (tùy chọn)" />
-                    <button onClick={saveNodeEdit} disabled={saving} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                      Lưu
-                    </button>
-                  </div>
-                </section>
-
-                {selectedNode.testKind === 'PLACEMENT' ? (
->>>>>>> theirs
                   <section>
                     <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cấu hình bài test</span>
@@ -1338,123 +1323,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                         </div>
                       </div>
 
-<<<<<<< ours
                       {renderQuestionBuilder()}
-=======
-                      {Number(numQuestions) > 0 && (
-                        <div className="space-y-3 border-t border-slate-100 pt-3">
-                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-                            {Array.from({ length: Math.max(0, parseInt(numQuestions, 10) || 0) }).map((_, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => setActiveQuestionIdx(idx)}
-                                className={`size-7 shrink-0 rounded-md text-xs font-bold transition-all border ${
-                                  activeQuestionIdx === idx
-                                    ? "bg-slate-800 text-white border-slate-800"
-                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                                }`}
-                              >
-                                {idx + 1}
-                              </button>
-                            ))}
-                          </div>
-
-                          {builderQuestions[activeQuestionIdx] && (
-                            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 space-y-2.5">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                                  Câu hỏi {activeQuestionIdx + 1}
-                                </span>
-                                <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-md">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_CHOICE')}
-                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
-                                      builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE'
-                                        ? "bg-white text-slate-800 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                                  >
-                                    Một đáp án
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_SELECT')}
-                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
-                                      builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT'
-                                        ? "bg-white text-slate-800 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                                  >
-                                    Nhiều đáp án
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'ESSAY')}
-                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
-                                      builderQuestions[activeQuestionIdx].questionType === 'ESSAY'
-                                        ? "bg-white text-slate-800 shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                                  >
-                                    Tự luận
-                                  </button>
-                                </div>
-                              </div>
-
-                              <textarea
-                                className="lp-input text-xs w-full"
-                                placeholder="Nhập đề / nội dung câu hỏi..."
-                                rows={2}
-                                value={builderQuestions[activeQuestionIdx].questionContent}
-                                onChange={(e) => updateQuestionField(activeQuestionIdx, 'questionContent', e.target.value)}
-                              />
-
-                              {builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ||
-                              builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT' ? (
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
-                                    <span>
-                                      ĐÁP ÁN ({builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'Chọn 1 đáp án đúng' : 'Chọn nhiều đáp án đúng'})
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => addAnswerOption(activeQuestionIdx)}
-                                      className="text-primary hover:underline text-[10px]"
-                                    >
-                                      + Thêm đáp án
-                                    </button>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    {builderQuestions[activeQuestionIdx].answers.map((ans: any, aIdx: number) => (
-                                      <div key={aIdx} className="flex items-center gap-2">
-                                        <span className="font-semibold text-[10px] text-slate-400 shrink-0 w-3">
-                                          {String.fromCharCode(65 + aIdx)}
-                                        </span>
-                                        <input
-                                          type="text"
-                                          placeholder={`Đáp án ${String.fromCharCode(65 + aIdx)}`}
-                                          className="lp-input flex-1 py-1 px-2 text-xs"
-                                          value={ans.answerContent}
-                                          onChange={(e) => updateAnswerField(activeQuestionIdx, aIdx, 'answerContent', e.target.value)}
-                                        />
-                                        <input
-                                          type={builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
-                                          name={`correct-ans-sidebar-${activeQuestionIdx}`}
-                                          checked={!!ans.isCorrect}
-                                          onChange={(e) => {
-                                            if (builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE') {
-                                              builderQuestions[activeQuestionIdx].answers.forEach((_: any, i: number) => {
-                                                updateAnswerField(activeQuestionIdx, i, 'isCorrect', i === aIdx);
-                                              });
-                                            } else {
-                                              updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
-                                            }
-                                          }}
-                                          className="h-3.5 w-3.5 text-primary cursor-pointer"
-                                        />
-                                        {builderQuestions[activeQuestionIdx].answers.length > 2 && (
 
                       <button
                         type="button"
