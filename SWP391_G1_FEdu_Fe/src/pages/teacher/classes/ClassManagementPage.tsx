@@ -1271,7 +1271,7 @@ export function ClassManagementPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-[550px] overflow-x-hidden overflow-y-auto rounded-xl border border-slate-200 bg-[#f1f5f9] p-2">
+                  <div className="h-[550px] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-muted/30 p-2">
                     <LearningPathFlow
                       nodes={nodes}
                       edges={edges}

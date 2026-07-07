@@ -1237,7 +1237,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-[#f1f5f9] p-3 lg:max-h-[calc(100vh-2rem)] lg:w-[544px] lg:flex-shrink-0">
+        <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-muted/30 p-3 lg:max-h-[calc(100vh-2rem)] lg:w-[544px] lg:flex-shrink-0">
           <LearningPathFlow
             nodes={nodes}
             edges={edges}
