@@ -27,12 +27,13 @@ import {
   MessageSquare,
   Check,
   Send,
-  ShieldAlert
+  ShieldAlert,
+  Upload
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { classroomService } from '../../services/classroom.service';
-import { studentService } from '../../services/student.service';
-import { MaterialPreview } from '../../components/learningPath/MaterialPreview';
+import { studentService, type SubmissionResponse } from '../../services/student.service';
+import { MaterialPreview, resolveAssetUrl } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { SupportTicketResponse } from '../../types/submentor';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
@@ -89,6 +90,14 @@ export function StudentCoursesPage() {
   const [expandedNodeId, setExpandedNodeId] = useState<number | null>(null);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [loadingNodeContent, setLoadingNodeContent] = useState<Record<number, boolean>>({});
+
+  // Exercise states
+  const [exerciseSubmissions, setExerciseSubmissions] = useState<Record<number, SubmissionResponse | null>>({});
+  const [selectedExercise, setSelectedExercise] = useState<any | null>(null);
+  const [exerciseText, setExerciseText] = useState('');
+  const [exerciseFile, setExerciseFile] = useState<File | null>(null);
+  const [submittingExercise, setSubmittingExercise] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<SubmissionResponse | null>(null);
 
   // Sub-mentor Support Modal State
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -259,17 +268,93 @@ export function StudentCoursesPage() {
     }
 
     setExpandedNodeId(nodeId);
-    if (nodeContents[nodeId]) return;
+
+    const alreadyLoaded = !!nodeContents[nodeId];
+    if (alreadyLoaded) {
+      // Refresh submissions
+      const content = nodeContents[nodeId];
+      if (content.exercises && content.exercises.length > 0) {
+        content.exercises.forEach(async (ex) => {
+          try {
+            const sub = await studentService.getMySubmission(ex.exerciseId);
+            setExerciseSubmissions(prev => ({ ...prev, [ex.exerciseId]: sub }));
+          } catch (err) {
+            setExerciseSubmissions(prev => ({ ...prev, [ex.exerciseId]: null }));
+          }
+        });
+      }
+      return;
+    }
 
     setLoadingNodeContent(prev => ({ ...prev, [nodeId]: true }));
     try {
       const content = await studentService.getNodeContent(nodeId);
       setNodeContents(prev => ({ ...prev, [nodeId]: content }));
+
+      if (content.exercises && content.exercises.length > 0) {
+        content.exercises.forEach(async (ex) => {
+          try {
+            const sub = await studentService.getMySubmission(ex.exerciseId);
+            setExerciseSubmissions(prev => ({ ...prev, [ex.exerciseId]: sub }));
+          } catch (err) {
+            setExerciseSubmissions(prev => ({ ...prev, [ex.exerciseId]: null }));
+          }
+        });
+      }
     } catch (err) {
       console.error("Failed to load node content:", err);
       toast.error("Không thể tải nội dung bài học");
     } finally {
       setLoadingNodeContent(prev => ({ ...prev, [nodeId]: false }));
+    }
+  };
+
+  const handleOpenExerciseModal = (exercise: any) => {
+    const existing = exerciseSubmissions[exercise.exerciseId];
+    setSelectedExercise(exercise);
+    setExerciseText(existing?.content || '');
+    setExerciseFile(null);
+  };
+
+  const handleCloseExerciseModal = () => {
+    setSelectedExercise(null);
+    setExerciseText('');
+    setExerciseFile(null);
+  };
+
+  const handleExerciseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedExercise) return;
+
+    if (selectedExercise.allowText && !exerciseText.trim()) {
+      toast.error('Vui lòng điền nội dung tự luận.');
+      return;
+    }
+
+    if (selectedExercise.allowFile && !exerciseFile) {
+      const existing = exerciseSubmissions[selectedExercise.exerciseId];
+      if (!existing?.fileUrl) {
+        toast.error('Vui lòng chọn file để nộp.');
+        return;
+      }
+    }
+
+    try {
+      setSubmittingExercise(true);
+      const res = await studentService.submitExercise(
+        selectedExercise.exerciseId,
+        selectedExercise.allowText ? exerciseText : undefined,
+        selectedExercise.allowFile ? exerciseFile || undefined : undefined
+      );
+
+      setExerciseSubmissions((prev) => ({ ...prev, [selectedExercise.exerciseId]: res }));
+      toast.success('Nộp bài tập thực hành thành công!');
+      handleCloseExerciseModal();
+    } catch (err: any) {
+      console.error('Lỗi khi nộp bài tập:', err);
+      toast.error(err.message || 'Không thể nộp bài tập.');
+    } finally {
+      setSubmittingExercise(false);
     }
   };
 
@@ -682,25 +767,94 @@ export function StudentCoursesPage() {
                                               <span>Yêu cầu đạt: {t.passingPercentage}%</span>
                                             </div>
                                           </div>
-                                          <Button
-                                            onClick={() => navigate(`/student/tests/${t.testId}?csId=${selectedSubject?.classroomSubjectId}`)}
-                                            className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
-                                          >
-                                            Vào thi <ArrowRight className="size-3" />
-                                          </Button>
+                                          {node.studentStatus === 'COMPLETED' ? (
+                                            <Button
+                                              disabled
+                                              className="h-7 px-3 text-[10px] bg-emerald-500 disabled:opacity-100 text-white font-bold rounded-lg flex items-center gap-1 shrink-0 cursor-not-allowed border-none shadow-none"
+                                            >
+                                              Đã đạt
+                                            </Button>
+                                          ) : (
+                                            <Button
+                                              onClick={() => navigate(`/student/tests/${t.testId}?csId=${selectedSubject?.classroomSubjectId}`)}
+                                              className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
+                                            >
+                                              Vào thi <ArrowRight className="size-3" />
+                                            </Button>
+                                          )}
                                         </div>
                                       ))}
                                     </div>
                                   </div>
                                 )}
 
-                                {/* Empty state for content */}
-                                {(!nodeContents[node.nodeId]?.materials || nodeContents[node.nodeId].materials.length === 0) &&
-                                 (!nodeContents[node.nodeId]?.tests || nodeContents[node.nodeId].tests.length === 0) && (
-                                  <div className="text-center py-6 text-slate-400 italic">
-                                    Bài học này chưa có nội dung tài liệu hoặc bài kiểm tra.
-                                  </div>
-                                )}
+                                 {/* Exercises */}
+                                {(() => {
+                                  const content = nodeContents[node.nodeId];
+                                  if (!content) return null;
+                                  const materials = content.materials || [];
+                                  const tests = content.tests || [];
+                                  const exercises = content.exercises || [];
+
+                                  return (
+                                    <>
+                                      {exercises.length > 0 && (
+                                        <div className="space-y-2 pt-4">
+                                          <h5 className="font-bold text-slate-755 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
+                                            <Award className="size-3.5" /> Bài tập thực hành
+                                          </h5>
+                                          <div className="space-y-2 pl-0.5">
+                                            {exercises.map((ex) => {
+                                              const sub = exerciseSubmissions[ex.exerciseId];
+                                              return (
+                                                <div key={ex.exerciseId} className="flex items-center justify-between p-2.5 border border-slate-100 bg-white rounded-xl gap-4">
+                                                  <div className="flex-1 space-y-0.5">
+                                                    <span className="font-bold text-slate-750 block">{ex.title}</span>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                      {sub ? (
+                                                        sub.status === 'GRADED' ? (
+                                                          <span 
+                                                            onClick={() => setShowFeedbackModal(sub)}
+                                                            className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-250 text-[10px] font-semibold rounded cursor-pointer hover:bg-emerald-100 transition-colors"
+                                                          >
+                                                            Đã chấm: {sub.grade} điểm (Bấm xem nhận xét)
+                                                          </span>
+                                                        ) : (
+                                                          <span className="px-2 py-0.5 bg-yellow-50 text-yellow-750 border border-yellow-250 text-[10px] font-semibold rounded">
+                                                            Đã nộp - Chờ chấm
+                                                          </span>
+                                                        )
+                                                      ) : (
+                                                        <span className="px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 text-[10px] font-semibold rounded">
+                                                          Chưa nộp
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                  {sub && sub.status === 'GRADED' ? null : (
+                                                    <Button
+                                                      onClick={() => handleOpenExerciseModal(ex)}
+                                                      className="h-7 px-3 text-[10px] bg-slate-800 hover:bg-slate-750 text-white font-bold rounded-lg shrink-0"
+                                                    >
+                                                      {sub ? 'Nộp lại' : 'Làm bài'}
+                                                    </Button>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Empty state for content */}
+                                      {materials.length === 0 && tests.length === 0 && exercises.length === 0 && (
+                                        <div className="text-center py-6 text-slate-400 italic">
+                                          Bài học này chưa có nội dung tài liệu, bài kiểm tra hoặc bài thực hành.
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>
@@ -720,6 +874,140 @@ export function StudentCoursesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Exercise Submission Modal */}
+      {selectedExercise && (
+        <Dialog open={!!selectedExercise} onOpenChange={() => handleCloseExerciseModal()}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                Làm Bài Tập: {selectedExercise.title}
+              </DialogTitle>
+              {selectedExercise.instructions && (
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-650 whitespace-pre-wrap mt-2 max-h-32 overflow-y-auto">
+                  <strong>Hướng dẫn: </strong>
+                  {selectedExercise.instructions}
+                </div>
+              )}
+            </DialogHeader>
+
+            <form onSubmit={handleExerciseSubmit} className="space-y-4 pt-2">
+              {selectedExercise.allowText && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Câu trả lời tự luận *</label>
+                  <textarea
+                    required
+                    placeholder="Nhập nội dung bài làm tự luận của bạn..."
+                    rows={5}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                    value={exerciseText}
+                    onChange={(e) => setExerciseText(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {selectedExercise.allowFile && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Tải lên file bài làm *</label>
+                  <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50/50 transition-colors relative">
+                    <input
+                      type="file"
+                      required={!exerciseSubmissions[selectedExercise.exerciseId]?.fileUrl}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => setExerciseFile(e.target.files?.[0] || null)}
+                    />
+                    <div className="flex flex-col items-center gap-1.5 text-slate-500">
+                      <Upload className="w-6 h-6 text-indigo-500" />
+                      <span className="text-xs font-medium">
+                        {exerciseFile ? exerciseFile.name : 'Nhấp hoặc kéo thả file vào đây'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">Chấp nhận mọi định dạng tệp</span>
+                    </div>
+                  </div>
+                  {exerciseSubmissions[selectedExercise.exerciseId]?.fileUrl && (
+                    <div className="text-[10px] text-slate-400 mt-1">
+                      Đã nộp trước đó:{' '}
+                      <a
+                        href={resolveAssetUrl(exerciseSubmissions[selectedExercise.exerciseId]?.fileUrl) || undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-indigo-650 underline font-bold"
+                      >
+                        [Xem tệp tin]
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <DialogFooter className="gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleCloseExerciseModal()}
+                  className="rounded-xl text-xs py-2 px-4"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submittingExercise}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs py-2 px-4 shadow-sm"
+                >
+                  {submittingExercise ? 'Đang nộp...' : 'Nộp bài'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Exercise Feedback View Modal */}
+      {showFeedbackModal && (
+        <Dialog open={!!showFeedbackModal} onOpenChange={() => setShowFeedbackModal(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Award className="w-5 h-5 text-emerald-600" />
+                Kết Quả Chấm Điểm
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2 text-xs">
+              <div className="flex items-center justify-between p-3 bg-emerald-50 text-emerald-800 border border-emerald-100 rounded-xl">
+                <span className="font-semibold">Điểm số đạt được:</span>
+                <span className="text-lg font-black">{showFeedbackModal.grade} / 10</span>
+              </div>
+
+              {showFeedbackModal.feedback && (
+                <div className="space-y-1">
+                  <span className="font-bold text-slate-500 block uppercase tracking-wider text-[10px]">Nhận xét của giảng viên</span>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-slate-700 whitespace-pre-wrap">
+                    {showFeedbackModal.feedback}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-[10px] text-slate-400">
+                Được chấm bởi:{' '}
+                <strong className="text-slate-600">{showFeedbackModal.gradedByName}</strong> vào{' '}
+                {showFeedbackModal.gradedAt ? new Date(showFeedbackModal.gradedAt).toLocaleString('vi-VN') : ''}
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                onClick={() => setShowFeedbackModal(null)}
+                className="bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs py-2 px-4"
+              >
+                Đóng
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Sub-mentor Support Modal */}
       <SubMentorSupportModal

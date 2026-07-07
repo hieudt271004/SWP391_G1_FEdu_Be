@@ -78,8 +78,7 @@ export function NodeTestPage() {
   };
 
   const goBack = () => {
-    if (csId) navigate(`/student/classroom-subjects/${csId}`);
-    else navigate(-1);
+    navigate(-1);
   };
 
   if (loading) {

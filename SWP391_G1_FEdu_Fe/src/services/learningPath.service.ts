@@ -137,6 +137,10 @@ export interface UpdateLearningNodeRequest {
   status?: 'LOCKED' | 'OPEN' | 'HIDDEN';
   displayOrder?: number;
   isRequired?: boolean;
+  gateUpMin?: number | null;
+  gateDownMax?: number | null;
+  placementYeuMax?: number | null;
+  placementTbMax?: number | null;
 }
 
 export interface CreateNodeEdgeRequest {
