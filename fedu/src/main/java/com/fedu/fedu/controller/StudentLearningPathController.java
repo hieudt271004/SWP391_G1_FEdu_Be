@@ -33,6 +33,7 @@ public class StudentLearningPathController {
     private final NodeContentService nodeContentService;
     private final LearningNodeRepository learningNodeRepository;
     private final StudentNodeProgressRepository studentNodeProgressRepository;
+    private final com.fedu.fedu.service.StudentTestService studentTestService;
 
     @Operation(summary = "Get published classroom graph with student progress")
     @PreAuthorize("hasRole('STUDENT')")
@@ -76,5 +77,16 @@ public class StudentLearningPathController {
 
         NodeContentResponse content = nodeContentService.getNodeContent(nodeId);
         return new ResponseData<>(HttpStatus.OK.value(), "Retrieved node content successfully", content);
+    }
+
+    @Operation(summary = "Complete a content node (node without tests) and unlock eligible next nodes")
+    @PreAuthorize("hasRole('STUDENT')")
+    @PostMapping("/learning-nodes/{nodeId}/complete")
+    public ResponseData<Void> completeNode(
+            @PathVariable Long nodeId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Student ID {} completes node id: {}", currentUser.getUserId(), nodeId);
+        studentTestService.completeNode(nodeId, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Đã hoàn thành bài học");
     }
 }

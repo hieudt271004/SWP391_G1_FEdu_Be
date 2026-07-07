@@ -43,6 +43,7 @@ class LevelRoutingServiceImplTest {
     @Mock private StudentNodeProgressRepository studentNodeProgressRepository;
     @Mock private NodeEdgeRepository nodeEdgeRepository;
     @Mock private LearningPathRepository learningPathRepository;
+    @Mock private com.fedu.fedu.repository.TestRepository testRepository;
 
     @InjectMocks private LevelRoutingServiceImpl service;
 
