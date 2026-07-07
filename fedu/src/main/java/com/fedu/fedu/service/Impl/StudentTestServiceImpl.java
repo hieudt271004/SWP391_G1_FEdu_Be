@@ -37,6 +37,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     private final StudentNodeProgressRepository studentNodeProgressRepository;
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final NodeEdgeRepository nodeEdgeRepository;
+    private final LearningNodeRepository learningNodeRepository;
     private final UserAccountRepository userAccountRepository;
     private final com.fedu.fedu.service.LevelRoutingService levelRoutingService;
     private final ClassroomSubjectRepository classroomSubjectRepository;
@@ -118,6 +119,12 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (test.getLearningNode() == null) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài test phân loại: hãy dùng endpoint nộp bài phân loại (placement).");
+        }
+        // Test năng lực gắn trên node PLACEMENT cũng phải nộp qua luồng phân loại —
+        // nộp qua endpoint node thường sẽ KHÔNG gán mức cho học sinh.
+        if (test.getLearningNode().getTestKind() == NodeTestKind.PLACEMENT) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Bài test năng lực đầu vào: hãy nộp qua luồng phân loại (placement).");
         }
 
         BigDecimal finalPercentage = gradeAttempt(test, attempt, request);
@@ -398,6 +405,27 @@ public class StudentTestServiceImpl implements StudentTestService {
         for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(fcNode.getNodeId())) {
             openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
         }
+    }
+
+    @Override
+    @Transactional
+    public void completeNode(Long nodeId, Long studentId) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        verifyStudentAccess(node, studentId);
+
+        // Node test (năng lực / phân luồng / tự chọn) hoàn thành qua việc nộp bài test — không qua nút này.
+        if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Node kiểm tra được hoàn thành thông qua việc nộp bài test.");
+        }
+        // Node có bài test: phải đạt hết các bài test mới hoàn thành được.
+        if (!allNodeTestsPassed(studentId, node)) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Bài học này có bài kiểm tra — bạn cần đạt bài kiểm tra để hoàn thành.");
+        }
+        // Node không có test (hoặc đã đạt hết test): hoàn thành + mở các node kế đủ điều kiện.
+        routeMainNode(studentId, node, node.getLearningPath().getPathId(), true);
     }
 
     private void routeMainNode(Long studentId, LearningNode node, Long pathId, boolean passed) {
