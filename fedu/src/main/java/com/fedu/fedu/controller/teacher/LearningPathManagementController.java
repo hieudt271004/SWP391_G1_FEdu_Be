@@ -90,6 +90,23 @@ public class LearningPathManagementController {
                     learningPathService.getClassroomLearningPaths(classroomSubjectId));
         }
 
+        @Operation(summary = "Get cloneable paths for a classroom subject")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/classrooms/{classroomSubjectId}/cloneable-paths")
+        public ResponseData<List<CloneablePathResponse>> getCloneablePaths(@PathVariable Long classroomSubjectId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Cloneable paths retrieved successfully",
+                    learningPathService.getCloneablePaths(classroomSubjectId));
+        }
+
+        @Operation(summary = "Create custom blank roadmap for a classroom subject")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @ResponseStatus(HttpStatus.CREATED)
+        @PostMapping("/classrooms/{classroomSubjectId}/custom-path")
+        public ResponseData<LearningPathResponse> createCustomClassroomPath(@PathVariable Long classroomSubjectId) {
+            return new ResponseData<>(HttpStatus.CREATED.value(), "Custom blank roadmap created successfully",
+                    learningPathService.createCustomClassroomPath(classroomSubjectId));
+        }
+
         @Operation(summary = "Create learning node")
         @ResponseStatus(HttpStatus.CREATED)
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")

@@ -41,7 +41,7 @@ function subjectToRecord(s: Subject, classMap: Record<number, ClassroomResponse[
     instructor: linkedClasses.length > 0 ? `${linkedClasses.length} lớp được mở` : "Chưa mở lớp",
     students: studentsCount,
     activeClasses: activeClassesCount,
-    status: s.status === "active" ? "published" : "draft",
+    status: s.status === "published" ? "published" : "draft",
     description: s.description || "",
     thumbnail: codeInitials,
   };

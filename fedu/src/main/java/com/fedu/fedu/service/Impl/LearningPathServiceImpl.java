@@ -136,11 +136,11 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
 
         LearningPath template = learningPathRepository.findById(templatePathId)
-                .orElseThrow(() -> new ResourceNotFoundException("Learning path template not found"));
-        if (template.getClassroomSubject() != null || Boolean.TRUE.equals(template.getIsDeleted())
+                .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
+        if (Boolean.TRUE.equals(template.getIsDeleted())
                 || template.getSubject() == null
                 || !template.getSubject().getSubjectId().equals(cs.getSubject().getSubjectId())) {
-            throw new InvalidDataException("Lộ trình mẫu không hợp lệ cho môn của lớp-môn này.");
+            throw new InvalidDataException("Lộ trình không hợp lệ cho môn của lớp-môn này.");
         }
 
         List<LearningNode> templateNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(template.getPathId());
@@ -327,6 +327,98 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<CloneablePathResponse> getCloneablePaths(Long classroomSubjectId) {
+        assertTeacherOwnsClassroomSubject(classroomSubjectId);
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
+
+        List<CloneablePathResponse> results = new ArrayList<>();
+
+        // 1. Lộ trình mẫu (templates where classroomSubject is null)
+        List<LearningPath> templates = learningPathRepository
+                .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
+                .stream()
+                .filter(this::isPathPublishable)
+                .collect(Collectors.toList());
+
+        for (LearningPath t : templates) {
+            int nodeCount = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(t.getPathId()).size();
+            results.add(CloneablePathResponse.builder()
+                    .pathId(t.getPathId())
+                    .pathName(t.getPathName())
+                    .description(t.getDescription())
+                    .type("TEMPLATE")
+                    .sourceClassroomName(null)
+                    .nodeCount(nodeCount)
+                    .lastUpdatedAt(t.getUpdatedAt())
+                    .build());
+        }
+
+        // 2. Lộ trình của các lớp học cũ cùng môn do giảng viên này dạy
+        if (cs.getLecturer() != null) {
+            Long lecturerId = cs.getLecturer().getUserId();
+            List<ClassroomSubject> lecturerClassrooms = classroomSubjectRepository.findByLecturerId(lecturerId);
+            for (ClassroomSubject otherCs : lecturerClassrooms) {
+                // Bỏ qua lớp học hiện tại
+                if (otherCs.getId().equals(classroomSubjectId)) {
+                    continue;
+                }
+                if (otherCs.getSubject() != null && otherCs.getSubject().getSubjectId().equals(cs.getSubject().getSubjectId())) {
+                    List<LearningPath> classroomPaths = learningPathRepository
+                            .findAllByClassroomSubjectIdAndIsDeletedFalse(otherCs.getId());
+                    for (LearningPath cp : classroomPaths) {
+                        int nodeCount = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(cp.getPathId()).size();
+                        results.add(CloneablePathResponse.builder()
+                                .pathId(cp.getPathId())
+                                .pathName(cp.getPathName())
+                                .description(cp.getDescription())
+                                .type("CLASSROOM")
+                                .sourceClassroomName(otherCs.getClassroom() != null ? otherCs.getClassroom().getClassName() : null)
+                                .nodeCount(nodeCount)
+                                .lastUpdatedAt(cp.getUpdatedAt())
+                                .build());
+                    }
+                }
+            }
+        }
+
+        return results;
+    }
+
+    @Override
+    @Transactional
+    public LearningPathResponse createCustomClassroomPath(Long classroomSubjectId) {
+        assertTeacherOwnsClassroomSubject(classroomSubjectId);
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
+
+        List<LearningPath> existingPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
+        if (!existingPaths.isEmpty()) {
+            throw new InvalidDataException("Lớp-môn đã có lộ trình học tập.");
+        }
+
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        UserAccount creator = null;
+        if (auth != null) {
+            creator = userAccountRepository.findByEmail(auth.getName()).orElse(null);
+        }
+
+        LearningPath customPath = LearningPath.builder()
+                .subject(cs.getSubject())
+                .classroomSubject(cs)
+                .pathName("Lộ trình tự thiết kế - " + (cs.getClassroom() != null ? cs.getClassroom().getClassName() : ""))
+                .description("Lộ trình tự biên soạn bởi giảng viên phụ trách môn.")
+                .createdBy(creator)
+                .isDeleted(false)
+                .build();
+
+        learningPathRepository.save(customPath);
+        return mapToResponse(customPath);
+    }
+
     //  Learning Node
 
     @Override
@@ -338,10 +430,6 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
         LearningPath learningPath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
-
-        if (request.getNodeType() == NodeType.ON_CLASS && learningPath.getClassroomSubject() != null) {
-            throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
-        }
 
         if (request.getStageOrder() != null && request.getStageOrder() < 1) {
             throw new InvalidDataException("stageOrder phải >= 1");
@@ -380,9 +468,6 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
 
         // Không cho đổi node thành loại "Trên lớp" trên lộ trình của lớp-môn (chỉ admin/lộ trình gốc).
-        if (request.getNodeType() == NodeType.ON_CLASS && node.getLearningPath().getClassroomSubject() != null) {
-            throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
-        }
 
         node.setTitle(request.getTitle());
         if (request.getDescription() != null) node.setDescription(request.getDescription());
@@ -446,12 +531,26 @@ public class LearningPathServiceImpl implements LearningPathService {
     }
 
     private LearningPathResponse mapToResponse(LearningPath learningPath) {
+        String creatorName = null;
+        String creatorRole = null;
+        UserAccount creator = learningPath.getCreatedBy();
+        if (creator == null && learningPath.getSubject() != null) {
+            creator = learningPath.getSubject().getCreatedBy();
+        }
+        if (creator != null) {
+            creatorName = (creator.getFirstName() + " " + creator.getLastName()).trim();
+            if (creator.getUserRoles() != null && !creator.getUserRoles().isEmpty()) {
+                creatorRole = creator.getUserRoles().get(0).getRole().getRoleName().name();
+            }
+        }
         return LearningPathResponse.builder()
                 .pathId(learningPath.getPathId())
                 .subjectId(learningPath.getSubject() != null ? learningPath.getSubject().getSubjectId() : null)
                 .pathName(learningPath.getPathName())
                 .description(learningPath.getDescription())
-                .createdById(learningPath.getCreatedBy() != null ? learningPath.getCreatedBy().getUserId() : null)
+                .createdById(creator != null ? creator.getUserId() : null)
+                .creatorName(creatorName)
+                .creatorRole(creatorRole)
                 .classroomSubjectId(learningPath.getClassroomSubject() != null ? learningPath.getClassroomSubject().getId() : null)
                 .publishedAt(learningPath.getPublishedAt())
                 .publishedById(learningPath.getPublishedBy() != null ? learningPath.getPublishedBy().getUserId() : null)

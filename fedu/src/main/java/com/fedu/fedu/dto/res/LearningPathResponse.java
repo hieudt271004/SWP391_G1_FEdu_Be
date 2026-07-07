@@ -17,6 +17,8 @@ public class LearningPathResponse {
     private String pathName;
     private String description;
     private Long createdById;
+    private String creatorName;
+    private String creatorRole;
     private Long classroomSubjectId;
     private LocalDateTime publishedAt;
     private Long publishedById;

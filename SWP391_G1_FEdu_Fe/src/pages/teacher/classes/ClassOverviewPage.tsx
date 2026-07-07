@@ -46,7 +46,9 @@ import {
   Calendar,
   Clock,
   Unlock,
-  Lock
+  Lock,
+  Copy,
+  PlusCircle
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -107,6 +109,9 @@ export function ClassOverviewPage() {
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'cloning' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [setupMode, setSetupMode] = useState<'TEMPLATE' | 'CLASSROOM' | 'CUSTOM'>('TEMPLATE');
+  const [cloneablePaths, setCloneablePaths] = useState<any[]>([]);
+  const [loadingCloneablePaths, setLoadingCloneablePaths] = useState(false);
   // Xem trước lộ trình mẫu trước khi áp dụng/đè lên
   const [templatePreview, setTemplatePreview] = useState<{ pathId: number; nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -916,6 +921,53 @@ export function ClassOverviewPage() {
     }
   };
 
+  const handleCreateCustomPath = async () => {
+    if (!classroomSubjectId) return;
+    try {
+      setActionState('cloning');
+      await learningPathService.createCustomPath(Number(classroomSubjectId));
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+      toast.success('Khởi tạo lộ trình tự thiết kế thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể tạo lộ trình tự thiết kế');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  useEffect(() => {
+    const fetchCloneablePaths = async () => {
+      if (!classroomSubjectId) return;
+      try {
+        setLoadingCloneablePaths(true);
+        const res = await learningPathService.getCloneablePaths(Number(classroomSubjectId));
+        setCloneablePaths(res);
+        
+        // Auto-select first template if template mode, or classroom if classroom mode
+        if (setupMode === 'TEMPLATE') {
+          const templates = res.filter(p => p.type === 'TEMPLATE');
+          if (templates.length === 1) {
+            setSelectedTemplateId(templates[0].pathId);
+          }
+        } else if (setupMode === 'CLASSROOM') {
+          const classrooms = res.filter(p => p.type === 'CLASSROOM');
+          if (classrooms.length === 1) {
+            setSelectedTemplateId(classrooms[0].pathId);
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách lộ trình clone:', err);
+      } finally {
+        setLoadingCloneablePaths(false);
+      }
+    };
+
+    if (graphData?.state === 'NO_PATH' && classroomSubjectId) {
+      fetchCloneablePaths();
+    }
+  }, [graphData?.state, classroomSubjectId, setupMode]);
+
   // Chọn 1 template ở dropdown → tải graph mẫu để xem trước trong khung "Sơ đồ lộ trình học tập".
   const handlePreviewTemplate = async (templatePathId: number | null) => {
     setSelectedTemplateId(templatePathId);
@@ -1405,34 +1457,15 @@ export function ClassOverviewPage() {
 
       {/* Hero pub/unpub state zones */}
       {graphData?.state === 'NO_PATH' && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
+        <Card className="border-primary/20 bg-primary/5 rounded-2xl">
+          <CardContent className="pt-6">
             <div className="space-y-1 text-center md:text-left">
               <h2 className="text-lg font-semibold text-primary">
-                {graphData.canCloneAll ? "Khởi tạo lộ trình học cho lớp" : "Môn học chưa có lộ trình mẫu"}
+                Cấu hình lộ trình học cho lớp
               </h2>
               <p className="text-sm text-muted-foreground">
-                {graphData.canCloneAll
-                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa."
-                  : "Môn học này chưa được cấu hình lộ trình mẫu công bố từ khoa."}
+                Lớp học này chưa cấu hình lộ trình học tập. Vui lòng chọn một phương thức khởi tạo bên dưới để bắt đầu.
               </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-wrap">
-              {graphData.canCloneAll ? (
-                <Button
-                  onClick={handleClone}
-                  disabled={isNonIdle}
-                  className="w-full md:w-auto bg-primary hover:bg-primary/90 text-white font-medium rounded-xl"
-                >
-                  {actionState === 'cloning' ? <Loader className="size-4 animate-spin mr-1" /> : <Play className="size-4 mr-1" />}
-                  Khởi tạo lộ trình học
-                </Button>
-              ) : (
-                <div className="text-sm text-red-600 bg-red-50 py-2 px-3 rounded-md border border-red-100">
-                  Lộ trình mẫu chưa sẵn sàng hoặc chưa được xuất bản. Liên hệ admin.
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -1523,9 +1556,65 @@ export function ClassOverviewPage() {
             )}
           </div>
 
-          {/* Ô chọn & áp dụng lộ trình mẫu (clone). Hiện khi lớp chưa có lộ trình hoặc còn bản nháp. */}
-          {(graphData?.state === 'NO_PATH' || graphData?.state === 'DRAFT') && (graphData?.availableTemplates?.length ?? 0) > 0 && (
-            <Card className="border border-primary/20 bg-primary/5 rounded-2xl">
+          {/* Ô chọn & áp dụng lộ trình. Hiện khi lớp chưa có lộ trình hoặc còn bản nháp. */}
+          {graphData?.state === 'NO_PATH' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <button
+                onClick={() => {
+                  setSetupMode('TEMPLATE');
+                  setSelectedTemplateId(null);
+                  setTemplatePreview(null);
+                }}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                  setupMode === 'TEMPLATE'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border bg-card hover:bg-muted/40 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <BookOpen className="size-6 mb-2" />
+                <span className="font-semibold text-sm">Lộ trình mẫu</span>
+                <span className="text-[11px] mt-1 text-center opacity-85">Sử dụng giáo trình mẫu từ khoa</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setSetupMode('CLASSROOM');
+                  setSelectedTemplateId(null);
+                  setTemplatePreview(null);
+                }}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                  setupMode === 'CLASSROOM'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border bg-card hover:bg-muted/40 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Copy className="size-6 mb-2" />
+                <span className="font-semibold text-sm">Lớp học cũ</span>
+                <span className="text-[11px] mt-1 text-center opacity-85">Sao chép lộ trình từ lớp bạn đã dạy</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setSetupMode('CUSTOM');
+                  setSelectedTemplateId(null);
+                  setTemplatePreview(null);
+                }}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                  setupMode === 'CUSTOM'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border bg-card hover:bg-muted/40 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <PlusCircle className="size-6 mb-2" />
+                <span className="font-semibold text-sm">Tự thiết kế</span>
+                <span className="text-[11px] mt-1 text-center opacity-85">Tạo lộ trình trống tự biên soạn từ đầu</span>
+              </button>
+            </div>
+          )}
+
+          {/* 1. Lộ trình mẫu */}
+          {((graphData?.state === 'NO_PATH' && setupMode === 'TEMPLATE') || graphData?.state === 'DRAFT') && (
+            <Card className="border border-primary/20 bg-primary/5 rounded-2xl mb-6">
               <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex-1 space-y-1.5">
                   <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
@@ -1535,10 +1624,13 @@ export function ClassOverviewPage() {
                     value={selectedTemplateId ?? ''}
                     onChange={(e) => handlePreviewTemplate(e.target.value ? Number(e.target.value) : null)}
                     disabled={isNonIdle}
-                    className="w-full max-w-md rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className="w-full max-w-md rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-250"
                   >
                     <option value="">-- Chọn lộ trình mẫu để xem trước --</option>
-                    {graphData?.availableTemplates?.map((t) => (
+                    {(cloneablePaths.length > 0
+                      ? cloneablePaths.filter((p) => p.type === 'TEMPLATE')
+                      : (graphData?.availableTemplates || [])
+                    ).map((t) => (
                       <option key={t.pathId} value={t.pathId}>
                         {t.pathName} ({t.nodeCount} bài học)
                       </option>
@@ -1556,18 +1648,83 @@ export function ClassOverviewPage() {
                   className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
                 >
                   {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
-                  {graphData?.state === 'DRAFT' ? 'Áp dụng lộ trình' : 'Áp dụng lộ trình'}
+                  {graphData?.state === 'DRAFT' ? 'Ghi đè lộ trình' : 'Áp dụng lộ trình'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 2. Sao chép từ lớp học cũ */}
+          {graphData?.state === 'NO_PATH' && setupMode === 'CLASSROOM' && (
+            <Card className="border border-primary/20 bg-primary/5 rounded-2xl mb-6">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex-1 space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                    <Copy className="size-3.5" /> Chọn lớp học cũ để sao chép
+                  </label>
+                  <select
+                    value={selectedTemplateId ?? ''}
+                    onChange={(e) => handlePreviewTemplate(e.target.value ? Number(e.target.value) : null)}
+                    disabled={isNonIdle || loadingCloneablePaths}
+                    className="w-full max-w-md rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-250"
+                  >
+                    <option value="">-- Chọn lớp cũ để xem trước lộ trình --</option>
+                    {cloneablePaths
+                      .filter((p) => p.type === 'CLASSROOM')
+                      .map((c) => (
+                        <option key={c.pathId} value={c.pathId}>
+                          Lớp {c.sourceClassroomName} - {c.pathName} ({c.nodeCount} bài học)
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    {loadingCloneablePaths
+                      ? 'Đang tải danh sách...'
+                      : 'Chọn một lớp học cũ đã dạy cùng môn để sao chép lại sơ đồ và nội dung.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={handleApplyTemplate}
+                  disabled={isNonIdle || !selectedTemplateId}
+                  className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
+                >
+                  {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
+                  Sao chép lộ trình
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 3. Tự thiết kế lộ trình trống */}
+          {graphData?.state === 'NO_PATH' && setupMode === 'CUSTOM' && (
+            <Card className="border border-primary/20 bg-primary/5 rounded-2xl mb-6">
+              <CardContent className="flex flex-col gap-3 p-6 items-center justify-between text-center md:flex-row md:text-left">
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-primary flex items-center justify-center md:justify-start gap-1.5">
+                    <PlusCircle className="size-4" /> Tự thiết kế lộ trình mới
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-xl">
+                    Khởi tạo một lộ trình trống hoàn toàn. Bạn có thể tự do thiết kế các bài học, kết nối bài học và cấu hình học liệu từ đầu.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleCreateCustomPath}
+                  disabled={isNonIdle}
+                  className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
+                >
+                  {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Plus className="mr-1.5 size-4" />}
+                  Khởi tạo lộ trình trống
                 </Button>
               </CardContent>
             </Card>
           )}
 
           {(!graphData?.paths || graphData.paths.length === 0) && graphData?.state === 'NO_PATH' && !templatePreview ? (
-            <Card className="border border-dashed border-slate-200 bg-white p-12 text-center rounded-2xl">
-              <Map className="w-12 h-12 mx-auto text-slate-300 mb-3 animate-pulse" />
-              <h3 className="text-base font-bold text-slate-800 mb-1">Chưa cấu hình lộ trình</h3>
+            <Card className="border border-dashed border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800 p-12 text-center rounded-2xl">
+              <Map className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3 animate-pulse" />
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200 mb-1">Chưa cấu hình lộ trình</h3>
               <p className="text-sm text-slate-500 max-w-md mx-auto">
-                Lớp học này chưa khởi tạo lộ trình học tập. Hãy nhấp nút "Khởi tạo lộ trình" ở trên để bắt đầu.
+                Lớp học này chưa khởi tạo lộ trình học tập. Vui lòng chọn một phương thức ở trên để bắt đầu.
               </p>
             </Card>
           ) : (
