@@ -136,7 +136,7 @@ export function TemplatePicker({ classroomSubjectId, availableTemplates, onClone
           </div>
         ) : graph ? (
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:w-[544px] lg:flex-shrink-0">
+            <div className="max-h-[60vh] overflow-x-hidden overflow-y-auto rounded-xl border border-slate-200 bg-[#f1f5f9] p-3 lg:w-[544px] lg:flex-shrink-0">
               <LearningPathFlow
                 nodes={graph.nodes}
                 edges={graph.edges}

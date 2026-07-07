@@ -129,8 +129,8 @@ export function LearningPathFlow({
   );
 
   return (
-    <div className="overflow-x-auto">
-      <div className="relative mx-auto" style={{ width: WIDTH, height }}>
+    <div className="w-full flex justify-center bg-[#f1f5f9] animate-fade-in">
+      <div className="relative mx-auto bg-[#f1f5f9] overflow-hidden" style={{ width: WIDTH, height }}>
         <svg
           className="absolute inset-0"
           width={WIDTH}
@@ -142,6 +142,7 @@ export function LearningPathFlow({
               <path d="M0 0 L8 3 L0 6 z" fill="#94a3b8" />
             </marker>
           </defs>
+          {/* Flat background (no grid dots pattern) */}
           {visibleEdges.map((e) => {
             const s = posById.get(e.fromNodeId)!;
             const t = posById.get(e.toNodeId)!;
