@@ -25,6 +25,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        # Gom các lazy/eager-load cùng loại thành 1 query IN (...) — giảm N+1 toàn cục
+        default_batch_fetch_size: 50
     show-sql: true
 
   mail:

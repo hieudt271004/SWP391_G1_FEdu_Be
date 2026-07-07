@@ -14,6 +14,8 @@ public interface ClassroomSubjectRepository extends JpaRepository<ClassroomSubje
 
     List<ClassroomSubject> findByClassroomClassroomId(Long classroomId);
 
+    long countByClassroomClassroomId(Long classroomId);
+
     List<ClassroomSubject> findBySubjectSubjectId(Long subjectId);
 
     // Tìm mối quan hệ lớp học - môn học cụ thể

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -88,9 +89,18 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassroomResponse> getAllClassrooms() {
-        return classroomRepository.findAll().stream()
-                .filter(c -> !c.getIsDeleted())
-                .map(this::toResponse)
+        // Đếm số môn + số học sinh của mọi lớp trong 1 query, tránh 2 query cho mỗi lớp (N+1)
+        Map<Long, ClassroomRepository.ClassroomCounts> countsById = classroomRepository
+                .countSubjectsAndStudentsPerClassroom().stream()
+                .collect(Collectors.toMap(ClassroomRepository.ClassroomCounts::getClassroomId, c -> c));
+
+        return classroomRepository.findAllByIsDeletedFalse().stream()
+                .map(c -> {
+                    ClassroomRepository.ClassroomCounts counts = countsById.get(c.getClassroomId());
+                    return toResponse(c,
+                            counts != null ? (int) counts.getSubjectCount() : 0,
+                            counts != null ? (int) counts.getStudentCount() : 0);
+                })
                 .collect(Collectors.toList());
     }
 
@@ -151,11 +161,15 @@ public class ClassroomServiceImpl implements ClassroomService {
     // ─── Mapper ──────────────────────────────────────────────────────────────
 
     private ClassroomResponse toResponse(Classroom classroom) {
-        int subjectCount = classroomSubjectRepository
-                .findByClassroomClassroomId(classroom.getClassroomId()).size();
-        int studentCount = classroomSubjectStudentRepository
-                .findAllByClassroomId(classroom.getClassroomId()).size();
+        // COUNT trong DB thay vì kéo nguyên list entity về chỉ để .size()
+        int subjectCount = (int) classroomSubjectRepository
+                .countByClassroomClassroomId(classroom.getClassroomId());
+        int studentCount = (int) classroomSubjectStudentRepository
+                .countAllByClassroomId(classroom.getClassroomId());
+        return toResponse(classroom, subjectCount, studentCount);
+    }
 
+    private ClassroomResponse toResponse(Classroom classroom, int subjectCount, int studentCount) {
         return ClassroomResponse.builder()
                 .classroomId(classroom.getClassroomId())
                 .className(classroom.getClassName())
@@ -174,8 +188,8 @@ public class ClassroomServiceImpl implements ClassroomService {
         com.fedu.fedu.entity.Subject subject = cs.getSubject();
         com.fedu.fedu.entity.UserAccount lecturer = cs.getLecturer();
 
-        int studentCount = classroomSubjectStudentRepository
-                .findAllByClassroomSubjectId(cs.getId()).size();
+        int studentCount = (int) classroomSubjectStudentRepository
+                .countAllByClassroomSubjectId(cs.getId());
 
         String lecturerName = "";
         if (lecturer != null) {

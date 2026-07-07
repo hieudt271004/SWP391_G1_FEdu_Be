@@ -16,9 +16,15 @@ public interface ClassroomSubjectStudentRepository extends JpaRepository<Classro
 
     @Query("SELECT cs FROM ClassroomSubjectStudent cs WHERE cs.classroomSubject.classroom.classroomId = :classroomId")
     List<ClassroomSubjectStudent> findAllByClassroomId(Long classroomId);
-    
+
+    @Query("SELECT COUNT(cs) FROM ClassroomSubjectStudent cs WHERE cs.classroomSubject.classroom.classroomId = :classroomId")
+    long countAllByClassroomId(@Param("classroomId") Long classroomId);
+
     @Query("SELECT cs FROM ClassroomSubjectStudent cs WHERE cs.classroomSubject.id = :classroomSubjectId")
     List<ClassroomSubjectStudent> findAllByClassroomSubjectId(Long classroomSubjectId);
+
+    @Query("SELECT COUNT(cs) FROM ClassroomSubjectStudent cs WHERE cs.classroomSubject.id = :classroomSubjectId")
+    long countAllByClassroomSubjectId(@Param("classroomSubjectId") Long classroomSubjectId);
 
     @Query("SELECT cs FROM ClassroomSubjectStudent cs WHERE cs.student.userId = :studentId")
     List<ClassroomSubjectStudent> findAllByStudentId(long studentId);

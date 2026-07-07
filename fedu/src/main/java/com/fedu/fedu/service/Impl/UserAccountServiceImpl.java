@@ -213,7 +213,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     
     @Override
     public List<UserResponse> getAllUsers() {
-        return userAccountRepository.findAll().stream()
+        return userAccountRepository.findAllWithRoles().stream()
                 .map(this::convertToUserResponse)
                 .collect(Collectors.toList());
     }
