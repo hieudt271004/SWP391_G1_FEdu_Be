@@ -130,25 +130,22 @@ export function SlotManagementPage() {
   };
 
   return (
-    <div className="space-y-6" style={{ fontFamily: "Outfit, sans-serif" }}>
+    <div className="space-y-6 text-foreground bg-background">
       {/* Header Breadcrumbs */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#030213" }}>Quản lý ca học</h1>
-        <div className="flex items-center gap-2" style={{ fontSize: "0.875rem", color: "#717182" }}>
-          <span>Quản trị viên</span><ChevronRight className="w-4 h-4" />
-          <span style={{ color: "#030213", fontWeight: 600 }}>Quản lý ca học</span>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý ca học</h1>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Quản trị viên</span>
+          <ChevronRight className="w-4 h-4 text-muted-foreground/60" />
+          <span className="text-foreground font-semibold">Quản lý ca học</span>
         </div>
       </div>
 
       {/* Top Bar Actions */}
       <div className="flex items-center justify-end">
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2.5 text-white transition-colors hover:bg-[#1c1b2d] border-none cursor-pointer"
-          style={{ backgroundColor: "#030213", borderRadius: "6px", fontSize: "0.875rem", fontWeight: 600 }}
-        >
+        <Button onClick={openCreateModal} className="gap-2 h-9 text-xs font-semibold">
           <Plus className="w-4 h-4" /> Thêm ca học
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -164,9 +161,9 @@ export function SlotManagementPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#030213" }} />
-          <span style={{ marginLeft: "0.75rem", color: "#717182", fontWeight: 500 }}>Đang tải danh sách ca học...</span>
+        <div className="flex flex-col items-center justify-center py-20 gap-2">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">Đang tải danh sách ca học...</span>
         </div>
       ) : slots.length === 0 ? (
         <Card className="border-dashed border-2 py-16 flex flex-col items-center justify-center text-center">
@@ -185,60 +182,53 @@ export function SlotManagementPage() {
         </Card>
       ) : (
         /* List View: Bảng */
-        <div className="overflow-hidden" style={{ backgroundColor: "white", border: "1px solid rgba(0, 0, 0, 0.1)", borderRadius: "10px" }}>
+        <div className="overflow-hidden bg-card text-card-foreground border border-border rounded-xl">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr style={{ backgroundColor: "#030213", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
+                <tr className="bg-primary text-primary-foreground border-b border-border">
                   {["ID", "TÊN CA HỌC", "GIỜ BẮT ĐẦU", "GIỜ KẾT THÚC", "HÀNH ĐỘNG"].map((h) => (
                     <th
                       key={h}
-                      style={{
-                        color: "white",
-                        fontSize: "0.75rem",
-                        fontWeight: 650,
-                        textTransform: "uppercase",
-                        padding: "16px 24px",
-                        textAlign: h === "HÀNH ĐỘNG" ? "right" : "left",
-                        letterSpacing: "0.05em"
-                      }}
+                      className={`px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-primary-foreground ${
+                        h === "HÀNH ĐỘNG" ? "text-right" : "text-left"
+                      }`}
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {slots.map((slot) => (
                   <tr
                     key={slot.slotId}
-                    style={{
-                      borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
-                      backgroundColor: "white",
-                      fontSize: "0.875rem"
-                    }}
-                    className="hover:bg-slate-50 transition-colors"
+                    className="hover:bg-accent/40 transition-colors"
                   >
-                    <td style={{ padding: "16px 24px", fontWeight: 600, color: "#717182" }}>#{slot.slotId}</td>
-                    <td style={{ padding: "16px 24px", fontWeight: 600, color: "#030213" }}>{slot.slotName}</td>
-                    <td style={{ padding: "16px 24px", color: "#717182" }}>{slot.startTime.substring(0, 5)}</td>
-                    <td style={{ padding: "16px 24px", color: "#717182" }}>{slot.endTime.substring(0, 5)}</td>
-                    <td style={{ padding: "16px 24px", textAlign: "right" }}>
+                    <td className="px-6 py-4.5 font-semibold text-muted-foreground text-sm">#{slot.slotId}</td>
+                    <td className="px-6 py-4.5 font-semibold text-foreground text-sm">{slot.slotName}</td>
+                    <td className="px-6 py-4.5 text-muted-foreground text-sm">{slot.startTime.substring(0, 5)}</td>
+                    <td className="px-6 py-4.5 text-muted-foreground text-sm">{slot.endTime.substring(0, 5)}</td>
+                    <td className="px-6 py-4.5 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-muted-foreground hover:bg-accent"
                           onClick={() => openEditModal(slot)}
-                          className="p-2 rounded-lg hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer"
                           title="Chỉnh sửa"
                         >
-                          <Edit2 className="w-4 h-4" style={{ color: "#717182" }} />
-                        </button>
-                        <button
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => confirmDelete(slot)}
-                          className="p-2 rounded-lg hover:bg-gray-100 transition-colors border-none bg-transparent cursor-pointer"
                           title="Xóa"
                         >
-                          <Trash2 className="w-4 h-4" style={{ color: "#991b1b" }} />
-                        </button>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
