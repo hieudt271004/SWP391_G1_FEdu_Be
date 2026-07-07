@@ -1684,7 +1684,7 @@ export function ClassOverviewPage() {
                     </button>
                   </div>
                 )}
-                <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)]">
+                <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto rounded-xl border border-slate-200 bg-[#f1f5f9] p-3 lg:max-h-[calc(100vh-2rem)]">
                   {previewLoading ? (
                     <div className="flex h-64 items-center justify-center text-slate-400">
                       <Loader className="size-6 animate-spin" />

@@ -74,15 +74,17 @@ public class StudentProgressServiceImpl implements StudentProgressService {
 
         // Fetch student progress list
         List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
-        Map<Long, String> progressMap = progressList.stream()
+        Map<Long, StudentNodeProgress> progressMap = progressList.stream()
                 .collect(Collectors.toMap(
                         p -> p.getLearningNode().getNodeId(),
-                        p -> p.getStatus().name()
+                        p -> p,
+                        (a, b) -> a
                 ));
 
         List<LearningNodeResponse> nodeResponses = nodes.stream()
                 .map(n -> {
-                    String studentStatus = progressMap.getOrDefault(n.getNodeId(), "LOCKED");
+                    StudentNodeProgress progress = progressMap.get(n.getNodeId());
+                    String studentStatus = progress != null ? progress.getStatus().name() : "LOCKED";
                     return LearningNodeResponse.builder()
                             .nodeId(n.getNodeId())
                             .learningPathId(path.getPathId())
@@ -99,6 +101,8 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                             .slotName(n.getSlot() != null ? n.getSlot().getSlotName() : null)
                             .startTime(n.getSlot() != null ? n.getSlot().getStartTime() : null)
                             .endTime(n.getSlot() != null ? n.getSlot().getEndTime() : null)
+                            .deadlineAt(n.getDeadlineAt())
+                            .completedLate(progress != null && Boolean.TRUE.equals(progress.getCompletedLate()))
                             .createdAt(n.getCreatedAt())
                             .updatedAt(n.getUpdatedAt())
                             .build();

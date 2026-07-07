@@ -88,6 +88,14 @@ public class LearningNode extends AbstractEntity<Long> {
     @JoinColumn(name = "slot_id")
     private Slot slot;
 
+    /**
+     * Hạn chót học sinh phải hoàn thành node (null = không có deadline).
+     * Khác studyDate/slot (lịch buổi học ON_CLASS): deadline áp cho MỌI loại node.
+     * Quá hạn vẫn hoàn thành được nhưng progress bị đánh dấu completedLate.
+     */
+    @Column(name = "deadline_at")
+    private java.time.LocalDateTime deadlineAt;
+
     @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;

@@ -378,6 +378,17 @@ public class StudentTestServiceImpl implements StudentTestService {
         return true;
     }
 
+    // Đánh dấu hoàn thành node; quá deadline (node.deadlineAt) thì gắn cờ hoàn thành trễ.
+    // Chính sách mềm: quá hạn vẫn hoàn thành được, chỉ ghi nhận để báo cáo.
+    private void markCompleted(StudentNodeProgress progress, LearningNode node) {
+        LocalDateTime now = LocalDateTime.now();
+        progress.setStatus(StudentProgressStatus.COMPLETED);
+        progress.setCompletedAt(now);
+        if (node.getDeadlineAt() != null && now.isAfter(node.getDeadlineAt())) {
+            progress.setCompletedLate(true);
+        }
+    }
+
     // Mở 1 node nếu đang LOCKED (không xét điều kiện tiên quyết).
     private void openNode(Long studentId, LearningNode target, Long pathId) {
         StudentNodeProgress tp = getProgress(studentId, pathId, target.getNodeId());
@@ -415,8 +426,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
-                gp.setStatus(StudentProgressStatus.COMPLETED);
-                gp.setCompletedAt(LocalDateTime.now());
+                markCompleted(gp, gateNode);
             }
             studentNodeProgressRepository.save(gp);
         }
@@ -439,8 +449,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         StudentNodeProgress gp = getProgress(studentId, pathId, fcNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
-                gp.setStatus(StudentProgressStatus.COMPLETED);
-                gp.setCompletedAt(LocalDateTime.now());
+                markCompleted(gp, fcNode);
             }
             studentNodeProgressRepository.save(gp);
         }
@@ -496,8 +505,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (passed) {
             if (current.getStatus() != StudentProgressStatus.COMPLETED) {
                 if (!allNodeTestsPassed(studentId, node)) return;
-                current.setStatus(StudentProgressStatus.COMPLETED);
-                current.setCompletedAt(LocalDateTime.now());
+                markCompleted(current, node);
                 studentNodeProgressRepository.save(current);
             }
             for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(node.getNodeId())) {

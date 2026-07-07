@@ -60,6 +60,10 @@ export interface LearningNodeResponse {
   slotName?: string | null;
   startTime?: string | null;
   endTime?: string | null;
+  /** Hạn hoàn thành node (ISO datetime, null = không có deadline). */
+  deadlineAt?: string | null;
+  /** Chỉ có ở graph student: học sinh hoàn thành node SAU deadline. */
+  completedLate?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -128,6 +132,8 @@ export interface CreateLearningNodeRequest {
   gateDownMax?: number | null;
   placementYeuMax?: number | null;
   placementTbMax?: number | null;
+  /** Hạn hoàn thành node (ISO datetime, tùy chọn). */
+  deadlineAt?: string | null;
 }
 
 export interface UpdateLearningNodeRequest {
@@ -141,6 +147,8 @@ export interface UpdateLearningNodeRequest {
   gateDownMax?: number | null;
   placementYeuMax?: number | null;
   placementTbMax?: number | null;
+  /** Hạn hoàn thành node (ISO datetime, tùy chọn). */
+  deadlineAt?: string | null;
 }
 
 export interface CreateNodeEdgeRequest {
@@ -390,7 +398,8 @@ export const learningPathService = {
     http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
   unlockOnClassNode: (classroomSubjectId: number, nodeId: number) =>
     http.post<number>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/nodes/${nodeId}/unlock`),
-  scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean }): Promise<LearningNodeResponse> => {
+  // deadlineAt (tùy chọn): hạn hoàn thành node; bỏ trống thì BE tự suy = hết giờ buổi học.
+  scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean; deadlineAt?: string | null }): Promise<LearningNodeResponse> => {
     const response = await apiClient.put<{ status?: number; message?: string; data?: LearningNodeResponse }>(
       `/teacher-manage/learning-nodes/${nodeId}/schedule`,
       request

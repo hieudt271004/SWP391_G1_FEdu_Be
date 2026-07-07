@@ -351,6 +351,11 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
         }
 
+        // Lộ trình mẫu không mang deadline — deadline do giáo viên thiết lập sau khi clone về lớp.
+        if (request.getDeadlineAt() != null && learningPath.getClassroomSubject() == null) {
+            throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
+        }
+
         if (request.getStageOrder() != null && request.getStageOrder() < 1) {
             throw new InvalidDataException("stageOrder phải >= 1");
         }
@@ -374,6 +379,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .gateDownMax(request.getGateDownMax())
                 .placementYeuMax(request.getPlacementYeuMax())
                 .placementTbMax(request.getPlacementTbMax())
+                .deadlineAt(request.getDeadlineAt())
                 .isDeleted(false)
                 .build();
 
@@ -392,6 +398,11 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
         }
 
+        // Lộ trình mẫu không mang deadline — deadline do giáo viên thiết lập sau khi clone về lớp.
+        if (request.getDeadlineAt() != null && node.getLearningPath().getClassroomSubject() == null) {
+            throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
+        }
+
         node.setTitle(request.getTitle());
         if (request.getDescription() != null) node.setDescription(request.getDescription());
         node.setNodeType(request.getNodeType());
@@ -406,6 +417,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getGateDownMax() != null) node.setGateDownMax(request.getGateDownMax());
         if (request.getPlacementYeuMax() != null) node.setPlacementYeuMax(request.getPlacementYeuMax());
         if (request.getPlacementTbMax() != null) node.setPlacementTbMax(request.getPlacementTbMax());
+        if (request.getDeadlineAt() != null) node.setDeadlineAt(request.getDeadlineAt());
 
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
@@ -527,6 +539,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .slotName(node.getSlot() != null ? node.getSlot().getSlotName() : null)
                 .startTime(node.getSlot() != null ? node.getSlot().getStartTime() : null)
                 .endTime(node.getSlot() != null ? node.getSlot().getEndTime() : null)
+                .deadlineAt(node.getDeadlineAt())
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
                 .build();
@@ -1091,9 +1104,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
 
         if (request.getStudyDate() == null || request.getSlotId() == null) {
-            // Xóa lịch học
+            // Xóa lịch học; deadline chỉ giữ lại nếu request vẫn gửi kèm (deadline thủ công)
             node.setStudyDate(null);
             node.setSlot(null);
+            node.setDeadlineAt(request.getDeadlineAt());
             learningNodeRepository.save(node);
             return mapToLearningNodeResponse(node);
         }
@@ -1166,9 +1180,13 @@ public class LearningPathServiceImpl implements LearningPathService {
             }
         }
 
-        // Lưu lịch học
+        // Lưu lịch học. Deadline: dùng giá trị teacher nhập; bỏ trống thì suy ra
+        // = hết giờ buổi học (studyDate + slot.endTime) để node có hạn hoàn thành.
         node.setStudyDate(request.getStudyDate());
         node.setSlot(slot);
+        node.setDeadlineAt(request.getDeadlineAt() != null
+                ? request.getDeadlineAt()
+                : request.getStudyDate().atTime(slot.getEndTime()));
         learningNodeRepository.save(node);
 
         return mapToLearningNodeResponse(node);

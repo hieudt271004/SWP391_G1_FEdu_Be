@@ -148,7 +148,7 @@ export function CourseClassroomsPage() {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="max-h-[70vh] overflow-auto rounded-xl border border-border bg-accent/25 p-3 lg:max-h-[calc(100vh-2rem)]">
+            <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-[#f1f5f9] p-3 lg:max-h-[calc(100vh-2rem)]">
               <LearningPathFlow
                 nodes={templateNodes}
                 edges={templateEdges}
