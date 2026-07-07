@@ -24,6 +24,8 @@ import {
   Info,
   GraduationCap,
   Sparkles,
+  User,
+  Shield,
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { learningPathService, LearningPathResponse, LearningNodeResponse } from '../../../services/learningPath.service';
@@ -31,6 +33,22 @@ import { Subject } from '../../../types/subject';
 import { ClassroomSubjectResponse } from '../../../types/classroomSubject';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';
+
+const getRoleLabel = (role?: string) => {
+  if (!role) return 'N/A';
+  switch (role.toUpperCase()) {
+    case 'ADMIN':
+      return 'Quản trị viên';
+    case 'TEACHER':
+      return 'Giảng viên';
+    case 'STUDENT':
+      return 'Học sinh';
+    case 'USER':
+      return 'Người dùng';
+    default:
+      return role;
+  }
+};
 
 export function TeacherCoursesPage() {
   const navigate = useNavigate();
@@ -161,18 +179,18 @@ export function TeacherCoursesPage() {
         }
 
         return (
-          <div key={subject.subjectId} className="space-y-4">
+          <div key={subject.subjectId} className="space-y-4 text-foreground">
             {/* Subject Header */}
             <div className="flex items-center gap-2 pb-2 border-b border-border">
-              <span className="text-xs font-bold text-foreground bg-muted px-2.5 py-1 rounded-[6px] border border-border/55">
+              <span className="text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded-[6px]">
                 {subject.subjectCode}
               </span>
-              <h2 className="text-base font-bold text-foreground">{subject.subjectName}</h2>
+              <h2 className="text-lg font-bold text-foreground">{subject.subjectName}</h2>
             </div>
 
             {/* Template grid */}
             {templates.length === 0 ? (
-              <div className="py-8 px-4 bg-muted/20 rounded-[10px] border border-dashed border-border text-center text-muted-foreground text-sm">
+              <div className="py-8 px-4 bg-card rounded-[10px] border border-dashed border-border text-center text-muted-foreground text-sm">
                 Môn học này chưa có bản thiết kế lộ trình nào khớp với tìm kiếm.
               </div>
             ) : (
@@ -180,7 +198,7 @@ export function TeacherCoursesPage() {
                 {templates.map((template) => (
                   <Card
                     key={template.pathId}
-                    className="group relative bg-card border border-border hover:border-foreground/20 transition-all duration-200 rounded-[10px] shadow-none flex flex-col justify-between overflow-hidden"
+                    className="group relative bg-card text-card-foreground border border-border hover:border-primary/30 transition-colors duration-200 rounded-[10px] shadow-none flex flex-col justify-between overflow-hidden"
                   >
                     <div
                       className={`h-[4px] w-full ${
@@ -190,16 +208,16 @@ export function TeacherCoursesPage() {
 
                     <CardHeader className="p-5 pb-3">
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-sm font-bold text-foreground leading-snug line-clamp-1">
+                        <CardTitle className="text-base font-bold text-foreground leading-snug line-clamp-1">
                           {template.pathName}
                         </CardTitle>
                         <Badge
                           variant="outline"
                           className={`shrink-0 text-[10px] py-0 px-2 font-medium border rounded-[6px] ${
                             template.level === 3
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-transparent'
                               : template.level === 2
-                              ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                              ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-transparent'
                               : 'bg-muted text-foreground border-border'
                           }`}
                         >
@@ -214,18 +232,29 @@ export function TeacherCoursesPage() {
                             : 'N/A'}
                         </span>
                       </div>
+
+                      <div className="flex flex-col gap-1 mt-2.5 pt-2 border-t border-border/50">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-normal">
+                          <User className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span>Người tạo: <span className="font-semibold text-foreground">{template.creatorName || 'N/A'}</span></span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-normal">
+                          <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span>Vai trò: <span className="font-semibold text-foreground">{getRoleLabel(template.creatorRole)}</span></span>
+                        </div>
+                      </div>
                     </CardHeader>
 
                     <CardContent className="p-5 pt-0 pb-4 flex-1">
-                      <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed font-normal">
+                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed font-normal">
                         {template.description || 'Không có mô tả chi tiết lộ trình mẫu này.'}
                       </p>
                     </CardContent>
 
-                    <CardFooter className="p-5 pt-3 border-t border-border bg-muted/15 flex gap-2">
+                    <CardFooter className="p-5 pt-3 border-t border-border bg-muted/10 flex gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => handleOpenDetail(template)}
+                        onClick={() => navigate(`/teacher/courses/${template.subjectId}?view=template&pathId=${template.pathId}`)}
                         className="flex-1 text-xs border-border text-foreground hover:bg-muted rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors h-8"
                       >
                         <Eye className="w-4 h-4" />
@@ -250,7 +279,7 @@ export function TeacherCoursesPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-80 gap-3">
+      <div className="flex flex-col items-center justify-center h-80 gap-3 text-foreground">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground font-normal">Đang tải thư viện lộ trình học...</p>
       </div>
@@ -259,11 +288,11 @@ export function TeacherCoursesPage() {
 
   if (error) {
     return (
-      <div className="text-center py-12 bg-card rounded-[10px] border border-border shadow-none max-w-md mx-auto mt-8">
+      <div className="text-center py-12 bg-card text-card-foreground rounded-[10px] border border-border shadow-none max-w-md mx-auto mt-8">
         <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
         <h3 className="text-lg font-bold text-foreground mb-1">Đã xảy ra lỗi</h3>
         <p className="text-destructive text-sm mb-6 px-6">{error}</p>
-        <Button onClick={() => navigate('/teacher/dashboard')} className="bg-primary hover:bg-primary/95 rounded-[6px] text-primary-foreground font-medium text-xs py-2 px-4 border-0">
+        <Button onClick={() => navigate('/teacher/dashboard')} className="bg-primary hover:bg-primary/90 rounded-[6px] text-primary-foreground font-medium text-xs py-2 px-4 border-0">
           Quay lại Dashboard
         </Button>
       </div>
@@ -271,16 +300,16 @@ export function TeacherCoursesPage() {
   }
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-6 font-sans text-foreground">
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-[10px] flex items-center justify-center bg-muted text-foreground border border-border">
+          <div className="w-12 h-12 rounded-[6px] flex items-center justify-center bg-muted text-foreground border border-border">
             <BookOpen className="w-6 h-6" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Thư viện Lộ trình</h1>
-            <p className="text-xs text-muted-foreground font-normal">
+            <p className="text-sm text-muted-foreground font-normal">
               Quản lý các bản mẫu lộ trình học tập và phân bản nháp đến các lớp học chưa bắt đầu
             </p>
           </div>
@@ -294,7 +323,7 @@ export function TeacherCoursesPage() {
       </div>
 
       {/* Filter and search bar */}
-      <div className="bg-card border border-border rounded-[10px] p-4 shadow-none flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="bg-card text-card-foreground border border-border rounded-[10px] p-4 shadow-none flex flex-col md:flex-row gap-4 items-center justify-between">
         {/* Search */}
         <div className="relative w-full md:max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -303,20 +332,20 @@ export function TeacherCoursesPage() {
             placeholder="Tìm kiếm lộ trình học tập..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm rounded-[6px] border border-input outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-muted text-foreground placeholder:text-muted-foreground"
+            className="w-full pl-10 pr-4 py-2 text-sm rounded-[6px] border border-border outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-muted/30 text-foreground placeholder:text-muted-foreground"
           />
         </div>
 
         {/* Filter Dropdown */}
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <span className="text-xs text-muted-foreground font-semibold whitespace-nowrap">Môn học:</span>
+          <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">Môn học:</span>
           <select
             value={selectedSubjectId}
             onChange={(e) => {
               const val = e.target.value;
               setSelectedSubjectId(val === 'all' ? 'all' : Number(val));
             }}
-            className="w-full md:w-56 px-3 py-2 text-sm rounded-[6px] border border-input outline-none focus:border-primary transition-colors bg-muted text-foreground font-medium cursor-pointer"
+            className="w-full md:w-56 px-3 py-2 text-sm rounded-[6px] border border-border outline-none focus:border-primary transition-colors bg-card text-foreground font-medium"
           >
             <option value="all">Tất cả môn học</option>
             {subjects.map((sub) => (
@@ -330,7 +359,7 @@ export function TeacherCoursesPage() {
 
       {/* Roadmap List Grouped by Subject */}
       {subjects.length === 0 ? (
-        <div className="text-center py-16 bg-card rounded-[10px] border border-border shadow-none">
+        <div className="text-center py-16 bg-card text-card-foreground border border-border rounded-[10px] shadow-none">
           <p className="text-muted-foreground font-normal text-sm">Bạn chưa được phân công quản lý môn học nào.</p>
         </div>
       ) : (
@@ -425,7 +454,7 @@ function CreateTemplateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg rounded-[10px] bg-card border border-border p-6 shadow-lg">
+      <DialogContent className="sm:max-w-lg rounded-[10px] bg-card text-card-foreground border border-border p-6 shadow-lg">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-foreground" />
@@ -442,7 +471,7 @@ function CreateTemplateDialog({
             <select
               value={subjectId}
               onChange={(e) => setSubjectId(Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm rounded-[6px] border border-input outline-none focus:border-primary bg-muted text-foreground font-medium cursor-pointer"
+              className="w-full px-3 py-2 text-sm rounded-[6px] border border-border outline-none focus:border-primary bg-background text-foreground font-medium"
             >
               {subjects.map((sub) => (
                 <option key={sub.subjectId} value={sub.subjectId}>
@@ -459,7 +488,7 @@ function CreateTemplateDialog({
               placeholder="Ví dụ: Lộ trình cơ bản kỳ Fall 2026..."
               value={pathName}
               onChange={(e) => setPathName(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-[6px] border border-input outline-none focus:border-primary text-foreground placeholder:text-muted-foreground bg-muted"
+              className="w-full px-3 py-2 text-sm rounded-[6px] border border-border outline-none focus:border-primary text-foreground placeholder:text-muted-foreground bg-background"
             />
           </div>
 
@@ -468,7 +497,7 @@ function CreateTemplateDialog({
             <select
               value={level}
               onChange={(e) => setLevel(Number(e.target.value) as 1 | 2 | 3)}
-              className="w-full px-3 py-2 text-sm rounded-[6px] border border-input outline-none focus:border-primary bg-muted text-foreground font-medium cursor-pointer"
+              className="w-full px-3 py-2 text-sm rounded-[6px] border border-border outline-none focus:border-primary bg-background text-foreground font-medium"
             >
               <option value={1}>Yêu (1)</option>
               <option value={2}>Trung bình (2)</option>
@@ -483,7 +512,7 @@ function CreateTemplateDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-[6px] border border-input outline-none focus:border-primary text-foreground placeholder:text-muted-foreground bg-muted resize-none"
+              className="w-full px-3 py-2 text-sm rounded-[6px] border border-border outline-none focus:border-primary text-foreground placeholder:text-muted-foreground bg-background resize-none"
             />
           </div>
         </div>
@@ -548,17 +577,28 @@ function ViewTemplateDetailDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl rounded-[10px] bg-card border border-border p-6 shadow-lg">
+      <DialogContent className="sm:max-w-xl rounded-[10px] bg-card text-card-foreground border border-border p-6 shadow-lg">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
             <Map className="w-5 h-5 text-foreground" />
             Chi tiết lộ trình mẫu
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            {template?.pathName} — Mức độ:{' '}
-            <span className="font-semibold text-foreground">
-              {getLevelLabel(template?.level)}
+          <DialogDescription className="text-sm text-muted-foreground flex flex-col gap-1">
+            <span>
+              {template?.pathName} — Mức độ:{' '}
+              <span className="font-semibold text-foreground">
+                {getLevelLabel(template?.level)}
+              </span>
             </span>
+            {template?.creatorName && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                <span>Người tạo:</span>
+                <span className="font-semibold text-foreground">{template.creatorName}</span>
+                <span className="text-[10px] bg-muted text-foreground px-1.5 py-0.5 rounded-[4px] font-medium ml-1">
+                  {getRoleLabel(template.creatorRole)}
+                </span>
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -582,7 +622,7 @@ function ViewTemplateDetailDialog({
                   <div className="w-7 h-7 rounded-[6px] bg-muted text-foreground flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5 border border-border">
                     {idx + 1}
                   </div>
-                  <div className="text-left">
+                  <div>
                     <h4 className="text-sm font-semibold text-foreground">{node.title}</h4>
                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                       {node.description || 'Không có mô tả cho node này.'}
@@ -594,7 +634,7 @@ function ViewTemplateDetailDialog({
                     variant="outline"
                     className={`text-[9px] py-0 px-1.5 font-medium border rounded-[6px] ${
                       node.nodeType === 'ON_CLASS'
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-transparent'
                         : 'bg-muted text-foreground border-border'
                     }`}
                   >
@@ -603,7 +643,7 @@ function ViewTemplateDetailDialog({
                   {node.isRequired && (
                     <Badge
                       variant="outline"
-                      className="text-[9px] py-0 px-1.5 font-medium border bg-red-500/10 text-red-650 dark:text-red-400 border-red-500/20 rounded-[6px]"
+                      className="text-[9px] py-0 px-1.5 font-medium border bg-destructive/10 text-destructive border-transparent rounded-[6px]"
                     >
                       Bắt buộc
                     </Badge>
@@ -713,7 +753,7 @@ function ApplyTemplateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-[10px] bg-card border border-border p-6 shadow-lg">
+      <DialogContent className="sm:max-w-md rounded-[10px] bg-card text-card-foreground border border-border p-6 shadow-lg">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
             <GraduationCap className="w-5 h-5 text-foreground" />
@@ -724,8 +764,8 @@ function ApplyTemplateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4 text-left">
-          <div className="p-3.5 bg-muted border border-border rounded-[6px]">
+        <div className="py-4 space-y-4">
+          <div className="p-3.5 bg-muted/50 border border-border rounded-[6px]">
             <span className="text-xs font-semibold text-muted-foreground">Lộ trình được chọn:</span>
             <p className="text-sm font-bold text-foreground pt-0.5">
               {template?.pathName}
@@ -738,7 +778,7 @@ function ApplyTemplateDialog({
               <span className="text-xs text-muted-foreground font-normal">Đang kiểm tra danh sách lớp học...</span>
             </div>
           ) : availableClassrooms.length === 0 ? (
-            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-[6px] text-center text-amber-600 dark:text-amber-400 text-xs flex flex-col items-center gap-2">
+            <div className="p-4 bg-amber-500/10 border border-transparent text-amber-600 dark:text-amber-400 rounded-[6px] text-center text-xs flex flex-col items-center gap-2">
               <AlertCircle className="w-6 h-6 text-amber-500" />
               <span>
                 Không tìm thấy lớp học chưa bắt đầu nào của môn học này mà chưa được gán lộ trình.
@@ -750,7 +790,7 @@ function ApplyTemplateDialog({
               <select
                 value={selectedClassroomSubjectId}
                 onChange={(e) => setSelectedClassroomSubjectId(Number(e.target.value))}
-                className="w-full px-3 py-2 text-sm rounded-[6px] border border-input outline-none focus:border-primary bg-muted text-foreground font-medium cursor-pointer"
+                className="w-full px-3 py-2 text-sm rounded-[6px] border border-border outline-none focus:border-primary bg-background text-foreground font-medium"
               >
                 {availableClassrooms.map((cls) => (
                   <option key={cls.classroomSubjectId} value={cls.classroomSubjectId}>

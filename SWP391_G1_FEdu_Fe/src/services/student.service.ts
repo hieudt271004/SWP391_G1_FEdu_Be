@@ -133,6 +133,10 @@ export const studentService = {
       body
     ),
 
+  // Chống gian lận: ghi nhận 1 lần rời tab khi đang làm bài; trả về tổng số lần của lượt thi.
+  recordTabOut: (testId: number, attemptId: number) =>
+    http.patch<number>(`/student/tests/${testId}/attempts/${attemptId}/tab-out`),
+
   getTestHistory: () =>
     http.get<StudentTestAttemptHistoryResponse[]>('/student/tests/attempts/history'),
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
@@ -13,6 +13,8 @@ interface TestRunnerProps {
   submitting?: boolean;
   onStart: () => void;
   onSubmit: (body: AttemptSubmission) => void;
+  /** Gọi mỗi lần học sinh rời tab (chuyển tab/thu nhỏ) khi đang làm bài — chống gian lận. */
+  onTabOut?: () => void;
   startLabel?: string;
   submitLabel?: string;
 }
@@ -28,10 +30,22 @@ export function TestRunner({
   submitting,
   onStart,
   onSubmit,
+  onTabOut,
   startLabel = 'Bắt đầu làm bài',
   submitLabel = 'Nộp bài',
 }: TestRunnerProps) {
   const [answers, setAnswers] = useState<Record<number, AnswerValue>>({});
+
+  // Đang làm bài mà tab bị ẩn (chuyển tab / thu nhỏ cửa sổ) → báo về BE đếm số lần.
+  // Sau khi nộp, trang cha chuyển sang màn kết quả nên TestRunner unmount, listener tự gỡ.
+  useEffect(() => {
+    if (!started || !onTabOut) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') onTabOut();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [started, onTabOut]);
 
   const getAnswer = useCallback((questionId: number): AnswerValue =>
     answers[questionId] ?? EMPTY_ANSWER, [answers]);

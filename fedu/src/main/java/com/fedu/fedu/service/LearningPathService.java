@@ -17,6 +17,8 @@ public interface LearningPathService {
     // ── Clone về lớp-môn (classroom_subject) ─────────────────────────────────
     LearningPathResponse cloneLearningPath(Long classroomSubjectId, Long templatePathId);
     List<LearningPathResponse> getClassroomLearningPaths(Long classroomSubjectId);
+    List<CloneablePathResponse> getCloneablePaths(Long classroomSubjectId);
+    LearningPathResponse createCustomClassroomPath(Long classroomSubjectId);
 
     // ── Learning Node ─────────────────────────────────────────────────────────
     LearningNodeResponse createLearningNode(CreateLearningNodeRequest request);

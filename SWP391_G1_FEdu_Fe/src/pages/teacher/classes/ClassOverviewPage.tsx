@@ -46,7 +46,9 @@ import {
   Calendar,
   Clock,
   Unlock,
-  Lock
+  Lock,
+  Copy,
+  PlusCircle
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { resolveAssetUrl } from '../../../components/learningPath/MaterialPreview';
@@ -109,6 +111,9 @@ export function ClassOverviewPage() {
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'cloning' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [setupMode, setSetupMode] = useState<'TEMPLATE' | 'CLASSROOM' | 'CUSTOM'>('TEMPLATE');
+  const [cloneablePaths, setCloneablePaths] = useState<any[]>([]);
+  const [loadingCloneablePaths, setLoadingCloneablePaths] = useState(false);
   // Xem trước lộ trình mẫu trước khi áp dụng/đè lên
   const [templatePreview, setTemplatePreview] = useState<{ pathId: number; nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -1041,6 +1046,53 @@ export function ClassOverviewPage() {
     }
   };
 
+  const handleCreateCustomPath = async () => {
+    if (!classroomSubjectId) return;
+    try {
+      setActionState('cloning');
+      await learningPathService.createCustomPath(Number(classroomSubjectId));
+      const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      setGraphData(updatedGraph);
+      toast.success('Khởi tạo lộ trình tự thiết kế thành công!');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể tạo lộ trình tự thiết kế');
+    } finally {
+      setActionState('idle');
+    }
+  };
+
+  useEffect(() => {
+    const fetchCloneablePaths = async () => {
+      if (!classroomSubjectId) return;
+      try {
+        setLoadingCloneablePaths(true);
+        const res = await learningPathService.getCloneablePaths(Number(classroomSubjectId));
+        setCloneablePaths(res);
+        
+        // Auto-select first template if template mode, or classroom if classroom mode
+        if (setupMode === 'TEMPLATE') {
+          const templates = res.filter(p => p.type === 'TEMPLATE');
+          if (templates.length === 1) {
+            setSelectedTemplateId(templates[0].pathId);
+          }
+        } else if (setupMode === 'CLASSROOM') {
+          const classrooms = res.filter(p => p.type === 'CLASSROOM');
+          if (classrooms.length === 1) {
+            setSelectedTemplateId(classrooms[0].pathId);
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi khi tải danh sách lộ trình clone:', err);
+      } finally {
+        setLoadingCloneablePaths(false);
+      }
+    };
+
+    if (graphData?.state === 'NO_PATH' && classroomSubjectId) {
+      fetchCloneablePaths();
+    }
+  }, [graphData?.state, classroomSubjectId, setupMode]);
+
   // Chọn 1 template ở dropdown → tải graph mẫu để xem trước trong khung "Sơ đồ lộ trình học tập".
   const handlePreviewTemplate = async (templatePathId: number | null) => {
     setSelectedTemplateId(templatePathId);
@@ -1503,16 +1555,16 @@ export function ClassOverviewPage() {
           <Button variant="outline" size="icon" onClick={() => navigate(-1)} disabled={isNonIdle}>
             <ArrowLeft className="size-4" />
           </Button>
-          <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-3">
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-3">
             Class {classInfo.classCode} - {classInfo.courseCode}
             {(() => {
               switch (classroomStatus) {
                 case 'active':
-                  return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Đang hoạt động</Badge>;
+                  return <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">Đang hoạt động</Badge>;
                 case 'completed':
                   return <Badge className="bg-primary/10 text-primary border-primary/20">Đã hoàn thành</Badge>;
                 default:
-                  return <Badge className="bg-amber-50 text-amber-700 border-amber-200">Chưa bắt đầu</Badge>;
+                  return <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">Chưa bắt đầu</Badge>;
               }
             })()}
           </h1>
@@ -1554,25 +1606,22 @@ export function ClassOverviewPage() {
 
       {/* Hero pub/unpub state zones */}
       {graphData?.state === 'NO_PATH' && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="pt-6 flex flex-col md:flex-row items-center justify-between gap-6">
+        <Card className="border-primary/20 bg-primary/5 rounded-2xl">
+          <CardContent className="pt-6">
             <div className="space-y-1 text-center md:text-left">
               <h2 className="text-lg font-semibold text-primary">
-                {graphData.canCloneAll ? "Khởi tạo lộ trình học cho lớp" : "Môn học chưa có lộ trình mẫu"}
+                Cấu hình lộ trình học cho lớp
               </h2>
               <p className="text-sm text-muted-foreground">
-                {graphData.canCloneAll
-                  ? "Lớp học này chưa cấu hình lộ trình. Vui lòng bấm nút Khởi tạo để sao chép lộ trình học mẫu từ khoa."
-                  : "Môn học này chưa được cấu hình lộ trình mẫu công bố từ khoa."}
+                Lớp học này chưa cấu hình lộ trình học tập. Vui lòng chọn một phương thức khởi tạo bên dưới để bắt đầu.
               </p>
             </div>
-
             <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-wrap">
               {graphData.canCloneAll ? (
                 <Button
                   onClick={handleClone}
                   disabled={isNonIdle}
-                  className="w-full md:w-auto bg-primary hover:bg-primary/90 text-white font-medium rounded-xl"
+                  className="w-full md:w-auto font-medium rounded-xl"
                 >
                   {actionState === 'cloning' ? <Loader className="size-4 animate-spin mr-1" /> : <Play className="size-4 mr-1" />}
                   Khởi tạo lộ trình học
@@ -1645,7 +1694,7 @@ export function ClassOverviewPage() {
       {activeTab === 'roadmap' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between pl-1">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
               <Map className="w-5 h-5 text-primary" />
               Sơ đồ lộ trình học tập
             </h2>
@@ -1663,9 +1712,65 @@ export function ClassOverviewPage() {
             )}
           </div>
 
-          {/* Ô chọn & áp dụng lộ trình mẫu (clone). Hiện khi lớp chưa có lộ trình hoặc còn bản nháp. */}
-          {(graphData?.state === 'NO_PATH' || graphData?.state === 'DRAFT') && (graphData?.availableTemplates?.length ?? 0) > 0 && (
-            <Card className="border border-primary/20 bg-primary/5 rounded-2xl">
+          {/* Ô chọn & áp dụng lộ trình. Hiện khi lớp chưa có lộ trình hoặc còn bản nháp. */}
+          {graphData?.state === 'NO_PATH' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <button
+                onClick={() => {
+                  setSetupMode('TEMPLATE');
+                  setSelectedTemplateId(null);
+                  setTemplatePreview(null);
+                }}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                  setupMode === 'TEMPLATE'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border bg-card hover:bg-muted/40 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <BookOpen className="size-6 mb-2" />
+                <span className="font-semibold text-sm">Lộ trình mẫu</span>
+                <span className="text-[11px] mt-1 text-center opacity-85">Sử dụng giáo trình mẫu từ khoa</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setSetupMode('CLASSROOM');
+                  setSelectedTemplateId(null);
+                  setTemplatePreview(null);
+                }}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                  setupMode === 'CLASSROOM'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border bg-card hover:bg-muted/40 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Copy className="size-6 mb-2" />
+                <span className="font-semibold text-sm">Lớp học cũ</span>
+                <span className="text-[11px] mt-1 text-center opacity-85">Sao chép lộ trình từ lớp bạn đã dạy</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setSetupMode('CUSTOM');
+                  setSelectedTemplateId(null);
+                  setTemplatePreview(null);
+                }}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all ${
+                  setupMode === 'CUSTOM'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border bg-card hover:bg-muted/40 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <PlusCircle className="size-6 mb-2" />
+                <span className="font-semibold text-sm">Tự thiết kế</span>
+                <span className="text-[11px] mt-1 text-center opacity-85">Tạo lộ trình trống tự biên soạn từ đầu</span>
+              </button>
+            </div>
+          )}
+
+          {/* 1. Lộ trình mẫu */}
+          {((graphData?.state === 'NO_PATH' && setupMode === 'TEMPLATE') || graphData?.state === 'DRAFT') && (
+            <Card className="border border-primary/20 bg-primary/5 rounded-2xl mb-6">
               <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex-1 space-y-1.5">
                   <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
@@ -1675,10 +1780,13 @@ export function ClassOverviewPage() {
                     value={selectedTemplateId ?? ''}
                     onChange={(e) => handlePreviewTemplate(e.target.value ? Number(e.target.value) : null)}
                     disabled={isNonIdle}
-                    className="w-full max-w-md rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className="w-full max-w-md rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   >
                     <option value="">-- Chọn lộ trình mẫu để xem trước --</option>
-                    {graphData?.availableTemplates?.map((t) => (
+                    {(cloneablePaths.length > 0
+                      ? cloneablePaths.filter((p) => p.type === 'TEMPLATE')
+                      : (graphData?.availableTemplates || [])
+                    ).map((t) => (
                       <option key={t.pathId} value={t.pathId}>
                         {t.pathName} ({t.nodeCount} bài học)
                       </option>
@@ -1693,20 +1801,85 @@ export function ClassOverviewPage() {
                 <Button
                   onClick={() => (graphData?.state === 'DRAFT' ? setShowApplyTemplateConfirm(true) : handleApplyTemplate())}
                   disabled={isNonIdle || !selectedTemplateId}
+                  className="shrink-0 rounded-xl font-semibold"
+                >
+                  {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
+                  {graphData?.state === 'DRAFT' ? 'Ghi đè lộ trình' : 'Áp dụng lộ trình'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 2. Sao chép từ lớp học cũ */}
+          {graphData?.state === 'NO_PATH' && setupMode === 'CLASSROOM' && (
+            <Card className="border border-primary/20 bg-primary/5 rounded-2xl mb-6">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="flex-1 space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                    <Copy className="size-3.5" /> Chọn lớp học cũ để sao chép
+                  </label>
+                  <select
+                    value={selectedTemplateId ?? ''}
+                    onChange={(e) => handlePreviewTemplate(e.target.value ? Number(e.target.value) : null)}
+                    disabled={isNonIdle || loadingCloneablePaths}
+                    className="w-full max-w-md rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/30 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-250"
+                  >
+                    <option value="">-- Chọn lớp cũ để xem trước lộ trình --</option>
+                    {cloneablePaths
+                      .filter((p) => p.type === 'CLASSROOM')
+                      .map((c) => (
+                        <option key={c.pathId} value={c.pathId}>
+                          Lớp {c.sourceClassroomName} - {c.pathName} ({c.nodeCount} bài học)
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-[11px] text-slate-500">
+                    {loadingCloneablePaths
+                      ? 'Đang tải danh sách...'
+                      : 'Chọn một lớp học cũ đã dạy cùng môn để sao chép lại sơ đồ và nội dung.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={handleApplyTemplate}
+                  disabled={isNonIdle || !selectedTemplateId}
                   className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
                 >
                   {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
-                  {graphData?.state === 'DRAFT' ? 'Áp dụng lộ trình' : 'Áp dụng lộ trình'}
+                  Sao chép lộ trình
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 3. Tự thiết kế lộ trình trống */}
+          {graphData?.state === 'NO_PATH' && setupMode === 'CUSTOM' && (
+            <Card className="border border-primary/20 bg-primary/5 rounded-2xl mb-6">
+              <CardContent className="flex flex-col gap-3 p-6 items-center justify-between text-center md:flex-row md:text-left">
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-primary flex items-center justify-center md:justify-start gap-1.5">
+                    <PlusCircle className="size-4" /> Tự thiết kế lộ trình mới
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-xl">
+                    Khởi tạo một lộ trình trống hoàn toàn. Bạn có thể tự do thiết kế các bài học, kết nối bài học và cấu hình học liệu từ đầu.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleCreateCustomPath}
+                  disabled={isNonIdle}
+                  className="shrink-0 rounded-xl bg-primary font-semibold text-white hover:bg-primary/90"
+                >
+                  {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Plus className="mr-1.5 size-4" />}
+                  Khởi tạo lộ trình trống
                 </Button>
               </CardContent>
             </Card>
           )}
 
           {(!graphData?.paths || graphData.paths.length === 0) && graphData?.state === 'NO_PATH' && !templatePreview ? (
-            <Card className="border border-dashed border-slate-200 bg-white p-12 text-center rounded-2xl">
+            <Card className="border border-dashed border-border bg-card text-card-foreground p-12 text-center rounded-2xl">
               <Map className="w-12 h-12 mx-auto text-slate-300 mb-3 animate-pulse" />
-              <h3 className="text-base font-bold text-slate-800 mb-1">Chưa cấu hình lộ trình</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto">
+              <h3 className="text-base font-bold text-foreground mb-1">Chưa cấu hình lộ trình</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
                 Lớp học này chưa khởi tạo lộ trình học tập. Hãy nhấp nút "Khởi tạo lộ trình" ở trên để bắt đầu.
               </p>
             </Card>
@@ -1723,7 +1896,7 @@ export function ClassOverviewPage() {
                     </button>
                   </div>
                 )}
-                <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto rounded-xl border border-slate-200 bg-[#f1f5f9] p-3 lg:max-h-[calc(100vh-2rem)]">
+                <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-muted/30 p-3 lg:max-h-[calc(100vh-2rem)]">
                   {previewLoading ? (
                     <div className="flex h-64 items-center justify-center text-slate-400">
                       <Loader className="size-6 animate-spin" />
@@ -1741,20 +1914,20 @@ export function ClassOverviewPage() {
 
               <div className="flex-1 min-w-0">
                 {!selectedNode ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-slate-400 bg-white border border-slate-250 rounded-2xl p-6">
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-card border border-border rounded-2xl p-6">
                     <Map className="w-10 h-10 text-slate-300 mb-2 animate-bounce" />
                     <p className="text-xs font-semibold">Chọn bài học trên sơ đồ</p>
-                    <p className="text-[10px] text-slate-400">để xem thông tin chi tiết</p>
+                    <p className="text-[10px] text-muted-foreground">để xem thông tin chi tiết</p>
                   </div>
                 ) : (
-                  <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5 shadow-xs h-fit max-h-[70vh] overflow-auto flex flex-col justify-between">
+                  <div className="bg-card border border-border text-card-foreground rounded-2xl p-5 space-y-5 shadow-xs h-fit max-h-[70vh] overflow-auto flex flex-col justify-between">
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div className="flex items-center justify-between pb-2 border-b border-border">
                         <div>
-                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-semibold uppercase">
+                          <span className="px-2 py-0.5 bg-secondary text-secondary-foreground border border-border rounded text-[10px] font-semibold uppercase">
                             {selectedNode.nodeType === 'ON_CLASS' ? 'Trên lớp' : 'Tự học'}
                           </span>
-                          <h3 className="font-bold text-slate-800 text-sm mt-1">{selectedNode.title}</h3>
+                          <h3 className="font-bold text-foreground text-sm mt-1">{selectedNode.title}</h3>
                         </div>
                         <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setSelectedNode(null)}>
                           <X className="size-4" />
@@ -1763,20 +1936,20 @@ export function ClassOverviewPage() {
 
                       {loadingNodeDetails ? (
                         <div className="flex items-center justify-center py-10">
-                          <Loader className="w-6 h-6 animate-spin text-indigo-600" />
+                          <Loader className="w-6 h-6 animate-spin text-primary" />
                         </div>
                       ) : (
                         <>
                           {/* Student list above materials */}
                           <div className="space-y-2">
-                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Danh sách sinh viên ({nodeStudents.length})</h4>
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Danh sách sinh viên ({nodeStudents.length})</h4>
                             {nodeStudents.length === 0 ? (
-                              <p className="text-xs text-slate-400 italic">Chưa có sinh viên nào học node này.</p>
+                              <p className="text-xs text-muted-foreground italic">Chưa có sinh viên nào học node này.</p>
                             ) : (
                               <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
                                 {nodeStudents.map((student) => (
-                                  <div key={student.userId} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 border border-slate-100/50">
-                                    <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-semibold text-slate-600 uppercase">
+                                  <div key={student.userId} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-accent border border-border/50">
+                                    <div className="w-5 h-5 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center text-[10px] font-semibold uppercase">
                                       {student.avatarUrl ? (
                                         <img src={student.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
                                       ) : (
@@ -1784,7 +1957,7 @@ export function ClassOverviewPage() {
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0 text-xs">
-                                      <p className="font-semibold text-slate-700 truncate">
+                                      <p className="font-semibold text-foreground truncate">
                                         {student.lastName} {student.firstName}
                                       </p>
                                     </div>
@@ -1796,17 +1969,17 @@ export function ClassOverviewPage() {
 
                           {/* Scheduling for ON_CLASS nodes */}
                           {selectedNode.nodeType === 'ON_CLASS' && (
-                            <div className="space-y-2 border-t border-slate-100 pt-3">
-                              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lịch học trên lớp</h4>
-                              <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-xs flex flex-col gap-2">
+                            <div className="space-y-2 border-t border-border pt-3">
+                              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Lịch học trên lớp</h4>
+                              <div className="bg-muted/50 border border-border rounded-lg p-3 text-xs flex flex-col gap-2">
                                 {selectedNode.studyDate ? (
                                   <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-                                      <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                                    <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                                       <span>Ngày: {new Date(selectedNode.studyDate).toLocaleDateString("vi-VN")}</span>
                                     </div>
-                                    <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-                                      <Clock className="h-3.5 w-3.5 text-slate-500" />
+                                    <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                       <span>Ca: {selectedNode.slotName} ({selectedNode.startTime?.substring(0, 5)} - {selectedNode.endTime?.substring(0, 5)})</span>
                                     </div>
                                   </div>
@@ -1817,7 +1990,7 @@ export function ClassOverviewPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => openScheduleModal(selectedNode)}
-                                  className="w-full mt-1 border-slate-200 text-xs hover:bg-slate-100 text-primary font-semibold"
+                                  className="w-full mt-1 border-border text-xs hover:bg-accent text-primary font-semibold"
                                 >
                                   {selectedNode.studyDate ? "Thay đổi lịch học" : "Xếp lịch học"}
                                 </Button>
@@ -1827,23 +2000,23 @@ export function ClassOverviewPage() {
 
                           {/* Unlocking status and action for ON_CLASS nodes */}
                           {selectedNode.nodeType === 'ON_CLASS' && (
-                            <div className="space-y-2 border-t border-slate-100 pt-3">
-                              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Trạng thái buổi học</h4>
+                            <div className="space-y-2 border-t border-border pt-3">
+                              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Trạng thái buổi học</h4>
                               {selectedNode.status === 'OPEN' ? (
-                                <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-100 text-emerald-750 rounded-xl text-xs font-semibold">
+                                <div className="flex items-center gap-2 p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold">
                                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                                   <span>Buổi học đã được mở khóa cho cả lớp</span>
                                 </div>
                               ) : (
                                 <div className="space-y-2">
-                                  <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-100 text-amber-700 rounded-xl text-xs">
+                                  <div className="flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl text-xs">
                                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 animate-pulse" />
                                     <span>Buổi học đang khóa. Giáo viên cần mở khóa để học sinh đủ điều kiện vào học.</span>
                                   </div>
                                   <Button
                                     onClick={handleUnlockOnClassNode}
                                     disabled={unlockingNode}
-                                    className="w-full bg-indigo-600 text-white font-semibold hover:bg-indigo-700 rounded-xl text-xs py-2 flex items-center justify-center gap-1.5"
+                                    className="w-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90 rounded-xl text-xs py-2 flex items-center justify-center gap-1.5"
                                   >
                                     {unlockingNode ? (
                                       <Loader className="h-3.5 w-3.5 animate-spin" />
@@ -1858,20 +2031,20 @@ export function ClassOverviewPage() {
                           )}
 
                           {/* Materials */}
-                          <div className="space-y-2 pt-3 border-t border-slate-100">
-                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tài liệu học tập</h4>
+                          <div className="space-y-2 pt-3 border-t border-border">
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tài liệu học tập</h4>
                             {!nodeContent || (!nodeContent.materials?.length && !nodeContent.tests?.length && !nodeContent.exercises?.length) ? (
-                              <p className="text-xs text-slate-400 italic">Node này chưa có tài liệu hay bài kiểm tra nào.</p>
+                              <p className="text-xs text-muted-foreground italic">Node này chưa có tài liệu hay bài kiểm tra nào.</p>
                             ) : (
                               <div className="space-y-2">
                                 {nodeContent.materials?.map((m) => (
-                                  <div key={m.materialId} className="rounded-lg border border-slate-100 bg-slate-50/50 p-2 text-xs">
+                                  <div key={m.materialId} className="rounded-lg border border-border bg-muted/30 p-2 text-xs">
                                     <div className="flex items-center gap-2">
-                                      <div className="shrink-0 text-indigo-600">
+                                      <div className="shrink-0 text-primary">
                                         <FileText className="h-4 w-4" />
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <p className="truncate font-medium text-slate-700">{m.title}</p>
+                                        <p className="truncate font-medium text-foreground">{m.title}</p>
                                       </div>
                                     </div>
                                     <div className="mt-1.5 max-w-2xl">
@@ -1880,30 +2053,30 @@ export function ClassOverviewPage() {
                                   </div>
                                 ))}
                                 {nodeContent.tests?.map((t) => (
-                                  <div key={t.testId} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50/50 border border-slate-100 text-xs">
+                                  <div key={t.testId} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border text-xs">
                                     <div className="text-amber-600 shrink-0">
                                       <Award className="w-4 h-4" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-slate-700 truncate">{t.title} ({t.durationMinutes} phút)</p>
+                                      <p className="font-medium text-foreground truncate">{t.title} ({t.durationMinutes} phút)</p>
                                     </div>
                                   </div>
                                 ))}
                                 {nodeContent.exercises?.map((e) => (
-                                  <div key={e.exerciseId} className="flex items-center justify-between p-2 rounded-lg bg-slate-50/50 border border-slate-100 text-xs gap-3">
+                                  <div key={e.exerciseId} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border text-xs gap-3">
                                     <div className="flex items-center gap-2 flex-1 min-w-0">
                                       <div className="text-blue-500 shrink-0">
                                         <FileText className="w-4 h-4" />
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-slate-700 truncate" title={e.title}>
+                                        <p className="font-medium text-foreground truncate" title={e.title}>
                                           {e.title} (Thực hành)
                                         </p>
                                       </div>
                                     </div>
                                     <Button
                                       onClick={() => handleOpenSubmissionsModal(e.exerciseId, e.title)}
-                                      className="h-6 px-2 text-[9px] bg-slate-800 hover:bg-slate-750 text-white font-bold rounded shrink-0"
+                                      className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
                                     >
                                       Xem bài nộp
                                     </Button>
@@ -1940,7 +2113,7 @@ export function ClassOverviewPage() {
               Hủy
             </Button>
             <Button
-              className="rounded-xl bg-amber-600 font-semibold text-white hover:bg-amber-700"
+              className="rounded-xl font-semibold"
               onClick={handleApplyTemplate}
               disabled={isNonIdle}
             >
@@ -1972,7 +2145,7 @@ export function ClassOverviewPage() {
                   setQuizDuration('45');
                   setIsCreateQuizOpen(true);
                 }}
-                className="bg-primary hover:bg-primary/90 text-white rounded-xl"
+                className="rounded-xl"
               >
                 <Plus className="size-4 mr-1.5" /> Khởi tạo bài test đầu vào
               </Button>
@@ -2076,7 +2249,7 @@ export function ClassOverviewPage() {
                         <Button
                           onClick={handleSaveScoreBands}
                           disabled={savingBands}
-                          className="w-full bg-[#030213] hover:bg-slate-900 text-white rounded-xl text-xs font-semibold mt-2 h-9"
+                          className="w-full rounded-xl text-xs font-semibold mt-2 h-9"
                         >
                           {savingBands ? <Loader className="size-4 animate-spin mr-1.5" /> : null}
                           Lưu khoảng điểm
@@ -2098,7 +2271,7 @@ export function ClassOverviewPage() {
                       <Button
                         size="sm"
                         onClick={() => handleOpenQuestionModal(null)}
-                        className="h-7 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1 font-semibold"
+                        className="h-7 text-xs rounded-lg flex items-center gap-1 font-semibold"
                       >
                         <Plus className="size-3.5" /> Thêm câu hỏi
                       </Button>
@@ -2326,7 +2499,7 @@ export function ClassOverviewPage() {
               <Button type="button" variant="outline" onClick={() => setIsCreateQuizOpen(false)} disabled={submittingQuiz}>
                 Hủy
               </Button>
-              <Button type="submit" disabled={submittingQuiz} className="bg-primary hover:bg-primary/90 text-white font-semibold">
+              <Button type="submit" disabled={submittingQuiz} className="font-semibold">
                 {submittingQuiz ? <Loader className="size-4 animate-spin mr-1.5" /> : null}
                 Lưu lại
               </Button>
@@ -2466,7 +2639,7 @@ export function ClassOverviewPage() {
               <Button type="button" variant="outline" onClick={() => setIsQuestionModalOpen(false)} disabled={submittingQuestion}>
                 Hủy
               </Button>
-              <Button type="submit" disabled={submittingQuestion} className="bg-primary hover:bg-primary/90 text-white font-semibold">
+              <Button type="submit" disabled={submittingQuestion} className="font-semibold">
                 {submittingQuestion ? <Loader className="size-4 animate-spin mr-1.5" /> : null}
                 Lưu lại
               </Button>
@@ -2516,7 +2689,7 @@ export function ClassOverviewPage() {
             <Button
               onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium"
+              className="font-medium"
             >
               {actionState === 'publishing' ? (
                 <>
@@ -2572,7 +2745,7 @@ export function ClassOverviewPage() {
             <Button
               onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+              className="font-medium"
             >
               {actionState === 'unpublishing' ? <Loader className="size-4 animate-spin mr-1" /> : null}
               Xác nhận Unpublish
@@ -2655,7 +2828,7 @@ export function ClassOverviewPage() {
             )}
           </div>
           <DialogFooter className="sm:justify-end">
-            <Button type="button" onClick={() => setIsHistoryOpen(false)} className="bg-primary hover:bg-primary/90 text-white font-semibold">
+            <Button type="button" onClick={() => setIsHistoryOpen(false)} className="font-semibold">
               Đóng
             </Button>
           </DialogFooter>
@@ -2778,7 +2951,7 @@ export function ClassOverviewPage() {
                           variant="destructive"
                           onClick={() => handleResetPlacement(selectedStudent.rawUserId)}
                           disabled={resettingPlacement}
-                          className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                          className="w-full font-semibold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
                         >
                           {resettingPlacement ? <Loader className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
                           Hủy kết quả phân lớp & Cho phép thi lại
@@ -2839,7 +3012,7 @@ export function ClassOverviewPage() {
           )}
 
           <DialogFooter className="border-t border-slate-100 pt-3 sm:justify-end">
-            <Button type="button" onClick={() => setIsDetailOpen(false)} className="bg-primary hover:bg-primary/90 text-white font-semibold">
+            <Button type="button" onClick={() => setIsDetailOpen(false)} className="font-semibold">
               Đóng
             </Button>
           </DialogFooter>
@@ -2851,9 +3024,9 @@ export function ClassOverviewPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Cột trái: Quản lý nhóm trợ giảng (2 cols) */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white">
-              <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <Card className="border border-border shadow-xs rounded-2xl bg-card text-card-foreground">
+              <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
                   <UserCheck className="w-5 h-5 text-primary" />
                   Danh sách Trợ giảng (Sub-mentors)
                 </CardTitle>
@@ -2865,7 +3038,7 @@ export function ClassOverviewPage() {
                       setAssignSubMentorIds([]);
                       setIsAssignSubMentorModalOpen(true);
                     }}
-                    className="border-slate-200 text-slate-700 hover:bg-slate-50 gap-2"
+                    className="border-border text-foreground hover:bg-accent gap-2"
                   >
                     <UserPlus className="w-4 h-4" />
                     Chỉ định trợ giảng mới
@@ -2878,7 +3051,7 @@ export function ClassOverviewPage() {
                     <Loader className="w-6 h-6 animate-spin text-primary" />
                   </div>
                 ) : students.filter(s => s.isSubmentor).length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/30">
                     <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs">Chưa có học sinh nào được chỉ định làm trợ giảng trong lớp này.</p>
                   </div>
@@ -2894,16 +3067,16 @@ export function ClassOverviewPage() {
                         return (
                           <div
                             key={mentor.id}
-                            className="border border-slate-250 rounded-xl p-4 bg-slate-50/20 space-y-3"
+                            className="border border-border rounded-xl p-4 bg-muted/20 space-y-3"
                           >
-                            <div className="flex justify-between items-center pb-2 border-b border-slate-100 flex-wrap gap-2">
+                            <div className="flex justify-between items-center pb-2 border-b border-border flex-wrap gap-2">
                               <div>
-                                <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                                <h4 className="font-bold text-foreground text-sm flex items-center gap-1.5">
                                   <div className="size-2 rounded-full bg-emerald-500" />
                                   {mentor.fullName}
-                                  <span className="text-[10px] text-slate-400 font-normal">({mentor.id})</span>
+                                  <span className="text-[10px] text-muted-foreground font-normal">({mentor.id})</span>
                                 </h4>
-                                <p className="text-xs text-slate-500">{mentor.email}</p>
+                                <p className="text-xs text-muted-foreground">{mentor.email}</p>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Button
@@ -2912,7 +3085,7 @@ export function ClassOverviewPage() {
                                     setSelectedSubMentor(mentor);
                                     setIsAssignStudentModalOpen(true);
                                   }}
-                                  className="h-7 text-xs bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1 font-semibold"
+                                  className="h-7 text-xs rounded-lg flex items-center gap-1 font-semibold"
                                 >
                                   <Plus className="size-3.5" /> Thêm học sinh kèm
                                 </Button>
@@ -2920,7 +3093,7 @@ export function ClassOverviewPage() {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleToggleSubMentor(mentor)}
-                                  className="h-7 text-xs border-slate-250 text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-1"
+                                  className="h-7 text-xs border-border text-muted-foreground hover:bg-accent rounded-lg flex items-center gap-1"
                                 >
                                   <UserMinus className="size-3.5 text-rose-500" /> Hủy trợ giảng
                                 </Button>
@@ -2928,25 +3101,25 @@ export function ClassOverviewPage() {
                             </div>
 
                             <div className="space-y-2">
-                              <span className="text-[10px] uppercase font-bold text-slate-400 block">Học sinh phụ trách ({mentorAssignments.length})</span>
+                              <span className="text-[10px] uppercase font-bold text-muted-foreground block">Học sinh phụ trách ({mentorAssignments.length})</span>
                               {mentorAssignments.length === 0 ? (
-                                <p className="text-xs text-slate-400 italic">Chưa gán học sinh nào vào nhóm kèm cặp của trợ giảng này.</p>
+                                <p className="text-xs text-muted-foreground italic">Chưa gán học sinh nào vào nhóm kèm cặp của trợ giảng này.</p>
                               ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                   {mentorAssignments.map(a => (
                                     <div
                                       key={a.id}
-                                      className="flex items-center justify-between p-2 border border-slate-100 bg-white rounded-lg text-xs"
+                                      className="flex items-center justify-between p-2 border border-border bg-card rounded-lg text-xs"
                                     >
                                       <div>
-                                        <p className="font-semibold text-slate-700">{a.studentName}</p>
-                                        <p className="text-[10px] text-slate-400">{a.studentEmail}</p>
+                                        <p className="font-semibold text-foreground">{a.studentName}</p>
+                                        <p className="text-[10px] text-muted-foreground">{a.studentEmail}</p>
                                       </div>
                                       <Button
                                         size="sm"
                                         variant="ghost"
                                         onClick={() => handleDeleteAssignment(a.id)}
-                                        className="h-6 w-6 p-0 text-slate-400 hover:text-rose-600 rounded-md"
+                                        className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-600 rounded-md"
                                       >
                                         <X className="size-3.5" />
                                       </Button>
@@ -2966,10 +3139,10 @@ export function ClassOverviewPage() {
 
           {/* Cột phải: Hỏi đáp leo thang (1 col) */}
           <div className="space-y-6">
-            <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white h-full flex flex-col justify-between">
+            <Card className="border border-border shadow-xs rounded-2xl bg-card text-card-foreground h-full flex flex-col justify-between">
               <div>
-                <CardHeader className="border-b border-slate-100 pb-4">
-                  <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <CardHeader className="border-b border-border pb-4">
+                  <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
                     <MessageSquare className="w-5 h-5 text-primary" />
                     Hỏi đáp leo thang ({escalatedTickets.length})
                   </CardTitle>
@@ -2980,30 +3153,30 @@ export function ClassOverviewPage() {
                       <Loader className="w-6 h-6 animate-spin text-primary" />
                     </div>
                   ) : escalatedTickets.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/30">
                       <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
-                      <p className="text-xs font-semibold text-slate-650 mb-1">Hoàn thành!</p>
-                      <p className="text-[11px] text-slate-400 leading-normal px-4">Không có câu hỏi nào cần giải quyết hiện tại.</p>
+                      <p className="text-xs font-semibold text-foreground mb-1">Hoàn thành!</p>
+                      <p className="text-[11px] text-muted-foreground leading-normal px-4">Không có câu hỏi nào cần giải quyết hiện tại.</p>
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                       {escalatedTickets.map((ticket) => (
                         <div
                           key={ticket.ticketId}
-                          className="border border-slate-200 rounded-xl p-3 bg-rose-50/10 space-y-2 border-l-4 border-l-rose-500"
+                          className="border border-border rounded-xl p-3 bg-rose-500/5 space-y-2 border-l-4 border-l-rose-500"
                         >
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-bold text-slate-800 text-xs">{ticket.studentName}</p>
-                              <p className="text-[9px] text-slate-400">
+                              <p className="font-bold text-foreground text-xs">{ticket.studentName}</p>
+                              <p className="text-[9px] text-muted-foreground">
                                 {new Date(ticket.createdAt).toLocaleString('vi-VN')}
                               </p>
                             </div>
-                            <Badge className="bg-rose-50 border-rose-200 text-rose-700 text-[9px] font-bold">
+                            <Badge className="bg-rose-500/10 border-rose-500/25 text-rose-600 dark:text-rose-400 text-[9px] font-bold">
                               LEO THANG
                             </Badge>
                           </div>
-                          <div className="p-2 border border-slate-100 bg-white rounded-lg text-xs text-slate-650 leading-relaxed font-mono whitespace-pre-wrap">
+                          <div className="p-2 border border-border bg-background rounded-lg text-xs text-muted-foreground leading-relaxed font-mono whitespace-pre-wrap">
                             {ticket.messageStudent}
                           </div>
                           <div className="flex justify-end pt-1">
@@ -3014,7 +3187,7 @@ export function ClassOverviewPage() {
                                 setResponseText('');
                                 setIsRespondModalOpen(true);
                               }}
-                              className="h-7 text-xs bg-[#030213] hover:bg-slate-900 text-white rounded-lg font-bold"
+                              className="h-7 text-xs font-bold"
                             >
                               Giải đáp ngay
                             </Button>
@@ -3068,7 +3241,7 @@ export function ClassOverviewPage() {
                       <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                          className="w-4 h-4 rounded border-slate-300 focus:ring-primary"
                           checked={selectedStudentsToAssign.includes(s.classroomSubjectStudentId!)}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -3104,7 +3277,7 @@ export function ClassOverviewPage() {
               <Button
                 type="submit"
                 disabled={submittingAssignment || selectedStudentsToAssign.length === 0}
-                className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold"
+                className="h-9 rounded-xl text-xs font-semibold"
               >
                 {submittingAssignment ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
                 Lưu phân công
@@ -3166,7 +3339,7 @@ export function ClassOverviewPage() {
               <Button
                 type="submit"
                 disabled={submittingResponse}
-                className="h-9 rounded-xl text-xs bg-[#030213] hover:bg-slate-900 text-white font-semibold"
+                className="h-9 rounded-xl text-xs font-semibold"
               >
                 {submittingResponse ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
                 Gửi câu trả lời
@@ -3316,7 +3489,7 @@ export function ClassOverviewPage() {
                         <Button
                           type="submit"
                           disabled={submittingGrade}
-                          className="h-8 px-4 rounded-xl text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                          className="h-8 px-4 rounded-xl text-xs font-semibold"
                         >
                           {submittingGrade ? <Loader className="size-3 animate-spin mr-1" /> : null}
                           Lưu điểm & Khóa bài
@@ -3341,7 +3514,7 @@ export function ClassOverviewPage() {
               <Button type="button" onClick={() => {
                 setSelectedExerciseId(null);
                 setGradingSubmission(null);
-              }} className="bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs py-2 px-4 shadow-sm">
+              }} className="rounded-xl text-xs py-2 px-4 shadow-sm">
                 Đóng
               </Button>
             </DialogFooter>
@@ -3368,7 +3541,7 @@ export function ClassOverviewPage() {
                 <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary"
+                    className="w-4 h-4 rounded border-slate-300 focus:ring-primary"
                     checked={assignSubMentorIds.includes(s.classroomSubjectStudentId!)}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -3401,7 +3574,7 @@ export function ClassOverviewPage() {
             </Button>
             <Button
               onClick={handleConfirmAssignSubMentors}
-              className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold flex items-center gap-1.5"
+              className="h-9 rounded-xl text-xs font-semibold flex items-center gap-1.5"
               disabled={assignSubMentorIds.length === 0 || loadingSupport}
             >
               <Save className="size-3.5" />

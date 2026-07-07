@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -77,6 +77,19 @@ export function NodeTestPage() {
     }
   };
 
+  // Rời tab khi đang làm bài → ghi nhận về BE (chống gian lận) + cảnh báo khi quay lại.
+  const handleTabOut = useCallback(async () => {
+    if (attemptId == null) return;
+    try {
+      const count = await studentService.recordTabOut(id, attemptId);
+      toast.warning(`Bạn vừa rời khỏi tab khi đang làm bài (lần ${count}). Hành vi này được ghi nhận.`, {
+        duration: 8000,
+      });
+    } catch {
+      // Không chặn việc làm bài nếu ghi nhận thất bại
+    }
+  }, [id, attemptId]);
+
   const goBack = () => {
     if (csId) navigate(`/student/classroom-subjects/${csId}/learning-path`);
     else navigate('/student/courses');
@@ -148,6 +161,7 @@ export function NodeTestPage() {
         submitting={submitting}
         onStart={handleStart}
         onSubmit={handleSubmit}
+        onTabOut={handleTabOut}
       />
     </div>
   );

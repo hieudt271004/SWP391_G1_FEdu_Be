@@ -29,6 +29,8 @@ export interface LearningPathResponse {
   pathName: string;
   description: string;
   createdById: number;
+  creatorName?: string;
+  creatorRole?: string;
   classroomSubjectId?: number | null;
   level?: LearningPathLevel | null;
   createdAt: string;
@@ -86,6 +88,16 @@ export interface AvailableTemplateResponse {
   pathId: number;
   pathName: string;
   description: string;
+  nodeCount: number;
+  lastUpdatedAt: string;
+}
+
+export interface CloneablePathResponse {
+  pathId: number;
+  pathName: string;
+  description: string;
+  type: 'TEMPLATE' | 'CLASSROOM';
+  sourceClassroomName?: string | null;
   nodeCount: number;
   lastUpdatedAt: string;
 }
@@ -286,6 +298,10 @@ export const learningPathService = {
         templatePathId != null ? `?templatePathId=${templatePathId}` : ''
       }`
     ),
+  getCloneablePaths: (classroomSubjectId: number) =>
+    http.get<CloneablePathResponse[]>(`/teacher-manage/classrooms/${classroomSubjectId}/cloneable-paths`),
+  createCustomPath: (classroomSubjectId: number) =>
+    http.post<LearningPathResponse>(`/teacher-manage/classrooms/${classroomSubjectId}/custom-path`),
   publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
     http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
   unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>
