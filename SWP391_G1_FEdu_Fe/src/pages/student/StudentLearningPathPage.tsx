@@ -52,6 +52,8 @@ export function StudentLearningPathPage() {
   const [subject, setSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
+  const [totalMaterials, setTotalMaterials] = useState<number>(0);
+  const [totalCompleted, setTotalCompleted] = useState<number>(0);
   
   // Loading & error states
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,9 @@ export function StudentLearningPathPage() {
   // Test attempt history states
   const [testHistory, setTestHistory] = useState<StudentTestAttemptHistoryResponse[]>([]);
 
+  // Load completed materials from Backend
+  const [completedMaterials, setCompletedMaterials] = useState<Record<string, boolean>>({});
+
   const refreshProgressData = async () => {
     if (!user?.userId || !classroomSubjectId) return null;
     const graph = await studentService.getClassroomSubjectGraph(classroomSubjectId);
@@ -88,12 +93,27 @@ export function StudentLearningPathPage() {
       return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
     });
     setNodes(sortedNodes);
+    setTotalMaterials(graph.totalMaterials || 0);
+    setTotalCompleted(graph.completedMaterials || 0);
 
     try {
       const history = await studentService.getTestHistory();
       setTestHistory(history || []);
     } catch (hErr) {
       console.error("Failed to load test history:", hErr);
+      toast.warning("Không thể tải lịch sử làm bài.");
+    }
+
+    try {
+      const completedMaterialIds = await studentService.getCompletedMaterials();
+      const newMaterialsMap: Record<string, boolean> = {};
+      completedMaterialIds.forEach(id => {
+        newMaterialsMap[`${user.userId}-${id}`] = true;
+      });
+      setCompletedMaterials(newMaterialsMap);
+    } catch (mErr) {
+      console.error("Failed to load completed materials:", mErr);
+      toast.warning("Không thể tải tiến độ học liệu.");
     }
     return sortedNodes;
   };
@@ -306,6 +326,7 @@ export function StudentLearningPathPage() {
       await studentService.submitExercise(exerciseId, formData);
       toast.success("Nộp bài tập thực hành thành công!");
       await fetchExerciseSubmission(exerciseId);
+      await refreshProgressData();
       setIsResubmitting(false);
       setSubmissionText('');
       setSubmissionFile(null);
@@ -333,6 +354,16 @@ export function StudentLearningPathPage() {
     return allItems.findIndex(item => item.type === activeItem.type && item.id === activeItem.id);
   }, [activeItem, allItems]);
 
+  const currentItemsForNode = useMemo(() => {
+    if (!activeItem) return [];
+    return allItems.filter(item => item.nodeId === activeItem.nodeId);
+  }, [activeItem, allItems]);
+
+  const currentItemIndexInNode = useMemo(() => {
+    if (!activeItem) return -1;
+    return currentItemsForNode.findIndex(item => item.type === activeItem.type && item.id === activeItem.id);
+  }, [activeItem, currentItemsForNode]);
+
   const handlePrevItem = () => {
     if (currentItemIndex > 0) {
       setActiveItem(allItems[currentItemIndex - 1]);
@@ -347,15 +378,13 @@ export function StudentLearningPathPage() {
 
   // Calculate general progress
   const progressStats = useMemo(() => {
-    if (nodes.length === 0) return { completed: 0, total: 0, percent: 0 };
-    const completed = nodes.filter(n => n.studentStatus === 'COMPLETED').length;
-    const total = nodes.length;
+    if (totalMaterials === 0) return { completed: 0, total: 0, percent: 0 };
     return {
-      completed,
-      total,
-      percent: Math.round((completed / total) * 100)
+      completed: totalCompleted,
+      total: totalMaterials,
+      percent: Math.round((totalCompleted / totalMaterials) * 100)
     };
-  }, [nodes]);
+  }, [totalMaterials, totalCompleted]);
 
   // Complete active node logic
   const activeNode = useMemo(() => {
@@ -365,31 +394,78 @@ export function StudentLearningPathPage() {
 
   const isNodeCompleted = activeNode?.studentStatus === 'COMPLETED';
 
-  const isContentNode = useMemo(() => {
-    if (!activeNode) return false;
-    const hasTest = activeNode.testKind && activeNode.testKind !== 'NONE';
-    const content = nodeContents[activeNode.nodeId];
-    const hasQuizOrExercise = (content?.tests && content.tests.length > 0) || (content?.exercises && content.exercises.length > 0);
-    return !hasTest && !hasQuizOrExercise;
-  }, [activeNode, nodeContents]);
+  // Check if active item is individually completed
+  const isItemCompleted = useMemo(() => {
+    if (!activeItem || !activeNode) return false;
+    if (activeNode.studentStatus === 'COMPLETED') return true;
+    if (activeItem.type === 'material') {
+      return !!completedMaterials[`${user?.userId}-${activeItem.id}`];
+    }
+    if (activeItem.type === 'test') {
+      const history = testHistory.filter(h => h.testId === activeItem.id);
+      return history.some(h => h.score >= activeItem.data.passingPercentage);
+    }
+    if (activeItem.type === 'exercise') {
+      const submission = exerciseSubmissions[activeItem.id];
+      return submission?.status === 'SUBMITTED' || submission?.status === 'GRADED';
+    }
+    return false;
+  }, [activeItem, activeNode, completedMaterials, user?.userId, testHistory, exerciseSubmissions]);
 
   const [completingNodeId, setCompletingNodeId] = useState<number | null>(null);
 
-  const handleCompleteActiveNode = async () => {
-    if (!activeNode) return;
+  const handleCompleteActiveItem = async () => {
+    if (!activeItem || !activeNode || !user?.userId) return;
     try {
       setCompletingNodeId(activeNode.nodeId);
-      await studentService.completeNode(activeNode.nodeId);
-      toast.success("Chúc mừng bạn đã hoàn thành bài học này!");
-      await refreshProgressData(); // Refresh status/graph
       
-      // Proactively go to next item
+      // 1. Mark this specific material completed on Backend
+      await studentService.completeMaterial(activeItem.id);
+      
+      const key = `${user.userId}-${activeItem.id}`;
+      const updatedMaterials = { ...completedMaterials, [key]: true };
+      setCompletedMaterials(updatedMaterials);
+      
+      toast.success("Đã đánh dấu hoàn thành bài học!");
+      await refreshProgressData();
+
+      // 2. Check if all items in this node are completed
+      const content = nodeContents[activeNode.nodeId];
+      if (content) {
+        const materials = content.materials || [];
+        const tests = content.tests || [];
+        const exercises = content.exercises || [];
+
+        const allMaterialsDone = materials.every(m => {
+          if (m.materialId === activeItem.id) return true;
+          return !!updatedMaterials[`${user.userId}-${m.materialId}`];
+        });
+
+        const allTestsDone = tests.every(t => {
+          const history = testHistory.filter(h => h.testId === t.testId);
+          return history.some(h => h.score >= (t.passingPercentage ?? 0));
+        });
+
+        const allExercisesDone = exercises.every(e => {
+          const sub = exerciseSubmissions[e.exerciseId];
+          return sub?.status === 'SUBMITTED' || sub?.status === 'GRADED';
+        });
+
+        if (allMaterialsDone && allTestsDone && allExercisesDone) {
+          // Complete node on backend
+          await studentService.completeNode(activeNode.nodeId);
+          toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
+          await refreshProgressData();
+        }
+      }
+
+      // 3. Proactively go to next item
       if (currentItemIndex < allItems.length - 1) {
         setActiveItem(allItems[currentItemIndex + 1]);
       }
     } catch (err: any) {
-      console.error("Complete node failed:", err);
-      toast.error(err.message || "Không thể đánh dấu hoàn thành bài học. Vui lòng thử lại.");
+      console.error("Complete active item error:", err);
+      toast.error("Không thể đánh dấu hoàn thành bài học. Vui lòng thử lại.");
     } finally {
       setCompletingNodeId(null);
     }
@@ -403,14 +479,14 @@ export function StudentLearningPathPage() {
       <div className="border-t border-zinc-200 pt-8 mt-12 space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
-            {isNodeCompleted ? (
+            {isItemCompleted ? (
               <div className="flex items-center gap-2 text-emerald-600 font-extrabold text-sm">
                 <CheckCircle2 className="size-5 text-emerald-600 fill-emerald-50" />
                 <span>Completed</span>
               </div>
-            ) : isContentNode ? (
+            ) : activeItem.type === 'material' ? (
               <Button
-                onClick={handleCompleteActiveNode}
+                onClick={handleCompleteActiveItem}
                 disabled={completingNodeId === activeNode.nodeId}
                 className="bg-black hover:bg-zinc-800 text-white font-extrabold rounded-xl px-5 h-10 flex items-center gap-1.5 shadow-xs"
               >
@@ -425,7 +501,7 @@ export function StudentLearningPathPage() {
               </span>
             )}
 
-            {isNodeCompleted && hasNextItem && (
+            {isItemCompleted && hasNextItem && (
               <Button
                 onClick={handleNextItem}
                 className="bg-black hover:bg-zinc-800 text-white font-extrabold rounded-xl px-5 h-10"
@@ -435,15 +511,7 @@ export function StudentLearningPathPage() {
             )}
           </div>
 
-          {hasNextItem && (
-            <Button
-              onClick={handleNextItem}
-              className="bg-black hover:bg-zinc-800 text-white font-extrabold rounded-xl px-5 h-10 flex items-center gap-1.5 shadow-sm"
-            >
-              <span>Go to next item</span>
-              <ArrowRight className="size-4" />
-            </Button>
-          )}
+          {/* Right side next item button removed as requested */}
         </div>
 
         <div className="flex items-center gap-6 text-zinc-500 text-xs font-semibold pt-2">
@@ -505,6 +573,8 @@ export function StudentLearningPathPage() {
         allItems={allItems}
         setActiveItem={setActiveItem}
         ensureNodeContent={ensureNodeContent}
+        completedMaterials={completedMaterials}
+        userId={user?.userId}
       />
     );
   }
@@ -532,14 +602,11 @@ export function StudentLearningPathPage() {
 
           {/* Progress bar */}
           <div className="mt-4 space-y-1">
-            <div className="flex justify-between items-center text-[11px] font-bold text-zinc-700">
-              <span>Tiến độ lộ trình</span>
-              <span>{progressStats.percent}%</span>
-            </div>
             <Progress value={progressStats.percent} className="h-1.5 bg-zinc-200" />
-            <p className="text-[9px] text-zinc-400 font-medium">
-              Đã hoàn thành {progressStats.completed}/{progressStats.total} bài học
-            </p>
+            <div className="flex justify-between text-xs text-zinc-500 mb-1">
+              <span>Đã hoàn thành {progressStats.completed}/{progressStats.total} học liệu</span>
+              <span className="font-bold text-zinc-700">{progressStats.percent}%</span>
+            </div>
           </div>
         </div>
 
@@ -631,7 +698,7 @@ export function StudentLearningPathPage() {
                                   )}
                                   <span className="truncate">{m.title}</span>
                                 </div>
-                                {isCompleted && (
+                                {(isCompleted || completedMaterials[`${user?.userId}-${m.materialId}`]) && (
                                   <CheckCircle2 className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-emerald-600'}`} />
                                 )}
                               </button>
@@ -655,7 +722,7 @@ export function StudentLearningPathPage() {
                                   <Award className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-zinc-550'}`} />
                                   <span className="truncate">{t.title}</span>
                                 </div>
-                                {isCompleted && (
+                                {(isCompleted || testHistory.filter(h => h.testId === t.testId).some(h => h.score >= (t.passingPercentage ?? 0))) && (
                                   <CheckCircle2 className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-emerald-600'}`} />
                                 )}
                               </button>
@@ -1141,7 +1208,7 @@ export function StudentLearningPathPage() {
             </Button>
 
             <div className="text-xs text-zinc-450 font-bold">
-              {currentItemIndex + 1} / {allItems.length} mục
+              {currentItemIndexInNode + 1} / {currentItemsForNode.length} mục
             </div>
 
             <Button

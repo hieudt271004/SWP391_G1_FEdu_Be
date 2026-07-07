@@ -33,6 +33,8 @@ interface StudentSyllabusViewProps {
   allItems: LearningPathItem[];
   setActiveItem: (item: LearningPathItem) => void;
   ensureNodeContent: (nodeId: number) => Promise<any>;
+  completedMaterials: Record<string, boolean>;
+  userId: number | undefined;
 }
 
 export function StudentSyllabusView({
@@ -45,7 +47,9 @@ export function StudentSyllabusView({
   progressStats,
   allItems,
   setActiveItem,
-  ensureNodeContent
+  ensureNodeContent,
+  completedMaterials,
+  userId
 }: StudentSyllabusViewProps) {
   const navigate = useNavigate();
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
@@ -249,6 +253,9 @@ export function StudentSyllabusView({
                       {(() => {
                         const completedItems = nodeItems.map(itm => {
                           if (isCompleted) return true;
+                          if (itm.type === 'material') {
+                            return completedMaterials[`${userId}-${itm.id}`] || false;
+                          }
                           if (itm.type === 'test') {
                             const history = testHistory.filter(h => h.testId === itm.id);
                             return history.some(h => h.score >= itm.data.passingPercentage);

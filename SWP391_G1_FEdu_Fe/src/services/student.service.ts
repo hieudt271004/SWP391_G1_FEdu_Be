@@ -120,6 +120,14 @@ export const studentService = {
   completeNode: (nodeId: number) =>
     http.post<void>(`/student/learning-nodes/${nodeId}/complete`, {}),
 
+  // Đánh dấu hoàn thành một học liệu
+  completeMaterial: (materialId: number) =>
+    http.post<void>(`/student/learning-materials/${materialId}/complete`, {}),
+
+  // Lấy danh sách ID các học liệu đã hoàn thành
+  getCompletedMaterials: () =>
+    http.get<number[]>('/student/learning-materials/completed'),
+
   // ── Node test ──────────────────────────────────────────────────────────
   getTestDetails: (testId: number) =>
     http.get<StudentTestDetails>(`/student/tests/${testId}`),
@@ -206,9 +214,6 @@ export const studentService = {
   },
 
   getMyExerciseSubmission: (exerciseId: number) =>
-    http.get<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions/me`),
-
-  getMySubmission: (exerciseId: number) =>
     http.get<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions/me`),
 
   getStudentSchedule: () =>

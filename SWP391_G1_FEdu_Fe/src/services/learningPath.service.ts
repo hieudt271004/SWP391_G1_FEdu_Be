@@ -120,11 +120,13 @@ export interface ClassroomGraphResponse {
   publishedAt: string | null;
   nodes: LearningNodeResponse[];
   edges: NodeEdgeResponse[];
-  paths: ClassroomPathDto[] | null;
-  canCloneAll: boolean | null;
-  missingLevels: number[] | null;
-  availableTemplates: AvailableTemplateResponse[] | null;
-  quizStartTestId: number | null;
+  paths?: ClassroomPathResponse[];
+  canCloneAll?: boolean;
+  missingLevels?: number[];
+  availableTemplates?: AvailableTemplateResponse[];
+  quizStartTestId?: number | null;
+  totalMaterials?: number;
+  completedMaterials?: number;
 }
 
 export interface CreateLearningNodeRequest {

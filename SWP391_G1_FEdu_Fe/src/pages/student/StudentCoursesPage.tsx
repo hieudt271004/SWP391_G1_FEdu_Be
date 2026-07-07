@@ -258,7 +258,7 @@ export function StudentCoursesPage() {
       if (content.exercises && content.exercises.length > 0) {
         content.exercises.forEach(async (ex) => {
           try {
-            const sub = await studentService.getMySubmission(ex.exerciseId);
+            const sub = await studentService.getMyExerciseSubmission(ex.exerciseId);
             setExerciseSubmissions(prev => ({ ...prev, [ex.exerciseId]: sub }));
           } catch (err) {
             setExerciseSubmissions(prev => ({ ...prev, [ex.exerciseId]: null }));
@@ -276,7 +276,7 @@ export function StudentCoursesPage() {
       if (content.exercises && content.exercises.length > 0) {
         content.exercises.forEach(async (ex) => {
           try {
-            const sub = await studentService.getMySubmission(ex.exerciseId);
+            const sub = await studentService.getMyExerciseSubmission(ex.exerciseId);
             setExerciseSubmissions(prev => ({ ...prev, [ex.exerciseId]: sub }));
           } catch (err) {
             setExerciseSubmissions(prev => ({ ...prev, [ex.exerciseId]: null }));

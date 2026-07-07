@@ -3,6 +3,8 @@ import { Home, BookOpen, Upload, Settings, GraduationCap, Calendar } from 'lucid
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
 
+import { ErrorBoundary } from '../ui/ErrorBoundary';
+
 export function StudentLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -92,13 +94,15 @@ export function StudentLayout() {
       )}
 
       <main className="flex-1 overflow-y-auto">
-        {isLearnMode ? (
-          <Outlet />
-        ) : (
-          <div className="max-w-7xl mx-auto p-6">
+        <ErrorBoundary>
+          {isLearnMode ? (
             <Outlet />
-          </div>
-        )}
+          ) : (
+            <div className="max-w-7xl mx-auto p-6">
+              <Outlet />
+            </div>
+          )}
+        </ErrorBoundary>
       </main>
     </div>
   );

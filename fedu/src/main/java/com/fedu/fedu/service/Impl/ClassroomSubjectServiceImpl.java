@@ -110,6 +110,12 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
     public void removeClassroomSubject(Long classroomSubjectId) {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found with id: " + classroomSubjectId));
+
+        int studentCount = classroomSubjectStudentRepository.findAllByClassroomSubjectId(classroomSubjectId).size();
+        if (studentCount > 0) {
+            throw new InvalidDataException("Không thể xóa môn học này vì đang có " + studentCount + " học sinh tham gia. Vui lòng loại bỏ học sinh khỏi môn trước.");
+        }
+
         classroomSubjectRepository.delete(cs);
         log.info("Removed classroom-subject id: {}", classroomSubjectId);
     }

@@ -89,4 +89,23 @@ public class StudentLearningPathController {
         studentTestService.completeNode(nodeId, currentUser.getUserId());
         return new ResponseData<>(HttpStatus.OK.value(), "Đã hoàn thành bài học");
     }
+    @Operation(summary = "Complete a material (video/pdf) within a node")
+    @PreAuthorize("hasRole('STUDENT')")
+    @PostMapping("/learning-materials/{materialId}/complete")
+    public ResponseData<Void> completeMaterial(
+            @PathVariable Long materialId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Student ID {} completes material id: {}", currentUser.getUserId(), materialId);
+        studentProgressService.markMaterialAsCompleted(materialId, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Đã đánh dấu hoàn thành học liệu");
+    }
+
+    @Operation(summary = "Get list of completed material IDs for current student")
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/learning-materials/completed")
+    public ResponseData<java.util.List<Long>> getCompletedMaterials(
+            @AuthenticationPrincipal UserAccount currentUser) {
+        java.util.List<Long> completedIds = studentProgressService.getCompletedMaterialIds(currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Retrieved completed materials successfully", completedIds);
+    }
 }
