@@ -251,11 +251,11 @@ export function TeacherCoursesPage() {
                       </p>
                     </CardContent>
 
-                    <CardFooter className="p-5 pt-3 border-t border-border bg-muted/10">
+                    <CardFooter className="p-5 pt-3 border-t border-border bg-muted/10 flex gap-2">
                       <Button
                         variant="outline"
                         onClick={() => navigate(`/teacher/courses/${template.subjectId}?view=template&pathId=${template.pathId}`)}
-                        className="w-full text-xs border-border text-foreground hover:bg-muted rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors h-8"
+                        className="flex-1 text-xs border-border text-foreground hover:bg-muted rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors h-8"
                       >
                         <Eye className="w-4 h-4" />
                         Chi tiết
