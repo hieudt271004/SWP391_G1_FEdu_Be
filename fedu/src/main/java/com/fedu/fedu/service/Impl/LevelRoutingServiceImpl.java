@@ -30,6 +30,11 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
     private final StudentNodeProgressRepository studentNodeProgressRepository;
     private final NodeEdgeRepository nodeEdgeRepository;
     private final LearningPathRepository learningPathRepository;
+    private final TestRepository testRepository;
+
+    /** Ngưỡng mặc định khi node PLACEMENT không cấu hình (khớp band mặc định FE: 0-40-70-100). */
+    private static final BigDecimal DEFAULT_YEU_MAX = BigDecimal.valueOf(40);
+    private static final BigDecimal DEFAULT_TB_MAX = BigDecimal.valueOf(70);
 
     @Override
     @Transactional(readOnly = true)
@@ -41,6 +46,26 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
             if (percentage.compareTo(band.getMinScore()) >= 0 && percentage.compareTo(band.getMaxScore()) <= 0) {
                 return band.getTargetLevel();
             }
+        }
+
+        // Thiết kế mới: bài test năng lực được tạo trên node PLACEMENT của lộ trình, ngưỡng nằm
+        // ngay trên node (placementYeuMax/placementTbMax) chứ không có QuizScoreBand → dùng ngưỡng node.
+        Test test = testRepository.findById(testId).orElse(null);
+        LearningNode node = test != null ? test.getLearningNode() : null;
+        if (node != null && node.getTestKind() == NodeTestKind.PLACEMENT) {
+            BigDecimal yeuMax = node.getPlacementYeuMax() != null ? node.getPlacementYeuMax() : DEFAULT_YEU_MAX;
+            BigDecimal tbMax = node.getPlacementTbMax() != null ? node.getPlacementTbMax() : DEFAULT_TB_MAX;
+            if (node.getPlacementYeuMax() == null || node.getPlacementTbMax() == null) {
+                log.warn("Node PLACEMENT {} thiếu ngưỡng phân mức — dùng mặc định {}/{}.",
+                        node.getNodeId(), DEFAULT_YEU_MAX, DEFAULT_TB_MAX);
+            }
+            if (percentage.compareTo(yeuMax) <= 0) {
+                return LearningLevels.WEAK;
+            }
+            if (percentage.compareTo(tbMax) <= 0) {
+                return LearningLevels.MEDIUM;
+            }
+            return LearningLevels.GOOD;
         }
         return null;
     }

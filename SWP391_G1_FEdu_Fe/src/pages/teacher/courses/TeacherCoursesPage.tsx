@@ -19,7 +19,6 @@ import {
   Search,
   Plus,
   Eye,
-  Zap,
   Calendar,
   Map,
   Info,
@@ -259,7 +258,14 @@ export function TeacherCoursesPage() {
                         className="w-full text-xs border-border text-foreground hover:bg-muted rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors h-8"
                       >
                         <Eye className="w-4 h-4" />
-                        Xem chi tiết
+                        Chi tiết
+                      </Button>
+                      <Button
+                        onClick={() => handleOpenApply(template)}
+                        className="flex-1 text-xs bg-primary hover:bg-primary/90 text-primary-foreground rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors h-8 border-none"
+                      >
+                        <GraduationCap className="w-4 h-4" />
+                        Áp dụng
                       </Button>
                     </CardFooter>
                   </Card>
@@ -308,6 +314,12 @@ export function TeacherCoursesPage() {
             </p>
           </div>
         </div>
+        <Button 
+          onClick={() => setIsCreateOpen(true)}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg text-xs h-10 px-4 flex items-center gap-2 border-none shadow-sm cursor-pointer shrink-0 md:self-end"
+        >
+          <Plus className="w-4 h-4" /> Tạo lộ trình mới
+        </Button>
       </div>
 
       {/* Filter and search bar */}
@@ -356,6 +368,27 @@ export function TeacherCoursesPage() {
         </div>
       )}
 
+      {/* Dialog Modals */}
+      <CreateTemplateDialog
+        isOpen={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        subjects={subjects}
+        onCreated={handleCreated}
+      />
+
+      <ViewTemplateDetailDialog
+        isOpen={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
+        template={selectedTemplateForDetail}
+      />
+
+      <ApplyTemplateDialog
+        isOpen={isApplyOpen}
+        onOpenChange={setIsApplyOpen}
+        template={selectedTemplateForApply}
+        classrooms={classrooms}
+        onApplied={handleApplied}
+      />
     </div>
   );
 }
@@ -799,4 +832,3 @@ function ApplyTemplateDialog({
     </Dialog>
   );
 }
-

@@ -68,4 +68,9 @@ public class StudentNodeProgress extends AbstractEntity<Long> {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    /** Hoàn thành SAU deadline của node (node.deadlineAt) — dùng cho báo cáo trễ hạn. */
+    @Builder.Default
+    @Column(name = "completed_late")
+    private Boolean completedLate = false;
 }

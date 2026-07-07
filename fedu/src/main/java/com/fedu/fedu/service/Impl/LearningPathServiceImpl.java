@@ -231,6 +231,14 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .isDeleted(false)
                     .build();
             testRepository.save(nt);
+            
+            if (dst.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT) {
+                ClassroomSubject cs = dst.getLearningPath().getClassroomSubject();
+                if (cs != null) {
+                    cs.setQuizStart(nt);
+                    classroomSubjectRepository.save(cs);
+                }
+            }
 
             for (TestQuestion q : testQuestionRepository.findByTestTestId(t.getTestId())) {
                 TestQuestion nq = TestQuestion.builder()
@@ -431,6 +439,15 @@ public class LearningPathServiceImpl implements LearningPathService {
         LearningPath learningPath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
+        if (request.getNodeType() == NodeType.ON_CLASS && learningPath.getClassroomSubject() != null) {
+            throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
+        }
+
+        // Lộ trình mẫu không mang deadline — deadline do giáo viên thiết lập sau khi clone về lớp.
+        if (request.getDeadlineAt() != null && learningPath.getClassroomSubject() == null) {
+            throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
+        }
+
         if (request.getStageOrder() != null && request.getStageOrder() < 1) {
             throw new InvalidDataException("stageOrder phải >= 1");
         }
@@ -454,6 +471,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .gateDownMax(request.getGateDownMax())
                 .placementYeuMax(request.getPlacementYeuMax())
                 .placementTbMax(request.getPlacementTbMax())
+                .deadlineAt(request.getDeadlineAt())
                 .isDeleted(false)
                 .build();
 
@@ -469,6 +487,11 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         // Không cho đổi node thành loại "Trên lớp" trên lộ trình của lớp-môn (chỉ admin/lộ trình gốc).
 
+        // Lộ trình mẫu không mang deadline — deadline do giáo viên thiết lập sau khi clone về lớp.
+        if (request.getDeadlineAt() != null && node.getLearningPath().getClassroomSubject() == null) {
+            throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
+        }
+
         node.setTitle(request.getTitle());
         if (request.getDescription() != null) node.setDescription(request.getDescription());
         node.setNodeType(request.getNodeType());
@@ -483,6 +506,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getGateDownMax() != null) node.setGateDownMax(request.getGateDownMax());
         if (request.getPlacementYeuMax() != null) node.setPlacementYeuMax(request.getPlacementYeuMax());
         if (request.getPlacementTbMax() != null) node.setPlacementTbMax(request.getPlacementTbMax());
+        if (request.getDeadlineAt() != null) node.setDeadlineAt(request.getDeadlineAt());
 
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
@@ -618,6 +642,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .slotName(node.getSlot() != null ? node.getSlot().getSlotName() : null)
                 .startTime(node.getSlot() != null ? node.getSlot().getStartTime() : null)
                 .endTime(node.getSlot() != null ? node.getSlot().getEndTime() : null)
+                .deadlineAt(node.getDeadlineAt())
                 .createdAt(node.getCreatedAt())
                 .updatedAt(node.getUpdatedAt())
                 .build();
@@ -956,17 +981,41 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
         List<LearningNode> entryNodes = validateAndGetEntryNodes(nodes, edges);
 
+        // Tìm danh sách Node ID nằm ngay sau Node PLACEMENT
+        List<Long> placementNodeIds = nodes.stream()
+                .filter(n -> n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT)
+                .map(LearningNode::getNodeId)
+                .toList();
+        Set<Long> nodesAfterPlacement = edges.stream()
+                .filter(e -> placementNodeIds.contains(e.getFromNode().getNodeId()))
+                .map(e -> e.getToNode().getNodeId())
+                .collect(Collectors.toSet());
+
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
-            boolean openIt = entryNodes.contains(node) && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN) && levelOk;
+            // Một node được mở khóa ban đầu nếu nó là entry node HOẶC nằm ngay sau node PLACEMENT,
+            // thỏa mãn level; node ON_CLASS chỉ mở khi teacher đã mở khóa (status OPEN).
+            boolean isAfterPlacement = nodesAfterPlacement.contains(node.getNodeId());
+            boolean openIt = (entryNodes.contains(node) || isAfterPlacement)
+                    && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN)
+                    && levelOk;
+
+            // Tự động hoàn thành node test đầu vào (PLACEMENT) khi khởi tạo lộ trình
+            boolean isPlacement = node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT;
+            StudentProgressStatus initialStatus = isPlacement ? StudentProgressStatus.COMPLETED :
+                    (openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED);
+            java.time.LocalDateTime completedTime = isPlacement ? java.time.LocalDateTime.now() : null;
+            java.time.LocalDateTime unlockedTime = (isPlacement || openIt) ? java.time.LocalDateTime.now() : null;
+
             progressList.add(StudentNodeProgress.builder()
                     .classroomSubjectStudent(css)
                     .learningNode(node)
                     .learningPath(path)
                     .orderIndex(node.getDisplayOrder() != null ? node.getDisplayOrder() : 0)
-                    .status(openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED)
-                    .unlockedAt(openIt ? java.time.LocalDateTime.now() : null)
+                    .status(initialStatus)
+                    .unlockedAt(unlockedTime)
+                    .completedAt(completedTime)
                     .build());
         }
         studentNodeProgressRepository.saveAll(progressList);
@@ -1158,9 +1207,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
 
         if (request.getStudyDate() == null || request.getSlotId() == null) {
-            // Xóa lịch học
+            // Xóa lịch học; deadline chỉ giữ lại nếu request vẫn gửi kèm (deadline thủ công)
             node.setStudyDate(null);
             node.setSlot(null);
+            node.setDeadlineAt(request.getDeadlineAt());
             learningNodeRepository.save(node);
             return mapToLearningNodeResponse(node);
         }
@@ -1233,9 +1283,13 @@ public class LearningPathServiceImpl implements LearningPathService {
             }
         }
 
-        // Lưu lịch học
+        // Lưu lịch học. Deadline: dùng giá trị teacher nhập; bỏ trống thì suy ra
+        // = hết giờ buổi học (studyDate + slot.endTime) để node có hạn hoàn thành.
         node.setStudyDate(request.getStudyDate());
         node.setSlot(slot);
+        node.setDeadlineAt(request.getDeadlineAt() != null
+                ? request.getDeadlineAt()
+                : request.getStudyDate().atTime(slot.getEndTime()));
         learningNodeRepository.save(node);
 
         return mapToLearningNodeResponse(node);

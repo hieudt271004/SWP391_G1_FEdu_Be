@@ -234,6 +234,8 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 statement.execute("ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL");
                 // Placement cancel/retake: trạng thái lượt làm bài
                 statement.execute("ALTER TABLE student_test_attempts ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'SUBMITTED'");
+                // Số lần học sinh rời tab khi đang làm bài (chống gian lận)
+                statement.execute("ALTER TABLE student_test_attempts ADD COLUMN IF NOT EXISTS tab_out_count INT DEFAULT 0");
                 log.info("Adaptive placement: columns added/verified.");
             }
 
@@ -347,6 +349,13 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                     statement.execute("ALTER TABLE learning_nodes ADD COLUMN slot_id BIGINT REFERENCES slots(slot_id) ON DELETE SET NULL");
                     log.info("Migration successful: added 'study_date' and 'slot_id' columns to 'learning_nodes' table.");
                 }
+            }
+
+            // Deadline hoàn thành node + cờ hoàn thành trễ hạn của học sinh
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS deadline_at TIMESTAMP NULL");
+                statement.execute("ALTER TABLE student_node_progress ADD COLUMN IF NOT EXISTS completed_late BOOLEAN DEFAULT FALSE");
+                log.info("Node deadline: columns 'deadline_at' (learning_nodes), 'completed_late' (student_node_progress) added/verified.");
             }
         } catch (Exception e) {
             log.error("Failed to run database migration: {}", e.getMessage(), e);

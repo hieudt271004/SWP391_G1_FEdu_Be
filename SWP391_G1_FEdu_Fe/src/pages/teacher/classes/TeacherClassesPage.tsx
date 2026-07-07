@@ -210,10 +210,10 @@ export function TeacherClassesPage() {
             <button
               key={tab.key}
               onClick={() => setStatusFilter(tab.key)}
-              className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all cursor-pointer border-none bg-transparent ${
+              className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all cursor-pointer border-none ${
                 statusFilter === tab.key
                   ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
+                  : 'bg-transparent text-muted-foreground hover:bg-background/50 hover:text-foreground'
               }`}
             >
               {tab.label}

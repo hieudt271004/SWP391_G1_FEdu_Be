@@ -4,7 +4,7 @@ import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Eye, ChevronLeft, Ch
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
 import type { Subject } from "../../types/subject";
-import type { ClassroomResponse } from "../../types/classroom";
+import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
 import { SubjectEditModal } from "./SubjectEditModal";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -24,7 +24,7 @@ interface AdminCourse {
   thumbnail: string;
 }
 
-function subjectToRecord(s: Subject, classMap: Record<number, ClassroomResponse[]>): AdminCourse {
+function subjectToRecord(s: Subject, classMap: Record<number, ClassroomSubjectResponse[]>): AdminCourse {
   const codeInitials = (s.subjectCode || "SB").slice(0, 2).toUpperCase();
   const linkedClasses = classMap[s.subjectId] || [];
   
@@ -32,7 +32,7 @@ function subjectToRecord(s: Subject, classMap: Record<number, ClassroomResponse[
   const studentsCount = linkedClasses.reduce((sum, c) => sum + (c.studentCount || 0), 0);
   
   // Calculate active classes count
-  const activeClassesCount = linkedClasses.filter(c => c.status === "active").length;
+  const activeClassesCount = linkedClasses.length;
 
   return {
     id: s.subjectId,
@@ -75,11 +75,11 @@ export function SubjectManagementPage() {
       const subjects = await subjectService.getAll();
       
       // Get linked classrooms per subject
-      const classMap: Record<number, ClassroomResponse[]> = {};
+      const classMap: Record<number, ClassroomSubjectResponse[]> = {};
       await Promise.all(
         subjects.map(async (s) => {
           try {
-            const classes = await classroomService.getBySubjectId(s.subjectId);
+            const classes = await classroomService.getClassroomsBySubject(s.subjectId);
             classMap[s.subjectId] = classes;
           } catch {
             classMap[s.subjectId] = [];
@@ -326,14 +326,6 @@ export function SubjectManagementPage() {
                   </th>
                   <th 
                     className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
-                    onClick={() => handleSort("classes")}
-                  >
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
-                      LỚP HỌC {getSortIcon("classes")}
-                    </span>
-                  </th>
-                  <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("students")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -364,9 +356,6 @@ export function SubjectManagementPage() {
                     <td className="px-6 py-4.5">
                       <div className="text-sm font-semibold text-foreground">{course.title}</div>
                       <div className="text-xs text-muted-foreground max-w-[300px] truncate mt-0.5">{course.description}</div>
-                    </td>
-                    <td className="px-6 py-4.5">
-                      <span className="text-sm text-muted-foreground">{course.instructor}</span>
                     </td>
                     <td className="px-6 py-4.5">
                       <span className="text-sm text-muted-foreground">

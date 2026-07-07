@@ -37,6 +37,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     private final StudentNodeProgressRepository studentNodeProgressRepository;
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final NodeEdgeRepository nodeEdgeRepository;
+    private final LearningNodeRepository learningNodeRepository;
     private final UserAccountRepository userAccountRepository;
     private final com.fedu.fedu.service.LevelRoutingService levelRoutingService;
     private final ClassroomSubjectRepository classroomSubjectRepository;
@@ -48,6 +49,46 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         verifyStudentAccess(test.getLearningNode(), studentId);
+
+        List<TestQuestion> questions = testQuestionRepository.findByTestTestId(testId);
+        List<QuestionResponse> questionResponses = questions.stream()
+                .map(q -> {
+                    List<TestAnswer> answers = testAnswerRepository.findByQuestionQuestionId(q.getQuestionId());
+                    List<AnswerResponse> answerResponses = answers.stream()
+                            .map(a -> AnswerResponse.builder()
+                                    .answerId(a.getAnswerId())
+                                    .answerContent(a.getAnswerContent())
+                                    .isCorrect(null) // Omit correctness flags for students
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    return QuestionResponse.builder()
+                            .questionId(q.getQuestionId())
+                            .questionContent(q.getQuestionContent())
+                            .questionType(q.getQuestionType())
+                            .score(q.getScore())
+                            .answers(answerResponses)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return StudentTestDetailsResponse.builder()
+                .testId(test.getTestId())
+                .title(test.getTitle())
+                .description(test.getDescription())
+                .durationMinutes(test.getDurationMinutes())
+                .passingPercentage(test.getPassingPercentage())
+                .questions(questionResponses)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StudentTestDetailsResponse getTestDetailsForPlacement(Long testId) {
+        // Dành riêng cho placement quiz: KHÔNG kiểm tra StudentNodeProgress.
+        // PlacementService đã kiểm soát quyền truy cập (requireNotPlacedYet + requirePlacementQuiz).
+        com.fedu.fedu.entity.Test test = testRepository.findById(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         List<TestQuestion> questions = testQuestionRepository.findByTestTestId(testId);
         List<QuestionResponse> questionResponses = questions.stream()
@@ -104,6 +145,27 @@ public class StudentTestServiceImpl implements StudentTestService {
 
     @Override
     @Transactional
+    public StudentTestAttempt startTestAttemptForPlacement(Long testId, Long studentId) {
+        // Dành riêng cho placement quiz: KHÔNG kiểm tra StudentNodeProgress.
+        // PlacementService đã kiểm soát quyền truy cập (requireNotPlacedYet + requirePlacementQuiz).
+        com.fedu.fedu.entity.Test test = testRepository.findById(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+
+        UserAccount student = userAccountRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+
+        StudentTestAttempt attempt = StudentTestAttempt.builder()
+                .test(test)
+                .student(student)
+                .startedAt(LocalDateTime.now())
+                .status(com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS)
+                .build();
+
+        return studentTestAttemptRepository.save(attempt);
+    }
+
+    @Override
+    @Transactional
     public AttemptSubmissionResultResponse submitTestAttempt(Long testId, Long attemptId, Long studentId, AttemptSubmissionRequest request) {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
@@ -118,6 +180,12 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (test.getLearningNode() == null) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài test phân loại: hãy dùng endpoint nộp bài phân loại (placement).");
+        }
+        // Test năng lực gắn trên node PLACEMENT cũng phải nộp qua luồng phân loại —
+        // nộp qua endpoint node thường sẽ KHÔNG gán mức cho học sinh.
+        if (test.getLearningNode().getTestKind() == NodeTestKind.PLACEMENT) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Bài test năng lực đầu vào: hãy nộp qua luồng phân loại (placement).");
         }
 
         BigDecimal finalPercentage = gradeAttempt(test, attempt, request);
@@ -310,6 +378,17 @@ public class StudentTestServiceImpl implements StudentTestService {
         return true;
     }
 
+    // Đánh dấu hoàn thành node; quá deadline (node.deadlineAt) thì gắn cờ hoàn thành trễ.
+    // Chính sách mềm: quá hạn vẫn hoàn thành được, chỉ ghi nhận để báo cáo.
+    private void markCompleted(StudentNodeProgress progress, LearningNode node) {
+        LocalDateTime now = LocalDateTime.now();
+        progress.setStatus(StudentProgressStatus.COMPLETED);
+        progress.setCompletedAt(now);
+        if (node.getDeadlineAt() != null && now.isAfter(node.getDeadlineAt())) {
+            progress.setCompletedLate(true);
+        }
+    }
+
     // Mở 1 node nếu đang LOCKED (không xét điều kiện tiên quyết).
     private void openNode(Long studentId, LearningNode target, Long pathId) {
         StudentNodeProgress tp = getProgress(studentId, pathId, target.getNodeId());
@@ -347,8 +426,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
-                gp.setStatus(StudentProgressStatus.COMPLETED);
-                gp.setCompletedAt(LocalDateTime.now());
+                markCompleted(gp, gateNode);
             }
             studentNodeProgressRepository.save(gp);
         }
@@ -371,8 +449,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         StudentNodeProgress gp = getProgress(studentId, pathId, fcNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
-                gp.setStatus(StudentProgressStatus.COMPLETED);
-                gp.setCompletedAt(LocalDateTime.now());
+                markCompleted(gp, fcNode);
             }
             studentNodeProgressRepository.save(gp);
         }
@@ -400,6 +477,27 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
+    @Override
+    @Transactional
+    public void completeNode(Long nodeId, Long studentId) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        verifyStudentAccess(node, studentId);
+
+        // Node test (năng lực / phân luồng / tự chọn) hoàn thành qua việc nộp bài test — không qua nút này.
+        if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Node kiểm tra được hoàn thành thông qua việc nộp bài test.");
+        }
+        // Node có bài test: phải đạt hết các bài test mới hoàn thành được.
+        if (!allNodeTestsPassed(studentId, node)) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Bài học này có bài kiểm tra — bạn cần đạt bài kiểm tra để hoàn thành.");
+        }
+        // Node không có test (hoặc đã đạt hết test): hoàn thành + mở các node kế đủ điều kiện.
+        routeMainNode(studentId, node, node.getLearningPath().getPathId(), true);
+    }
+
     private void routeMainNode(Long studentId, LearningNode node, Long pathId, boolean passed) {
         StudentNodeProgress current = getProgress(studentId, pathId, node.getNodeId());
         if (current == null) return;
@@ -407,8 +505,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (passed) {
             if (current.getStatus() != StudentProgressStatus.COMPLETED) {
                 if (!allNodeTestsPassed(studentId, node)) return;
-                current.setStatus(StudentProgressStatus.COMPLETED);
-                current.setCompletedAt(LocalDateTime.now());
+                markCompleted(current, node);
                 studentNodeProgressRepository.save(current);
             }
             for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(node.getNodeId())) {
