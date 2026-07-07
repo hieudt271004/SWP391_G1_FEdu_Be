@@ -225,24 +225,6 @@ export function StudentCoursesPage() {
     fetchCoursesData();
   }, [user?.userId]);
 
-  const handleOpenRoadmap = async (cs: ClassroomSubjectResponse) => {
-    setSelectedSubject(cs);
-    setIsRoadmapOpen(true);
-    setLoadingGraph(true);
-    setExpandedNodeId(null);
-    setNodeContents({});
-    try {
-      const graph = await studentService.getClassroomSubjectGraph(cs.classroomSubjectId);
-      const sortedNodes = (graph.nodes || []).sort((a, b) => a.displayOrder - b.displayOrder);
-      setNodes(sortedNodes);
-    } catch (err: any) {
-      console.error("Failed to load roadmap graph:", err);
-      toast.error("Không thể tải lộ trình học tập");
-      setIsRoadmapOpen(false);
-    } finally {
-      setLoadingGraph(false);
-    }
-  };
 
   const handleToggleNode = async (nodeId: number, studentStatus: string | undefined) => {
     if (studentStatus === 'LOCKED') {
@@ -553,7 +535,7 @@ export function StudentCoursesPage() {
                           <History className="size-3.5 mr-1" /> Lịch sử mức
                         </Button>
                         <Button
-                          onClick={() => handleOpenRoadmap(c)}
+                          onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/learning-path`)}
                           className="flex-1 bg-[#030213] hover:bg-[#1c1b2d] text-white font-bold rounded-xl text-xs py-2 px-3 h-9 flex items-center justify-center gap-1 shadow-xs"
                         >
                           <TrendingUp className="size-3.5" /> Lộ trình học

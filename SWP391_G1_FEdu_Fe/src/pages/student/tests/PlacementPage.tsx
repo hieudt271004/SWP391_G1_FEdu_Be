@@ -94,7 +94,7 @@ export function PlacementPage() {
           </AlertDescription>
         </Alert>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" onClick={() => navigate('/student/courses')}>
             <ArrowLeft className="size-4" /> Quay lại
           </Button>
         </div>
@@ -124,7 +124,7 @@ export function PlacementPage() {
               <Button onClick={() => navigate(`/student/classroom-subjects/${id}/level-history`)}>
                 <History className="size-4" /> Xem lịch sử mức
               </Button>
-              <Button variant="outline" onClick={() => navigate(-1)}>
+              <Button variant="outline" onClick={() => navigate(`/student/classroom-subjects/${id}/learning-path`)}>
                 <ArrowLeft className="size-4" /> Quay lại
               </Button>
             </div>
@@ -136,7 +136,7 @@ export function PlacementPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+      <Button variant="ghost" size="sm" onClick={() => navigate('/student/courses')}>
         <ArrowLeft className="size-4" /> Quay lại
       </Button>
       <TestRunner

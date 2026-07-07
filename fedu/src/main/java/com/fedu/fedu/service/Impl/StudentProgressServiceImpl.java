@@ -9,6 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fedu.fedu.utils.enums.StudentProgressStatus;
+import com.fedu.fedu.utils.enums.NodeType;
+import com.fedu.fedu.utils.enums.NodeStatus;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -25,7 +28,7 @@ public class StudentProgressServiceImpl implements StudentProgressService {
     private final StudentNodeProgressRepository studentNodeProgressRepository;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public ClassroomGraphResponse getStudentClassroomGraph(Long classroomSubjectId, Long studentId) {
         // Verify student is enrolled in the classroom-subject
         ClassroomSubjectStudent enrollment = classroomSubjectStudentRepository
@@ -74,6 +77,54 @@ public class StudentProgressServiceImpl implements StudentProgressService {
 
         // Fetch student progress list
         List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+        // Auto-heal stuck PLACEMENT nodes
+        boolean healed = false;
+        List<StudentNodeProgress> incompletePlacements = progressList.stream()
+                .filter(p -> p.getLearningNode().getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT
+                        && p.getStatus() != StudentProgressStatus.COMPLETED)
+                .collect(Collectors.toList());
+
+        if (!incompletePlacements.isEmpty()) {
+            Set<Long> placementNodeIds = incompletePlacements.stream()
+                    .map(p -> p.getLearningNode().getNodeId())
+                    .collect(Collectors.toSet());
+
+            for (StudentNodeProgress p : incompletePlacements) {
+                p.setStatus(StudentProgressStatus.COMPLETED);
+                p.setCompletedAt(java.time.LocalDateTime.now());
+                studentNodeProgressRepository.save(p);
+                healed = true;
+            }
+
+            // Now unlock direct successors of PLACEMENT nodes
+            List<NodeEdge> pathEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
+            for (StudentNodeProgress p : progressList) {
+                if (p.getStatus() == StudentProgressStatus.LOCKED) {
+                    LearningNode node = p.getLearningNode();
+                    boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
+
+                    List<Long> incomingNodeIds = pathEdges.stream()
+                            .filter(e -> e.getToNode().getNodeId().equals(node.getNodeId()))
+                            .map(e -> e.getFromNode().getNodeId())
+                            .collect(Collectors.toList());
+
+                    boolean isPrereqMet = !incomingNodeIds.isEmpty() && placementNodeIds.containsAll(incomingNodeIds);
+
+                    if (isPrereqMet && levelOk && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN)) {
+                        p.setStatus(StudentProgressStatus.OPEN);
+                        p.setUnlockedAt(java.time.LocalDateTime.now());
+                        studentNodeProgressRepository.save(p);
+                        healed = true;
+                    }
+                }
+            }
+
+            // Refetch progress list if healed
+            if (healed) {
+                progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+            }
+        }
+
         Map<Long, StudentNodeProgress> progressMap = progressList.stream()
                 .collect(Collectors.toMap(
                         p -> p.getLearningNode().getNodeId(),

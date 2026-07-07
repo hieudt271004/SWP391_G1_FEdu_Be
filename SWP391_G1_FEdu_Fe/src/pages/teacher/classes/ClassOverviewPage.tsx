@@ -142,6 +142,18 @@ export function ClassOverviewPage() {
   const [savingSchedule, setSavingSchedule] = useState(false);
 
   const openScheduleModal = async (node: LearningNodeResponse) => {
+    if (node.studyDate && node.startTime) {
+      const now = new Date();
+      const [hours, minutes] = node.startTime.substring(0, 5).split(":").map(Number);
+      const startDateTime = new Date(node.studyDate);
+      startDateTime.setHours(hours, minutes, 0, 0);
+
+      if (startDateTime < now) {
+        toast.error("Buổi học đang hoặc đã diễn ra, không thể thay đổi lịch học.");
+        return;
+      }
+    }
+
     setSchedulingNode(node);
     setScheduleDate(node.studyDate || "");
     setScheduleSlotId(node.slotId ? String(node.slotId) : "");
@@ -163,6 +175,21 @@ export function ClassOverviewPage() {
       toast.error("Vui lòng chọn đầy đủ cả Ngày học và Ca học để lưu lịch.");
       return;
     }
+
+    // Kiểm tra không cho phép chọn ca học trong quá khứ
+    const selectedSlot = slotsList.find(s => String(s.slotId) === scheduleSlotId);
+    if (selectedSlot) {
+      const now = new Date();
+      const [hours, minutes] = selectedSlot.startTime.substring(0, 5).split(":").map(Number);
+      const newStartDateTime = new Date(scheduleDate);
+      newStartDateTime.setHours(hours, minutes, 0, 0);
+
+      if (newStartDateTime < now) {
+        toast.error("Không thể xếp lịch vào thời gian trong quá khứ.");
+        return;
+      }
+    }
+
     try {
       setSavingSchedule(true);
       setScheduleConflict(null);
@@ -194,6 +221,18 @@ export function ClassOverviewPage() {
 
   const handleClearSchedule = async () => {
     if (!schedulingNode) return;
+    if (schedulingNode.studyDate && schedulingNode.startTime) {
+      const now = new Date();
+      const [hours, minutes] = schedulingNode.startTime.substring(0, 5).split(":").map(Number);
+      const startDateTime = new Date(schedulingNode.studyDate);
+      startDateTime.setHours(hours, minutes, 0, 0);
+
+      if (startDateTime < now) {
+        toast.error("Buổi học đang hoặc đã diễn ra, không thể xóa lịch học.");
+        return;
+      }
+    }
+
     try {
       setSavingSchedule(true);
       setScheduleConflict(null);

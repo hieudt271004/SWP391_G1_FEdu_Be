@@ -347,9 +347,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         LearningPath learningPath = learningPathRepository.findById(pathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
 
-        if (request.getNodeType() == NodeType.ON_CLASS && learningPath.getClassroomSubject() != null) {
-            throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
-        }
+        // Cho phép tạo node loại 'Trên lớp'
 
         // Lộ trình mẫu không mang deadline — deadline do giáo viên thiết lập sau khi clone về lớp.
         if (request.getDeadlineAt() != null && learningPath.getClassroomSubject() == null) {
@@ -393,10 +391,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
 
-        // Không cho đổi node thành loại "Trên lớp" trên lộ trình của lớp-môn (chỉ admin/lộ trình gốc).
-        if (request.getNodeType() == NodeType.ON_CLASS && node.getLearningPath().getClassroomSubject() != null) {
-            throw new InvalidDataException("Chỉ admin được tạo node loại 'Trên lớp' (chỉ trên lộ trình gốc)");
-        }
+        // Cho phép đổi node thành loại "Trên lớp"
 
         // Lộ trình mẫu không mang deadline — deadline do giáo viên thiết lập sau khi clone về lớp.
         if (request.getDeadlineAt() != null && node.getLearningPath().getClassroomSubject() == null) {
@@ -876,17 +871,19 @@ public class LearningPathServiceImpl implements LearningPathService {
         Integer level = css.getCurrentLevel();
         List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
-        List<LearningNode> entryNodes = validateAndGetEntryNodes(nodes, edges);
-
-        // Tìm danh sách Node ID nằm ngay sau Node PLACEMENT
-        List<Long> placementNodeIds = nodes.stream()
+        
+        Set<Long> placementNodeIds = nodes.stream()
                 .filter(n -> n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT)
                 .map(LearningNode::getNodeId)
-                .toList();
+                .collect(Collectors.toSet());
+
+        // Tìm danh sách Node ID nằm ngay sau Node PLACEMENT
         Set<Long> nodesAfterPlacement = edges.stream()
                 .filter(e -> placementNodeIds.contains(e.getFromNode().getNodeId()))
                 .map(e -> e.getToNode().getNodeId())
                 .collect(Collectors.toSet());
+
+        List<LearningNode> entryNodes = validateAndGetEntryNodes(nodes, edges);
 
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
@@ -1103,6 +1100,14 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
 
+        // 1. Lớp học đang/ đã diễn ra thì không được thay đổi lịch
+        if (node.getStudyDate() != null && node.getSlot() != null) {
+            LocalDateTime existingStart = LocalDateTime.of(node.getStudyDate(), node.getSlot().getStartTime());
+            if (existingStart.isBefore(LocalDateTime.now())) {
+                throw new InvalidDataException("Buổi học đang hoặc đã diễn ra, không thể thay đổi lịch học.");
+            }
+        }
+
         if (request.getStudyDate() == null || request.getSlotId() == null) {
             // Xóa lịch học; deadline chỉ giữ lại nếu request vẫn gửi kèm (deadline thủ công)
             node.setStudyDate(null);
@@ -1114,6 +1119,12 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         Slot slot = slotRepository.findById(request.getSlotId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca học với id: " + request.getSlotId()));
+
+        // 2. Không thể thay đổi thành slot trong quá khứ (< thời gian hiện tại)
+        LocalDateTime newStart = LocalDateTime.of(request.getStudyDate(), slot.getStartTime());
+        if (newStart.isBefore(LocalDateTime.now())) {
+            throw new InvalidDataException("Không thể xếp lịch học vào thời gian trong quá khứ.");
+        }
 
         Long csId = path.getClassroomSubject().getId();
         Long lecturerId = path.getClassroomSubject().getLecturer().getUserId();

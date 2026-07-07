@@ -1702,6 +1702,7 @@ export function ClassManagementPage() {
                   onChange={(e) => setNKind(e.target.value as AddNodeKind)}
                 >
                   <option value="AT_HOME">Tự học</option>
+                  <option value="ON_CLASS">Trên lớp</option>
                   <option value="GATE">Test phân luồng</option>
                   <option value="PLACEMENT">Test năng lực</option>
                   <option value="FREE_CHOICE">Test tự do chọn</option>
