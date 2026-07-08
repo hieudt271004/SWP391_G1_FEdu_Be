@@ -2193,9 +2193,9 @@ export function ClassOverviewPage() {
       )}
 
       {activeTab === 'students' && (
-        <Card className="border border-slate-200 shadow-xs rounded-2xl">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <Card className="border border-border shadow-xs rounded-2xl">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
               Danh sách học sinh trong lớp ({students.length})
             </CardTitle>
@@ -2203,18 +2203,18 @@ export function ClassOverviewPage() {
           <CardContent className="pt-4">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-50 hover:bg-slate-50 border-slate-100">
-                  <TableHead className="font-bold text-slate-700 w-[12%]">Mã học sinh</TableHead>
-                  <TableHead className="font-bold text-slate-700 w-[20%]">Họ và tên</TableHead>
-                  <TableHead className="font-bold text-slate-700 w-[18%]">Phân loại năng lực</TableHead>
-                  <TableHead className="font-bold text-slate-700 w-[25%]">Lộ trình học tập</TableHead>
-                  <TableHead className="font-bold text-slate-700 w-[25%] text-center">Hành động</TableHead>
+                <TableRow className="bg-muted/50 hover:bg-muted/50 border-border">
+                  <TableHead className="font-bold text-muted-foreground w-[12%]">Mã học sinh</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[20%]">Họ và tên</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[18%]">Phân loại năng lực</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[25%]">Lộ trình học tập</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[25%] text-center">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {students.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-slate-400 italic">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">
                       Chưa có học sinh nào tham gia lớp học này.
                     </TableCell>
                   </TableRow>
@@ -2222,20 +2222,20 @@ export function ClassOverviewPage() {
                   students.map((student) => {
                     const levelLabel = student.currentLevel === 1 ? 'Yếu' : student.currentLevel === 2 ? 'Trung bình' : student.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
                     const levelColor = student.currentLevel === 1
-                      ? 'bg-rose-50 border-rose-200 text-rose-700'
+                      ? 'bg-rose-500/10 dark:bg-rose-500/20 border-rose-500/20 text-rose-700 dark:text-rose-400'
                       : student.currentLevel === 2
-                        ? 'bg-amber-50 border-amber-200 text-amber-700'
+                        ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20 text-amber-700 dark:text-amber-400'
                         : student.currentLevel === 3
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                          : 'bg-slate-50 border-slate-200 text-slate-500';
+                          ? 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                          : 'bg-muted border-border text-muted-foreground';
 
                     return (
-                      <TableRow key={student.id} className="border-slate-100 hover:bg-slate-50/50">
-                        <TableCell className="font-semibold text-slate-650">{student.id}</TableCell>
-                        <TableCell className="font-medium text-slate-700">
+                      <TableRow key={student.id} className="border-border hover:bg-muted/30">
+                        <TableCell className="font-semibold text-muted-foreground">{student.id}</TableCell>
+                        <TableCell className="font-medium text-foreground">
                           {student.fullName}
                           {student.isSubmentor && (
-                            <Badge className="bg-emerald-50 border-emerald-200 text-emerald-800 text-[9px] font-bold ml-1.5 rounded-[6px] outline-none select-none">
+                            <Badge className="bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold ml-1.5 rounded-[6px] outline-none select-none">
                               TRỢ GIẢNG
                             </Badge>
                           )}
@@ -2245,9 +2245,9 @@ export function ClassOverviewPage() {
                             {levelLabel}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-slate-650 font-medium text-xs">
+                        <TableCell className="text-foreground font-medium text-xs">
                           {student.assignedPathName || (
-                            <span className="text-slate-400 italic text-[11px]">Chưa gán lộ trình</span>
+                            <span className="text-muted-foreground italic text-[11px]">Chưa gán lộ trình</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -2256,7 +2256,7 @@ export function ClassOverviewPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewDetail(student)}
-                              className="h-7 text-xs text-primary hover:bg-primary/5 rounded-lg font-semibold flex items-center gap-1"
+                              className="h-7 text-xs text-primary hover:bg-primary/10 rounded-lg font-semibold flex items-center gap-1"
                             >
                               <Eye className="size-3.5" /> Chi tiết
                             </Button>
@@ -2264,7 +2264,7 @@ export function ClassOverviewPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewHistory(student)}
-                              className="h-7 text-xs text-primary hover:bg-primary/5 rounded-lg font-semibold flex items-center gap-1"
+                              className="h-7 text-xs text-primary hover:bg-primary/10 rounded-lg font-semibold flex items-center gap-1"
                             >
                               <History className="size-3.5" /> Lịch sử xếp lớp
                             </Button>
@@ -2274,8 +2274,8 @@ export function ClassOverviewPage() {
                               onClick={() => handleToggleSubMentor(student)}
                               className={`h-7 text-xs rounded-lg font-semibold flex items-center gap-1 ${
                                 student.isSubmentor
-                                  ? 'text-rose-600 hover:bg-rose-50'
-                                  : 'text-emerald-650 hover:bg-emerald-50'
+                                  ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-500/10'
+                                  : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10'
                               }`}
                             >
                               {student.isSubmentor ? (
