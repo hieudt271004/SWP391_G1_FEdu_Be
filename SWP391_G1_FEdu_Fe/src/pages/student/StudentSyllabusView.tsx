@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  BookMarked, 
-  Lock, 
-  CheckCircle2, 
+import {
+  BookMarked,
+  Lock,
+  CheckCircle2,
   ArrowRight,
-  Loader2
+  Loader2,
+  Clock
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
@@ -21,6 +22,13 @@ export interface LearningPathItem {
   nodeId: number;
   data: any;
 }
+
+// Deadline node (BE trả LocalDateTime không timezone → new Date() parse theo giờ local là đúng)
+const formatDeadline = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ${d.toLocaleDateString('vi-VN')}`;
+};
+const isDeadlineOverdue = (iso: string) => new Date(iso).getTime() < Date.now();
 
 interface StudentSyllabusViewProps {
   subject: ClassroomSubjectResponse | null;
@@ -170,6 +178,9 @@ export function StudentSyllabusView({
                     <div className="min-w-0 flex-1">
                       <span className="text-[9px] text-muted-foreground font-extrabold uppercase tracking-wider block">
                         Bài học {index + 1}
+                        {node.deadlineAt && !isCompleted && isDeadlineOverdue(node.deadlineAt) && (
+                          <span className="ml-1.5 text-red-600 dark:text-red-400">• Quá hạn</span>
+                        )}
                       </span>
                       <span className="text-xs font-bold truncate block">{node.title}</span>
                     </div>
@@ -225,6 +236,21 @@ export function StudentSyllabusView({
                           Hoàn thành
                         </Badge>
                       )}
+                      {isCompleted && activeNode.completedLate && (
+                        <Badge className="bg-amber-500/10 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[9px] font-extrabold px-2 py-0.5 rounded-md">
+                          Hoàn thành trễ
+                        </Badge>
+                      )}
+                      {activeNode.deadlineAt && !isCompleted && (
+                        <span className={`flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 rounded-[4px] border uppercase ${
+                          isDeadlineOverdue(activeNode.deadlineAt)
+                            ? 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+                            : 'bg-muted border-border text-muted-foreground'
+                        }`}>
+                          <Clock className="size-3 shrink-0" />
+                          {isDeadlineOverdue(activeNode.deadlineAt) ? 'Quá hạn' : 'Hạn'}: {formatDeadline(activeNode.deadlineAt)}
+                        </span>
+                      )}
                     </div>
                     <h1 className="text-xl md:text-2xl font-extrabold text-foreground leading-tight">
                       {activeNode.title}
@@ -275,7 +301,8 @@ export function StudentSyllabusView({
                           const isExercise = item.type === 'exercise';
                           
                           const isItemCompleted = completedItems[idx];
-                                         return (
+                          const isFirstIncomplete = idx === firstIncompleteIdx;
+                          return (
                             <div 
                               key={`${item.type}-${item.id}`}
                               onClick={() => setActiveItem(item)}
