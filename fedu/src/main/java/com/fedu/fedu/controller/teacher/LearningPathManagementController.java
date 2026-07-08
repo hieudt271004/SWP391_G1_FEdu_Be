@@ -82,6 +82,15 @@ public class LearningPathManagementController {
                     learningPathService.cloneLearningPath(classroomSubjectId, templatePathId));
         }
 
+        @Operation(summary = "Replace current draft with a fresh clone of a template (atomic — draft cũ giữ nguyên nếu lỗi)")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PostMapping("/classroom-subjects/{classroomSubjectId}/replace-learning-path")
+        public ResponseData<LearningPathResponse> replaceLearningPath(@PathVariable Long classroomSubjectId,
+                                                                      @RequestParam Long templatePathId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning path replaced successfully",
+                    learningPathService.replaceDraftWithTemplate(classroomSubjectId, templatePathId));
+        }
+
         @Operation(summary = "Get classroom learning paths")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/classroom-subjects/{classroomSubjectId}/learning-paths")

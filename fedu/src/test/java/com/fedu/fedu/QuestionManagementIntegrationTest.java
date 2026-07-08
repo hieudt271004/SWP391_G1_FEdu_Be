@@ -95,7 +95,9 @@ public class QuestionManagementIntegrationTest {
                 .orElseGet(() -> subjectRepository.save(Subject.builder()
                         .subjectCode("SWP391")
                         .subjectName("Software Development Project")
-                        .status("published")
+                        // Môn phải ở trạng thái draft thì admin mới được sửa câu hỏi của template
+                        // (môn published ⇒ TemplateEditGuard khóa mọi chỉnh sửa template của khoa)
+                        .status("draft")
                         .isDeleted(false)
                         .build()));
 

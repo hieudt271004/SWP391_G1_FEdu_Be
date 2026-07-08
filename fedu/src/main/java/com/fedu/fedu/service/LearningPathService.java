@@ -18,6 +18,8 @@ public interface LearningPathService {
 
     // ── Clone về lớp-môn (classroom_subject) ─────────────────────────────────
     LearningPathResponse cloneLearningPath(Long classroomSubjectId, Long templatePathId);
+    /** Thay bản nháp hiện tại bằng clone mới từ template — atomic, lỗi thì nháp cũ còn nguyên. */
+    LearningPathResponse replaceDraftWithTemplate(Long classroomSubjectId, Long templatePathId);
     List<LearningPathResponse> getClassroomLearningPaths(Long classroomSubjectId);
     List<CloneablePathResponse> getCloneablePaths(Long classroomSubjectId);
 

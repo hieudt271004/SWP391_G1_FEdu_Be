@@ -30,6 +30,7 @@ public class QuestionManagementServiceImpl implements QuestionManagementService 
     private final TestRepository testRepository;
     private final TestQuestionRepository testQuestionRepository;
     private final TestAnswerRepository testAnswerRepository;
+    private final TemplateEditGuard templateEditGuard;
 
     @Override
     @Transactional(readOnly = true)
@@ -48,6 +49,7 @@ public class QuestionManagementServiceImpl implements QuestionManagementService 
     public QuestionResponse addQuestion(Long testId, QuestionRequest request) {
         Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+        templateEditGuard.assertNodeEditable(test.getLearningNode());
 
         TestQuestion question = TestQuestion.builder()
                 .test(test)
@@ -78,6 +80,7 @@ public class QuestionManagementServiceImpl implements QuestionManagementService 
     public QuestionResponse updateQuestion(Long questionId, QuestionRequest request) {
         TestQuestion question = testQuestionRepository.findById(questionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Question not found with id: " + questionId));
+        templateEditGuard.assertNodeEditable(question.getTest().getLearningNode());
 
         question.setQuestionContent(request.getQuestionContent());
         question.setQuestionType(request.getQuestionType());
@@ -112,6 +115,7 @@ public class QuestionManagementServiceImpl implements QuestionManagementService 
     public void deleteQuestion(Long questionId) {
         TestQuestion question = testQuestionRepository.findById(questionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Question not found with id: " + questionId));
+        templateEditGuard.assertNodeEditable(question.getTest().getLearningNode());
         List<TestAnswer> answers = testAnswerRepository.findByQuestionQuestionId(questionId);
         testAnswerRepository.deleteAll(answers);
         testQuestionRepository.delete(question);

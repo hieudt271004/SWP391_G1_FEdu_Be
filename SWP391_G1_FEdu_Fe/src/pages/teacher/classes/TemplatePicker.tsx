@@ -79,9 +79,11 @@ export function TemplatePicker({ classroomSubjectId, availableTemplates, onClone
     try {
       setCloning(true);
       if (existingDraftPathId != null) {
-        await learningPathService.deleteDraftPath(classroomSubjectId, existingDraftPathId);
+        // Đổi template = BE thay nháp bằng clone mới trong 1 transaction (lỗi thì nháp cũ còn nguyên)
+        await learningPathService.replaceDraftWithTemplate(classroomSubjectId, selectedTemplateId);
+      } else {
+        await learningPathService.cloneFromTemplate(classroomSubjectId, selectedTemplateId);
       }
-      await learningPathService.cloneFromTemplate(classroomSubjectId, selectedTemplateId);
       toast.success(existingDraftPathId != null ? "Đã đổi lộ trình mẫu thành công!" : "Đã clone lộ trình về lớp thành công!");
       onCloned();
     } catch (err: any) {

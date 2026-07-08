@@ -301,6 +301,11 @@ export const learningPathService = {
         templatePathId != null ? `?templatePathId=${templatePathId}` : ''
       }`
     ),
+  // Đổi template khi đã có nháp: BE xóa nháp cũ + clone mới trong 1 transaction (lỗi thì nháp cũ còn nguyên)
+  replaceDraftWithTemplate: (classroomSubjectId: number, templatePathId: number) =>
+    http.post<LearningPathResponse>(
+      `/teacher-manage/classroom-subjects/${classroomSubjectId}/replace-learning-path?templatePathId=${templatePathId}`
+    ),
   getCloneablePaths: (classroomSubjectId: number) =>
     http.get<CloneablePathResponse[]>(`/teacher-manage/classrooms/${classroomSubjectId}/cloneable-paths`),
   // Xóa template cá nhân (BE chặn xóa template của khoa / của GV khác)

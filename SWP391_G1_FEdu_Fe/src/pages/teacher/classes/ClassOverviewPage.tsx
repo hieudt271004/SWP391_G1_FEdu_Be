@@ -115,6 +115,8 @@ export function ClassOverviewPage() {
   // Xem trước lộ trình mẫu trước khi áp dụng/đè lên
   const [templatePreview, setTemplatePreview] = useState<{ pathId: number; nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  // Path đã được auto-chọn + auto-preview (chỉ làm 1 lần/path, để "Bỏ xem trước" không bị bật lại)
+  const autoPreviewedPathRef = useRef<number | null>(null);
   const [showApplyTemplateConfirm, setShowApplyTemplateConfirm] = useState(false);
 
   // Dialog visibility and confirmation states
@@ -958,14 +960,21 @@ export function ClassOverviewPage() {
 
   useEffect(() => {
     initializedPathsRef.current.clear();
+    autoPreviewedPathRef.current = null;
     fetchClassroomData();
   }, [classroomSubjectId]);
 
   // Auto-select template if there's only one template available
+  // (kèm nạp preview — set mỗi selectedTemplateId thì dropdown "đã chọn sẵn" nhưng
+  //  không bao giờ hiện bản xem trước vì onChange không bắn khi chọn lại cùng giá trị)
   useEffect(() => {
     if (graphData?.state === 'NO_PATH' && graphData.availableTemplates) {
       if (graphData.availableTemplates.length === 1) {
-        setSelectedTemplateId(graphData.availableTemplates[0].pathId);
+        const onlyId = graphData.availableTemplates[0].pathId;
+        if (autoPreviewedPathRef.current !== onlyId) {
+          autoPreviewedPathRef.current = onlyId;
+          handlePreviewTemplate(onlyId);
+        }
       }
     }
   }, [graphData]);
@@ -1032,9 +1041,10 @@ export function ClassOverviewPage() {
         setLoadingCloneablePaths(true);
         const res = await learningPathService.getCloneablePaths(Number(classroomSubjectId));
         setCloneablePaths(res);
-        // Chỉ có đúng 1 lựa chọn và lớp chưa có lộ trình → chọn sẵn cho tiện
-        if (graphData?.state === 'NO_PATH' && res.length === 1) {
-          setSelectedTemplateId(res[0].pathId);
+        // Chỉ có đúng 1 lựa chọn và lớp chưa có lộ trình → chọn sẵn + hiện luôn bản xem trước
+        if (graphData?.state === 'NO_PATH' && res.length === 1 && autoPreviewedPathRef.current !== res[0].pathId) {
+          autoPreviewedPathRef.current = res[0].pathId;
+          handlePreviewTemplate(res[0].pathId);
         }
       } catch (err) {
         console.error('Lỗi khi tải danh sách lộ trình clone:', err);
@@ -1068,15 +1078,17 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Áp dụng template đang xem trước. Nếu lớp đã có bản nháp → xóa nháp cũ rồi clone đè lên.
+  // Áp dụng template đang xem trước. Nếu lớp đã có bản nháp → BE thay nháp bằng clone mới
+  // trong 1 transaction (không dùng delete-rồi-clone 2 request rời — lỗi giữa chừng sẽ mất nháp).
   const handleApplyTemplate = async () => {
     if (!classroomSubjectId || !selectedTemplateId) return;
     try {
       setActionState('cloning');
       if (graphData?.state === 'DRAFT' && graphData.pathId) {
-        await learningPathService.deleteDraftPath(Number(classroomSubjectId), graphData.pathId);
+        await learningPathService.replaceDraftWithTemplate(Number(classroomSubjectId), selectedTemplateId);
+      } else {
+        await learningPathService.cloneFromTemplate(Number(classroomSubjectId), selectedTemplateId);
       }
-      await learningPathService.cloneFromTemplate(Number(classroomSubjectId), selectedTemplateId);
 
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);

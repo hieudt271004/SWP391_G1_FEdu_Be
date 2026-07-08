@@ -45,6 +45,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final TestAnswerRepository testAnswerRepository;
     private final NodeExerciseRepository nodeExerciseRepository;
     private final SlotRepository slotRepository;
+    private final TemplateEditGuard templateEditGuard;
 
     @Override
     @Transactional(readOnly = true)
@@ -61,10 +62,15 @@ public class LearningPathServiceImpl implements LearningPathService {
     public List<LearningPathResponse> getTemplatesVisibleToTeacher(Long subjectId) {
         // Thư viện của teacher: template của khoa + template cá nhân của chính mình
         // (không lộ template cá nhân của giảng viên khác).
+        // Template của khoa chỉ hiện khi môn đang xuất bản — bản admin đang sửa (môn draft) không lộ ra ngoài.
+        boolean subjectPublished = subjectRepository.findById(subjectId)
+                .map(s -> "published".equalsIgnoreCase(s.getStatus()))
+                .orElse(false);
         return learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId)
                 .stream()
                 .filter(this::canUseTemplate)
+                .filter(t -> subjectPublished || !isAdminTemplate(t))
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -84,6 +90,8 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .isDeleted(false)
                 .build();
 
+        // Môn đang xuất bản thì khóa cả việc thêm template mới của khoa (teacher tạo template cá nhân không bị chặn)
+        templateEditGuard.assertTemplateEditable(learningPath);
         learningPathRepository.save(learningPath);
         return mapToResponse(learningPath);
     }
@@ -127,13 +135,62 @@ public class LearningPathServiceImpl implements LearningPathService {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
 
-        if (!"published".equalsIgnoreCase(cs.getSubject().getStatus())) {
-            throw new InvalidDataException("Môn học chưa được xuất bản — không thể clone lộ trình cho lớp.");
-        }
-
         List<LearningPath> existingPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (!existingPaths.isEmpty()) {
             throw new InvalidDataException("Lớp-môn đã có lộ trình. Xóa draft/unpublish trước.");
+        }
+
+        LearningPath template = resolveTemplateForClone(cs, templatePathId);
+        return cloneTemplateIntoClassroom(template, cs);
+    }
+
+    /**
+     * Thay bản nháp hiện tại bằng clone mới từ template — ATOMIC trong 1 transaction:
+     * validate nguồn clone trước, rồi mới xóa nháp cũ + clone. Lỗi ở bất kỳ bước nào → rollback,
+     * nháp cũ còn nguyên (thay cho flow cũ của FE: delete-draft rồi clone bằng 2 request rời,
+     * chết giữa chừng là mất nháp).
+     */
+    @Override
+    @Transactional
+    public LearningPathResponse replaceDraftWithTemplate(Long classroomSubjectId, Long templatePathId) {
+        assertTeacherOwnsClassroomSubject(classroomSubjectId);
+        if (templatePathId == null) {
+            throw new InvalidDataException("Cần chọn lộ trình mẫu để thay thế.");
+        }
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
+
+        // 1) Validate nguồn clone TRƯỚC khi đụng vào nháp cũ (môn phải đang xuất bản, template hợp lệ)
+        LearningPath template = resolveTemplateForClone(cs, templatePathId);
+
+        // 2) Path hiện tại (nếu có) phải là nháp chưa publish và lớp chưa phân loại học sinh
+        List<LearningPath> existingPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
+        for (LearningPath old : existingPaths) {
+            if (old.getPublishedAt() != null) {
+                throw new InvalidDataException("Lộ trình đang publish — unpublish trước khi thay bằng template khác.");
+            }
+        }
+        if (!existingPaths.isEmpty() && anyStudentPlaced(classroomSubjectId)) {
+            throw new InvalidDataException("Đã có học sinh được phân loại (làm placement), không thể thay lộ trình.");
+        }
+
+        // 3) Xóa nháp cũ + clone mới trong CÙNG transaction
+        for (LearningPath old : existingPaths) {
+            old.setIsDeleted(true);
+            learningPathRepository.save(old);
+            for (LearningNode node : learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(old.getPathId())) {
+                node.setIsDeleted(true);
+                learningNodeRepository.save(node);
+            }
+            clearQuizStartIfOwnedByPath(cs, old);
+        }
+        return cloneTemplateIntoClassroom(template, cs);
+    }
+
+    /** Kiểm tra + trả về template hợp lệ để clone cho lớp-môn (môn phải đang xuất bản). */
+    private LearningPath resolveTemplateForClone(ClassroomSubject cs, Long templatePathId) {
+        if (!"published".equalsIgnoreCase(cs.getSubject().getStatus())) {
+            throw new InvalidDataException("Môn học chưa được xuất bản — không thể clone lộ trình cho lớp.");
         }
 
         
@@ -167,7 +224,11 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (!isPathPublishable(template)) {
             throw new InvalidDataException("Template chưa đạt điều kiện áp dụng (mỗi chặng phải đủ node cho cả 3 mức).");
         }
+        return template;
+    }
 
+    /** Clone path + node + edge + toàn bộ nội dung node từ template vào lớp-môn. */
+    private LearningPathResponse cloneTemplateIntoClassroom(LearningPath template, ClassroomSubject cs) {
         List<LearningNode> templateNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(template.getPathId());
         List<NodeEdge> templateEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(template.getPathId());
         validateAndGetEntryNodes(templateNodes, templateEdges);
@@ -366,6 +427,11 @@ public class LearningPathServiceImpl implements LearningPathService {
         assertTeacherOwnsClassroomSubject(classroomSubjectId);
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
+
+        // Môn chưa xuất bản ⇒ chưa mở nguồn clone (admin có thể đang soạn/sửa template).
+        if (!"published".equalsIgnoreCase(cs.getSubject().getStatus())) {
+            return Collections.emptyList();
+        }
 
         // Theo requirement: nguồn clone = template của khoa (admin) + template cá nhân của chính GV.
         // Cả hai đều phải đạt điều kiện xuất bản; template cá nhân của GV khác không hiển thị.
@@ -661,14 +727,16 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         if (paths.isEmpty()) {
             // Chỉ liệt kê lộ trình đạt điều kiện xuất bản — teacher không thấy/clone bản nháp.
-            List<LearningPath> templates = learningPathRepository
+            // Môn chưa xuất bản ⇒ không chào template nào (admin có thể đang sửa phiên bản mới).
+            boolean subjectPublished = "published".equalsIgnoreCase(cs.getSubject().getStatus());
+            List<LearningPath> templates = !subjectPublished ? Collections.emptyList()
+                    : learningPathRepository
                     .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
                     .stream()
                     .filter(this::isPathPublishable)
                     .filter(this::canUseTemplate)
                     .collect(Collectors.toList());
 
-            boolean subjectPublished = "published".equalsIgnoreCase(cs.getSubject().getStatus());
             boolean canClone = subjectPublished && !templates.isEmpty();
 
             List<AvailableTemplateResponse> availableTemplates = templates.stream()
@@ -713,7 +781,8 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .build();
 
         List<AvailableTemplateResponse> draftTemplates = null;
-        if ("DRAFT".equals(state)) {
+        // Nguồn "clone đè nháp" chỉ mở khi môn đang xuất bản — đồng bộ với gate ở cloneLearningPath.
+        if ("DRAFT".equals(state) && "published".equalsIgnoreCase(cs.getSubject().getStatus())) {
             draftTemplates = learningPathRepository
                     .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
                     .stream()
@@ -926,6 +995,19 @@ public class LearningPathServiceImpl implements LearningPathService {
             node.setIsDeleted(true);
             learningNodeRepository.save(node);
         }
+        classroomSubjectRepository.findById(classroomSubjectId)
+                .ifPresent(cs -> clearQuizStartIfOwnedByPath(cs, path));
+    }
+
+    /** Gỡ quizStart của lớp nếu bài test đó thuộc path vừa bị xóa (tránh trỏ tới test của nháp đã xóa). */
+    private void clearQuizStartIfOwnedByPath(ClassroomSubject cs, LearningPath path) {
+        Test qs = cs.getQuizStart();
+        if (qs != null && qs.getLearningNode() != null
+                && qs.getLearningNode().getLearningPath() != null
+                && path.getPathId().equals(qs.getLearningNode().getLearningPath().getPathId())) {
+            cs.setQuizStart(null);
+            classroomSubjectRepository.save(cs);
+        }
     }
 
     @Override
@@ -1061,10 +1143,7 @@ public class LearningPathServiceImpl implements LearningPathService {
 
     /** Template "của khoa": do admin tạo, hoặc dữ liệu cũ không ghi người tạo. */
     private boolean isAdminTemplate(LearningPath template) {
-        UserAccount creator = template.getCreatedBy();
-        if (creator == null) return true;
-        return creator.getUserRoles() != null && creator.getUserRoles().stream()
-                .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+        return templateEditGuard.isAdminTemplate(template);
     }
 
     /** Template dùng được cho user hiện tại: của khoa, hoặc template cá nhân do chính mình tạo. */
@@ -1085,7 +1164,11 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (auth == null) return; // test/seed
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        if (isAdmin) return;
+        if (isAdmin) {
+            // Admin cũng bị khóa sửa template của khoa khi môn đang xuất bản — gỡ xuất bản trước.
+            templateEditGuard.assertTemplateEditable(path);
+            return;
+        }
         if (path.getClassroomSubject() != null) {
             assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
             return;

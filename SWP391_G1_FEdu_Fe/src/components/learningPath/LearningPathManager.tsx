@@ -14,6 +14,8 @@ import { toast } from "sonner";
 
 interface LearningPathManagerProps {
   subjectId: number;
+  /** Môn đang xuất bản ⇒ template của khoa bị khóa sửa (BE cũng chặn); gỡ xuất bản để chỉnh sửa. */
+  subjectPublished?: boolean;
 }
 
 const LEVEL_OPTIONS: { value: "" | 1 | 2 | 3; label: string }[] = [
@@ -146,7 +148,7 @@ async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: num
   }
 }
 
-export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
+export function LearningPathManager({ subjectId, subjectPublished }: LearningPathManagerProps) {
   const [templates, setTemplates] = useState<LearningPathResponse[]>([]);
   const [path, setPath] = useState<LearningPathResponse | null>(null);
   const [showCreateTpl, setShowCreateTpl] = useState(false);
@@ -1005,14 +1007,29 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     return <div className="py-10 text-center text-sm text-slate-400">Đang tải lộ trình…</div>;
   }
 
+  // Môn đang xuất bản ⇒ khóa sửa template của khoa (template cá nhân của teacher không bị khóa).
+  // BE cũng chặn ở mọi endpoint — đây chỉ là lớp UX để admin biết phải gỡ xuất bản trước.
+  const tplFrozen = !!subjectPublished && (!path || path.creatorRole !== "TEACHER");
+  const frozenBanner = tplFrozen ? (
+    <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <span>
+        <b>Môn đang xuất bản</b> — lộ trình mẫu đang bị khóa chỉnh sửa. Hãy <b>gỡ xuất bản</b> môn để
+        cập nhật; các lớp đã clone không bị ảnh hưởng. Xuất bản lại để giáo viên clone được phiên bản mới.
+      </span>
+    </div>
+  ) : null;
+
   if (!path) {
     return (
       <>
+        {frozenBanner}
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-300 p-8 text-center">
           <p className="text-sm text-slate-500">Môn học chưa có lộ trình mẫu nào.</p>
           <button
             onClick={() => setShowCreateTpl(true)}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-xs"
+            disabled={tplFrozen}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Tạo lộ trình
           </button>
@@ -1184,6 +1201,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
 
   return (
     <div className="space-y-4">
+      {frozenBanner}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           {templates.map((t) => (
@@ -1201,16 +1219,17 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           ))}
           <button
             onClick={() => setShowCreateTpl(true)}
-            className="rounded-lg border border-dashed border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground"
+            disabled={tplFrozen}
+            className="rounded-lg border border-dashed border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Tạo lộ trình
           </button>
           {path && (
             <span className="ml-1 inline-flex gap-1">
-              <button onClick={handleEditTemplate} title="Sửa lộ trình đang chọn" className="rounded-lg border border-input px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground">
+              <button onClick={handleEditTemplate} disabled={tplFrozen} title="Sửa lộ trình đang chọn" className="rounded-lg border border-input px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
                 ✎ Sửa
               </button>
-              <button onClick={handleDeleteTemplate} title="Xóa lộ trình đang chọn" className="rounded-lg border border-destructive/30 px-2.5 py-1.5 text-sm text-destructive hover:bg-destructive/10 bg-transparent transition-colors">
+              <button onClick={handleDeleteTemplate} disabled={tplFrozen} title="Xóa lộ trình đang chọn" className="rounded-lg border border-destructive/30 px-2.5 py-1.5 text-sm text-destructive hover:bg-destructive/10 bg-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 🗑 Xóa
               </button>
             </span>
@@ -1229,7 +1248,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               setActiveQuestionIdx(0);
               setShowAddNode(true);
             }}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-xs"
+            disabled={tplFrozen}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Thêm bài học
           </button>
