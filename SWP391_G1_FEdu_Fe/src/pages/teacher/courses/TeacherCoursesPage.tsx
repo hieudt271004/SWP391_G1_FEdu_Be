@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../../../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import {
   Loader2,
   BookOpen,
@@ -347,21 +348,24 @@ export function TeacherCoursesPage() {
         {/* Filter Dropdown */}
         <div className="flex items-center gap-3 w-full md:w-auto">
           <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">Môn học:</span>
-          <select
-            value={selectedSubjectId}
-            onChange={(e) => {
-              const val = e.target.value;
-              setSelectedSubjectId(val === 'all' ? 'all' : Number(val));
+          <Select
+            value={String(selectedSubjectId)}
+            onValueChange={(value) => {
+              setSelectedSubjectId(value === 'all' ? 'all' : Number(value));
             }}
-            className="w-full md:w-56 px-3 py-2 text-sm rounded-[6px] border border-border outline-none focus:border-primary transition-colors bg-card text-foreground font-medium"
           >
-            <option value="all">Tất cả môn học</option>
-            {subjects.map((sub) => (
-              <option key={sub.subjectId} value={sub.subjectId}>
-                {sub.subjectCode} - {sub.subjectName}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full md:w-56 bg-card border-border h-9 text-foreground font-medium shadow-none focus-visible:ring-0">
+              <SelectValue placeholder="Tất cả môn học" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="all">Tất cả môn học</SelectItem>
+              {subjects.map((sub) => (
+                <SelectItem key={sub.subjectId} value={String(sub.subjectId)}>
+                  {sub.subjectCode} - {sub.subjectName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -455,8 +459,7 @@ function CreateTemplateDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg rounded-[10px] bg-card text-card-foreground border border-border p-6 shadow-lg">
         <DialogHeader>
-          <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-foreground" />
+          <DialogTitle className="text-lg font-bold text-foreground">
             Tạo Lộ trình học mới
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
