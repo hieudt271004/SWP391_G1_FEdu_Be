@@ -33,6 +33,7 @@ import { classroomService } from '../../services/classroom.service';
 import { resolveAssetUrl, MaterialPreview } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
+import { NodeDiscussion } from '../../components/learningPath/NodeDiscussion';
 
 interface LearningPathItem {
   id: number;
@@ -580,32 +581,32 @@ export function StudentLearningPathPage() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-white overflow-hidden select-none">
+    <div className="flex h-screen w-screen bg-white overflow-hidden select-none font-sans">
       {/* LEFT SIDEBAR: Roadmap Timeline */}
-      <div className="w-80 border-r border-zinc-200 flex flex-col h-full bg-zinc-50 shrink-0">
+      <div className="w-80 border-r border-slate-200 flex flex-col h-full bg-slate-50 shrink-0">
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-zinc-200 bg-white">
+        <div className="p-4 border-b border-slate-200 bg-white">
           <button 
             onClick={() => setSearchParams({})}
-            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-black font-semibold transition-colors mb-3"
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 font-bold transition-colors mb-3 outline-none"
           >
             <ArrowLeft className="size-3.5" />
             <span>Quay lại khóa học</span>
           </button>
           
-          <h2 className="font-extrabold text-zinc-900 text-base leading-snug truncate" title={subject?.displayName || subject?.subjectName}>
+          <h2 className="font-bold text-slate-950 text-sm leading-snug truncate" title={subject?.displayName || subject?.subjectName}>
             {subject?.displayName || subject?.subjectName}
           </h2>
-          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-0.5">
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1">
             Lớp: {subject?.className} • Mã môn: {subject?.subjectCode}
           </p>
 
           {/* Progress bar */}
-          <div className="mt-4 space-y-1">
-            <Progress value={progressStats.percent} className="h-1.5 bg-zinc-200" />
-            <div className="flex justify-between text-xs text-zinc-500 mb-1">
+          <div className="mt-4 space-y-1.5">
+            <Progress value={progressStats.percent} className="h-1.5 bg-slate-100 [&>div]:bg-slate-950 rounded-full" />
+            <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-0.5">
               <span>Đã hoàn thành {progressStats.completed}/{progressStats.total} học liệu</span>
-              <span className="font-bold text-zinc-700">{progressStats.percent}%</span>
+              <span className="text-slate-900">{progressStats.percent}%</span>
             </div>
           </div>
         </div>
@@ -621,59 +622,59 @@ export function StudentLearningPathPage() {
               const content = nodeContents[node.nodeId];
 
               return (
-                <div key={node.nodeId} className="border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                <div key={node.nodeId} className="border border-slate-200/80 rounded-lg overflow-hidden bg-white shadow-xs">
                   {/* Node Title Header */}
                   <div 
                     onClick={() => handleToggleNode(node)}
-                    className={`p-3.5 flex justify-between items-start cursor-pointer hover:bg-zinc-55/50 transition-colors select-none ${
-                      isLocked ? 'opacity-50 cursor-not-allowed bg-zinc-100/50' : ''
+                    className={`p-3 flex justify-between items-start cursor-pointer hover:bg-slate-50/50 transition-colors select-none ${
+                      isLocked ? 'opacity-50 cursor-not-allowed bg-slate-50/20' : ''
                     }`}
                   >
                     <div className="flex-1 space-y-1 pr-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-[4px] border uppercase ${
+                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-sm border uppercase ${
                           node.nodeType === 'AT_HOME' 
-                            ? 'bg-zinc-100 border-zinc-200 text-zinc-800' 
-                            : 'bg-black border-black text-white'
+                            ? 'bg-slate-105 border-slate-200 text-slate-700' 
+                            : 'bg-slate-955 border-slate-950 text-white'
                         }`}>
                           {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
                         </span>
                         
                         {isCompleted && (
-                          <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded-[4px] bg-emerald-50 border border-emerald-250 text-emerald-700 uppercase">
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm bg-emerald-50 border border-emerald-200 text-emerald-700 uppercase">
                             Đã xong
                           </span>
                         )}
                         {isOpen && (
-                          <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded-[4px] bg-zinc-900 border border-zinc-900 text-white uppercase animate-pulse">
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm bg-slate-950 border border-slate-950 text-white uppercase animate-pulse">
                             Đang học
                           </span>
                         )}
                       </div>
 
-                      <h4 className="font-extrabold text-zinc-900 text-xs leading-snug pt-1">
+                      <h4 className="font-bold text-slate-800 text-[11px] leading-snug pt-0.5">
                         {index + 1}. {node.title}
                       </h4>
                     </div>
 
-                    <div className="pt-0.5 text-zinc-400 shrink-0">
+                    <div className="pt-0.5 text-slate-400 shrink-0">
                       {isLocked ? (
-                        <Lock className="size-3.5" />
+                        <Lock className="size-3.5 text-slate-400" />
                       ) : isExpanded ? (
-                        <ChevronDown className="size-4 text-zinc-950" />
+                        <ChevronDown className="size-3.5 text-slate-800" />
                       ) : (
-                        <ChevronRight className="size-4 text-zinc-650" />
+                        <ChevronRight className="size-3.5 text-slate-500" />
                       )}
                     </div>
                   </div>
 
                   {/* Expanded Items */}
                   {isExpanded && !isLocked && (
-                    <div className="border-t border-zinc-100 bg-zinc-50/30 divide-y divide-zinc-100">
+                    <div className="border-t border-slate-100 bg-slate-50/30 divide-y divide-slate-100">
                       {loadingNodeContent[node.nodeId] ? (
-                        <div className="flex items-center justify-center py-4 gap-2 text-zinc-400">
-                          <Loader2 className="size-3.5 animate-spin" />
-                          <span className="text-[10px] font-medium">Đang tải...</span>
+                        <div className="flex items-center justify-center py-4 gap-2 text-slate-500">
+                          <Loader2 className="size-3.5 animate-spin text-slate-800" />
+                          <span className="text-[10px] font-semibold">Đang tải...</span>
                         </div>
                       ) : (
                         <>
@@ -684,17 +685,17 @@ export function StudentLearningPathPage() {
                               <button
                                 key={m.materialId}
                                 onClick={() => setActiveItem({ id: m.materialId, type: 'material', title: m.title, nodeId: node.nodeId, data: m })}
-                                className={`w-full text-left p-3 pl-6 text-xs flex items-center justify-between transition-colors ${
+                                className={`w-full text-left p-2.5 pl-6 text-[11px] flex items-center justify-between transition-colors outline-none ${
                                   isItemActive 
-                                    ? 'bg-black text-white font-bold' 
-                                    : 'text-zinc-700 hover:bg-zinc-100/70'
+                                    ? 'bg-slate-950 text-white font-bold' 
+                                    : 'text-slate-650 hover:bg-slate-100/70 font-semibold'
                                 }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0 pr-2">
                                   {m.video?.videoUrl ? (
-                                    <Play className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-zinc-500'}`} />
+                                    <Play className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-slate-550'}`} />
                                   ) : (
-                                    <FileText className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-zinc-500'}`} />
+                                    <FileText className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-slate-555'}`} />
                                   )}
                                   <span className="truncate">{m.title}</span>
                                 </div>
@@ -712,14 +713,14 @@ export function StudentLearningPathPage() {
                               <button
                                 key={t.testId}
                                 onClick={() => setActiveItem({ id: t.testId, type: 'test', title: t.title, nodeId: node.nodeId, data: t })}
-                                className={`w-full text-left p-3 pl-6 text-xs flex items-center justify-between transition-colors ${
+                                className={`w-full text-left p-2.5 pl-6 text-[11px] flex items-center justify-between transition-colors outline-none ${
                                   isItemActive 
-                                    ? 'bg-black text-white font-bold' 
-                                    : 'text-zinc-750 hover:bg-zinc-100/70'
+                                    ? 'bg-slate-950 text-white font-bold' 
+                                    : 'text-slate-650 hover:bg-slate-100/70 font-semibold'
                                 }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0 pr-2">
-                                  <Award className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-zinc-550'}`} />
+                                  <Award className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-slate-555'}`} />
                                   <span className="truncate">{t.title}</span>
                                 </div>
                                 {(isCompleted || testHistory.filter(h => h.testId === t.testId).some(h => h.score >= (t.passingPercentage ?? 0))) && (
@@ -739,14 +740,14 @@ export function StudentLearningPathPage() {
                               <button
                                 key={e.exerciseId}
                                 onClick={() => setActiveItem({ id: e.exerciseId, type: 'exercise', title: e.title, nodeId: node.nodeId, data: e })}
-                                className={`w-full text-left p-3 pl-6 text-xs flex items-center justify-between transition-colors ${
+                                className={`w-full text-left p-2.5 pl-6 text-[11px] flex items-center justify-between transition-colors outline-none ${
                                   isItemActive 
-                                    ? 'bg-black text-white font-bold' 
-                                    : 'text-zinc-750 hover:bg-zinc-100/70'
+                                    ? 'bg-slate-950 text-white font-bold' 
+                                    : 'text-slate-650 hover:bg-slate-100/70 font-semibold'
                                 }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0 pr-2">
-                                  <BookMarked className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-zinc-550'}`} />
+                                  <BookMarked className={`size-3.5 shrink-0 ${isItemActive ? 'text-white' : 'text-slate-555'}`} />
                                   <span className="truncate">{e.title}</span>
                                 </div>
                                 {isSubmitted ? (
@@ -759,7 +760,7 @@ export function StudentLearningPathPage() {
                           })}
 
                           {(!content?.materials?.length && !content?.tests?.length && !content?.exercises?.length) && (
-                            <div className="p-3 text-center text-[10px] text-zinc-400 italic">
+                            <div className="p-3 text-center text-[10px] text-slate-500 italic">
                               Chưa có tài liệu hoặc bài tập
                             </div>
                           )}
@@ -777,26 +778,26 @@ export function StudentLearningPathPage() {
       {/* RIGHT MAIN PANEL: Content Viewer */}
       <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
         {/* Top Header */}
-        <div className="h-14 border-b border-zinc-200 flex items-center justify-between px-6 bg-white shrink-0">
-          <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
+        <div className="h-12 border-b border-slate-200 flex items-center justify-between px-6 bg-white shrink-0">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             <span>Lộ trình học tập</span>
             <span>/</span>
             {activeItem ? (
               <>
-                <span className="capitalize font-bold text-zinc-800">
-                  {activeItem.type === 'material' ? 'Học liệu' : activeItem.type === 'test' ? 'Bài test' : 'Bài tập'}
+                <span className="text-slate-800">
+                  {activeItem.type === 'material' ? 'Học liệu' : activeItem.type === 'test' ? 'Bài kiểm tra' : 'Bài thực hành'}
                 </span>
                 <span>/</span>
-                <span className="truncate max-w-[250px] font-bold text-zinc-950">{activeItem.title}</span>
+                <span className="truncate max-w-[250px] text-slate-950">{activeItem.title}</span>
               </>
             ) : (
-              <span className="font-bold text-zinc-950">Tổng quan bài học</span>
+              <span className="text-slate-950">Tổng quan bài học</span>
             )}
           </div>
           
           <button 
             onClick={() => setSearchParams({})}
-            className="w-8 h-8 rounded-full hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-black transition-colors"
+            className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-950 transition-colors border-none bg-transparent cursor-pointer outline-none"
             title="Đóng lộ trình"
           >
             <X className="size-4" />
@@ -804,44 +805,44 @@ export function StudentLearningPathPage() {
         </div>
 
         {/* Content Body (Scrollable) */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-4xl mx-auto space-y-6 pb-20">
+        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/20">
+          <div className="max-w-3xl mx-auto space-y-6 pb-20">
             {activeItem ? (
               <>
                 {/* 1. MATERIAL VIEWER */}
                 {activeItem.type === 'material' && (
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-black hover:bg-black text-white rounded-md text-[9px] font-extrabold uppercase px-2 py-0.5">Học liệu</Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className="bg-slate-950 hover:bg-slate-900 text-white rounded-sm text-[8px] font-bold uppercase px-2 py-0.5 border-transparent">Học liệu</Badge>
                         {activeItem.data.required && (
-                          <Badge variant="outline" className="border-zinc-200 text-zinc-550 rounded-md text-[9px] font-bold uppercase px-2 py-0.5">Bắt buộc</Badge>
+                          <Badge variant="outline" className="border-slate-200 text-slate-600 rounded-sm text-[8px] font-bold uppercase px-2 py-0.5 bg-white">Bắt buộc</Badge>
                         )}
                       </div>
-                      <h1 className="text-2xl font-extrabold text-zinc-900 leading-tight">{activeItem.title}</h1>
+                      <h1 className="text-xl font-bold text-slate-900 leading-tight tracking-tight">{activeItem.title}</h1>
                       {activeItem.data.video?.durationSeconds ? (
-                        <p className="text-xs text-zinc-450 font-bold">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase">
                           Thời lượng: {Math.round(activeItem.data.video.durationSeconds / 60)} phút
                         </p>
                       ) : null}
                     </div>
 
                     {/* Preview Area */}
-                    <div className="border border-zinc-200 rounded-2xl overflow-hidden bg-zinc-50 p-2 shadow-xs">
+                    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white p-1.5 shadow-sm">
                       <MaterialPreview material={activeItem.data} />
                     </div>
 
                     {/* Description */}
                     {activeItem.data.video?.description && (
-                      <div className="space-y-2 border-t border-zinc-150 pt-4">
-                        <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wider">Thông tin chi tiết</h4>
-                        <p className="text-sm text-zinc-650 leading-relaxed whitespace-pre-line">{activeItem.data.video.description}</p>
+                      <div className="space-y-1.5 border-t border-slate-150 pt-4">
+                        <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mô tả chi tiết</h4>
+                        <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{activeItem.data.video.description}</p>
                       </div>
                     )}
                     {activeItem.data.file?.description && (
-                      <div className="space-y-2 border-t border-zinc-150 pt-4">
-                        <h4 className="text-xs font-extrabold text-zinc-800 uppercase tracking-wider">Thông tin chi tiết</h4>
-                        <p className="text-sm text-zinc-650 leading-relaxed whitespace-pre-line">{activeItem.data.file.description}</p>
+                      <div className="space-y-1.5 border-t border-slate-150 pt-4">
+                        <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mô tả chi tiết</h4>
+                        <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">{activeItem.data.file.description}</p>
                       </div>
                     )}
                   </div>
@@ -849,64 +850,64 @@ export function StudentLearningPathPage() {
 
                 {/* 2. TEST VIEWER */}
                 {activeItem.type === 'test' && (
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     <div className="space-y-2">
-                      <Badge className="bg-black hover:bg-black text-white rounded-md text-[9px] font-extrabold uppercase px-2 py-0.5">Bài kiểm tra đánh giá</Badge>
-                      <h1 className="text-2xl font-extrabold text-zinc-900 leading-tight">{activeItem.title}</h1>
+                      <Badge className="bg-slate-950 hover:bg-slate-900 text-white rounded-sm text-[8px] font-bold uppercase px-2 py-0.5 border-transparent">Bài kiểm tra đánh giá</Badge>
+                      <h1 className="text-xl font-bold text-slate-900 leading-tight tracking-tight">{activeItem.title}</h1>
                     </div>
 
-                    <div className="border border-zinc-200 rounded-2xl p-6 bg-zinc-50/50 flex flex-col gap-6">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-6 divide-x divide-zinc-200">
+                    <div className="border border-slate-200 rounded-lg p-5 bg-white flex flex-col gap-5 shadow-sm">
+                      <div className="grid grid-cols-3 gap-6 divide-x divide-slate-100">
                         <div className="space-y-1 pl-0">
-                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Thời lượng</span>
-                          <p className="text-base font-extrabold text-zinc-900">{activeItem.data.durationMinutes || 0} phút</p>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Thời lượng</span>
+                          <p className="text-sm font-bold text-slate-800">{activeItem.data.durationMinutes || 0} phút</p>
                         </div>
                         <div className="space-y-1 pl-6">
-                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Yêu cầu đạt</span>
-                          <p className="text-base font-extrabold text-zinc-900">{activeItem.data.passingPercentage || 0}%</p>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Yêu cầu đạt</span>
+                          <p className="text-sm font-bold text-slate-800">{activeItem.data.passingPercentage || 0}%</p>
                         </div>
-                        <div className="space-y-1 pl-6 col-span-2 md:col-span-1">
-                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Trạng thái</span>
-                          <p className="text-base font-extrabold text-zinc-900">
+                        <div className="space-y-1 pl-6">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</span>
+                          <p className="text-sm font-bold">
                             {highestAttempt ? (
                               highestAttempt.score >= (activeItem.data.passingPercentage || 0) ? (
-                                <span className="text-emerald-600 font-extrabold">Đạt ({highestAttempt.score}%)</span>
+                                <span className="text-emerald-600 font-bold">Đạt ({highestAttempt.score}%)</span>
                               ) : (
-                                <span className="text-rose-600 font-extrabold">Chưa đạt ({highestAttempt.score}%)</span>
+                                <span className="text-red-600 font-bold">Chưa đạt ({highestAttempt.score}%)</span>
                               )
                             ) : (
-                              'Chưa làm'
+                              <span className="text-slate-500 font-medium">Chưa làm</span>
                             )}
                           </p>
                         </div>
                       </div>
 
                       {activeItem.data.description && (
-                        <div className="border-t border-zinc-200 pt-4">
-                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">Mô tả bài kiểm tra</span>
-                          <p className="text-xs text-zinc-600 leading-relaxed whitespace-pre-line">{activeItem.data.description}</p>
+                        <div className="border-t border-slate-200 pt-4">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Mô tả bài kiểm tra</span>
+                          <p className="text-xs text-slate-650 leading-relaxed whitespace-pre-line">{activeItem.data.description}</p>
                         </div>
                       )}
 
                       {/* Display past attempt history */}
                       {attemptsForTest.length > 0 && (
-                        <div className="border-t border-zinc-200 pt-4 space-y-3">
-                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Lịch sử làm bài thi</span>
+                        <div className="border-t border-slate-200 pt-4 space-y-3">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Lịch sử làm bài thi</span>
                           <div className="space-y-2">
                             {attemptsForTest.map((att, idx) => {
                               const isPassed = att.score >= (activeItem.data.passingPercentage || 0);
                               return (
-                                <div key={att.attemptId} className="flex justify-between items-center p-3 border border-zinc-200 bg-white rounded-xl text-xs">
-                                  <span className="font-bold text-zinc-700">Lần nộp {attemptsForTest.length - idx}</span>
+                                <div key={att.attemptId} className="flex justify-between items-center p-3 border border-slate-200 bg-slate-50/50 rounded-md text-xs">
+                                  <span className="font-bold text-slate-700">Lần nộp {attemptsForTest.length - idx}</span>
                                   <div className="flex items-center gap-3">
-                                    <span className="text-zinc-400 font-medium">
+                                    <span className="text-slate-500 font-semibold text-[11px]">
                                       {new Date(att.submittedAt).toLocaleString('vi-VN')}
                                     </span>
                                     <Badge 
-                                      className={`text-[9px] rounded-md font-bold ${
+                                      className={`text-[9px] rounded-sm font-bold border-transparent ${
                                         isPassed 
-                                          ? 'bg-black text-white hover:bg-black' 
-                                          : 'border border-zinc-200 bg-zinc-50 text-zinc-550 hover:bg-zinc-100'
+                                          ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
+                                          : 'bg-slate-200 text-slate-700 hover:bg-slate-350'
                                       }`}
                                     >
                                       Điểm: {att.score}% - {isPassed ? 'Đạt' : 'Chưa đạt'}
@@ -919,10 +920,10 @@ export function StudentLearningPathPage() {
                         </div>
                       )}
 
-                      <div className="border-t border-zinc-200 pt-6 flex justify-end">
+                      <div className="border-t border-slate-200 pt-5 flex justify-end">
                         <Button
                           onClick={() => navigate(`/student/tests/${activeItem.id}?csId=${classroomSubjectId}`)}
-                          className="bg-black hover:bg-zinc-800 text-white font-extrabold rounded-xl px-8 py-3 flex items-center gap-2 group transition-all"
+                          className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
                         >
                           <span>
                             {attemptsForTest.length > 0 
@@ -931,7 +932,7 @@ export function StudentLearningPathPage() {
                                 : 'Làm lại bài thi') 
                               : 'Bắt đầu làm bài thi'}
                           </span>
-                          <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                          <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
                         </Button>
                       </div>
                     </div>
@@ -940,30 +941,28 @@ export function StudentLearningPathPage() {
 
                 {/* 3. EXERCISE VIEWER & SUBMISSION */}
                 {activeItem.type === 'exercise' && (
-                  <div className="space-y-6">
+                  <div className="space-y-5">
                     <div className="space-y-2">
                       <div className="flex justify-between items-start gap-4">
                         <div className="space-y-1">
-                          <Badge className="bg-black hover:bg-black text-white rounded-md text-[9px] font-extrabold uppercase px-2 py-0.5">Bài tập thực hành</Badge>
-                          <h1 className="text-2xl font-extrabold text-zinc-900 leading-tight">{activeItem.title}</h1>
+                          <Badge className="bg-slate-950 hover:bg-slate-900 text-white rounded-sm text-[8px] font-bold uppercase px-2 py-0.5 border-transparent">Bài thực hành</Badge>
+                          <h1 className="text-xl font-bold text-slate-900 leading-tight tracking-tight">{activeItem.title}</h1>
                         </div>
                         
                         {/* Submission status badge */}
                         {(() => {
                           const submission = exerciseSubmissions[activeItem.id];
                           if (!submission) {
-                            return <Badge variant="outline" className="border-zinc-250 text-zinc-500 rounded-md font-bold text-[10px] px-2.5 py-1">Chưa nộp bài</Badge>;
+                            return <Badge variant="outline" className="border-slate-250 text-slate-500 rounded-sm font-bold text-[9px] px-2 py-0.5 bg-white">Chưa nộp bài</Badge>;
                           }
                           if (submission.status === 'SUBMITTED') {
-                            return <Badge className="bg-zinc-850 text-white hover:bg-zinc-800 rounded-md font-bold text-[10px] px-2.5 py-1">Đã nộp - Chờ chấm</Badge>;
+                            return <Badge className="bg-slate-950 text-white hover:bg-slate-900 rounded-sm font-bold text-[9px] px-2 py-0.5 border-transparent">Đã nộp - Chờ chấm</Badge>;
                           }
                           if (submission.status === 'GRADED') {
                             return (
-                              <div className="flex flex-col items-end gap-1">
-                                <Badge className="bg-black text-white hover:bg-black rounded-md font-extrabold text-[10px] px-2.5 py-1">
-                                  Đã chấm: {submission.grade} / 100
-                                </Badge>
-                              </div>
+                              <Badge className="bg-emerald-500 text-white hover:bg-emerald-600 rounded-sm font-bold text-[9px] px-2 py-0.5 border-transparent">
+                                Đã chấm: {submission.grade} / 100
+                              </Badge>
                             );
                           }
                           return null;
@@ -973,9 +972,9 @@ export function StudentLearningPathPage() {
 
                     {/* Instructions */}
                     {activeItem.data.instructions && (
-                      <div className="border border-zinc-200 bg-zinc-50/50 rounded-2xl p-5 space-y-2">
-                        <h4 className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider">Yêu cầu & Hướng dẫn làm bài</h4>
-                        <p className="text-xs text-zinc-650 leading-relaxed whitespace-pre-line">{activeItem.data.instructions}</p>
+                      <div className="border border-slate-200 bg-slate-50/50 rounded-lg p-4 space-y-1.5">
+                        <h4 className="text-[9px] font-bold text-slate-550 uppercase tracking-wider">Yêu cầu & Hướng dẫn làm bài</h4>
+                        <p className="text-xs text-slate-650 leading-relaxed whitespace-pre-line">{activeItem.data.instructions}</p>
                       </div>
                     )}
 
@@ -987,30 +986,30 @@ export function StudentLearningPathPage() {
 
                       if (showForm) {
                         return (
-                          <div className="border border-zinc-200 rounded-2xl p-6 space-y-6">
-                            <h3 className="font-extrabold text-sm text-zinc-900">
+                          <div className="border border-slate-200 rounded-lg p-5 bg-white space-y-4 shadow-xs">
+                            <h3 className="font-bold text-xs text-slate-800 border-b border-slate-100 pb-2">
                               {isResubmitting ? 'Nộp lại bài làm của bạn' : 'Tiến hành nộp bài'}
                             </h3>
 
                             {/* Text Submission Form */}
                             {activeItem.data.allowText && (
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                              <div className="space-y-1.5">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                                   Nội dung trả lời bài tập (Văn bản)
                                 </label>
                                 <Textarea
                                   placeholder="Nhập nội dung bài làm của bạn tại đây..."
                                   value={submissionText}
                                   onChange={(e) => setSubmissionText(e.target.value)}
-                                  className="min-h-[160px] border-zinc-200 focus-visible:ring-black focus-visible:border-black rounded-xl text-xs placeholder:text-zinc-400"
+                                  className="min-h-[140px] border-slate-200 focus-visible:ring-slate-950 focus-visible:border-slate-950 rounded-sm text-xs placeholder:text-slate-400 shadow-none font-sans"
                                 />
                               </div>
                             )}
 
                             {/* File Upload Form */}
                             {activeItem.data.allowFile && (
-                              <div className="space-y-2">
-                                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                              <div className="space-y-1.5">
+                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                                   Tệp đính kèm (File)
                                 </label>
                                 <div
@@ -1024,8 +1023,8 @@ export function StudentLearningPathPage() {
                                       setSubmissionFile(files[0]);
                                     }
                                   }}
-                                  className={`border-2 border-dashed rounded-xl p-8 transition-all flex flex-col items-center justify-center gap-3 cursor-pointer ${
-                                    isDragging ? 'border-black bg-zinc-50' : 'border-zinc-200 hover:border-zinc-400'
+                                  className={`border-2 border-dashed rounded-lg p-6 transition-all flex flex-col items-center justify-center gap-2.5 cursor-pointer ${
+                                    isDragging ? 'border-slate-950 bg-slate-50' : 'border-slate-200 hover:border-slate-350 bg-slate-50/50'
                                   }`}
                                   onClick={() => document.getElementById('file-upload-input-el')?.click()}
                                 >
@@ -1040,16 +1039,16 @@ export function StudentLearningPathPage() {
                                       }
                                     }}
                                   />
-                                  <Cloud className="size-8 text-zinc-400" />
+                                  <Cloud className="size-7 text-slate-400" />
                                   {submissionFile ? (
                                     <div className="text-center space-y-1">
-                                      <span className="text-xs font-bold text-zinc-800 block truncate max-w-xs">{submissionFile.name}</span>
-                                      <span className="text-[10px] text-zinc-400">{(submissionFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                                      <span className="text-xs font-bold text-slate-800 block truncate max-w-xs">{submissionFile.name}</span>
+                                      <span className="text-[10px] text-slate-400">{(submissionFile.size / 1024 / 1024).toFixed(2)} MB</span>
                                     </div>
                                   ) : (
                                     <div className="text-center">
-                                      <span className="text-xs font-bold text-zinc-700 block">Kéo thả file vào đây hoặc nhấn để chọn</span>
-                                      <span className="text-[10px] text-zinc-400">Hỗ trợ các định dạng tài liệu</span>
+                                      <span className="text-xs font-bold text-slate-700 block">Kéo thả file vào đây hoặc nhấn để chọn</span>
+                                      <span className="text-[10px] text-slate-400">Hỗ trợ các định dạng tài liệu học tập</span>
                                     </div>
                                   )}
                                 </div>
@@ -1057,11 +1056,11 @@ export function StudentLearningPathPage() {
                             )}
 
                             {/* Form Action buttons */}
-                            <div className="flex items-center gap-3 pt-2">
+                            <div className="flex items-center gap-2.5 pt-2">
                               <Button
                                 onClick={handleExerciseSubmit}
                                 disabled={submittingExerciseId === activeItem.id || (!submissionText.trim() && !submissionFile)}
-                                className="bg-black hover:bg-zinc-800 text-white font-extrabold rounded-xl px-6 py-2 h-10 flex items-center gap-2"
+                                className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-sm px-5 h-9 flex items-center gap-1.5 border-none outline-none"
                               >
                                 {submittingExerciseId === activeItem.id ? (
                                   <Loader2 className="size-4 animate-spin" />
@@ -1075,7 +1074,7 @@ export function StudentLearningPathPage() {
                                 <Button
                                   variant="outline"
                                   onClick={() => setIsResubmitting(false)}
-                                  className="border-zinc-200 text-zinc-700 hover:bg-zinc-50 rounded-xl h-10 px-6 font-semibold"
+                                  className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-sm h-9 px-5 font-bold"
                                 >
                                   Hủy
                                 </Button>
@@ -1084,7 +1083,7 @@ export function StudentLearningPathPage() {
                                   <Button
                                     variant="outline"
                                     onClick={() => { setSubmissionText(''); setSubmissionFile(null); }}
-                                    className="border-zinc-200 text-zinc-700 hover:bg-zinc-50 rounded-xl h-10 px-6 font-semibold"
+                                    className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-sm h-9 px-5 font-bold"
                                   >
                                     Làm sạch
                                   </Button>
@@ -1095,81 +1094,71 @@ export function StudentLearningPathPage() {
                         );
                       } else if (submission) {
                         return (
-                          <div className="border border-zinc-200 rounded-2xl p-6 space-y-6">
-                            <div className="flex justify-between items-center border-b border-zinc-150 pb-4">
-                              <h3 className="font-extrabold text-sm text-zinc-900">Chi tiết bài làm đã nộp</h3>
-                              <span className="text-[10px] text-zinc-400 font-bold">
-                                Nộp ngày: {new Date(submission.submittedAt).toLocaleString('vi-VN')}
-                              </span>
+                          <div className="border border-slate-200 rounded-lg p-5 bg-white space-y-5">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                              <h3 className="font-bold text-xs text-slate-800">Chi tiết bài làm đã nộp</h3>
                             </div>
 
-                            {/* Submission Text content */}
-                            {submission.content && (
-                              <div className="space-y-1.5">
-                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Bài viết trả lời</span>
-                                <div className="p-4 border border-zinc-200 rounded-xl bg-zinc-50 text-xs text-zinc-750 whitespace-pre-line leading-relaxed">
-                                  {submission.content}
+                            <div className="space-y-4">
+                              {submission.content && (
+                                <div className="space-y-1.5">
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Bài viết đã nộp</span>
+                                  <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed border border-slate-150 p-3.5 bg-slate-50/50 rounded-md">
+                                    {submission.content}
+                                  </p>
                                 </div>
-                              </div>
-                            )}
+                              )}
 
-                            {/* Submission File content */}
-                            {submission.fileUrl && (
-                              <div className="space-y-1.5">
-                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Tệp đã nộp</span>
-                                <div className="flex items-center justify-between p-3 border border-zinc-200 rounded-xl bg-white text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <FileText className="size-4 text-zinc-400" />
-                                    <span className="font-bold text-zinc-750 truncate max-w-sm">Tệp đính kèm bài làm</span>
-                                  </div>
+                              {submission.fileUrl && (
+                                <div className="space-y-1.5">
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">File đính kèm</span>
                                   <a 
                                     href={resolveAssetUrl(submission.fileUrl)} 
                                     target="_blank" 
                                     rel="noreferrer"
-                                    className="flex items-center gap-1 text-zinc-500 hover:text-black font-semibold transition-colors"
+                                    className="inline-flex items-center gap-2 p-2.5 border border-slate-200 hover:border-slate-350 rounded-md bg-white text-xs font-bold text-slate-800 hover:text-slate-950 transition-colors"
                                   >
-                                    <span>Tải xuống</span>
-                                    <Download className="size-3.5" />
+                                    <Download className="size-4 text-slate-500" />
+                                    <span>Tải file bài làm đã nộp</span>
                                   </a>
                                 </div>
-                              </div>
-                            )}
+                              )}
 
-                            {/* Teacher Grade and Feedback */}
-                            {submission.status === 'GRADED' && (
-                              <div className="border-t border-zinc-200 pt-6 space-y-4">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Đánh giá của giáo viên</span>
-                                  <Badge className="bg-black text-white hover:bg-black font-extrabold text-[10px] px-2 py-0.5">
-                                    Điểm số: {submission.grade} / 100
-                                  </Badge>
-                                </div>
-
-                                {submission.feedback && (
-                                  <div className="p-4 border-l-4 border-black bg-zinc-50 rounded-r-xl space-y-1.5">
-                                    <span className="text-[10px] font-bold text-zinc-500 block">
-                                      Nhận xét từ {submission.gradedByName || 'Giảng viên'}:
-                                    </span>
-                                    <p className="text-xs text-zinc-700 italic leading-relaxed whitespace-pre-line">
-                                      "{submission.feedback}"
-                                    </p>
+                              {submission.status === 'GRADED' && (
+                                <div className="border-t border-slate-200 pt-5 space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Đánh giá của giáo viên</span>
+                                    <Badge className="bg-slate-950 text-white hover:bg-slate-900 font-bold text-[9px] px-2 py-0.5 border-transparent">
+                                      Điểm số: {submission.grade} / 100
+                                    </Badge>
                                   </div>
-                                )}
-                              </div>
-                            )}
 
-                            {/* Resubmit button if not graded or if allowed */}
-                            <div className="border-t border-zinc-200 pt-6 flex justify-end">
-                              <Button
-                                onClick={() => {
-                                  setIsResubmitting(true);
-                                  setSubmissionText(submission.content || '');
-                                  setSubmissionFile(null);
-                                }}
-                                className="border border-zinc-200 hover:bg-zinc-50 text-zinc-800 bg-white font-extrabold rounded-xl px-5 h-9 text-xs"
-                              >
-                                Nộp lại bài làm khác
-                              </Button>
+                                  {submission.feedback && (
+                                    <div className="p-4 border-l-4 border-slate-950 bg-slate-50 rounded-r-md space-y-1.5">
+                                      <span className="text-[9px] font-bold text-slate-500 block">
+                                        Nhận xét từ {submission.gradedByName || 'Giảng viên'}:
+                                      </span>
+                                      <p className="text-xs text-slate-700 italic leading-relaxed whitespace-pre-line">
+                                        &ldquo;{submission.feedback}&rdquo;
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Resubmit button if not graded or if allowed */}
+                              <div className="border-t border-slate-200 pt-4 flex justify-end">
+                                <Button
+                                  onClick={() => {
+                                    setIsResubmitting(true);
+                                    setSubmissionText(submission.content || '');
+                                    setSubmissionFile(null);
+                                  }}
+                                  className="border border-slate-200 hover:bg-slate-50 text-slate-800 bg-white font-bold rounded-sm px-4 h-8 text-xs"
+                                >
+                                  Nộp lại bài làm khác
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -1178,16 +1167,22 @@ export function StudentLearningPathPage() {
                     })()}
                   </div>
                 )}
+                
                 {/* Completion Footer (Coursera style) */}
                 {renderCompletionFooter()}
+
+                {/* Hỏi đáp & Thảo luận */}
+                <div className="border-t border-slate-200 pt-8 mt-12">
+                  <NodeDiscussion nodeId={activeItem.nodeId} role="student" />
+                </div>
               </>
             ) : (
               // 4. ROADMAP OVERVIEW (IF NO ACTIVE ITEM SELECTED)
-              <div className="text-center py-20 border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/50">
-                <FileText className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
-                <h2 className="text-lg font-bold text-zinc-800">Chọn một mục để học</h2>
-                <p className="text-xs text-zinc-550 mt-1 max-w-sm mx-auto">
-                  Hãy chọn các học liệu (Video, PDF), bài kiểm tra hoặc bài tập thực hành ở cột bên trái để bắt đầu lộ trình học tập của bạn.
+              <div className="text-center py-20 border border-dashed border-slate-200 rounded-lg bg-white">
+                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3 stroke-[1.5]" />
+                <h2 className="text-sm font-bold text-slate-800">Chọn một mục để học</h2>
+                <p className="text-xs text-slate-550 mt-1 max-w-sm mx-auto">
+                  Hãy chọn các học liệu (Video, PDF), bài kiểm tra hoặc bài thực hành ở cột bên trái để bắt đầu lộ trình học tập của bạn.
                 </p>
               </div>
             )}
@@ -1196,25 +1191,25 @@ export function StudentLearningPathPage() {
 
         {/* BOTTOM NAVIGATION PANEL: Prev / Next buttons */}
         {activeItem && allItems.length > 0 && (
-          <div className="h-16 border-t border-zinc-200 bg-white flex items-center justify-between px-8 shrink-0">
+          <div className="h-14 border-t border-slate-200 bg-white flex items-center justify-between px-8 shrink-0">
             <Button
               onClick={handlePrevItem}
               disabled={currentItemIndex <= 0}
               variant="outline"
-              className="border-zinc-200 text-zinc-700 hover:bg-zinc-50 rounded-xl h-10 px-4 font-semibold flex items-center gap-1.5 disabled:opacity-30 disabled:pointer-events-none"
+              className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-sm h-8 px-4 font-bold flex items-center gap-1.5 disabled:opacity-30 disabled:pointer-events-none"
             >
               <ChevronLeft className="size-4" />
               <span>Mục phía trước</span>
             </Button>
 
-            <div className="text-xs text-zinc-450 font-bold">
+            <div className="text-xs text-slate-500 font-bold">
               {currentItemIndexInNode + 1} / {currentItemsForNode.length} mục
             </div>
 
             <Button
               onClick={handleNextItem}
               disabled={currentItemIndex >= allItems.length - 1}
-              className="bg-black hover:bg-zinc-850 text-white font-extrabold rounded-xl h-10 px-4 flex items-center gap-1.5 disabled:opacity-30 disabled:pointer-events-none"
+              className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-sm h-8 px-4 flex items-center gap-1.5 disabled:opacity-30 disabled:pointer-events-none border-none outline-none"
             >
               <span>Mục tiếp theo</span>
               <ChevronRight className="size-4" />
