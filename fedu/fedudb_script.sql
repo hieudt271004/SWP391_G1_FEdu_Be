@@ -379,16 +379,27 @@ CREATE TABLE IF NOT EXISTS question_answers (
 );
 
 CREATE TABLE IF NOT EXISTS node_reviews (
-                                            review_id  BIGSERIAL PRIMARY KEY,
-                                            node_id    BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
-                                            student_id BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-                                            rating     INT CHECK (rating BETWEEN 1 AND 5),
-                                            content    TEXT,
-                                            is_deleted BOOLEAN DEFAULT FALSE,
-                                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                            UNIQUE(student_id, node_id)
+                                            review_id        BIGSERIAL PRIMARY KEY,
+                                            node_id          BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+                                            student_id       BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+                                            parent_review_id BIGINT REFERENCES node_reviews(review_id) ON DELETE CASCADE,
+                                            rating           INT CHECK (rating BETWEEN 1 AND 5),
+                                            content          TEXT,
+                                            is_deleted       BOOLEAN DEFAULT FALSE,
+                                            created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                            updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Mỗi học sinh chỉ được tạo 1 review gốc CÓ rating (không phải comment hay reply) trên mỗi node
+CREATE UNIQUE INDEX IF NOT EXISTS uq_node_reviews_root
+    ON node_reviews (student_id, node_id)
+    WHERE parent_review_id IS NULL AND rating IS NOT NULL;
+
+-- MIGRATION SNIPPET FOR SHAPED/NEON DB:
+-- DROP INDEX IF EXISTS uq_node_reviews_root;
+-- ALTER TABLE node_reviews DROP CONSTRAINT IF EXISTS node_reviews_student_id_node_id_key;
+-- ALTER TABLE node_reviews ADD COLUMN IF NOT EXISTS parent_review_id BIGINT REFERENCES node_reviews(review_id) ON DELETE CASCADE;
+-- CREATE UNIQUE INDEX IF NOT EXISTS uq_node_reviews_root ON node_reviews (student_id, node_id) WHERE parent_review_id IS NULL AND rating IS NOT NULL;
 
 -- Support ticket theo mô hình peer-mentoring: student → sub-mentor → (leo thang) → lecturer
 CREATE TABLE IF NOT EXISTS support_tickets (

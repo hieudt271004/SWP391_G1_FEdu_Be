@@ -438,7 +438,7 @@ export function ClassroomSubjectDetailPage() {
                         <p className="mt-0.5 text-sm text-muted-foreground">{selectedNode.description}</p>
                       )}
                     </div>
-                    <NodeContentReadOnlyPanel nodeId={selectedNode.nodeId} />
+                    <NodeContentReadOnlyPanel nodeId={selectedNode.nodeId} showDiscussion={true} />
                   </div>
                 )}
               </aside>

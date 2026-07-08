@@ -65,6 +65,8 @@ import {
 import { slotService, SlotResponse } from '../../../services/slot.service';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { NodeDiscussion } from '../../../components/learningPath/NodeDiscussion';
 import {
   Dialog,
   DialogContent,
@@ -136,6 +138,8 @@ export function ClassOverviewPage() {
   const [nodeStudents, setNodeStudents] = useState<StudentInClassResponse[]>([]);
   const [nodeContent, setNodeContent] = useState<NodeContentResponse | null>(null);
   const [loadingNodeDetails, setLoadingNodeDetails] = useState(false);
+  const [activeTabs, setActiveTabs] = useState<Record<number, string>>({});
+  const [discussionCounts, setDiscussionCounts] = useState<Record<number, number>>({});
 
   // Node scheduling states
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -1991,61 +1995,96 @@ export function ClassOverviewPage() {
                             </div>
                           )}
 
-                          {/* Materials */}
-                          <div className="space-y-2 pt-3 border-t border-border">
-                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tài liệu học tập</h4>
-                            {!nodeContent || (!nodeContent.materials?.length && !nodeContent.tests?.length && !nodeContent.exercises?.length) ? (
-                              <p className="text-xs text-muted-foreground italic">Node này chưa có tài liệu hay bài kiểm tra nào.</p>
-                            ) : (
-                              <div className="space-y-2">
-                                {nodeContent.materials?.map((m) => (
-                                  <div key={m.materialId} className="rounded-lg border border-border bg-muted/30 p-2 text-xs">
-                                    <div className="flex items-center gap-2">
-                                      <div className="shrink-0 text-primary">
-                                        <FileText className="h-4 w-4" />
+                          <Tabs
+                            defaultValue="content"
+                            value={activeTabs[selectedNode.nodeId] || 'content'}
+                            onValueChange={(val) => setActiveTabs((prev) => ({ ...prev, [selectedNode.nodeId]: val }))}
+                            className="w-full"
+                          >
+                            <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-lg h-9 mb-4">
+                              <TabsTrigger value="content" className="text-xs py-1.5 font-semibold rounded-md">
+                                Nội dung
+                              </TabsTrigger>
+                              <TabsTrigger value="discussion" className="text-xs py-1.5 font-semibold rounded-md">
+                                {discussionCounts[selectedNode.nodeId] !== undefined
+                                  ? `Thảo luận (${discussionCounts[selectedNode.nodeId]})`
+                                  : 'Thảo luận'}
+                              </TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="content" className="mt-0 space-y-4">
+                              {/* Materials */}
+                              <div className="space-y-2 pt-3 border-t border-border">
+                                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tài liệu học tập</h4>
+                                {!nodeContent || (!nodeContent.materials?.length && !nodeContent.tests?.length && !nodeContent.exercises?.length) ? (
+                                  <p className="text-xs text-muted-foreground italic">Node này chưa có tài liệu hay bài kiểm tra nào.</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {nodeContent.materials?.map((m) => (
+                                      <div key={m.materialId} className="rounded-lg border border-border bg-muted/30 p-2 text-xs">
+                                        <div className="flex items-center gap-2">
+                                          <div className="shrink-0 text-primary">
+                                            <FileText className="h-4 w-4" />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="truncate font-medium text-foreground">{m.title}</p>
+                                          </div>
+                                        </div>
+                                        <div className="mt-1.5 max-w-2xl">
+                                          <MaterialPreview material={m} />
+                                        </div>
                                       </div>
-                                      <div className="min-w-0 flex-1">
-                                        <p className="truncate font-medium text-foreground">{m.title}</p>
+                                    ))}
+                                    {nodeContent.tests?.map((t) => (
+                                      <div key={t.testId} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border text-xs">
+                                        <div className="text-amber-600 shrink-0">
+                                          <Award className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-medium text-foreground truncate">{t.title} ({t.durationMinutes} phút)</p>
+                                        </div>
                                       </div>
-                                    </div>
-                                    <div className="mt-1.5 max-w-2xl">
-                                      <MaterialPreview material={m} />
-                                    </div>
+                                    ))}
+                                    {nodeContent.exercises?.map((e) => (
+                                      <div key={e.exerciseId} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border text-xs gap-3">
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          <div className="text-blue-500 shrink-0">
+                                            <FileText className="w-4 h-4" />
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-foreground truncate" title={e.title}>
+                                              {e.title} (Thực hành)
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <Button
+                                          onClick={() => handleOpenSubmissionsModal(e.exerciseId, e.title)}
+                                          className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
+                                        >
+                                          Xem bài nộp
+                                        </Button>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                                {nodeContent.tests?.map((t) => (
-                                  <div key={t.testId} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border text-xs">
-                                    <div className="text-amber-600 shrink-0">
-                                      <Award className="w-4 h-4" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium text-foreground truncate">{t.title} ({t.durationMinutes} phút)</p>
-                                    </div>
-                                  </div>
-                                ))}
-                                {nodeContent.exercises?.map((e) => (
-                                  <div key={e.exerciseId} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border text-xs gap-3">
-                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                      <div className="text-blue-500 shrink-0">
-                                        <FileText className="w-4 h-4" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-foreground truncate" title={e.title}>
-                                          {e.title} (Thực hành)
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <Button
-                                      onClick={() => handleOpenSubmissionsModal(e.exerciseId, e.title)}
-                                      className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
-                                    >
-                                      Xem bài nộp
-                                    </Button>
-                                  </div>
-                                ))}
+                                )}
                               </div>
-                            )}
-                          </div>
+                            </TabsContent>
+
+                            <TabsContent value="discussion" className="mt-0">
+                              {activeTabs[selectedNode.nodeId] === 'discussion' && (
+                                <NodeDiscussion
+                                  nodeId={selectedNode.nodeId}
+                                  role="teacher"
+                                  onLoadSummary={(total) => {
+                                    setDiscussionCounts((prev) => ({
+                                      ...prev,
+                                      [selectedNode.nodeId]: total,
+                                    }));
+                                  }}
+                                />
+                              )}
+                            </TabsContent>
+                          </Tabs>
                         </>
                       )}
                     </div>

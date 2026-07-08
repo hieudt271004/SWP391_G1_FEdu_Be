@@ -15,11 +15,13 @@ import lombok.NoArgsConstructor;
 @Builder
 public class CreateNodeReviewRequest {
 
-    @NotNull(message = "Vui lòng chọn số sao đánh giá")
     @Min(value = 1, message = "Đánh giá tối thiểu 1 sao")
     @Max(value = 5, message = "Đánh giá tối đa 5 sao")
     private Integer rating;
 
     @Size(max = 2000, message = "Nội dung đánh giá tối đa 2000 ký tự")
     private String content;
+
+    /** ID của review cha (null nếu là review gốc, có giá trị nếu là reply). */
+    private Long parentReviewId;
 }
