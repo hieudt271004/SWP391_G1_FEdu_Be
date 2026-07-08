@@ -72,6 +72,14 @@ public class LearningPathManagementController {
                     learningPathService.getTemplatesVisibleToTeacher(subjectId));
         }
 
+        @Operation(summary = "Các môn cho thư viện lộ trình: đã/đang dạy + môn có template cá nhân")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/library/subjects")
+        public ResponseData<List<SubjectResponse>> getLibrarySubjects() {
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved library subjects successfully",
+                    learningPathService.getLibrarySubjectsForCurrentTeacher());
+        }
+
         @Operation(summary = "Clone a chosen template into the classroom-subject (single path)")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @ResponseStatus(HttpStatus.CREATED)

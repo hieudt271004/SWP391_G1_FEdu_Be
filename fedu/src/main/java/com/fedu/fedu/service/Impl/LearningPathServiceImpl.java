@@ -60,6 +60,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     @Transactional(readOnly = true)
     public List<LearningPathResponse> getTemplatesVisibleToTeacher(Long subjectId) {
+        assertTeacherTeachesSubject(subjectId);
         // Thư viện của teacher: template của khoa + template cá nhân của chính mình
         // (không lộ template cá nhân của giảng viên khác).
         // Template của khoa chỉ hiện khi môn đang xuất bản — bản admin đang sửa (môn draft) không lộ ra ngoài.
@@ -75,12 +76,38 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .collect(Collectors.toList());
     }
 
+    /** Môn cho thư viện template của teacher: đã/đang dạy + môn có template cá nhân của chính mình. */
+    @Override
+    @Transactional(readOnly = true)
+    public List<SubjectResponse> getLibrarySubjectsForCurrentTeacher() {
+        UserAccount actor = currentUser();
+        if (actor == null) return Collections.emptyList();
+        Map<Long, SubjectResponse> bySubjectId = new LinkedHashMap<>();
+        // Môn đã/đang dạy — mọi lớp từng đứng, không lọc trạng thái lớp
+        for (ClassroomSubject cs : classroomSubjectRepository.findByLecturerId(actor.getUserId())) {
+            Subject s = cs.getSubject();
+            if (s != null && !Boolean.TRUE.equals(s.getIsDeleted())) {
+                bySubjectId.putIfAbsent(s.getSubjectId(), SubjectResponse.from(s));
+            }
+        }
+        // Môn có template cá nhân do chính mình tạo — không bao giờ mồ côi khỏi thư viện
+        // (kể cả khi lớp đã bị admin đổi giảng viên)
+        for (LearningPath p : learningPathRepository
+                .findByCreatedByUserIdAndClassroomSubjectIsNullAndIsDeletedFalse(actor.getUserId())) {
+            Subject s = p.getSubject();
+            if (s != null && !Boolean.TRUE.equals(s.getIsDeleted())) {
+                bySubjectId.putIfAbsent(s.getSubjectId(), SubjectResponse.from(s));
+            }
+        }
+        return new ArrayList<>(bySubjectId.values());
+    }
+
     @Override
     @Transactional
     public LearningPathResponse createLearningPath(CreateLearningPathRequest request) {
         Subject subject = subjectRepository.findById(request.getSubjectId())
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
-
+        assertTeacherTeachesSubject(subject.getSubjectId());
         LearningPath learningPath = LearningPath.builder()
                 .subject(subject)
                 .pathName(request.getPathName())
@@ -1193,6 +1220,33 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Unauthorized"));
         if (!classroomSubjectRepository.existsByIdAndLecturerUserId(csId, actor.getUserId())) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+    }
+
+    /**
+     * Teacher chỉ thao tác thư viện template trong phạm vi môn đã/đang dạy (mọi lớp từng đứng,
+     * không lọc trạng thái lớp), HOẶC môn đã có template cá nhân của chính mình
+     * (lớp bị admin đổi giảng viên thì template cũ vẫn thao tác tiếp được). Admin đi qua tự do.
+     */
+    private void assertTeacherTeachesSubject(Long subjectId) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null) return; // test/seed
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (isAdmin) return;
+        UserAccount actor = userAccountRepository.findByEmail(auth.getName()).orElse(null);
+        if (actor == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không dạy môn này");
+        }
+        boolean teaches = classroomSubjectRepository
+                .existsBySubjectSubjectIdAndLecturerUserId(subjectId, actor.getUserId());
+        boolean hasOwnTemplate = !teaches && learningPathRepository
+                .findByCreatedByUserIdAndClassroomSubjectIsNullAndIsDeletedFalse(actor.getUserId())
+                .stream()
+                .anyMatch(p -> p.getSubject() != null && subjectId.equals(p.getSubject().getSubjectId()));
+        if (!teaches && !hasOwnTemplate) {
+            throw new org.springframework.security.access.AccessDeniedException("Bạn không dạy môn này");
         }
     }
 

@@ -26,7 +26,6 @@ import {
   Shield,
   Trash2,
 } from 'lucide-react';
-import { subjectService } from '../../../services/subject.service';
 import { learningPathService, LearningPathResponse, LearningNodeResponse } from '../../../services/learningPath.service';
 import { Subject } from '../../../types/subject';
 import { useAuth } from '../../../context/AuthContext';
@@ -79,12 +78,16 @@ export function TeacherCoursesPage() {
   // Initial Fetch logic
   useEffect(() => {
     const fetchPageData = async () => {
+      if(!user?.userId){
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         setError(null);
 
-        // 1. Tất cả môn học nhà trường tổ chức dạy — GV được tạo template cá nhân cho môn bất kỳ
-        const subjectsData = await subjectService.getAll();
+        // 1. Môn đã/đang dạy + môn có template cá nhân — template khoa/cá nhân trong phạm vi này
+        const subjectsData = await learningPathService.getLibrarySubjects();
         const subjectsList = subjectsData ?? [];
         setSubjects(subjectsList);
 
@@ -315,11 +318,11 @@ export function TeacherCoursesPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Thư viện Lộ trình</h1>
             <p className="text-sm text-muted-foreground font-normal">
-              Xem template của khoa và tạo template cá nhân cho môn bất kỳ — áp dụng vào lớp tại trang Lớp học của tôi
+              Xem template của khoa và tạo template cá nhân cho môn bạn đã/ đang dạy — áp dụng vào lớp tại trang Lớp học của tôi
             </p>
           </div>
         </div>
-        <Button 
+        <Button
           onClick={() => setIsCreateOpen(true)}
           className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg text-xs h-10 px-4 flex items-center gap-2 border-none shadow-sm cursor-pointer shrink-0 md:self-end"
         >
@@ -365,7 +368,9 @@ export function TeacherCoursesPage() {
       {/* Roadmap List Grouped by Subject */}
       {subjects.length === 0 ? (
         <div className="text-center py-16 bg-card text-card-foreground border border-border rounded-[10px] shadow-none">
-          <p className="text-muted-foreground font-normal text-sm">Nhà trường chưa có môn học nào.</p>
+          <p className="text-muted-foreground font-normal text-sm">
+            Bạn chưa được phân công dạy môn nào — thư viện sẽ hiện template của các môn bạn phụ trách.
+          </p>
         </div>
       ) : (
         <div className="space-y-8">

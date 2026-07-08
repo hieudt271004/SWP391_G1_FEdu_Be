@@ -1,5 +1,6 @@
 import { http } from './http';
 import { apiClient } from './api.client';
+import type { Subject } from '../types/subject';
 
 export type LearningPathLevel = 1 | 2 | 3;
 export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
@@ -308,6 +309,8 @@ export const learningPathService = {
     ),
   getCloneablePaths: (classroomSubjectId: number) =>
     http.get<CloneablePathResponse[]>(`/teacher-manage/classrooms/${classroomSubjectId}/cloneable-paths`),
+  // Môn cho thư viện template: đã/đang dạy + môn có template cá nhân của chính GV (BE lấy user từ token)
+  getLibrarySubjects: () => http.get<Subject[]>('/teacher-manage/library/subjects'),
   // Xóa template cá nhân (BE chặn xóa template của khoa / của GV khác)
   deleteTemplatePath: (pathId: number) =>
     http.delete<void>(`/teacher-manage/learning-paths/${pathId}`),

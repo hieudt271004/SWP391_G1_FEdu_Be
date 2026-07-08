@@ -27,6 +27,8 @@ public interface ClassroomSubjectRepository extends JpaRepository<ClassroomSubje
 
     boolean existsByIdAndLecturerUserId(Long classroomSubjectId, Long lecturerId);
 
+    boolean existsBySubjectSubjectIdAndLecturerUserId(Long subjectId, Long lecturerId);
+
     boolean existsByClassroomClassroomIdAndLecturerUserId(Long classroomId, Long lecturerId);
 
     Optional<ClassroomSubject> findByQuizStartTestId(Long testId);

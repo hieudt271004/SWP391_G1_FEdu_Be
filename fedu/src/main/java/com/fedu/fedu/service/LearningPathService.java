@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface LearningPathService {
 
-    // ── Learning Path (template) ──────────────────────────────────────────────
+    // Learning Path (template)
     List<LearningPathResponse> getLearningPathsBySubjectId(Long subjectId);
     /** Template hiển thị cho teacher: của khoa (admin) + cá nhân của chính mình. */
     List<LearningPathResponse> getTemplatesVisibleToTeacher(Long subjectId);
@@ -16,14 +16,14 @@ public interface LearningPathService {
     void deleteLearningPath(Long pathId);
     LearningPathResponse getLearningPathById(Long pathId);
 
-    // ── Clone về lớp-môn (classroom_subject) ─────────────────────────────────
+    // Clone về lớp-môn (classroom_subject)
     LearningPathResponse cloneLearningPath(Long classroomSubjectId, Long templatePathId);
     /** Thay bản nháp hiện tại bằng clone mới từ template — atomic, lỗi thì nháp cũ còn nguyên. */
     LearningPathResponse replaceDraftWithTemplate(Long classroomSubjectId, Long templatePathId);
     List<LearningPathResponse> getClassroomLearningPaths(Long classroomSubjectId);
     List<CloneablePathResponse> getCloneablePaths(Long classroomSubjectId);
 
-    // ── Learning Node ─────────────────────────────────────────────────────────
+    // Learning Node
     LearningNodeResponse createLearningNode(CreateLearningNodeRequest request);
     LearningNodeResponse updateLearningNode(Long nodeId, UpdateLearningNodeRequest request);
     void deleteLearningNode(Long nodeId);
@@ -31,11 +31,11 @@ public interface LearningPathService {
     List<LearningNodeResponse> getTemplateNodesByPathId(Long pathId);
     List<LearningNodeResponse> getClassroomNodesByClassroomId(Long classroomSubjectId);
 
-    // ── Graph ─────────────────────────────────────────────────────────────────
+    // Graph
     LearningPathGraphResponse getLearningPathGraph(Long pathId);
     ClassroomGraphResponse getClassroomGraph(Long classroomSubjectId);
 
-    // ── Publish / Progress ────────────────────────────────────────────────────
+    // Publish / Progress
     PublishResultResponse publishClassroomPath(Long classroomSubjectId, Long pathId);
     void unpublishClassroomPath(Long classroomSubjectId, Long pathId);
     void deleteDraftPath(Long classroomSubjectId, Long pathId);
@@ -48,4 +48,6 @@ public interface LearningPathService {
     void assignStudentsToNode(Long nodeId, List<Long> studentUserIds);
 
     LearningNodeResponse scheduleNode(Long nodeId, com.fedu.fedu.dto.req.ScheduleNodeRequest request);
+
+    List<SubjectResponse> getLibrarySubjectsForCurrentTeacher();
 }
