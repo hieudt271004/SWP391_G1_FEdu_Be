@@ -41,18 +41,9 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
 
-        if (enrollment.getCurrentLevel() == null) {
-            return ClassroomGraphResponse.builder()
-                    .classroomSubjectId(classroomSubjectId)
-                    .state("NEED_PLACEMENT")
-                    .pathId(null)
-                    .publishedAt(null)
-                    .nodes(Collections.emptyList())
-                    .edges(Collections.emptyList())
-                    .availableTemplates(Collections.emptyList())
-                    .build();
-        }
-
+        // Path phải ĐÃ XUẤT BẢN thì học sinh mới thấy bất cứ thứ gì (kể cả bài phân loại).
+        // Check này phải đứng TRƯỚC check currentLevel: path còn nháp (teacher vừa clone,
+        // quizStart đã được gán lúc clone) mà trả NEED_PLACEMENT là học sinh thấy nút làm bài.
         LearningPath path = learningPathRepository
                 .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
                 .orElse(null);
@@ -61,6 +52,18 @@ public class StudentProgressServiceImpl implements StudentProgressService {
             return ClassroomGraphResponse.builder()
                     .classroomSubjectId(classroomSubjectId)
                     .state("NO_PATH")
+                    .pathId(null)
+                    .publishedAt(null)
+                    .nodes(Collections.emptyList())
+                    .edges(Collections.emptyList())
+                    .availableTemplates(Collections.emptyList())
+                    .build();
+        }
+
+        if (enrollment.getCurrentLevel() == null) {
+            return ClassroomGraphResponse.builder()
+                    .classroomSubjectId(classroomSubjectId)
+                    .state("NEED_PLACEMENT")
                     .pathId(null)
                     .publishedAt(null)
                     .nodes(Collections.emptyList())

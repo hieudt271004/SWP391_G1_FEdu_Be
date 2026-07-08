@@ -43,6 +43,7 @@ public class PlacementServiceImpl implements PlacementService {
     @Transactional(readOnly = true)
     public StudentTestDetailsResponse getPlacementQuiz(Long classroomSubjectId, Long studentId) {
         requireNotPlacedYet(classroomSubjectId, studentId);
+        requirePublishedPath(classroomSubjectId);
         Test quiz = requirePlacementQuiz(classroomSubjectId);
         // Dùng getTestDetailsForPlacement để bỏ qua kiểm tra StudentNodeProgress —
         // placement quiz chưa có tiến độ học tập trước khi học sinh làm bài lần đầu.
@@ -53,6 +54,7 @@ public class PlacementServiceImpl implements PlacementService {
     @Transactional
     public StudentTestAttempt startPlacementAttempt(Long classroomSubjectId, Long studentId) {
         requireNotPlacedYet(classroomSubjectId, studentId);
+        requirePublishedPath(classroomSubjectId);
         Test quiz = requirePlacementQuiz(classroomSubjectId);
         // Dùng startTestAttemptForPlacement để bỏ qua kiểm tra StudentNodeProgress —
         // placement quiz chưa có tiến độ học tập trước khi học sinh làm bài lần đầu.
@@ -72,12 +74,7 @@ public class PlacementServiceImpl implements PlacementService {
             throw new InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
         }
 
-        LearningPath path = learningPathRepository
-                .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
-                .orElseThrow(() -> new InvalidDataException("Lớp-môn chưa có lộ trình. Vui lòng liên hệ giảng viên."));
-        if (path.getPublishedAt() == null) {
-            throw new InvalidDataException("Lộ trình của lớp-môn chưa được xuất bản. Vui lòng liên hệ giảng viên.");
-        }
+        requirePublishedPath(classroomSubjectId);
 
         Test quiz = requirePlacementQuiz(classroomSubjectId);
 
@@ -180,5 +177,19 @@ public class PlacementServiceImpl implements PlacementService {
             throw new InvalidDataException("Lớp-môn chưa cấu hình bài test phân loại.");
         }
         return cs.getQuizStart();
+    }
+
+    /**
+     * Lộ trình của lớp-môn phải tồn tại và ĐÃ XUẤT BẢN — quizStart được gán ngay lúc teacher
+     * clone template (để cấu hình đề trước khi publish), nên nếu không gate ở cả bước xem đề /
+     * bắt đầu làm thì học sinh làm được bài phân loại của path còn nháp rồi mất kết quả lúc nộp.
+     */
+    private void requirePublishedPath(Long classroomSubjectId) {
+        LearningPath path = learningPathRepository
+                .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
+                .orElseThrow(() -> new InvalidDataException("Lớp-môn chưa có lộ trình. Vui lòng liên hệ giảng viên."));
+        if (path.getPublishedAt() == null) {
+            throw new InvalidDataException("Lộ trình của lớp-môn chưa được xuất bản. Vui lòng liên hệ giảng viên.");
+        }
     }
 }
