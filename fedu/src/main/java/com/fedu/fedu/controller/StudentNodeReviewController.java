@@ -49,7 +49,20 @@ public class StudentNodeReviewController {
                 nodeReviewService.submitReview(nodeId, currentUser.getUserId(), request));
     }
 
-    @Operation(summary = "Xóa đánh giá của chính mình")
+    @Operation(summary = "Trả lời (reply) một review khác")
+    @PreAuthorize("hasRole('STUDENT')")
+    @PostMapping("/learning-nodes/{nodeId}/reviews/{reviewId}/replies")
+    public ResponseData<NodeReviewResponse> reply(
+            @PathVariable Long nodeId,
+            @PathVariable Long reviewId,
+            @Valid @RequestBody CreateNodeReviewRequest request,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Student {} replies to review {} on node {}", currentUser.getUserId(), reviewId, nodeId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Trả lời đánh giá thành công",
+                nodeReviewService.replyToReview(nodeId, reviewId, currentUser.getUserId(), request));
+    }
+
+    @Operation(summary = "Xóa đánh giá gốc của chính mình")
     @PreAuthorize("hasRole('STUDENT')")
     @DeleteMapping("/learning-nodes/{nodeId}/reviews")
     public ResponseData<Void> delete(
@@ -57,5 +70,37 @@ public class StudentNodeReviewController {
             @AuthenticationPrincipal UserAccount currentUser) {
         nodeReviewService.deleteReview(nodeId, currentUser.getUserId());
         return new ResponseData<>(HttpStatus.OK.value(), "Xóa đánh giá thành công");
+    }
+
+    @Operation(summary = "Xóa reply của chính mình")
+    @PreAuthorize("hasRole('STUDENT')")
+    @DeleteMapping("/reviews/replies/{replyId}")
+    public ResponseData<Void> deleteReply(
+            @PathVariable Long replyId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        nodeReviewService.deleteReply(replyId, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Xóa reply thành công");
+    }
+
+    @Operation(summary = "Gửi thảo luận (comment) cho một bài học")
+    @PreAuthorize("hasRole('STUDENT')")
+    @PostMapping("/learning-nodes/{nodeId}/comments")
+    public ResponseData<NodeReviewResponse> createComment(
+            @PathVariable Long nodeId,
+            @Valid @RequestBody CreateNodeReviewRequest request,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Student {} submits comment on node {}", currentUser.getUserId(), nodeId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Gửi thảo luận thành công",
+                nodeReviewService.createComment(nodeId, currentUser.getUserId(), request));
+    }
+
+    @Operation(summary = "Xóa thảo luận gốc của chính mình")
+    @PreAuthorize("hasRole('STUDENT')")
+    @DeleteMapping("/learning-nodes/comments/{commentId}")
+    public ResponseData<Void> deleteComment(
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        nodeReviewService.deleteComment(commentId, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Xóa thảo luận thành công");
     }
 }

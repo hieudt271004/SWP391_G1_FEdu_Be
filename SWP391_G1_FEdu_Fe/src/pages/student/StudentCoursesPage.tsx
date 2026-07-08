@@ -37,6 +37,8 @@ import { MaterialPreview, resolveAssetUrl } from '../../components/learningPath/
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { SupportTicketResponse } from '../../types/submentor';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { NodeDiscussion } from '../../components/learningPath/NodeDiscussion';
 import {
   Dialog,
   DialogContent,
@@ -90,6 +92,8 @@ export function StudentCoursesPage() {
   const [expandedNodeId, setExpandedNodeId] = useState<number | null>(null);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [loadingNodeContent, setLoadingNodeContent] = useState<Record<number, boolean>>({});
+  const [activeTabs, setActiveTabs] = useState<Record<number, string>>({});
+  const [discussionCounts, setDiscussionCounts] = useState<Record<number, number>>({});
 
   // Exercise states
   const [exerciseSubmissions, setExerciseSubmissions] = useState<Record<number, SubmissionResponse | null>>({});
@@ -707,137 +711,170 @@ export function StudentCoursesPage() {
                                 <span className="text-slate-455 text-[11px] font-medium">Đang tải nội dung bài học...</span>
                               </div>
                             ) : (
-                              <div className="space-y-4 pt-4 divide-y divide-slate-100">
-                                {/* Materials */}
-                                {nodeContents[node.nodeId]?.materials && nodeContents[node.nodeId].materials.length > 0 && (
-                                  <div className="space-y-2">
-                                    <h5 className="font-bold text-slate-700 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
-                                      <FileText className="size-3.5" /> Tài liệu học tập
-                                    </h5>
-                                    <div className="space-y-2 pl-0.5">
-                                      {nodeContents[node.nodeId].materials.map((m) => (
-                                        <div key={m.materialId} className="p-2.5 border border-slate-100 bg-white rounded-xl">
-                                          <div className="flex items-center justify-between gap-3">
-                                            <span className="font-bold text-slate-750 block">{m.title}</span>
-                                            {m.video?.durationSeconds ? (
-                                              <span className="text-[10px] text-slate-400 font-medium shrink-0">
-                                                {Math.round((m.video.durationSeconds || 0) / 60)} phút
-                                              </span>
-                                            ) : null}
-                                          </div>
-                                          <MaterialPreview material={m} />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
+                                              <Tabs
+                                defaultValue="content"
+                                value={activeTabs[node.nodeId] || 'content'}
+                                onValueChange={(val) => setActiveTabs((prev) => ({ ...prev, [node.nodeId]: val }))}
+                                className="w-full"
+                              >
+                                <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-lg h-9 mb-4">
+                                  <TabsTrigger value="content" className="text-xs py-1.5 font-semibold rounded-md">
+                                    Nội dung
+                                  </TabsTrigger>
+                                  <TabsTrigger value="discussion" className="text-xs py-1.5 font-semibold rounded-md">
+                                    {discussionCounts[node.nodeId] !== undefined
+                                      ? `Thảo luận (${discussionCounts[node.nodeId]})`
+                                      : 'Thảo luận'}
+                                  </TabsTrigger>
+                                </TabsList>
 
-                                {/* Tests */}
-                                {nodeContents[node.nodeId]?.tests && nodeContents[node.nodeId].tests.length > 0 && (
-                                  <div className="space-y-2 pt-4">
-                                    <h5 className="font-bold text-slate-755 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
-                                      <Award className="size-3.5" /> Bài kiểm tra đánh giá
-                                    </h5>
-                                    <div className="space-y-2 pl-0.5">
-                                      {nodeContents[node.nodeId].tests.map((t) => (
-                                        <div key={t.testId} className="flex items-center justify-between p-2.5 border border-slate-100 bg-white rounded-xl gap-4">
-                                          <div className="flex-1 space-y-0.5">
-                                            <span className="font-bold text-slate-750 block">{t.title}</span>
-                                            <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
-                                              <span>Thời gian: {t.durationMinutes} phút</span>
-                                              <span>•</span>
-                                              <span>Yêu cầu đạt: {t.passingPercentage}%</span>
+                                <TabsContent value="content" className="space-y-4 pt-1 divide-y divide-slate-100 mt-0">
+                                  {/* Materials */}
+                                  {nodeContents[node.nodeId]?.materials && nodeContents[node.nodeId].materials.length > 0 && (
+                                    <div className="space-y-2">
+                                      <h5 className="font-bold text-slate-700 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
+                                        <FileText className="size-3.5" /> Tài liệu học tập
+                                      </h5>
+                                      <div className="space-y-2 pl-0.5">
+                                        {nodeContents[node.nodeId].materials.map((m) => (
+                                          <div key={m.materialId} className="p-2.5 border border-slate-100 bg-white rounded-xl">
+                                            <div className="flex items-center justify-between gap-3">
+                                              <span className="font-bold text-slate-750 block">{m.title}</span>
+                                              {m.video?.durationSeconds ? (
+                                                <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                                                  {Math.round((m.video.durationSeconds || 0) / 60)} phút
+                                                </span>
+                                              ) : null}
+                                            </div>
+                                            <MaterialPreview material={m} />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Tests */}
+                                  {nodeContents[node.nodeId]?.tests && nodeContents[node.nodeId].tests.length > 0 && (
+                                    <div className="space-y-2 pt-4">
+                                      <h5 className="font-bold text-slate-755 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
+                                        <Award className="size-3.5" /> Bài kiểm tra đánh giá
+                                      </h5>
+                                      <div className="space-y-2 pl-0.5">
+                                        {nodeContents[node.nodeId].tests.map((t) => (
+                                          <div key={t.testId} className="flex items-center justify-between p-2.5 border border-slate-100 bg-white rounded-xl gap-4">
+                                            <div className="flex-1 space-y-0.5">
+                                              <span className="font-bold text-slate-750 block">{t.title}</span>
+                                              <div className="flex items-center gap-3 text-[10px] text-slate-400 font-medium">
+                                                <span>Thời gian: {t.durationMinutes} phút</span>
+                                                <span>•</span>
+                                                <span>Yêu cầu đạt: {t.passingPercentage}%</span>
+                                              </div>
+                                            </div>
+                                            {node.studentStatus === 'COMPLETED' ? (
+                                              <Button
+                                                disabled
+                                                className="h-7 px-3 text-[10px] bg-emerald-500 disabled:opacity-100 text-white font-bold rounded-lg flex items-center gap-1 shrink-0 cursor-not-allowed border-none shadow-none"
+                                              >
+                                                Đã đạt
+                                              </Button>
+                                            ) : (
+                                              <Button
+                                                onClick={() => navigate(`/student/tests/${t.testId}?csId=${selectedSubject?.classroomSubjectId}`)}
+                                                className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
+                                              >
+                                                Vào thi <ArrowRight className="size-3" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Exercises */}
+                                  {(() => {
+                                    const content = nodeContents[node.nodeId];
+                                    if (!content) return null;
+                                    const materials = content.materials || [];
+                                    const tests = content.tests || [];
+                                    const exercises = content.exercises || [];
+
+                                    return (
+                                      <>
+                                        {exercises.length > 0 && (
+                                          <div className="space-y-2 pt-4">
+                                            <h5 className="font-bold text-slate-755 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
+                                              <Award className="size-3.5" /> Bài tập thực hành
+                                            </h5>
+                                            <div className="space-y-2 pl-0.5">
+                                              {exercises.map((ex) => {
+                                                const sub = exerciseSubmissions[ex.exerciseId];
+                                                return (
+                                                  <div key={ex.exerciseId} className="flex items-center justify-between p-2.5 border border-slate-100 bg-white rounded-xl gap-4">
+                                                    <div className="flex-1 space-y-0.5">
+                                                      <span className="font-bold text-slate-750 block">{ex.title}</span>
+                                                      <div className="flex items-center gap-2 mt-1">
+                                                        {sub ? (
+                                                          sub.status === 'GRADED' ? (
+                                                            <span 
+                                                              onClick={() => setShowFeedbackModal(sub)}
+                                                              className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-250 text-[10px] font-semibold rounded cursor-pointer hover:bg-emerald-100 transition-colors"
+                                                            >
+                                                              Đã chấm: {sub.grade} điểm (Bấm xem nhận xét)
+                                                            </span>
+                                                          ) : (
+                                                            <span className="px-2 py-0.5 bg-yellow-50 text-yellow-750 border border-yellow-250 text-[10px] font-semibold rounded">
+                                                              Đã nộp - Chờ chấm
+                                                            </span>
+                                                          )
+                                                        ) : (
+                                                          <span className="px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 text-[10px] font-semibold rounded">
+                                                            Chưa nộp
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                    {sub && sub.status === 'GRADED' ? null : (
+                                                      <Button
+                                                        onClick={() => handleOpenExerciseModal(ex)}
+                                                        className="h-7 px-3 text-[10px] bg-slate-800 hover:bg-slate-750 text-white font-bold rounded-lg shrink-0"
+                                                      >
+                                                        {sub ? 'Nộp lại' : 'Làm bài'}
+                                                      </Button>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
                                             </div>
                                           </div>
-                                          {node.studentStatus === 'COMPLETED' ? (
-                                            <Button
-                                              disabled
-                                              className="h-7 px-3 text-[10px] bg-emerald-500 disabled:opacity-100 text-white font-bold rounded-lg flex items-center gap-1 shrink-0 cursor-not-allowed border-none shadow-none"
-                                            >
-                                              Đã đạt
-                                            </Button>
-                                          ) : (
-                                            <Button
-                                              onClick={() => navigate(`/student/tests/${t.testId}?csId=${selectedSubject?.classroomSubjectId}`)}
-                                              className="h-7 px-3 text-[10px] bg-primary hover:bg-primary/95 text-white font-bold rounded-lg flex items-center gap-1 shrink-0"
-                                            >
-                                              Vào thi <ArrowRight className="size-3" />
-                                            </Button>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
+                                        )}
 
-                                 {/* Exercises */}
-                                {(() => {
-                                  const content = nodeContents[node.nodeId];
-                                  if (!content) return null;
-                                  const materials = content.materials || [];
-                                  const tests = content.tests || [];
-                                  const exercises = content.exercises || [];
-
-                                  return (
-                                    <>
-                                      {exercises.length > 0 && (
-                                        <div className="space-y-2 pt-4">
-                                          <h5 className="font-bold text-slate-755 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-400">
-                                            <Award className="size-3.5" /> Bài tập thực hành
-                                          </h5>
-                                          <div className="space-y-2 pl-0.5">
-                                            {exercises.map((ex) => {
-                                              const sub = exerciseSubmissions[ex.exerciseId];
-                                              return (
-                                                <div key={ex.exerciseId} className="flex items-center justify-between p-2.5 border border-slate-100 bg-white rounded-xl gap-4">
-                                                  <div className="flex-1 space-y-0.5">
-                                                    <span className="font-bold text-slate-750 block">{ex.title}</span>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                      {sub ? (
-                                                        sub.status === 'GRADED' ? (
-                                                          <span 
-                                                            onClick={() => setShowFeedbackModal(sub)}
-                                                            className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-250 text-[10px] font-semibold rounded cursor-pointer hover:bg-emerald-100 transition-colors"
-                                                          >
-                                                            Đã chấm: {sub.grade} điểm (Bấm xem nhận xét)
-                                                          </span>
-                                                        ) : (
-                                                          <span className="px-2 py-0.5 bg-yellow-50 text-yellow-750 border border-yellow-250 text-[10px] font-semibold rounded">
-                                                            Đã nộp - Chờ chấm
-                                                          </span>
-                                                        )
-                                                      ) : (
-                                                        <span className="px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 text-[10px] font-semibold rounded">
-                                                          Chưa nộp
-                                                        </span>
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                                  {sub && sub.status === 'GRADED' ? null : (
-                                                    <Button
-                                                      onClick={() => handleOpenExerciseModal(ex)}
-                                                      className="h-7 px-3 text-[10px] bg-slate-800 hover:bg-slate-750 text-white font-bold rounded-lg shrink-0"
-                                                    >
-                                                      {sub ? 'Nộp lại' : 'Làm bài'}
-                                                    </Button>
-                                                  )}
-                                                </div>
-                                              );
-                                            })}
+                                        {/* Empty state for content */}
+                                        {materials.length === 0 && tests.length === 0 && exercises.length === 0 && (
+                                          <div className="text-center py-6 text-slate-400 italic">
+                                            Bài học này chưa có nội dung tài liệu, bài kiểm tra hoặc bài thực hành.
                                           </div>
-                                        </div>
-                                      )}
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </TabsContent>
 
-                                      {/* Empty state for content */}
-                                      {materials.length === 0 && tests.length === 0 && exercises.length === 0 && (
-                                        <div className="text-center py-6 text-slate-400 italic">
-                                          Bài học này chưa có nội dung tài liệu, bài kiểm tra hoặc bài thực hành.
-                                        </div>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
+                                <TabsContent value="discussion" className="mt-0">
+                                  {activeTabs[node.nodeId] === 'discussion' && (
+                                    <NodeDiscussion
+                                      nodeId={node.nodeId}
+                                      role="student"
+                                      onLoadSummary={(total) => {
+                                        setDiscussionCounts((prev) => ({
+                                          ...prev,
+                                          [node.nodeId]: total,
+                                        }));
+                                      }}
+                                    />
+                                  )}
+                                </TabsContent>
+                              </Tabs>
                             )}
                           </div>
                         )}

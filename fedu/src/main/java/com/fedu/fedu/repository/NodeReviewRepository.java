@@ -12,20 +12,24 @@ import java.util.Optional;
 @Repository
 public interface NodeReviewRepository extends JpaRepository<NodeReview, Long> {
 
-    /** Danh sách review công khai của 1 node (mới nhất trước). */
-    List<NodeReview> findByLearningNodeNodeIdAndIsDeletedFalseOrderByCreatedAtDesc(Long nodeId);
+    /** Danh sách review gốc (không phải reply) công khai của 1 node (mới nhất trước). */
+    List<NodeReview> findByLearningNodeNodeIdAndParentReviewIsNullAndIsDeletedFalseOrderByCreatedAtDesc(Long nodeId);
 
-    /** Review (còn hiệu lực) của 1 học sinh trên 1 node — dùng để hiển thị "đánh giá của tôi". */
-    Optional<NodeReview> findByLearningNodeNodeIdAndStudentUserIdAndIsDeletedFalse(Long nodeId, Long studentId);
+    /** Review gốc (còn hiệu lực, có rating) của 1 học sinh trên 1 node — dùng để hiển thị "đánh giá của tôi". */
+    Optional<NodeReview> findByLearningNodeNodeIdAndAuthorUserIdAndParentReviewIsNullAndRatingIsNotNullAndIsDeletedFalse(Long nodeId, Long authorId);
 
     /**
-     * Bản ghi review của học sinh trên node KHÔNG lọc is_deleted — dùng cho upsert
-     * để tái dùng/khôi phục bản đã xóa mềm, tránh vỡ UNIQUE(student_id, node_id).
+     * Bản ghi review gốc (có rating) của học sinh trên node KHÔNG lọc is_deleted — dùng cho upsert
+     * để tái dùng/khôi phục bản đã xóa mềm, tránh vỡ unique index trên root reviews.
      */
-    Optional<NodeReview> findByLearningNodeNodeIdAndStudentUserId(Long nodeId, Long studentId);
+    Optional<NodeReview> findByLearningNodeNodeIdAndAuthorUserIdAndParentReviewIsNullAndRatingIsNotNull(Long nodeId, Long authorId);
 
-    /** Điểm trung bình của node (0.0 nếu chưa có review nào). */
+    /** Danh sách tất cả reply công khai của 1 node (cũ nhất trước) để nạp theo lô tránh N+1. */
+    List<NodeReview> findByLearningNodeNodeIdAndParentReviewIsNotNullAndIsDeletedFalseOrderByCreatedAtAsc(Long nodeId);
+
+    /** Điểm trung bình của node (chỉ tính review gốc có rating, 0.0 nếu chưa có review nào). */
     @Query("SELECT COALESCE(AVG(r.rating), 0.0) FROM NodeReview r " +
-            "WHERE r.learningNode.nodeId = :nodeId AND r.isDeleted = false")
+            "WHERE r.learningNode.nodeId = :nodeId AND r.parentReview IS NULL AND r.rating IS NOT NULL AND r.isDeleted = false")
     Double averageRatingByNode(@Param("nodeId") Long nodeId);
 }
+
