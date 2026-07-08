@@ -96,8 +96,9 @@ export interface CloneablePathResponse {
   pathId: number;
   pathName: string;
   description: string;
-  type: 'TEMPLATE' | 'CLASSROOM';
-  sourceClassroomName?: string | null;
+  /** ADMIN_TEMPLATE = template của khoa; MY_TEMPLATE = template cá nhân của GV hiện tại. */
+  type: 'ADMIN_TEMPLATE' | 'MY_TEMPLATE';
+  creatorName?: string | null;
   nodeCount: number;
   lastUpdatedAt: string;
 }
@@ -302,8 +303,9 @@ export const learningPathService = {
     ),
   getCloneablePaths: (classroomSubjectId: number) =>
     http.get<CloneablePathResponse[]>(`/teacher-manage/classrooms/${classroomSubjectId}/cloneable-paths`),
-  createCustomPath: (classroomSubjectId: number) =>
-    http.post<LearningPathResponse>(`/teacher-manage/classrooms/${classroomSubjectId}/custom-path`),
+  // Xóa template cá nhân (BE chặn xóa template của khoa / của GV khác)
+  deleteTemplatePath: (pathId: number) =>
+    http.delete<void>(`/teacher-manage/learning-paths/${pathId}`),
   publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
     http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
   unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>

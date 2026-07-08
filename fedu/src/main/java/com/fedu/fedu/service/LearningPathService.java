@@ -9,6 +9,8 @@ public interface LearningPathService {
 
     // ── Learning Path (template) ──────────────────────────────────────────────
     List<LearningPathResponse> getLearningPathsBySubjectId(Long subjectId);
+    /** Template hiển thị cho teacher: của khoa (admin) + cá nhân của chính mình. */
+    List<LearningPathResponse> getTemplatesVisibleToTeacher(Long subjectId);
     LearningPathResponse createLearningPath(CreateLearningPathRequest request);
     LearningPathResponse updateLearningPath(Long pathId, UpdateLearningPathRequest request);
     void deleteLearningPath(Long pathId);
@@ -18,7 +20,6 @@ public interface LearningPathService {
     LearningPathResponse cloneLearningPath(Long classroomSubjectId, Long templatePathId);
     List<LearningPathResponse> getClassroomLearningPaths(Long classroomSubjectId);
     List<CloneablePathResponse> getCloneablePaths(Long classroomSubjectId);
-    LearningPathResponse createCustomClassroomPath(Long classroomSubjectId);
 
     // ── Learning Node ─────────────────────────────────────────────────────────
     LearningNodeResponse createLearningNode(CreateLearningNodeRequest request);
