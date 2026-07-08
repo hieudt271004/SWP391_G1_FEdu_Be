@@ -309,7 +309,7 @@ export function SubjectManagementPage() {
               <thead>
                 <tr className="bg-primary text-primary-foreground border-b border-border">
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[20%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("code")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -317,7 +317,7 @@ export function SubjectManagementPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[40%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("title")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -325,7 +325,7 @@ export function SubjectManagementPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[15%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("students")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -333,14 +333,14 @@ export function SubjectManagementPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[15%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("status")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
                       TRẠNG THÁI {getSortIcon("status")}
                     </span>
                   </th>
-                  <th className="text-left px-6 py-4">
+                  <th className="w-[10%] text-left px-6 py-4">
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
                       HÀNH ĐỘNG
                     </span>

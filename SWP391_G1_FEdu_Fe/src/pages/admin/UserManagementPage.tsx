@@ -387,7 +387,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
               <thead>
                 <tr className="bg-primary text-primary-foreground border-b border-border">
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[25%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("name")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
@@ -395,7 +395,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[26%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("email")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
@@ -403,7 +403,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[15%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("joinedDate")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
@@ -411,7 +411,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[12%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("role")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
@@ -419,14 +419,14 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[14%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("status")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
                       TRẠNG THÁI {getSortIcon("status")}
                     </span>
                   </th>
-                  <th className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider">
+                  <th className="w-[8%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider">
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
                       HÀNH ĐỘNG
                     </span>
