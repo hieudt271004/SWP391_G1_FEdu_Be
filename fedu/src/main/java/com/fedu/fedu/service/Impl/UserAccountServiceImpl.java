@@ -62,6 +62,14 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     @Transactional
     public void createUser(UserCreateRequest userCreateDTO) {
+        if (userAccountRepository.existsByEmail(userCreateDTO.getEmail())) {
+            throw new InvalidDataException("Email already exists");
+        }
+        if (userCreateDTO.getPhone() != null && !userCreateDTO.getPhone().trim().isEmpty() && !"—".equals(userCreateDTO.getPhone().trim())) {
+            if (userAccountRepository.existsByPhone(userCreateDTO.getPhone().trim())) {
+                throw new InvalidDataException("Số điện thoại đã tồn tại trong hệ thống");
+            }
+        }
         UserAccount userAccount = createUserAccount(userCreateDTO);
         userAccountRepository.save(userAccount);
         assignUserRole(userAccount, userCreateDTO.getUserRole());
@@ -93,6 +101,11 @@ public class UserAccountServiceImpl implements UserAccountService {
     public UserAccount createStudentAccount(String email, String firstName, String lastName,
                                             com.fedu.fedu.utils.enums.Gender gender,
                                             java.time.LocalDate dob, String phone, String rawPassword) {
+        if (phone != null && !phone.trim().isEmpty() && !"—".equals(phone.trim())) {
+            if (userAccountRepository.existsByPhone(phone.trim())) {
+                throw new InvalidDataException("Số điện thoại đã tồn tại trong hệ thống");
+            }
+        }
         UserAccount account = UserAccount.builder()
                 .email(email)
                 .password(passwordEncoder.encode(rawPassword))
@@ -195,6 +208,13 @@ public class UserAccountServiceImpl implements UserAccountService {
         
         UserAccount userAccount = getById(userId);
         
+        String phone = request.getPhone();
+        if (phone != null && !phone.trim().isEmpty() && !"—".equals(phone.trim())) {
+            if (userAccountRepository.existsByPhoneAndUserIdNot(phone.trim(), userId)) {
+                throw new InvalidDataException("Số điện thoại đã tồn tại trong hệ thống");
+            }
+        }
+        
         // Update fields
         userAccount.setFirstName(request.getFirstName());
         userAccount.setLastName(request.getLastName());
@@ -213,7 +233,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     
     @Override
     public List<UserResponse> getAllUsers() {
-        return userAccountRepository.findAll().stream()
+        return userAccountRepository.findAllWithRoles().stream()
                 .map(this::convertToUserResponse)
                 .collect(Collectors.toList());
     }
@@ -252,6 +272,13 @@ public class UserAccountServiceImpl implements UserAccountService {
         log.info("---------- updateUser for userId: {} ----------", userId);
         
         UserAccount userAccount = getById(userId);
+        
+        String phone = request.getPhone();
+        if (phone != null && !phone.trim().isEmpty() && !"—".equals(phone.trim())) {
+            if (userAccountRepository.existsByPhoneAndUserIdNot(phone.trim(), userId)) {
+                throw new InvalidDataException("Số điện thoại đã tồn tại trong hệ thống");
+            }
+        }
         
         // Update profile fields
         userAccount.setFirstName(request.getFirstName());

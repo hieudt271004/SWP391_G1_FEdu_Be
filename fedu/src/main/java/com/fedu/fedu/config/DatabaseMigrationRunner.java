@@ -357,6 +357,29 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 statement.execute("ALTER TABLE student_node_progress ADD COLUMN IF NOT EXISTS completed_late BOOLEAN DEFAULT FALSE");
                 log.info("Node deadline: columns 'deadline_at' (learning_nodes), 'completed_late' (student_node_progress) added/verified.");
             }
+
+            // Check if student_material_progress table exists
+            boolean hasStudentMaterialProgressTable = false;
+            try (ResultSet resultSet = metaData.getTables(null, null, "student_material_progress", null)) {
+                if (resultSet.next()) {
+                    hasStudentMaterialProgressTable = true;
+                }
+            }
+            if (!hasStudentMaterialProgressTable) {
+                log.info("Table 'student_material_progress' does not exist. Creating table...");
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute(
+                        "CREATE TABLE student_material_progress (" +
+                        "    progress_id BIGSERIAL PRIMARY KEY," +
+                        "    classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE," +
+                        "    material_id BIGINT NOT NULL REFERENCES node_materials(material_id) ON DELETE CASCADE," +
+                        "    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                        "    UNIQUE(classroom_subject_student_id, material_id)" +
+                        ")"
+                    );
+                    log.info("Migration successful: created 'student_material_progress' table.");
+                }
+            }
         } catch (Exception e) {
             log.error("Failed to run database migration: {}", e.getMessage(), e);
         }

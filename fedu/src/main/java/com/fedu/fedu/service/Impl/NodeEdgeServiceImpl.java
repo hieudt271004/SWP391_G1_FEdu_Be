@@ -21,6 +21,7 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
 
     private final NodeEdgeRepository nodeEdgeRepository;
     private final LearningNodeRepository learningNodeRepository;
+    private final TemplateEditGuard templateEditGuard;
 
     @Override
     @Transactional
@@ -34,6 +35,8 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
 
         LearningNode toNode = learningNodeRepository.findById(request.getToNodeId())
                 .orElseThrow(() -> new ResourceNotFoundException("To node not found"));
+
+        templateEditGuard.assertNodeEditable(fromNode);
 
         NodeEdge edge = NodeEdge.builder()
                 .fromNode(fromNode)
@@ -50,6 +53,7 @@ public class NodeEdgeServiceImpl implements NodeEdgeService {
     public void deleteEdge(Long edgeId) {
         NodeEdge edge = nodeEdgeRepository.findById(edgeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Edge not found"));
+        templateEditGuard.assertNodeEditable(edge.getFromNode());
         nodeEdgeRepository.delete(edge);
     }
 

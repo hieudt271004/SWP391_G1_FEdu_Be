@@ -3,10 +3,15 @@ import { Home, BookOpen, Upload, Settings, GraduationCap, Calendar } from 'lucid
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
 
+import { ErrorBoundary } from '../ui/ErrorBoundary';
+
 export function StudentLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+
+  const searchParams = new URLSearchParams(location.search);
+  const isLearnMode = location.pathname.includes('/learning-path') && searchParams.get('mode') === 'learn';
 
   const menuItems = [
     { icon: Home, label: 'Dashboard', path: '/student/dashboard' },
@@ -20,76 +25,84 @@ export function StudentLayout() {
 
   return (
     <div className="h-screen flex bg-gray-50 overflow-hidden">
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-600 to-violet-600">
-              <GraduationCap className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <div className="text-lg font-bold text-gray-900">
-                F<span className="text-indigo-600">Edu</span>
+      {!isLearnMode && (
+        <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-600 to-violet-600">
+                <GraduationCap className="w-6 h-6 text-white" />
               </div>
-              <div className="text-xs text-gray-500">Student Portal</div>
+              <div>
+                <div className="text-lg font-bold text-gray-900">
+                  F<span className="text-indigo-600">Edu</span>
+                </div>
+                <div className="text-xs text-gray-500">Student Portal</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  active
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="font-medium text-sm">{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    active
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="font-medium text-sm">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden shrink-0">
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-indigo-600 font-semibold text-sm">
-                  {getInitials(user)}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">
-                {getFullName(user) || 'Student'}
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden shrink-0">
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-indigo-600 font-semibold text-sm">
+                    {getInitials(user)}
+                  </span>
+                )}
               </div>
-              <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-900 truncate">
+                  {getFullName(user) || 'Student'}
+                </div>
+                <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+              </div>
             </div>
+            <button
+              onClick={() => {
+                logout();
+                window.location.href = "/";
+              }}
+              className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              Đăng xuất
+            </button>
           </div>
-          <button
-            onClick={() => {
-              logout();
-              window.location.href = "/";
-            }}
-            className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            Đăng xuất
-          </button>
-        </div>
-      </aside>
+        </aside>
+      )}
 
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto p-6">
-          <Outlet />
-        </div>
+        <ErrorBoundary>
+          {isLearnMode ? (
+            <Outlet />
+          ) : (
+            <div className="max-w-7xl mx-auto p-6">
+              <Outlet />
+            </div>
+          )}
+        </ErrorBoundary>
       </main>
     </div>
   );

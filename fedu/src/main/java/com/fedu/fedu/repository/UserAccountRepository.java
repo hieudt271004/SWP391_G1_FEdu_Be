@@ -14,6 +14,8 @@ import java.util.Optional;
 public interface UserAccountRepository extends JpaRepository<UserAccount, Long> {
 
     boolean existsByEmail(String email);
+    boolean existsByPhone(String phone);
+    boolean existsByPhoneAndUserIdNot(String phone, long userId);
 
     Optional<UserAccount> findByEmail(String email);
 
@@ -21,6 +23,10 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
     List<UserRole> findAllRoleByUserId(long userId);
 
     List<UserAccount> findAll();
+
+    // Fetch-join roles để tránh N+1 (userRoles là EAGER nên findAll() bắn 1 query/user)
+    @Query("select distinct u from UserAccount u left join fetch u.userRoles ur left join fetch ur.role")
+    List<UserAccount> findAllWithRoles();
 
     List<UserAccount> findAllByStatus(UserStatus status);
 

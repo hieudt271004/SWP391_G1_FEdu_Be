@@ -334,9 +334,18 @@ CREATE TABLE IF NOT EXISTS student_node_progress (
                                                      status       VARCHAR(50) NOT NULL DEFAULT 'LOCKED',
                                                      unlocked_at  TIMESTAMP,
                                                      completed_at TIMESTAMP,
+                                                     completed_late BOOLEAN DEFAULT FALSE,
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                      UNIQUE(classroom_subject_student_id, node_id, path_id)
+);
+
+CREATE TABLE IF NOT EXISTS student_material_progress (
+    progress_id BIGSERIAL PRIMARY KEY,
+    classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
+    material_id BIGINT NOT NULL REFERENCES node_materials(material_id) ON DELETE CASCADE,
+    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(classroom_subject_student_id, material_id)
 );
 
 CREATE TABLE IF NOT EXISTS submissions (

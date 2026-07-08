@@ -91,7 +91,8 @@ export function NodeTestPage() {
   }, [id, attemptId]);
 
   const goBack = () => {
-    navigate(-1);
+    if (csId) navigate(`/student/classroom-subjects/${csId}/learning-path`);
+    else navigate('/student/courses');
   };
 
   if (loading) {

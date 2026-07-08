@@ -258,7 +258,7 @@ export function SubjectDetailPage() {
           <Map className="w-5 h-5 text-foreground" />
           Thiết kế lộ trình học tập
         </h2>
-        <LearningPathManager subjectId={subjectId} />
+        <LearningPathManager subjectId={subjectId} subjectPublished={subject?.status === "published"} />
       </div>
 
       {/* MODAL THÊM LỚP */}

@@ -16,5 +16,26 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
     @Query("SELECT c FROM Classroom c WHERE c.isDeleted = false ORDER BY c.createdAt DESC")
     List<Classroom> findAllActive();
 
+    List<Classroom> findAllByIsDeletedFalse();
+
     long countByIsDeletedFalse();
+
+    /** Số môn + số lượt học sinh của từng lớp, gom trong 1 query (tránh N+1 khi list lớp). */
+    @Query("""
+            SELECT c.classroomId AS classroomId,
+                   COUNT(DISTINCT cs.id) AS subjectCount,
+                   COUNT(DISTINCT css.id) AS studentCount
+            FROM Classroom c
+            LEFT JOIN ClassroomSubject cs ON cs.classroom = c
+            LEFT JOIN ClassroomSubjectStudent css ON css.classroomSubject = cs
+            WHERE c.isDeleted = false
+            GROUP BY c.classroomId
+            """)
+    List<ClassroomCounts> countSubjectsAndStudentsPerClassroom();
+
+    interface ClassroomCounts {
+        Long getClassroomId();
+        long getSubjectCount();
+        long getStudentCount();
+    }
 }

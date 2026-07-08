@@ -39,6 +39,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     private final StudentTestAttemptRepository studentTestAttemptRepository;
     private final NodeExerciseRepository nodeExerciseRepository;
     private final CloudinaryService cloudinaryService;
+    private final TemplateEditGuard templateEditGuard;
 
     private static final String UPLOAD_DIR = "uploads";
 
@@ -97,6 +98,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public NodeMaterialResponse addMaterial(Long nodeId, CreateNodeMaterialRequest request, MultipartFile file) {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        templateEditGuard.assertNodeEditable(node);
 
         // Create NodeMaterial
         NodeMaterial material = NodeMaterial.builder()
@@ -179,6 +181,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public void deleteMaterial(Long materialId) {
         NodeMaterial material = nodeMaterialRepository.findById(materialId)
                 .orElseThrow(() -> new ResourceNotFoundException("Material not found with id: " + materialId));
+        templateEditGuard.assertNodeEditable(material.getLearningNode());
 
         material.setIsDeleted(true);
         nodeMaterialRepository.save(material);
@@ -208,6 +211,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public NodeTestResponse addTest(Long nodeId, CreateNodeTestRequest request) {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        templateEditGuard.assertNodeEditable(node);
 
         Test test = Test.builder()
                 .learningNode(node)
@@ -236,6 +240,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public void deleteTest(Long testId) {
         Test test = testRepository.findByTestIdAndIsDeletedFalse(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+        templateEditGuard.assertNodeEditable(test.getLearningNode());
 
         test.setIsDeleted(true);
         testRepository.save(test);
@@ -254,6 +259,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public NodeExerciseResponse addExercise(Long nodeId, CreateNodeExerciseRequest request) {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        templateEditGuard.assertNodeEditable(node);
 
         NodeExercise exercise = NodeExercise.builder()
                 .learningNode(node)
@@ -274,6 +280,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public void deleteExercise(Long exerciseId) {
         NodeExercise exercise = nodeExerciseRepository.findById(exerciseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + exerciseId));
+        templateEditGuard.assertNodeEditable(exercise.getLearningNode());
         exercise.setIsDeleted(true);
         nodeExerciseRepository.save(exercise);
     }
@@ -341,8 +348,9 @@ public class NodeContentServiceImpl implements NodeContentService {
     @Override
     @Transactional
     public void reorderContent(Long nodeId, List<ReorderContentRequest> requests) {
-        learningNodeRepository.findById(nodeId)
+        LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        templateEditGuard.assertNodeEditable(node);
 
         for (ReorderContentRequest req : requests) {
             if ("MATERIAL".equalsIgnoreCase(req.getType())) {
@@ -393,6 +401,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public NodeTestResponse updateTest(Long testId, UpdateTestRequest request) {
         Test test = testRepository.findByTestIdAndIsDeletedFalse(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+        templateEditGuard.assertNodeEditable(test.getLearningNode());
 
         test.setTitle(request.getTitle());
         test.setDescription(request.getDescription());

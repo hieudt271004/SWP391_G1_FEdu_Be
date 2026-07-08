@@ -81,18 +81,18 @@ export interface LevelHistoryEntry {
 export interface SubmissionResponse {
   submissionId: number;
   exerciseId: number;
-  nodeId: number;
+  nodeId?: number;
   studentId: number;
   studentName: string;
   content?: string;
   fileUrl?: string;
-  status: 'PENDING' | 'GRADED';
-  grade?: number;
-  feedback?: string;
-  gradedById?: number;
-  gradedByName?: string;
+  status: string;
+  grade?: number | null;
+  feedback?: string | null;
+  gradedById?: number | null;
+  gradedByName?: string | null;
   submittedAt: string;
-  gradedAt?: string;
+  gradedAt?: string | null;
 }
 
 export interface StudentTestAttemptHistoryResponse {
@@ -115,6 +115,18 @@ export const studentService = {
   // Nội dung 1 node (chỉ xem được node đã mở khóa)
   getNodeContent: (nodeId: number) =>
     http.get<NodeContentResponse>(`/student/learning-nodes/${nodeId}/content`),
+
+  // Đánh dấu hoàn thành một node không có bài test
+  completeNode: (nodeId: number) =>
+    http.post<void>(`/student/learning-nodes/${nodeId}/complete`, {}),
+
+  // Đánh dấu hoàn thành một học liệu
+  completeMaterial: (materialId: number) =>
+    http.post<void>(`/student/learning-materials/${materialId}/complete`, {}),
+
+  // Lấy danh sách ID các học liệu đã hoàn thành
+  getCompletedMaterials: () =>
+    http.get<number[]>('/student/learning-materials/completed'),
 
   // ── Node test ──────────────────────────────────────────────────────────
   getTestDetails: (testId: number) =>
@@ -187,24 +199,25 @@ export const studentService = {
       `/student/support-tickets?classroomSubjectId=${csId}`
     ),
 
-  getStudentSchedule: () =>
-    http.get<StudentScheduleEntry[]>('/student/schedule'),
-
-  submitExercise: (exerciseId: number, content?: string, file?: File) => {
+  submitExercise: (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
+    if (contentOrFormData instanceof FormData) {
+      return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, contentOrFormData);
+    }
     const formData = new FormData();
-    if (content) {
-      formData.append('content', content);
+    if (contentOrFormData) {
+      formData.append('content', contentOrFormData);
     }
     if (file) {
       formData.append('file', file);
     }
-    return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData, {
-      'Content-Type': 'multipart/form-data',
-    });
+    return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData);
   },
 
-  getMySubmission: (exerciseId: number) =>
+  getMyExerciseSubmission: (exerciseId: number) =>
     http.get<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions/me`),
+
+  getStudentSchedule: () =>
+    http.get<StudentScheduleEntry[]>('/student/schedule'),
 };
 
 export interface StudentScheduleEntry {

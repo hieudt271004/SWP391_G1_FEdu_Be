@@ -49,6 +49,7 @@ import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
 // Student pages
 import { StudentDashboardPage } from '../pages/student/StudentDashboardPage';
 import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
+import { StudentLearningPathPage } from '../pages/student/StudentLearningPathPage';
 import { NodeTestPage } from '../pages/student/tests/NodeTestPage';
 import { PlacementPage } from '../pages/student/tests/PlacementPage';
 import { LevelHistoryPage } from '../pages/student/tests/LevelHistoryPage';
@@ -91,6 +92,7 @@ export function AppRoutes() {
             >
                 <Route path="/student/dashboard" element={<StudentDashboardPage />} />
                 <Route path="/student/courses" element={<StudentCoursesPage />} />
+                <Route path="/student/classroom-subjects/:csId/learning-path" element={<StudentLearningPathPage />} />
                 <Route path="/student/tests/:testId" element={<NodeTestPage />} />
                 <Route path="/student/classroom-subjects/:csId/placement" element={<PlacementPage />} />
                 <Route path="/student/classroom-subjects/:csId/level-history" element={<LevelHistoryPage />} />
