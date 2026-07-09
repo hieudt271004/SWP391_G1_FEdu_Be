@@ -50,9 +50,23 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     @Transactional(readOnly = true)
     public List<LearningPathResponse> getLearningPathsBySubjectId(Long subjectId) {
+        // Endpoint listing của EDITOR (/admin/subjects/{id}/learning-paths):
+        // teacher chỉ được soạn template cá nhân → chỉ trả template DO CHÍNH MÌNH tạo
+        // (không hiện template khoa lẫn template cá nhân của giảng viên khác);
+        // admin/test thấy tất cả. Thư viện teacher (khoa + của mình) dùng getTemplatesVisibleToTeacher.
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        boolean isAdmin = auth == null || auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin) {
+            return getTemplatesVisibleToTeacher(subjectId);
+        }
+        // Admin (và test không auth): CHỈ template của khoa — template cá nhân của GV là riêng tư,
+        // admin không thấy và không sửa được (TemplateEditGuard chặn cả khi gọi API thẳng).
         return learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId)
                 .stream()
+                .filter(this::isAdminTemplate)
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -61,17 +75,15 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional(readOnly = true)
     public List<LearningPathResponse> getTemplatesVisibleToTeacher(Long subjectId) {
         assertTeacherTeachesSubject(subjectId);
-        // Thư viện của teacher: template của khoa + template cá nhân của chính mình
-        // (không lộ template cá nhân của giảng viên khác).
-        // Template của khoa chỉ hiện khi môn đang xuất bản — bản admin đang sửa (môn draft) không lộ ra ngoài.
-        boolean subjectPublished = subjectRepository.findById(subjectId)
-                .map(s -> "published".equalsIgnoreCase(s.getStatus()))
-                .orElse(false);
+        // Thư viện + editor của teacher: CHỈ template cá nhân do chính mình tạo.
+        // Template của khoa không hiện ở đây — nó chỉ xuất hiện khi chọn lộ trình clone
+        // vào lớp (getCloneablePaths, yêu cầu môn đang xuất bản).
+        UserAccount actor = currentUser();
         return learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId)
                 .stream()
-                .filter(this::canUseTemplate)
-                .filter(t -> subjectPublished || !isAdminTemplate(t))
+                .filter(t -> actor != null && t.getCreatedBy() != null
+                        && t.getCreatedBy().getUserId() == actor.getUserId())
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }

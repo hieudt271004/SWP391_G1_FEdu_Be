@@ -16,6 +16,13 @@ interface LearningPathManagerProps {
   subjectId: number;
   /** Môn đang xuất bản ⇒ template của khoa bị khóa sửa (BE cũng chặn); gỡ xuất bản để chỉnh sửa. */
   subjectPublished?: boolean;
+  /** Chọn sẵn template này khi mở (deep-link từ thư viện lộ trình của teacher). */
+  initialPathId?: number;
+  /**
+   * Teacher soạn template CÁ NHÂN: BE chỉ trả template của chính GV (không có của khoa),
+   * và template cá nhân không bị đóng băng theo trạng thái môn.
+   */
+  teacherMode?: boolean;
 }
 
 const LEVEL_OPTIONS: { value: "" | 1 | 2 | 3; label: string }[] = [
@@ -148,7 +155,7 @@ async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: num
   }
 }
 
-export function LearningPathManager({ subjectId, subjectPublished }: LearningPathManagerProps) {
+export function LearningPathManager({ subjectId, subjectPublished, initialPathId, teacherMode }: LearningPathManagerProps) {
   const [templates, setTemplates] = useState<LearningPathResponse[]>([]);
   const [path, setPath] = useState<LearningPathResponse | null>(null);
   const [showCreateTpl, setShowCreateTpl] = useState(false);
@@ -332,7 +339,7 @@ export function LearningPathManager({ subjectId, subjectPublished }: LearningPat
         const tpls = (await learningPathService.getAdminSubjectTemplates(subjectId)).filter((t) => !t.classroomSubjectId);
         if (!active) return;
         setTemplates(tpls);
-        const p = tpls[0] ?? null;
+        const p = (initialPathId != null ? tpls.find((t) => t.pathId === initialPathId) : undefined) ?? tpls[0] ?? null;
         setPath(p);
         if (p) await loadGraph(p.pathId);
       } catch {
@@ -344,7 +351,7 @@ export function LearningPathManager({ subjectId, subjectPublished }: LearningPat
     return () => {
       active = false;
     };
-  }, [subjectId, loadGraph]);
+  }, [subjectId, loadGraph, initialPathId]);
 
   const refresh = async () => {
     if (path) await loadGraph(path.pathId);
@@ -1009,7 +1016,10 @@ export function LearningPathManager({ subjectId, subjectPublished }: LearningPat
 
   // Môn đang xuất bản ⇒ khóa sửa template của khoa (template cá nhân của teacher không bị khóa).
   // BE cũng chặn ở mọi endpoint — đây chỉ là lớp UX để admin biết phải gỡ xuất bản trước.
-  const tplFrozen = !!subjectPublished && (!path || path.creatorRole !== "TEACHER");
+  // Admin: môn published khóa cả khi chưa chọn path (tạo template khoa mới cũng bị BE chặn).
+  // Teacher: chỉ soạn template cá nhân (list đã chỉ còn của mình) → không đóng băng theo môn.
+  const tplFrozen = !!subjectPublished
+    && (teacherMode ? !!path && path.creatorRole !== "TEACHER" : !path || path.creatorRole !== "TEACHER");
   const frozenBanner = tplFrozen ? (
     <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
       <AlertCircle className="mt-0.5 size-4 shrink-0" />

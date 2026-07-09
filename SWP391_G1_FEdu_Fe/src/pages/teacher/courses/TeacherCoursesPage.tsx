@@ -121,10 +121,10 @@ export function TeacherCoursesPage() {
   }, [user?.userId]);
 
   // Handle template detail opening
-  const handleOpenDetail = (template: LearningPathResponse) => {
+  const handleOpenDetail = useCallback((template: LearningPathResponse) => {
     setSelectedTemplateForDetail(template);
     setIsDetailOpen(true);
-  };
+  }, []);
 
   // Handle created templates updating roadmapsBySubject
   const handleCreated = (newPath: LearningPathResponse) => {
@@ -222,7 +222,11 @@ export function TeacherCoursesPage() {
             <CardFooter className="p-5 pt-3 border-t border-border bg-muted/10 flex gap-2">
               <Button
                 variant="outline"
-                onClick={() => navigate(`/teacher/courses/${template.subjectId}?view=template&pathId=${template.pathId}`)}
+                onClick={() =>
+                  mine
+                    ? navigate(`/teacher/courses/${template.subjectId}?view=template&pathId=${template.pathId}`)
+                    : handleOpenDetail(template)
+                }
                 className="flex-1 text-xs border-border text-foreground hover:bg-muted rounded-[6px] py-2 flex items-center justify-center gap-1.5 font-medium transition-colors h-8"
               >
                 <Eye className="w-4 h-4" />
@@ -284,7 +288,7 @@ export function TeacherCoursesPage() {
           </div>
         );
       });
-  }, [subjects, selectedSubjectId, roadmapsBySubject, searchQuery, user?.userId, navigate, handleDeleteTemplate]);
+  }, [subjects, selectedSubjectId, roadmapsBySubject, searchQuery, user?.userId, navigate, handleDeleteTemplate, handleOpenDetail]);
 
   if (loading) {
     return (
@@ -319,7 +323,7 @@ export function TeacherCoursesPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Thư viện Lộ trình</h1>
             <p className="text-sm text-muted-foreground font-normal">
-              Xem template của khoa và tạo template cá nhân cho môn bạn đã/ đang dạy — áp dụng vào lớp tại trang Lớp học của tôi
+              Template cá nhân của bạn cho các môn đã/đang dạy — áp dụng vào lớp tại trang Lớp học của tôi
             </p>
           </div>
         </div>

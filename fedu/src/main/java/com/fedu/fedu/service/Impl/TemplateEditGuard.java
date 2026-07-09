@@ -5,24 +5,51 @@ import com.fedu.fedu.entity.LearningPath;
 import com.fedu.fedu.entity.Subject;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.exception.InvalidDataException;
+import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.utils.enums.UserRole;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 /**
- * Đóng băng template của khoa theo trạng thái xuất bản của môn.
- * Vòng đời: draft (soạn/sửa template) → publish môn (teacher được clone, template khóa sửa)
- * → unpublish (sửa tiếp; các lớp đã clone không bị ảnh hưởng) → publish lại (clone được bản mới).
- * Không áp dụng cho path đã clone về lớp và template cá nhân của teacher.
+ * Gác cổng chỉnh sửa TEMPLATE (áp cho cả nội dung node/edge/câu hỏi):
+ * - Template của khoa: chỉ admin được sửa, và bị đóng băng khi môn đang xuất bản.
+ *   Vòng đời: draft (soạn/sửa template) → publish môn (teacher được clone, template khóa sửa)
+ *   → unpublish (sửa tiếp; các lớp đã clone không bị ảnh hưởng) → publish lại (clone được bản mới).
+ * - Template cá nhân: chỉ CHÍNH CHỦ (hoặc admin) được sửa, không đóng băng theo môn.
+ * Không áp dụng cho path đã clone về lớp (quyền giảng viên phụ trách check ở tầng gọi).
  */
 @Component
+@RequiredArgsConstructor
 public class TemplateEditGuard {
 
-    /** Chặn thêm/sửa/xóa template của khoa khi môn của nó đang xuất bản. */
+    private final UserAccountRepository userAccountRepository;
+
+    /** Chặn thêm/sửa/xóa template ngoài quyền: khoa (admin + môn chưa publish), cá nhân (chính chủ). */
     public void assertTemplateEditable(LearningPath path) {
         if (path == null || path.getClassroomSubject() != null) return; // path của lớp: theo quyền GV phụ trách
-        if (SecurityContextHolder.getContext().getAuthentication() == null) return; // test/seed
-        if (!isAdminTemplate(path)) return; // template cá nhân: chủ sở hữu sửa tự do
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return; // test/seed
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+
+        if (!isAdminTemplate(path)) {
+            // Template cá nhân là RIÊNG TƯ: chỉ chính giáo viên tạo ra nó được sửa
+            // (admin cũng không — admin chỉ quản lý template của khoa), không đóng băng theo môn.
+            UserAccount actor = userAccountRepository.findByEmail(auth.getName()).orElse(null);
+            boolean owns = actor != null && path.getCreatedBy() != null
+                    && path.getCreatedBy().getUserId() == actor.getUserId();
+            if (!owns) {
+                throw new AccessDeniedException("Template cá nhân chỉ giáo viên tạo ra nó được chỉnh sửa");
+            }
+            return;
+        }
+
+        // Template của khoa: teacher không được đụng; admin bị khóa khi môn đang xuất bản
+        if (!isAdmin) {
+            throw new AccessDeniedException("Template của khoa chỉ quản trị viên được chỉnh sửa");
+        }
         Subject subject = path.getSubject();
         if (subject != null && "published".equalsIgnoreCase(subject.getStatus())) {
             throw new InvalidDataException(

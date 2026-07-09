@@ -7,8 +7,7 @@ import { teacherService } from '../../../services/teacher.service';
 import { Classroom } from '../../../types/teacher';
 import { Subject } from '../../../types/subject';
 import { useAuth } from '../../../context/AuthContext';
-import { learningPathService, LearningNodeResponse } from '../../../services/learningPath.service';
-import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
+import { LearningPathManager } from '../../../components/learningPath/LearningPathManager';
 import { Badge } from '../../../components/ui/badge';
 
 export function CourseClassroomsPage() {
@@ -21,11 +20,6 @@ export function CourseClassroomsPage() {
 
   const [subject, setSubject] = useState<Subject | null>(null);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
-  
-  // Template graph states for view details
-  const [templateNodes, setTemplateNodes] = useState<LearningNodeResponse[]>([]);
-  const [templateEdges, setTemplateEdges] = useState<any[]>([]);
-  const [loadingTemplateGraph, setLoadingTemplateGraph] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,17 +36,8 @@ export function CourseClassroomsPage() {
         if (!subjectData) throw new Error('môn học không tồn tại hoặc dữ liệu không hợp lệ');
         setSubject(subjectData);
 
-        if (view === 'template' && pathId) {
-          setLoadingTemplateGraph(true);
-          try {
-            const graph = await learningPathService.getLearningPathGraph(Number(pathId));
-            setTemplateNodes(graph.nodes || []);
-            setTemplateEdges(graph.edges || []);
-          } catch (err) {
-            console.error('Error fetching template graph:', err);
-          } finally {
-            setLoadingTemplateGraph(false);
-          }
+        if (view === 'template') {
+          // Editor tự tải danh sách template + graph (LearningPathManager)
         } else {
           const rawClassrooms = await teacherService.getClassroomsByTeacher(user.userId);
           const filtered = (rawClassrooms ?? []).filter((c) => c.subjectId === Number(subjectId));
@@ -119,7 +104,7 @@ export function CourseClassroomsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">{subject.subjectCode} - {subject.subjectName}</h1>
           <p className="text-sm text-muted-foreground">
-            {view === 'template' ? 'Chi tiết lộ trình học tập gốc' : 'Chi tiết môn học và danh sách lớp giảng dạy'}
+            {view === 'template' ? 'Soạn template cá nhân cho môn học' : 'Chi tiết môn học và danh sách lớp giảng dạy'}
           </p>
         </div>
       </div>
@@ -137,26 +122,19 @@ export function CourseClassroomsPage() {
       </Card>
 
       {view === 'template' ? (
-        /* Template learning path view */
+        /* Editor template CÁ NHÂN — dùng chung LearningPathManager với admin,
+           teacherMode: BE chỉ trả template do chính GV tạo, không hiện/không sửa template của khoa */
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-border">
             <Map className="w-5 h-5 text-foreground" />
-            <h2 className="text-lg font-bold text-foreground">Sơ đồ lộ trình học tập gốc (Template)</h2>
+            <h2 className="text-lg font-bold text-foreground">Template cá nhân của tôi</h2>
           </div>
-          {loadingTemplateGraph ? (
-            <div className="flex items-center justify-center h-48">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-muted/30 p-3 lg:max-h-[calc(100vh-2rem)]">
-              <LearningPathFlow
-                nodes={templateNodes}
-                edges={templateEdges}
-                selectedNodeId={null}
-                onNodeClick={() => {}}
-              />
-            </div>
-          )}
+          <LearningPathManager
+            subjectId={Number(subjectId)}
+            subjectPublished={subject.status === 'published'}
+            initialPathId={pathId ? Number(pathId) : undefined}
+            teacherMode
+          />
         </div>
       ) : (
         /* Classrooms Section */
