@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '../../../components/ui/select';
 import { Badge } from '../../../components/ui/badge';
 import {
   ArrowLeft,
@@ -1752,32 +1753,38 @@ export function ClassOverviewPage() {
                   <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
                     <BookOpen className="size-3.5" /> Chọn lộ trình để áp dụng cho lớp
                   </label>
-                  <select
-                    value={selectedTemplateId ?? ''}
-                    onChange={(e) => handlePreviewTemplate(e.target.value ? Number(e.target.value) : null)}
+                  <Select
+                    value={selectedTemplateId ? String(selectedTemplateId) : "none"}
+                    onValueChange={(value) => handlePreviewTemplate(value === "none" ? null : Number(value))}
                     disabled={isNonIdle || loadingCloneablePaths}
-                    className="w-full max-w-md rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   >
-                    <option value="">-- Chọn lộ trình để xem trước --</option>
-                    <optgroup label="Template của khoa">
-                      {cloneablePaths
-                        .filter((p) => p.type === 'ADMIN_TEMPLATE')
-                        .map((t) => (
-                          <option key={t.pathId} value={t.pathId}>
-                            {t.pathName} ({t.nodeCount} bài học)
-                          </option>
-                        ))}
-                    </optgroup>
-                    <optgroup label="Template cá nhân của tôi">
-                      {cloneablePaths
-                        .filter((p) => p.type === 'MY_TEMPLATE')
-                        .map((t) => (
-                          <option key={t.pathId} value={t.pathId}>
-                            {t.pathName} ({t.nodeCount} bài học)
-                          </option>
-                        ))}
-                    </optgroup>
-                  </select>
+                    <SelectTrigger className="w-full max-w-md bg-background border-border h-9 text-foreground font-medium shadow-none focus-visible:ring-0">
+                      <SelectValue placeholder="-- Chọn lộ trình để xem trước --" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="none">-- Chọn lộ trình để xem trước --</SelectItem>
+                      <SelectGroup>
+                        <SelectLabel>Template của khoa</SelectLabel>
+                        {cloneablePaths
+                          .filter((p) => p.type === 'ADMIN_TEMPLATE')
+                          .map((t) => (
+                            <SelectItem key={t.pathId} value={String(t.pathId)}>
+                              {t.pathName} ({t.nodeCount} bài học)
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>Template cá nhân của tôi</SelectLabel>
+                        {cloneablePaths
+                          .filter((p) => p.type === 'MY_TEMPLATE')
+                          .map((t) => (
+                            <SelectItem key={t.pathId} value={String(t.pathId)}>
+                              {t.pathName} ({t.nodeCount} bài học)
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                   <p className="text-[11px] text-slate-500">
                     {loadingCloneablePaths
                       ? 'Đang tải danh sách template...'
@@ -2529,11 +2536,10 @@ export function ClassOverviewPage() {
 
               <div className="space-y-1">
                 <label className="font-bold text-slate-700">Loại câu hỏi</label>
-                <select
-                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 bg-white"
+                <Select
                   value={questionType}
-                  onChange={(e) => {
-                    const newType = e.target.value as any;
+                  onValueChange={(value) => {
+                    const newType = value as any;
                     setQuestionType(newType);
                     if (newType === 'ESSAY') {
                       setAnswers([{ answerContent: '', isCorrect: true }]);
@@ -2547,10 +2553,15 @@ export function ClassOverviewPage() {
                     }
                   }}
                 >
-                  <option value="SINGLE">Một đáp án đúng (Single Choice)</option>
-                  <option value="MULTIPLE">Nhiều đáp án đúng (Multiple Choice)</option>
-                  <option value="ESSAY">Tự luận (Essay)</option>
-                </select>
+                  <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-xs focus:ring-1 focus:ring-slate-800 shadow-none focus-visible:ring-0">
+                    <SelectValue placeholder="Chọn loại câu hỏi" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="SINGLE">Một đáp án đúng (Single Choice)</SelectItem>
+                    <SelectItem value="MULTIPLE">Nhiều đáp án đúng (Multiple Choice)</SelectItem>
+                    <SelectItem value="ESSAY">Tự luận (Essay)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {questionType === 'ESSAY' ? (
@@ -3645,21 +3656,25 @@ export function ClassOverviewPage() {
 
             <div className="space-y-1.5">
               <label className="font-bold text-slate-700">Ca học (Slot)</label>
-              <select
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
-                value={scheduleSlotId}
-                onChange={(e) => {
-                  setScheduleSlotId(e.target.value);
-                  setScheduleConflict(null); // Clear previous conflicts on change
+              <Select
+                value={scheduleSlotId ? String(scheduleSlotId) : "none"}
+                onValueChange={(value) => {
+                  setScheduleSlotId(value === "none" ? "" : value);
+                  setScheduleConflict(null); // Clear conflicts
                 }}
               >
-                <option value="">-- Chọn ca học --</option>
-                {slotsList.map((slot) => (
-                  <option key={slot.slotId} value={slot.slotId}>
-                    {slot.slotName} ({slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)})
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full bg-white border-slate-200 rounded-xl h-9 text-slate-700 text-xs outline-none focus-visible:ring-0 shadow-none">
+                  <SelectValue placeholder="-- Chọn ca học --" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="none">-- Chọn ca học --</SelectItem>
+                  {slotsList.map((slot) => (
+                    <SelectItem key={slot.slotId} value={String(slot.slotId)}>
+                      {slot.slotName} ({slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
