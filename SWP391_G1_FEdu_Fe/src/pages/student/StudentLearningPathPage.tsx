@@ -21,7 +21,8 @@ import {
   ChevronLeft,
   ThumbsUp,
   ThumbsDown,
-  Flag
+  Flag,
+  Clock
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
@@ -42,6 +43,13 @@ interface LearningPathItem {
   nodeId: number;
   data: any;
 }
+
+// Deadline node (BE trả LocalDateTime không timezone → new Date() parse theo giờ local là đúng)
+const formatDeadline = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ${d.toLocaleDateString('vi-VN')}`;
+};
+const isDeadlineOverdue = (iso: string) => new Date(iso).getTime() < Date.now();
 
 export function StudentLearningPathPage() {
   const { csId } = useParams<{ csId: string }>();
@@ -645,6 +653,11 @@ export function StudentLearningPathPage() {
                             Đã xong
                           </span>
                         )}
+                        {isCompleted && node.completedLate && (
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 uppercase">
+                            Hoàn thành trễ
+                          </span>
+                        )}
                         {isOpen && (
                           <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm bg-primary border border-primary text-primary-foreground uppercase animate-pulse">
                             Đang học
@@ -655,6 +668,15 @@ export function StudentLearningPathPage() {
                       <h4 className="font-bold text-foreground text-[11px] leading-snug pt-0.5">
                         {index + 1}. {node.title}
                       </h4>
+
+                      {node.deadlineAt && !isCompleted && (
+                        <p className={`flex items-center gap-1 text-[9px] font-semibold pt-0.5 ${
+                          isDeadlineOverdue(node.deadlineAt) ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                        }`}>
+                          <Clock className="size-3 shrink-0" />
+                          {isDeadlineOverdue(node.deadlineAt) ? 'Quá hạn: ' : 'Hạn: '}{formatDeadline(node.deadlineAt)}
+                        </p>
+                      )}
                     </div>
 
                     <div className="pt-0.5 text-muted-foreground shrink-0">

@@ -448,6 +448,8 @@ public class NodeContentServiceImpl implements NodeContentService {
                             .passed(passed)
                             .startedAt(attempt.getStartedAt())
                             .submittedAt(attempt.getSubmittedAt())
+                            .status(attempt.getStatus() != null ? attempt.getStatus().name() : null)
+                            .tabOutCount(attempt.getTabOutCount() != null ? attempt.getTabOutCount() : 0)
                             .build();
                 })
                 .collect(Collectors.toList());

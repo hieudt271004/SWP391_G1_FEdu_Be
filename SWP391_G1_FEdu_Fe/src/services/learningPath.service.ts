@@ -257,6 +257,41 @@ export interface PlacementQuizDetailsResponse {
   questionCount: number;
 }
 
+// Lượt làm bài của học sinh trên 1 test (teacher xem — kèm trạng thái + số lần rời tab)
+export interface StudentAttemptResponse {
+  attemptId: number;
+  studentId?: number | null;
+  studentName?: string;
+  studentEmail?: string;
+  score?: number | null;
+  passed?: boolean | null;
+  startedAt?: string | null;
+  submittedAt?: string | null;
+  status?: string | null; // IN_PROGRESS | SUBMITTED | CANCELLED | ...
+  tabOutCount?: number;
+}
+
+// Báo cáo tiến độ + hoàn thành trễ per học sinh của 1 lớp-môn (teacher)
+export interface LateNodeItem {
+  nodeId: number;
+  title: string;
+  deadlineAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface StudentProgressReportResponse {
+  studentId: number;
+  classroomSubjectStudentId?: number;
+  fullName: string;
+  email?: string;
+  avatarUrl?: string | null;
+  currentLevel?: number | null;
+  completedNodes: number;
+  totalNodes: number;
+  lateCount: number;
+  lateNodes: LateNodeItem[];
+}
+
 export interface TeacherAnswerRequest {
   answerContent: string;
   isCorrect: boolean;
@@ -422,6 +457,12 @@ export const learningPathService = {
     http.get<any[]>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/level-history`),
   getNodeStudents: (nodeId: number) =>
     http.get<StudentInClassResponse[]>(`/teacher-manage/learning-nodes/${nodeId}/students`),
+  // Toàn bộ lượt làm bài của 1 test (đang làm + đã nộp, kèm tabOutCount) — màn hình theo dõi ON_CLASS
+  getTestAttempts: (testId: number) =>
+    http.get<StudentAttemptResponse[]>(`/teacher-manage/tests/${testId}/attempts`),
+  // Báo cáo tiến độ + hoàn thành trễ per học sinh của lớp-môn
+  getProgressReport: (csId: number) =>
+    http.get<StudentProgressReportResponse[]>(`/teacher-manage/classroom-subjects/${csId}/progress-report`),
   assignStudentsToNode: (nodeId: number, studentUserIds: number[]) =>
     http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
   unlockOnClassNode: (classroomSubjectId: number, nodeId: number) =>

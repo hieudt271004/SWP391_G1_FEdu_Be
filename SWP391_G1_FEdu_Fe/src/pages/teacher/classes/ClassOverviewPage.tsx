@@ -46,7 +46,9 @@ import {
   Calendar,
   Clock,
   Unlock,
-  Lock
+  Lock,
+  AlertCircle,
+  Activity
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { resolveAssetUrl } from '../../../components/learningPath/MaterialPreview';
@@ -59,7 +61,9 @@ import {
   ClassroomGraphResponse,
   CloneablePathResponse,
   NodeContentResponse,
-  StudentInClassResponse
+  StudentInClassResponse,
+  StudentAttemptResponse,
+  StudentProgressReportResponse
 } from '../../../services/learningPath.service';
 import { slotService, SlotResponse } from '../../../services/slot.service';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
@@ -146,6 +150,8 @@ export function ClassOverviewPage() {
   const [schedulingNode, setSchedulingNode] = useState<LearningNodeResponse | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleSlotId, setScheduleSlotId] = useState("");
+  // Hạn hoàn thành node (datetime-local); bỏ trống → BE tự suy = hết giờ buổi học
+  const [scheduleDeadline, setScheduleDeadline] = useState("");
   const [slotsList, setSlotsList] = useState<SlotResponse[]>([]);
   const [scheduleConflict, setScheduleConflict] = useState<any | null>(null);
   const [savingSchedule, setSavingSchedule] = useState(false);
@@ -166,6 +172,8 @@ export function ClassOverviewPage() {
     setSchedulingNode(node);
     setScheduleDate(node.studyDate || "");
     setScheduleSlotId(node.slotId ? String(node.slotId) : "");
+    // BE trả LocalDateTime dạng "YYYY-MM-DDTHH:mm:ss" → cắt về format của input datetime-local
+    setScheduleDeadline(node.deadlineAt ? node.deadlineAt.slice(0, 16) : "");
     setScheduleConflict(null);
     setIsScheduleModalOpen(true);
     
@@ -207,6 +215,8 @@ export function ClassOverviewPage() {
         studyDate: scheduleDate,
         slotId: Number(scheduleSlotId),
         force,
+        // Gửi nguyên chuỗi "YYYY-MM-DDTHH:mm" (LocalDateTime, không convert toISOString để khỏi lệch múi giờ)
+        deadlineAt: scheduleDeadline ? scheduleDeadline : null,
       };
 
       const res = await learningPathService.scheduleNode(schedulingNode.nodeId, payload);
@@ -250,13 +260,15 @@ export function ClassOverviewPage() {
         studyDate: null,
         slotId: null,
         force: false,
+        deadlineAt: null,
       };
 
       const res = await learningPathService.scheduleNode(schedulingNode.nodeId, payload);
       toast.success("Hủy lịch học thành công!");
-      
+
       setScheduleDate("");
       setScheduleSlotId("");
+      setScheduleDeadline("");
       
       setSelectedNode(res);
       setIsScheduleModalOpen(false);
@@ -271,6 +283,63 @@ export function ClassOverviewPage() {
 
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
+
+  // Báo cáo tiến độ + hoàn thành trễ per học sinh (cột trong tab Học sinh), key = userId
+  const [progressReport, setProgressReport] = useState<Record<number, StudentProgressReportResponse>>({});
+  const [loadingReport, setLoadingReport] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'students' || !classroomSubjectId) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingReport(true);
+      try {
+        const rows = await learningPathService.getProgressReport(Number(classroomSubjectId));
+        if (!cancelled) {
+          setProgressReport(Object.fromEntries((rows ?? []).map((r) => [r.studentId, r])));
+        }
+      } catch (err) {
+        // Cột phụ — lỗi thì để trống, không toast làm phiền
+        console.error('Không thể tải báo cáo theo dõi học sinh:', err);
+      } finally {
+        if (!cancelled) setLoadingReport(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, classroomSubjectId]);
+
+  // Theo dõi bài làm (node ON_CLASS): dialog 2 tab — đang làm / cảnh báo gian lận (rời tab)
+  const [monitorTest, setMonitorTest] = useState<{ testId: number; title: string } | null>(null);
+  const [monitorAttempts, setMonitorAttempts] = useState<StudentAttemptResponse[]>([]);
+  const [monitorLoading, setMonitorLoading] = useState(false);
+  const [monitorTab, setMonitorTab] = useState<'doing' | 'cheat'>('doing');
+
+  useEffect(() => {
+    if (!monitorTest) return;
+    let cancelled = false;
+    const fetchAttempts = async (showSpinner: boolean) => {
+      if (showSpinner) setMonitorLoading(true);
+      try {
+        const res = await learningPathService.getTestAttempts(monitorTest.testId);
+        if (!cancelled) setMonitorAttempts(res ?? []);
+      } catch (err: any) {
+        if (!cancelled && showSpinner) {
+          toast.error(err.response?.data?.message || 'Không thể tải danh sách bài làm');
+        }
+      } finally {
+        if (!cancelled && showSpinner) setMonitorLoading(false);
+      }
+    };
+    fetchAttempts(true);
+    // "Live" nhẹ nhàng: refetch mỗi 10s khi dialog đang mở (không cần websocket)
+    const interval = setInterval(() => fetchAttempts(false), 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [monitorTest]);
 
   // Submissions Grading States
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
@@ -1836,6 +1905,12 @@ export function ClassOverviewPage() {
                                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                       <span>Ca: {selectedNode.slotName} ({selectedNode.startTime?.substring(0, 5)} - {selectedNode.endTime?.substring(0, 5)})</span>
                                     </div>
+                                    {selectedNode.deadlineAt && (
+                                      <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                                        <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                                        <span>Hạn hoàn thành: {new Date(selectedNode.deadlineAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                                      </div>
+                                    )}
                                   </div>
                                 ) : (
                                   <p className="text-slate-400 italic">Chưa xếp lịch học trên lớp</p>
@@ -1932,6 +2007,14 @@ export function ClassOverviewPage() {
                                         <div className="flex-1 min-w-0">
                                           <p className="font-medium text-foreground truncate">{t.title} ({t.durationMinutes} phút)</p>
                                         </div>
+                                        {selectedNode.nodeType === 'ON_CLASS' && (
+                                          <Button
+                                            onClick={() => { setMonitorTab('doing'); setMonitorTest({ testId: t.testId, title: t.title }); }}
+                                            className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
+                                          >
+                                            <Activity className="w-3 h-3 mr-1" /> Theo dõi
+                                          </Button>
+                                        )}
                                       </div>
                                     ))}
                                     {nodeContent.exercises?.map((e) => (
@@ -2244,16 +2327,17 @@ export function ClassOverviewPage() {
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50 border-border">
                   <TableHead className="font-bold text-muted-foreground w-[12%]">Mã học sinh</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[20%]">Họ và tên</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[18%]">Phân loại năng lực</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[25%]">Lộ trình học tập</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[25%] text-center">Hành động</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[18%]">Họ và tên</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[16%]">Phân loại năng lực</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[20%]">Lộ trình học tập</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[12%] text-center">Hoàn thành trễ</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[22%] text-center">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {students.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic">
                       Chưa có học sinh nào tham gia lớp học này.
                     </TableCell>
                   </TableRow>
@@ -2288,6 +2372,29 @@ export function ClassOverviewPage() {
                           {student.assignedPathName || (
                             <span className="text-muted-foreground italic text-[11px]">Chưa gán lộ trình</span>
                           )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {(() => {
+                            const report = progressReport[student.rawUserId];
+                            if (!report) {
+                              return <span className="text-muted-foreground text-xs">{loadingReport ? '…' : '–'}</span>;
+                            }
+                            if (report.lateCount === 0) {
+                              return <span className="text-muted-foreground text-xs">0</span>;
+                            }
+                            const lateTooltip = report.lateNodes
+                              .map((n) => `${n.title} — hạn ${n.deadlineAt ? new Date(n.deadlineAt).toLocaleString('vi-VN') : '?'}, hoàn thành ${n.completedAt ? new Date(n.completedAt).toLocaleString('vi-VN') : '?'}`)
+                              .join('\n');
+                            return (
+                              <Badge
+                                variant="outline"
+                                title={lateTooltip}
+                                className="bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold rounded-[6px] px-2 py-0.5 cursor-help"
+                              >
+                                {report.lateCount} bài trễ
+                              </Badge>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-2">
@@ -3554,6 +3661,19 @@ export function ClassOverviewPage() {
                 ))}
               </select>
             </div>
+
+            <div className="space-y-1.5">
+              <label className="font-bold text-slate-700">Hạn hoàn thành (deadline)</label>
+              <input
+                type="datetime-local"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
+                value={scheduleDeadline}
+                onChange={(e) => setScheduleDeadline(e.target.value)}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Bỏ trống → hệ thống tự đặt hạn = hết giờ buổi học. Học sinh hoàn thành sau hạn sẽ bị đánh dấu "trễ".
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
@@ -3584,6 +3704,98 @@ export function ClassOverviewPage() {
               Lưu lịch học
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog theo dõi bài làm test của node ON_CLASS: đang làm + cảnh báo gian lận (rời tab) */}
+      <Dialog open={!!monitorTest} onOpenChange={(open) => { if (!open) setMonitorTest(null); }}>
+        <DialogContent className="sm:max-w-2xl bg-background border-border shadow-2xl text-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <Activity className="size-5 text-primary" /> Theo dõi bài làm — {monitorTest?.title}
+            </DialogTitle>
+          </DialogHeader>
+
+          {(() => {
+            const doing = monitorAttempts.filter((a) => a.status === 'IN_PROGRESS');
+            const cheaters = monitorAttempts
+              .filter((a) => (a.tabOutCount ?? 0) > 0 && a.status !== 'CANCELLED')
+              .sort((x, y) => (y.tabOutCount ?? 0) - (x.tabOutCount ?? 0));
+            const tabOutBadge = (count: number) => (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-[6px] border ${
+                count >= 3
+                  ? 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
+                  : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+              }`}>
+                {count} lần rời tab
+              </span>
+            );
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 border-b border-border pb-2">
+                  <button
+                    onClick={() => setMonitorTab('doing')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      monitorTab === 'doing' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Đang làm ({doing.length})
+                  </button>
+                  <button
+                    onClick={() => setMonitorTab('cheat')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      monitorTab === 'cheat' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Cảnh báo gian lận ({cheaters.length})
+                  </button>
+                  <span className="ml-auto text-[10px] text-muted-foreground italic">Tự làm mới mỗi 10 giây</span>
+                </div>
+
+                {monitorLoading ? (
+                  <div className="flex items-center justify-center py-10 text-muted-foreground">
+                    <Loader className="size-5 animate-spin" />
+                  </div>
+                ) : monitorTab === 'doing' ? (
+                  doing.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic py-6 text-center">Chưa có học sinh nào đang làm bài.</p>
+                  ) : (
+                    <div className="max-h-[50vh] overflow-y-auto divide-y divide-border border border-border rounded-xl">
+                      {doing.map((a) => (
+                        <div key={a.attemptId} className="flex items-center gap-3 p-2.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-foreground truncate">{a.studentName || a.studentEmail || `HS #${a.studentId}`}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{a.studentEmail}</p>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            Bắt đầu: {a.startedAt ? new Date(a.startedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                          </span>
+                          {(a.tabOutCount ?? 0) > 0 && tabOutBadge(a.tabOutCount ?? 0)}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : cheaters.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-6 text-center">Chưa ghi nhận học sinh nào rời tab khi làm bài.</p>
+                ) : (
+                  <div className="max-h-[50vh] overflow-y-auto divide-y divide-border border border-border rounded-xl">
+                    {cheaters.map((a) => (
+                      <div key={a.attemptId} className="flex items-center gap-3 p-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">{a.studentName || a.studentEmail || `HS #${a.studentId}`}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{a.studentEmail}</p>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {a.status === 'IN_PROGRESS' ? 'Đang làm' : a.score != null ? `Đã nộp — ${a.score} điểm` : 'Đã nộp'}
+                        </span>
+                        {tabOutBadge(a.tabOutCount ?? 0)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
