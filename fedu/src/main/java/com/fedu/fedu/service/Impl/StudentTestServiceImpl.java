@@ -48,6 +48,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
+        rejectPopQuiz(test);
         verifyStudentAccess(test.getLearningNode(), studentId);
         assertTestReleased(test);
 
@@ -130,6 +131,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
+        rejectPopQuiz(test);
         verifyStudentAccess(test.getLearningNode(), studentId);
         assertTestReleased(test);
         assertWithinReleaseWindow(test, 0);
@@ -351,6 +353,18 @@ public class StudentTestServiceImpl implements StudentTestService {
         return finalPercentage;
     }
 
+    /**
+     * Test POP_QUIZ chỉ được truy cập qua flow pop-quiz (PopQuizService), có kiểm soát
+     * targeting theo TestAssignmentStudent. verifyStudentAccess không đủ vì nó return sớm
+     * khi node == null (nghĩa dành cho placement) — không có discriminator này thì pop-quiz
+     * test sẽ lộ qua endpoint generic cho bất kỳ học sinh nào.
+     */
+    private void rejectPopQuiz(com.fedu.fedu.entity.Test test) {
+        if (test.getTestKind() == com.fedu.fedu.utils.enums.TestKind.POP_QUIZ) {
+            throw new AccessDeniedException("Bài kiểm tra này chỉ truy cập được qua tính năng giao bài pop-quiz");
+        }
+    }
+
     private void verifyStudentAccess(LearningNode node, Long studentId) {
         // Bài test phân loại (placement) không gắn node — kiểm soát truy cập ở PlacementService.
         if (node == null) {
@@ -568,8 +582,10 @@ public class StudentTestServiceImpl implements StudentTestService {
     @Transactional(readOnly = true)
     public List<StudentTestAttemptHistoryResponse> getStudentTestAttemptHistory(Long studentId) {
         List<StudentTestAttempt> attempts = studentTestAttemptRepository.findByStudentUserIdOrderBySubmittedAtDesc(studentId);
-        
-        return attempts.stream().map(a -> {
+
+        return attempts.stream()
+                .filter(a -> a.getTest().getTestKind() != com.fedu.fedu.utils.enums.TestKind.POP_QUIZ)
+                .map(a -> {
             com.fedu.fedu.entity.Test t = a.getTest();
             String csName = "N/A";
             

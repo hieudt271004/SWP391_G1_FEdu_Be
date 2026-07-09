@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Star, Send, Trash2, MessageSquare, AlertCircle, HelpCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -37,6 +37,11 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
   const { user } = useAuth();
   const confirm = useConfirm();
 
+  const onLoadSummaryRef = useRef(onLoadSummary);
+  useEffect(() => {
+    onLoadSummaryRef.current = onLoadSummary;
+  }, [onLoadSummary]);
+
   const [summary, setSummary] = useState<NodeReviewSummaryResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,16 +72,16 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     try {
       const data = await serviceGroup.getSummary(nodeId);
       setSummary(data);
-      if (onLoadSummary) {
+      if (onLoadSummaryRef.current) {
         const total = (data.reviews?.length || 0) + (data.comments?.length || 0);
-        onLoadSummary(total);
+        onLoadSummaryRef.current(total);
       }
     } catch (err: any) {
       setError(err.message || 'Không thể tải thảo luận.');
     } finally {
       setLoading(false);
     }
-  }, [nodeId, serviceGroup, onLoadSummary]);
+  }, [nodeId, serviceGroup]);
 
   useEffect(() => {
     loadData();
@@ -95,8 +100,8 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
       setSummary((prev) => {
         if (!prev) return null;
         const updatedComments = [res, ...(prev.comments || [])];
-        if (onLoadSummary) {
-          onLoadSummary((prev.reviews?.length || 0) + updatedComments.length);
+        if (onLoadSummaryRef.current) {
+          onLoadSummaryRef.current((prev.reviews?.length || 0) + updatedComments.length);
         }
         return {
           ...prev,
@@ -195,8 +200,8 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
         setSummary((prev) => {
           if (!prev) return null;
           const updatedReviews = (prev.reviews || []).filter((r) => r.reviewId !== item.reviewId);
-          if (onLoadSummary) {
-            onLoadSummary(updatedReviews.length + (prev.comments?.length || 0));
+          if (onLoadSummaryRef.current) {
+            onLoadSummaryRef.current(updatedReviews.length + (prev.comments?.length || 0));
           }
           return {
             ...prev,
@@ -210,8 +215,8 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
         setSummary((prev) => {
           if (!prev) return null;
           const updatedComments = (prev.comments || []).filter((c) => c.reviewId !== item.reviewId);
-          if (onLoadSummary) {
-            onLoadSummary((prev.reviews?.length || 0) + updatedComments.length);
+          if (onLoadSummaryRef.current) {
+            onLoadSummaryRef.current((prev.reviews?.length || 0) + updatedComments.length);
           }
           return {
             ...prev,
@@ -250,8 +255,8 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
           updatedReviews = [res, ...updatedReviews];
         }
 
-        if (onLoadSummary) {
-          onLoadSummary(updatedReviews.length + (prev.comments?.length || 0));
+        if (onLoadSummaryRef.current) {
+          onLoadSummaryRef.current(updatedReviews.length + (prev.comments?.length || 0));
         }
 
         // Lấy lại trung bình cộng (tính đơn giản ở client hoặc gọi loadData lại)

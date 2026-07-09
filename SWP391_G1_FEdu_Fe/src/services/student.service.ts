@@ -80,6 +80,25 @@ export interface LevelHistoryEntry {
   changedAt: string;
 }
 
+// ── Pop Quiz types ──────────────────────────────────────────────────────────
+export interface PopQuizPendingResponse {
+  assignmentId: number;
+  title: string;
+  durationMinutes: number;
+  status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED';
+  remainingSeconds?: number;
+  score?: number;
+}
+
+export interface PopQuizPaperResponse {
+  assignmentId: number;
+  attemptId: number;
+  title: string;
+  durationMinutes: number;
+  remainingSeconds: number;
+  questions: Question[];
+}
+
 export interface SubmissionResponse {
   submissionId: number;
   exerciseId: number;
@@ -221,6 +240,19 @@ export const studentService = {
 
   getMyExerciseSubmission: (exerciseId: number) =>
     http.get<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions/me`),
+
+  // ── Pop Quiz ──────────────────────────────────────────────────────────
+  getPendingPopQuiz: (nodeId: number) =>
+    http.get<PopQuizPendingResponse>(`/student/on-class/${nodeId}/pop-quiz/pending`),
+
+  startPopQuizAttempt: (assignmentId: number) =>
+    http.post<PopQuizPaperResponse>(`/student/pop-quiz/${assignmentId}/start`),
+
+  getPopQuizPaper: (assignmentId: number) =>
+    http.get<PopQuizPaperResponse>(`/student/pop-quiz/${assignmentId}/paper`),
+
+  submitPopQuizAttempt: (assignmentId: number, body: AttemptSubmission) =>
+    http.post<AttemptResult>(`/student/pop-quiz/${assignmentId}/submit`, body),
 
   getStudentSchedule: () =>
     http.get<StudentScheduleEntry[]>('/student/schedule'),

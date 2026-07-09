@@ -30,12 +30,28 @@ import { Progress } from '../../components/ui/progress';
 import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
 import { useAuth } from '../../context/AuthContext';
-import { studentService, type SubmissionResponse, type StudentTestAttemptHistoryResponse } from '../../services/student.service';
+import {
+  studentService,
+  type SubmissionResponse,
+  type StudentTestAttemptHistoryResponse,
+  type PopQuizPendingResponse,
+  type PopQuizPaperResponse,
+  type AttemptSubmission
+} from '../../services/student.service';
 import { classroomService } from '../../services/classroom.service';
 import { resolveAssetUrl, MaterialPreview } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
 import { NodeDiscussion } from '../../components/learningPath/NodeDiscussion';
+import { TestRunner } from './tests/components/TestRunner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
 
 interface LearningPathItem {
   id: number;
@@ -92,6 +108,23 @@ export function StudentLearningPathPage() {
 
   // Load completed materials from Backend
   const [completedMaterials, setCompletedMaterials] = useState<Record<string, boolean>>({});
+
+  // Pop Quiz states
+  const [activePopQuiz, setActivePopQuiz] = useState<{
+    assignmentId: number;
+    title: string;
+    durationMinutes: number;
+    status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED';
+    remainingSeconds?: number;
+    score?: number;
+  } | null>(null);
+  const [popQuizPaper, setPopQuizPaper] = useState<PopQuizPaperResponse | null>(null);
+  const [startingPopQuiz, setStartingPopQuiz] = useState(false);
+  const [submittingPopQuiz, setSubmittingPopQuiz] = useState(false);
+  const [showPopQuizAlert, setShowPopQuizAlert] = useState(false);
+  const [showPopQuizRunner, setShowPopQuizRunner] = useState(false);
+  const [showPopQuizResult, setShowPopQuizResult] = useState(false);
+  const [popQuizSecondsLeft, setPopQuizSecondsLeft] = useState<number>(0);
 
   const refreshProgressData = async () => {
     if (!user?.userId || !classroomSubjectId) return null;
@@ -176,6 +209,135 @@ export function StudentLearningPathPage() {
 
     loadInitialData();
   }, [user?.userId, classroomSubjectId]);
+
+  // Polling for pending pop quiz on active/unlocked ON_CLASS nodes
+  useEffect(() => {
+    if (!user?.userId || !classroomSubjectId || nodes.length === 0) return;
+    
+    // Find ON_CLASS nodes that are not locked
+    const onClassNodes = nodes.filter(n => n.nodeType === 'ON_CLASS' && n.studentStatus !== 'LOCKED');
+    if (onClassNodes.length === 0) return;
+    
+    // Poll the first unlocked ON_CLASS node
+    const targetNodeId = onClassNodes[0].nodeId;
+
+    const poll = async () => {
+      try {
+        const res = await studentService.getPendingPopQuiz(targetNodeId);
+        if (res) {
+          setActivePopQuiz(res);
+          if (res.status === 'PENDING') {
+            setShowPopQuizAlert(true);
+          } else if (res.status === 'IN_PROGRESS') {
+            setShowPopQuizAlert(false);
+            if (!popQuizPaper) {
+              const paper = await studentService.getPopQuizPaper(res.assignmentId);
+              setPopQuizPaper(paper);
+              setPopQuizSecondsLeft(paper.remainingSeconds);
+              setShowPopQuizRunner(true);
+            }
+          } else if (res.status === 'SUBMITTED' || res.status === 'EXPIRED') {
+            if (showPopQuizRunner) {
+              setShowPopQuizRunner(false);
+              setShowPopQuizResult(true);
+            }
+          }
+        } else {
+          setActivePopQuiz(null);
+          setPopQuizPaper(null);
+          setShowPopQuizAlert(false);
+          setShowPopQuizRunner(false);
+        }
+      } catch (err) {
+        console.error("Error polling pop quiz:", err);
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [user?.userId, classroomSubjectId, nodes, popQuizPaper, showPopQuizRunner]);
+
+  // Countdown timer for Pop Quiz
+  useEffect(() => {
+    if (!showPopQuizRunner || popQuizSecondsLeft <= 0) return;
+    const interval = setInterval(() => {
+      setPopQuizSecondsLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          handleAutoSubmitPopQuiz();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showPopQuizRunner, popQuizSecondsLeft]);
+
+  const handleStartPopQuiz = async () => {
+    if (!activePopQuiz) return;
+    setStartingPopQuiz(true);
+    try {
+      const paper = await studentService.startPopQuizAttempt(activePopQuiz.assignmentId);
+      setPopQuizPaper(paper);
+      setPopQuizSecondsLeft(paper.remainingSeconds);
+      setShowPopQuizAlert(false);
+      setShowPopQuizRunner(true);
+      toast.success("Bắt đầu làm bài kiểm tra nhanh!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Không thể bắt đầu làm bài");
+    } finally {
+      setStartingPopQuiz(false);
+    }
+  };
+
+  const handleSubmitPopQuiz = async (body: AttemptSubmission) => {
+    if (!activePopQuiz) return;
+    setSubmittingPopQuiz(true);
+    try {
+      const res = await studentService.submitPopQuizAttempt(activePopQuiz.assignmentId, body);
+      setActivePopQuiz((prev) => prev ? { ...prev, status: 'SUBMITTED', score: res.score } : null);
+      setShowPopQuizRunner(false);
+      setShowPopQuizResult(true);
+      toast.success("Nộp bài thành công!");
+      await refreshProgressData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Nộp bài thất bại");
+    } finally {
+      setSubmittingPopQuiz(false);
+    }
+  };
+
+  const handleAutoSubmitPopQuiz = async () => {
+    if (!activePopQuiz) return;
+    setSubmittingPopQuiz(true);
+    try {
+      toast.warning("Hết giờ làm bài! Hệ thống đang nộp bài...", { duration: 5000 });
+      const res = await studentService.submitPopQuizAttempt(activePopQuiz.assignmentId, { submissions: [] });
+      setActivePopQuiz((prev) => prev ? { ...prev, status: 'EXPIRED', score: res.score } : null);
+      setShowPopQuizRunner(false);
+      setShowPopQuizResult(true);
+      await refreshProgressData();
+    } catch (err) {
+      setActivePopQuiz((prev) => prev ? { ...prev, status: 'EXPIRED', score: 0 } : null);
+      setShowPopQuizRunner(false);
+      setShowPopQuizResult(true);
+    } finally {
+      setSubmittingPopQuiz(false);
+    }
+  };
+
+  const handlePopQuizTabOut = async () => {
+    if (!popQuizPaper) return;
+    try {
+      const count = await studentService.recordTabOut(0, popQuizPaper.attemptId);
+      toast.warning(`Bạn vừa rời khỏi tab khi đang làm bài (lần ${count}). Hành vi này được ghi nhận.`, {
+        duration: 8000,
+      });
+    } catch {
+      // Ignore record errors
+    }
+  };
 
   // Helper: Fetch node content if not cached
   const ensureNodeContent = async (nodeId: number): Promise<NodeContentResponse | null> => {
@@ -1250,6 +1412,104 @@ export function StudentLearningPathPage() {
           </div>
         )}
       </div>
+
+      {/* Pop Quiz Alert Dialog */}
+      <Dialog open={showPopQuizAlert} onOpenChange={setShowPopQuizAlert}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <span className="animate-pulse">🔔</span>
+              <span>Bài kiểm tra nhanh (Pop Quiz)!</span>
+            </DialogTitle>
+            <DialogDescription>
+              Giảng viên vừa giao bài kiểm tra nhanh cho bạn:
+              <strong className="block text-foreground text-base mt-2 font-bold">{activePopQuiz?.title}</strong>
+              Thời gian làm bài: {activePopQuiz?.durationMinutes} phút.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end mt-4">
+            <Button
+              onClick={handleStartPopQuiz}
+              disabled={startingPopQuiz}
+              className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl"
+            >
+              {startingPopQuiz ? "Đang kết nối..." : "Bắt đầu làm bài"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pop Quiz Runner Dialog */}
+      <Dialog open={showPopQuizRunner} onOpenChange={() => {}}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-3 mb-4">
+            <div className="flex justify-between items-center pr-6">
+              <DialogTitle className="text-lg font-bold">Pop Quiz: {popQuizPaper?.title}</DialogTitle>
+              <div className="flex items-center gap-2 bg-amber-55 border border-amber-200 px-3 py-1.5 rounded-lg text-amber-700 font-extrabold text-sm animate-pulse">
+                <span>⏱️ Còn lại:</span>
+                <span>
+                  {Math.floor(popQuizSecondsLeft / 60)}m {popQuizSecondsLeft % 60}s
+                </span>
+              </div>
+            </div>
+          </DialogHeader>
+          {popQuizPaper && (
+            <div className="py-2">
+              <TestRunner
+                details={{
+                  testId: popQuizPaper.assignmentId,
+                  title: popQuizPaper.title,
+                  durationMinutes: popQuizPaper.durationMinutes,
+                  questions: popQuizPaper.questions.map((q) => ({
+                    questionId: q.questionId,
+                    questionContent: q.questionContent,
+                    questionType: q.questionType as any,
+                    score: q.score,
+                    answers: q.answers,
+                  })),
+                }}
+                started={true}
+                submitting={submittingPopQuiz}
+                onStart={() => {}}
+                onSubmit={handleSubmitPopQuiz}
+                onTabOut={handlePopQuizTabOut}
+                submitLabel="Nộp bài Pop Quiz"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Pop Quiz Result Dialog */}
+      <Dialog open={showPopQuizResult} onOpenChange={setShowPopQuizResult}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">Kết quả Pop Quiz</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-6 space-y-4">
+            <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-4xl border border-emerald-200 font-bold">
+              {activePopQuiz?.score != null ? `${activePopQuiz.score}%` : '---'}
+            </div>
+            <p className="text-sm text-zinc-500 font-medium text-center">
+              {activePopQuiz?.status === 'EXPIRED' 
+                ? 'Bài làm của bạn đã quá hạn nộp. Hệ thống ghi nhận 0 điểm.' 
+                : 'Bài kiểm tra nhanh của bạn đã được ghi nhận thành công.'}
+            </p>
+          </div>
+          <DialogFooter className="sm:justify-center mt-2">
+            <Button
+              onClick={() => {
+                setShowPopQuizResult(false);
+                setActivePopQuiz(null);
+                setPopQuizPaper(null);
+              }}
+              className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl px-6"
+            >
+              Đồng ý
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
