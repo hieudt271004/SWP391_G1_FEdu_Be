@@ -270,6 +270,7 @@ CREATE TABLE IF NOT EXISTS tests (
                                      duration_minutes   INT,
                                      passing_percentage DECIMAL(5,2),
                                      order_index        INT,
+                                     test_kind          VARCHAR(20) NOT NULL DEFAULT 'NORMAL', -- NORMAL | POP_QUIZ (bài giao ad-hoc trong buổi ON_CLASS; chặn truy cập qua endpoint generic)
                                      is_deleted         BOOLEAN DEFAULT FALSE,
                                      created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -457,6 +458,33 @@ CREATE TABLE IF NOT EXISTS student_level_history (
     changed_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Bài kiểm tra ad-hoc (pop quiz) giáo viên giao bất chợt trong buổi ON_CLASS cho một nhóm học sinh.
+CREATE TABLE IF NOT EXISTS test_assignments (
+    assignment_id        BIGSERIAL PRIMARY KEY,
+    test_id              BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
+    node_id               BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
+    classroom_subject_id  BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
+    assigned_by           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
+    status                VARCHAR(20) NOT NULL DEFAULT 'OPEN', -- OPEN | CLOSED
+    close_at              TIMESTAMP, -- tự đóng khi quá giờ này (lazy, không scheduler); NULL = chỉ đóng thủ công
+    is_deleted            BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Trạng thái làm bài pop-quiz của từng học sinh được giao.
+CREATE TABLE IF NOT EXISTS test_assignment_students (
+    id                            BIGSERIAL PRIMARY KEY,
+    assignment_id                 BIGINT NOT NULL REFERENCES test_assignments(assignment_id) ON DELETE CASCADE,
+    classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
+    status                        VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- PENDING | IN_PROGRESS | SUBMITTED | EXPIRED
+    attempt_id                    BIGINT REFERENCES student_test_attempts(attempt_id) ON DELETE SET NULL,
+    is_deleted                    BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(assignment_id, classroom_subject_student_id)
+);
+
 -- Indexes for performance and uniqueness
 -- Mỗi lớp-môn chỉ có TỐI ĐA 1 lộ trình clone đang hoạt động (mô hình 1-path; cột level đã bỏ).
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_path ON learning_paths(classroom_subject_id) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE;
@@ -464,4 +492,6 @@ CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id);
 CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id);
 CREATE INDEX IF NOT EXISTS idx_snp_path_status ON student_node_progress(path_id, status);
 CREATE INDEX IF NOT EXISTS idx_quiz_score_bands_test ON quiz_score_bands(test_id);
+CREATE INDEX IF NOT EXISTS idx_test_assignments_node_status ON test_assignments(node_id, status);
+CREATE INDEX IF NOT EXISTS idx_test_assignment_students_css ON test_assignment_students(classroom_subject_student_id);
 CREATE INDEX IF NOT EXISTS idx_slh_student_cs ON student_level_history(student_id, classroom_subject_id);

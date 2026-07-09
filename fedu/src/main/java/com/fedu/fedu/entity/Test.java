@@ -1,5 +1,6 @@
 package com.fedu.fedu.entity;
 
+import com.fedu.fedu.utils.enums.TestKind;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -39,6 +40,12 @@ public class Test extends AbstractEntity<Long> {
 
     @Column(name = "order_index")
     private Integer orderIndex;
+
+    /** NORMAL = test thường; POP_QUIZ = bài giao ad-hoc, bị chặn ở endpoint test generic. */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "test_kind", nullable = false)
+    private TestKind testKind = TestKind.NORMAL;
 
     @Builder.Default
     @Column(name = "is_deleted")
