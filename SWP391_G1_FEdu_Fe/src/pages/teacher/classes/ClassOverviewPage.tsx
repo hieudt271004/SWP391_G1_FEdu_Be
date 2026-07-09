@@ -49,7 +49,8 @@ import {
   Unlock,
   Lock,
   AlertCircle,
-  Activity
+  Activity,
+  Radio
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { resolveAssetUrl } from '../../../components/learningPath/MaterialPreview';
@@ -1938,6 +1939,12 @@ export function ClassOverviewPage() {
                           {selectedNode.nodeType === 'ON_CLASS' && (
                             <div className="space-y-2 border-t border-border pt-3">
                               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Trạng thái buổi học</h4>
+                              <Button
+                                onClick={() => navigate(`/teacher/classroom-subjects/${classroomSubjectId}/live/${selectedNode.nodeId}`)}
+                                className="w-full h-8 rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+                              >
+                                <Radio className="size-3.5 mr-1.5" /> Màn hình dạy học (buổi live)
+                              </Button>
                               {selectedNode.status === 'OPEN' ? (
                                 <div className="flex items-center gap-2 p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold">
                                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />

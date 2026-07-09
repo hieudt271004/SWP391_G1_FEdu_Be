@@ -220,6 +220,8 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .durationMinutes(request.getDurationMinutes())
                 .passingPercentage(request.getPassingPercentage())
                 .orderIndex(getNextOrderIndex(nodeId))
+                // holdRelease = soạn ở buổi live, chờ bấm "Phát đề"; mặc định phát ngay (hành vi cũ)
+                .releasedAt(Boolean.TRUE.equals(request.getHoldRelease()) ? null : java.time.LocalDateTime.now())
                 .isDeleted(false)
                 .build();
 
@@ -331,6 +333,8 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .durationMinutes(t.getDurationMinutes())
                 .passingPercentage(t.getPassingPercentage())
                 .orderIndex(t.getOrderIndex())
+                .releasedAt(t.getReleasedAt())
+                .releaseEndsAt(t.getReleaseEndsAt())
                 .build();
     }
 

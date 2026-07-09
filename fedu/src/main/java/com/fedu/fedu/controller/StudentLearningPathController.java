@@ -34,6 +34,18 @@ public class StudentLearningPathController {
     private final LearningNodeRepository learningNodeRepository;
     private final StudentNodeProgressRepository studentNodeProgressRepository;
     private final com.fedu.fedu.service.StudentTestService studentTestService;
+    private final com.fedu.fedu.service.LiveSessionService liveSessionService;
+
+    @Operation(summary = "Trạng thái buổi học live của node ON_CLASS (student polling ~5s)")
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/classroom-subjects/{csId}/learning-nodes/{nodeId}/live-state")
+    public ResponseData<LiveSessionStateResponse> getLiveState(
+            @PathVariable Long csId,
+            @PathVariable Long nodeId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        return new ResponseData<>(HttpStatus.OK.value(), "Lấy trạng thái buổi học thành công",
+                liveSessionService.getStudentState(csId, nodeId, currentUser.getUserId()));
+    }
 
     @Operation(summary = "Get published classroom graph with student progress")
     @PreAuthorize("hasRole('STUDENT')")
@@ -76,6 +88,10 @@ public class StudentLearningPathController {
         }
 
         NodeContentResponse content = nodeContentService.getNodeContent(nodeId);
+        // Đề đã soạn nhưng chưa phát (releasedAt null) không hiện với học sinh
+        if (content.getTests() != null) {
+            content.getTests().removeIf(t -> t.getReleasedAt() == null);
+        }
         return new ResponseData<>(HttpStatus.OK.value(), "Retrieved node content successfully", content);
     }
 

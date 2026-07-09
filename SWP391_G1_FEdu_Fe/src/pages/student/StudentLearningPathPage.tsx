@@ -22,7 +22,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   Flag,
-  Clock
+  Clock,
+  Radio
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
@@ -676,6 +677,18 @@ export function StudentLearningPathPage() {
                           <Clock className="size-3 shrink-0" />
                           {isDeadlineOverdue(node.deadlineAt) ? 'Quá hạn: ' : 'Hạn: '}{formatDeadline(node.deadlineAt)}
                         </p>
+                      )}
+
+                      {node.nodeType === 'ON_CLASS' && !isLocked && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/student/classroom-subjects/${classroomSubjectId}/live/${node.nodeId}`);
+                          }}
+                          className="flex items-center gap-1 text-[9px] font-bold text-rose-600 dark:text-rose-400 hover:underline pt-0.5"
+                        >
+                          <Radio className="size-3 shrink-0" /> Vào buổi học trực tiếp
+                        </button>
                       )}
                     </div>
 

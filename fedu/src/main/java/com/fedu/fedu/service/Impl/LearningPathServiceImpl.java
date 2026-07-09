@@ -353,6 +353,8 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .durationMinutes(t.getDurationMinutes())
                     .passingPercentage(t.getPassingPercentage())
                     .orderIndex(t.getOrderIndex())
+                    // Bản clone cho lớp coi như đã phát (học sinh thấy khi node mở — hành vi cũ)
+                    .releasedAt(java.time.LocalDateTime.now())
                     .isDeleted(false)
                     .build();
             testRepository.save(nt);

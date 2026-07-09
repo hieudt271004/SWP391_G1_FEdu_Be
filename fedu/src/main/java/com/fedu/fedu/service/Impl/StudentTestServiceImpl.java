@@ -49,6 +49,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         verifyStudentAccess(test.getLearningNode(), studentId);
+        assertTestReleased(test);
 
         List<TestQuestion> questions = testQuestionRepository.findByTestTestId(testId);
         List<QuestionResponse> questionResponses = questions.stream()
@@ -78,6 +79,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .description(test.getDescription())
                 .durationMinutes(test.getDurationMinutes())
                 .passingPercentage(test.getPassingPercentage())
+                .releaseEndsAt(test.getReleaseEndsAt())
                 .questions(questionResponses)
                 .build();
     }
@@ -129,6 +131,8 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         verifyStudentAccess(test.getLearningNode(), studentId);
+        assertTestReleased(test);
+        assertWithinReleaseWindow(test, 0);
 
         UserAccount student = userAccountRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
@@ -188,6 +192,9 @@ public class StudentTestServiceImpl implements StudentTestService {
                     "Bài test năng lực đầu vào: hãy nộp qua luồng phân loại (placement).");
         }
 
+        // Đề phát trong buổi live có hạn nộp CHUNG cả lớp — quá hạn (grace 30s cho trễ mạng) thì từ chối
+        assertWithinReleaseWindow(test, 30);
+
         BigDecimal finalPercentage = gradeAttempt(test, attempt, request);
         boolean passed = finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
 
@@ -225,6 +232,22 @@ public class StudentTestServiceImpl implements StudentTestService {
             throw new AccessDeniedException("Lượt thi này không thuộc về bạn");
         }
         return gradeAttempt(test, attempt, request);
+    }
+
+    /** Đề trên node phải ĐÃ PHÁT (releasedAt != null) thì học sinh mới xem/làm được. */
+    private void assertTestReleased(com.fedu.fedu.entity.Test test) {
+        if (test.getLearningNode() != null && test.getReleasedAt() == null) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Đề chưa được phát. Vui lòng chờ giáo viên phát đề.");
+        }
+    }
+
+    /** Đề phát trong buổi live có hạn nộp CHUNG cả lớp (releaseEndsAt); quá hạn (+grace) thì chặn. */
+    private void assertWithinReleaseWindow(com.fedu.fedu.entity.Test test, long graceSeconds) {
+        if (test.getReleaseEndsAt() != null
+                && LocalDateTime.now().isAfter(test.getReleaseEndsAt().plusSeconds(graceSeconds))) {
+            throw new com.fedu.fedu.exception.InvalidDataException("Đã hết giờ làm bài của đề này.");
+        }
     }
 
     BigDecimal gradeAttempt(com.fedu.fedu.entity.Test test, StudentTestAttempt attempt, AttemptSubmissionRequest request) {

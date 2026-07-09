@@ -200,6 +200,10 @@ export interface NodeTestResponse {
   durationMinutes?: number;
   passingPercentage?: number;
   orderIndex: number;
+  /** null = đề đã soạn nhưng CHƯA phát (student không thấy). */
+  releasedAt?: string | null;
+  /** Hạn nộp chung cả lớp khi phát trong buổi live. */
+  releaseEndsAt?: string | null;
 }
 
 // Bài tập thực hành — thành phần của node (song song material/test)
@@ -224,6 +228,33 @@ export interface CreateNodeTestRequest {
   description?: string;
   durationMinutes?: number;
   passingPercentage?: number;
+  /** true = soạn xong CHƯA phát (buổi live, chờ bấm "Phát đề"). */
+  holdRelease?: boolean;
+}
+
+// ── Buổi học live của node ON_CLASS (màn hình dạy học / học tập, polling ~5s) ──
+export interface LiveActiveTestInfo {
+  testId: number;
+  title: string;
+  durationMinutes?: number;
+  releasedAt?: string | null;
+  releaseEndsAt?: string | null;
+}
+
+export interface LiveSessionState {
+  nodeId: number;
+  nodeTitle: string;
+  studyDate?: string | null;
+  slotName?: string | null;
+  sessionWindowStart?: string | null;
+  sessionWindowEnd?: string | null;
+  sessionStartedAt?: string | null;
+  sessionEndedAt?: string | null;
+  live: boolean;
+  canStart: boolean;
+  serverTime: string;
+  content?: NodeContentResponse;
+  activeTest?: LiveActiveTestInfo | null;
 }
 
 export interface CreateNodeExerciseRequest {
@@ -467,6 +498,15 @@ export const learningPathService = {
     http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
   unlockOnClassNode: (classroomSubjectId: number, nodeId: number) =>
     http.post<number>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/nodes/${nodeId}/unlock`),
+  // ── Buổi học live (màn hình dạy học) ──────────────────────────────────────
+  getTeacherLiveState: (csId: number, nodeId: number) =>
+    http.get<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-state`),
+  startLiveSession: (csId: number, nodeId: number) =>
+    http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/start`),
+  endLiveSession: (csId: number, nodeId: number) =>
+    http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/end`),
+  releaseLiveTest: (csId: number, nodeId: number, testId: number) =>
+    http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/tests/${testId}/release`),
   // deadlineAt (tùy chọn): hạn hoàn thành node; bỏ trống thì BE tự suy = hết giờ buổi học.
   scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean; deadlineAt?: string | null }): Promise<LearningNodeResponse> => {
     const response = await apiClient.put<{ status?: number; message?: string; data?: LearningNodeResponse }>(

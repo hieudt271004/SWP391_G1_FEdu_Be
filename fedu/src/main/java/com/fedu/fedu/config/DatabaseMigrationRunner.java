@@ -358,6 +358,30 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Node deadline: columns 'deadline_at' (learning_nodes), 'completed_late' (student_node_progress) added/verified.");
             }
 
+            // Buổi học live (node ON_CLASS): teacher bấm bắt đầu/kết thúc trong khung giờ slot
+            // + phát đề giữa buổi (released_at null = đề đã soạn nhưng CHƯA phát cho học sinh)
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS session_started_at TIMESTAMP NULL");
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS session_ended_at TIMESTAMP NULL");
+                // Hạn nộp CHUNG cả lớp của đề phát trong buổi (null = không giới hạn chung — đề thường)
+                statement.execute("ALTER TABLE tests ADD COLUMN IF NOT EXISTS release_ends_at TIMESTAMP NULL");
+            }
+            boolean hasReleasedAt = false;
+            try (ResultSet resultSet = metaData.getColumns(null, null, "tests", "released_at")) {
+                if (resultSet.next()) {
+                    hasReleasedAt = true;
+                }
+            }
+            if (!hasReleasedAt) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("ALTER TABLE tests ADD COLUMN released_at TIMESTAMP NULL");
+                    // Backfill MỘT LẦN duy nhất lúc tạo cột: test có sẵn trước tính năng này coi như
+                    // đã phát từ lúc tạo (giữ hành vi cũ). Không chạy lại để khỏi "phát" nhầm đề đang chờ.
+                    statement.execute("UPDATE tests SET released_at = created_at WHERE released_at IS NULL");
+                    log.info("Live session: added 'released_at' (tests) with one-time backfill.");
+                }
+            }
+
             // Check if student_material_progress table exists
             boolean hasStudentMaterialProgressTable = false;
             try (ResultSet resultSet = metaData.getTables(null, null, "student_material_progress", null)) {

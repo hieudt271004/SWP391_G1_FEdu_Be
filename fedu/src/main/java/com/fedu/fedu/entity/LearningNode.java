@@ -96,6 +96,17 @@ public class LearningNode extends AbstractEntity<Long> {
     @Column(name = "deadline_at")
     private java.time.LocalDateTime deadlineAt;
 
+    /**
+     * Buổi học live (chỉ node ON_CLASS): teacher bấm "Bắt đầu buổi học" trong khung giờ slot
+     * → sessionStartedAt; bấm "Kết thúc" → sessionEndedAt. Buổi đang diễn ra = started != null
+     * && ended == null && chưa quá giờ kết thúc slot (hết giờ slot coi như tự đóng).
+     */
+    @Column(name = "session_started_at")
+    private java.time.LocalDateTime sessionStartedAt;
+
+    @Column(name = "session_ended_at")
+    private java.time.LocalDateTime sessionEndedAt;
+
     @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;

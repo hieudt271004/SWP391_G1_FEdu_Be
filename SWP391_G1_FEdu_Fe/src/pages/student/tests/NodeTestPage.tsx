@@ -38,7 +38,14 @@ export function NodeTestPage() {
     studentService
       .getTestDetails(id)
       .then((data) => {
-        if (active) setDetails(data);
+        if (!active) return;
+        // Đề phát trong buổi live có hạn nộp CHUNG cả lớp: vào trễ thì đồng hồ chỉ còn
+        // phần thời gian tới hạn chung (BE vẫn là nguồn chân lý khi nộp).
+        if (data.releaseEndsAt && data.durationMinutes) {
+          const remainMin = Math.floor((new Date(data.releaseEndsAt).getTime() - Date.now()) / 60000);
+          data = { ...data, durationMinutes: Math.max(1, Math.min(data.durationMinutes, remainMin)) };
+        }
+        setDetails(data);
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : 'Không tải được bài test');

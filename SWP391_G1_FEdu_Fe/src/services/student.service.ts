@@ -1,5 +1,5 @@
 import { http } from './http';
-import type { ClassroomGraphResponse, NodeContentResponse } from './learningPath.service';
+import type { ClassroomGraphResponse, NodeContentResponse, LiveSessionState } from './learningPath.service';
 
 // ── Test-taking types (khớp DTO backend) ─────────────────────────────────────
 
@@ -32,6 +32,8 @@ export interface StudentTestDetails {
   description?: string;
   durationMinutes?: number;
   passingPercentage?: number;
+  /** Hạn nộp CHUNG cả lớp của đề phát trong buổi live; null = chỉ tính giờ theo durationMinutes. */
+  releaseEndsAt?: string | null;
   questions: Question[];
 }
 
@@ -147,6 +149,10 @@ export const studentService = {
 
   getTestHistory: () =>
     http.get<StudentTestAttemptHistoryResponse[]>('/student/tests/attempts/history'),
+
+  // Buổi học live: polling trạng thái ~5s (tài liệu mới, đề đang phát + hạn nộp chung)
+  getLiveState: (csId: number, nodeId: number) =>
+    http.get<LiveSessionState>(`/student/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-state`),
 
   // ── Placement quiz (thi phân loại đầu vào) ───────────────────────────────
   getPlacementQuiz: (csId: number) =>

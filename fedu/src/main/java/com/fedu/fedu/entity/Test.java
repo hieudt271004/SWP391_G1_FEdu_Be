@@ -40,6 +40,20 @@ public class Test extends AbstractEntity<Long> {
     @Column(name = "order_index")
     private Integer orderIndex;
 
+    /**
+     * Thời điểm phát đề cho học sinh. null = đề đã soạn nhưng CHƯA phát (ẩn với học sinh).
+     * Test tạo ngoài buổi live được phát ngay lúc tạo (giữ hành vi cũ).
+     */
+    @Column(name = "released_at")
+    private java.time.LocalDateTime releasedAt;
+
+    /**
+     * Hạn nộp CHUNG cả lớp (= lúc phát đề + durationMinutes), chỉ set khi teacher bấm
+     * "Phát đề" trong buổi học live. null = đề thường, không giới hạn giờ chung.
+     */
+    @Column(name = "release_ends_at")
+    private java.time.LocalDateTime releaseEndsAt;
+
     @Builder.Default
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;
