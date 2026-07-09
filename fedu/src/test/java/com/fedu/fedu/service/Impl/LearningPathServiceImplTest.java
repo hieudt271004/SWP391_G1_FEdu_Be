@@ -58,7 +58,8 @@ class LearningPathServiceImplTest {
 
     // Guard thật (không mock) để isAdminTemplate/canUseTemplate chạy đúng logic trong test
     @Spy
-    private TemplateEditGuard templateEditGuard = new TemplateEditGuard();
+    @InjectMocks
+    private TemplateEditGuard templateEditGuard;
 
     @InjectMocks
     private LearningPathServiceImpl learningPathService;
