@@ -1,5 +1,6 @@
 import { http } from './http';
 import { apiClient } from './api.client';
+import type { Subject } from '../types/subject';
 
 export type LearningPathLevel = 1 | 2 | 3;
 export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
@@ -29,6 +30,8 @@ export interface LearningPathResponse {
   pathName: string;
   description: string;
   createdById: number;
+  creatorName?: string;
+  creatorRole?: string;
   classroomSubjectId?: number | null;
   level?: LearningPathLevel | null;
   createdAt: string;
@@ -60,6 +63,10 @@ export interface LearningNodeResponse {
   slotName?: string | null;
   startTime?: string | null;
   endTime?: string | null;
+  /** Hạn hoàn thành node (ISO datetime, null = không có deadline). */
+  deadlineAt?: string | null;
+  /** Chỉ có ở graph student: học sinh hoàn thành node SAU deadline. */
+  completedLate?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -86,6 +93,17 @@ export interface AvailableTemplateResponse {
   lastUpdatedAt: string;
 }
 
+export interface CloneablePathResponse {
+  pathId: number;
+  pathName: string;
+  description: string;
+  /** ADMIN_TEMPLATE = template của khoa; MY_TEMPLATE = template cá nhân của GV hiện tại. */
+  type: 'ADMIN_TEMPLATE' | 'MY_TEMPLATE';
+  creatorName?: string | null;
+  nodeCount: number;
+  lastUpdatedAt: string;
+}
+
 export interface PublishResultResponse {
   seededStudents: number;
 }
@@ -104,11 +122,13 @@ export interface ClassroomGraphResponse {
   publishedAt: string | null;
   nodes: LearningNodeResponse[];
   edges: NodeEdgeResponse[];
-  paths: ClassroomPathDto[] | null;
-  canCloneAll: boolean | null;
-  missingLevels: number[] | null;
-  availableTemplates: AvailableTemplateResponse[] | null;
-  quizStartTestId: number | null;
+  paths?: ClassroomPathResponse[];
+  canCloneAll?: boolean;
+  missingLevels?: number[];
+  availableTemplates?: AvailableTemplateResponse[];
+  quizStartTestId?: number | null;
+  totalMaterials?: number;
+  completedMaterials?: number;
 }
 
 export interface CreateLearningNodeRequest {
@@ -128,6 +148,8 @@ export interface CreateLearningNodeRequest {
   gateDownMax?: number | null;
   placementYeuMax?: number | null;
   placementTbMax?: number | null;
+  /** Hạn hoàn thành node (ISO datetime, tùy chọn). */
+  deadlineAt?: string | null;
 }
 
 export interface UpdateLearningNodeRequest {
@@ -141,6 +163,8 @@ export interface UpdateLearningNodeRequest {
   gateDownMax?: number | null;
   placementYeuMax?: number | null;
   placementTbMax?: number | null;
+  /** Hạn hoàn thành node (ISO datetime, tùy chọn). */
+  deadlineAt?: string | null;
 }
 
 export interface CreateNodeEdgeRequest {
@@ -176,6 +200,10 @@ export interface NodeTestResponse {
   durationMinutes?: number;
   passingPercentage?: number;
   orderIndex: number;
+  /** null = đề đã soạn nhưng CHƯA phát (student không thấy). */
+  releasedAt?: string | null;
+  /** Hạn nộp chung cả lớp khi phát trong buổi live. */
+  releaseEndsAt?: string | null;
 }
 
 // Bài tập thực hành — thành phần của node (song song material/test)
@@ -200,6 +228,33 @@ export interface CreateNodeTestRequest {
   description?: string;
   durationMinutes?: number;
   passingPercentage?: number;
+  /** true = soạn xong CHƯA phát (buổi live, chờ bấm "Phát đề"). */
+  holdRelease?: boolean;
+}
+
+// ── Buổi học live của node ON_CLASS (màn hình dạy học / học tập, polling ~5s) ──
+export interface LiveActiveTestInfo {
+  testId: number;
+  title: string;
+  durationMinutes?: number;
+  releasedAt?: string | null;
+  releaseEndsAt?: string | null;
+}
+
+export interface LiveSessionState {
+  nodeId: number;
+  nodeTitle: string;
+  studyDate?: string | null;
+  slotName?: string | null;
+  sessionWindowStart?: string | null;
+  sessionWindowEnd?: string | null;
+  sessionStartedAt?: string | null;
+  sessionEndedAt?: string | null;
+  live: boolean;
+  canStart: boolean;
+  serverTime: string;
+  content?: NodeContentResponse;
+  activeTest?: LiveActiveTestInfo | null;
 }
 
 export interface CreateNodeExerciseRequest {
@@ -231,6 +286,41 @@ export interface PlacementQuizDetailsResponse {
   durationMinutes: number;
   scoreBands: ScoreBandResponse[];
   questionCount: number;
+}
+
+// Lượt làm bài của học sinh trên 1 test (teacher xem — kèm trạng thái + số lần rời tab)
+export interface StudentAttemptResponse {
+  attemptId: number;
+  studentId?: number | null;
+  studentName?: string;
+  studentEmail?: string;
+  score?: number | null;
+  passed?: boolean | null;
+  startedAt?: string | null;
+  submittedAt?: string | null;
+  status?: string | null; // IN_PROGRESS | SUBMITTED | CANCELLED | ...
+  tabOutCount?: number;
+}
+
+// Báo cáo tiến độ + hoàn thành trễ per học sinh của 1 lớp-môn (teacher)
+export interface LateNodeItem {
+  nodeId: number;
+  title: string;
+  deadlineAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface StudentProgressReportResponse {
+  studentId: number;
+  classroomSubjectStudentId?: number;
+  fullName: string;
+  email?: string;
+  avatarUrl?: string | null;
+  currentLevel?: number | null;
+  completedNodes: number;
+  totalNodes: number;
+  lateCount: number;
+  lateNodes: LateNodeItem[];
 }
 
 export interface TeacherAnswerRequest {
@@ -278,6 +368,18 @@ export const learningPathService = {
         templatePathId != null ? `?templatePathId=${templatePathId}` : ''
       }`
     ),
+  // Đổi template khi đã có nháp: BE xóa nháp cũ + clone mới trong 1 transaction (lỗi thì nháp cũ còn nguyên)
+  replaceDraftWithTemplate: (classroomSubjectId: number, templatePathId: number) =>
+    http.post<LearningPathResponse>(
+      `/teacher-manage/classroom-subjects/${classroomSubjectId}/replace-learning-path?templatePathId=${templatePathId}`
+    ),
+  getCloneablePaths: (classroomSubjectId: number) =>
+    http.get<CloneablePathResponse[]>(`/teacher-manage/classrooms/${classroomSubjectId}/cloneable-paths`),
+  // Môn cho thư viện template: đã/đang dạy + môn có template cá nhân của chính GV (BE lấy user từ token)
+  getLibrarySubjects: () => http.get<Subject[]>('/teacher-manage/library/subjects'),
+  // Xóa template cá nhân (BE chặn xóa template của khoa / của GV khác)
+  deleteTemplatePath: (pathId: number) =>
+    http.delete<void>(`/teacher-manage/learning-paths/${pathId}`),
   publishClassroomPath: (classroomSubjectId: number, pathId: number) =>
     http.post<PublishResultResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/learning-paths/${pathId}/publish`),
   unpublishClassroomPath: (classroomSubjectId: number, pathId: number) =>
@@ -386,11 +488,27 @@ export const learningPathService = {
     http.get<any[]>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/level-history`),
   getNodeStudents: (nodeId: number) =>
     http.get<StudentInClassResponse[]>(`/teacher-manage/learning-nodes/${nodeId}/students`),
+  // Toàn bộ lượt làm bài của 1 test (đang làm + đã nộp, kèm tabOutCount) — màn hình theo dõi ON_CLASS
+  getTestAttempts: (testId: number) =>
+    http.get<StudentAttemptResponse[]>(`/teacher-manage/tests/${testId}/attempts`),
+  // Báo cáo tiến độ + hoàn thành trễ per học sinh của lớp-môn
+  getProgressReport: (csId: number) =>
+    http.get<StudentProgressReportResponse[]>(`/teacher-manage/classroom-subjects/${csId}/progress-report`),
   assignStudentsToNode: (nodeId: number, studentUserIds: number[]) =>
     http.put<void>(`/teacher-manage/learning-nodes/${nodeId}/students`, studentUserIds),
   unlockOnClassNode: (classroomSubjectId: number, nodeId: number) =>
     http.post<number>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/nodes/${nodeId}/unlock`),
-  scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean }): Promise<LearningNodeResponse> => {
+  // ── Buổi học live (màn hình dạy học) ──────────────────────────────────────
+  getTeacherLiveState: (csId: number, nodeId: number) =>
+    http.get<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-state`),
+  startLiveSession: (csId: number, nodeId: number) =>
+    http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/start`),
+  endLiveSession: (csId: number, nodeId: number) =>
+    http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/end`),
+  releaseLiveTest: (csId: number, nodeId: number, testId: number) =>
+    http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/tests/${testId}/release`),
+  // deadlineAt (tùy chọn): hạn hoàn thành node; bỏ trống thì BE tự suy = hết giờ buổi học.
+  scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean; deadlineAt?: string | null }): Promise<LearningNodeResponse> => {
     const response = await apiClient.put<{ status?: number; message?: string; data?: LearningNodeResponse }>(
       `/teacher-manage/learning-nodes/${nodeId}/schedule`,
       request

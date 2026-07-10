@@ -207,6 +207,33 @@ entity "tests" as tests {
   description : TEXT
   duration_minutes : INT
   passing_percentage : DECIMAL(5,2)
+  test_kind : VARCHAR(20)
+  is_deleted : BOOLEAN
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "test_assignments" as test_assignments {
+  * assignment_id : BIGSERIAL [PK]
+  --
+  * test_id : BIGINT [FK]
+  * node_id : BIGINT [FK]
+  * classroom_subject_id : BIGINT [FK]
+  * assigned_by : BIGINT [FK]
+  status : VARCHAR(20)
+  close_at : TIMESTAMP
+  is_deleted : BOOLEAN
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "test_assignment_students" as test_assignment_students {
+  * id : BIGSERIAL [PK]
+  --
+  * assignment_id : BIGINT [FK]
+  * classroom_subject_student_id : BIGINT [FK]
+  status : VARCHAR(20)
+  attempt_id : BIGINT [FK]
   is_deleted : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
@@ -366,6 +393,13 @@ node_materials ||--o{ files
 learning_nodes ||--o{ tests
 tests ||--o{ test_questions
 test_questions ||--o{ test_answers
+tests ||--o{ test_assignments
+learning_nodes ||--o{ test_assignments
+classroom_subjects ||--o{ test_assignments
+user_account ||--o{ test_assignments : "assigned_by"
+test_assignments ||--o{ test_assignment_students
+classroom_subject_students ||--o{ test_assignment_students
+student_test_attempts ||--o{ test_assignment_students
 tests ||--o{ student_test_attempts
 user_account ||--o{ student_test_attempts
 student_test_attempts ||--o{ student_test_responses
@@ -416,7 +450,7 @@ user_account ||--o{ node_reviews
 * **`files`**: Slide/PDF document attachments for student downloads.
 
 ### 4. Evaluation & Tracking Module
-* **`tests`**: Automated quizzes tied to learning milestones.
+* **`tests`**: Automated quizzes tied to learning milestones. `test_kind` (`NORMAL` | `POP_QUIZ`) discriminates ad-hoc pop-quiz tests, which are blocked from generic student test endpoints and only reachable through the pop-quiz assignment flow.
 * **`test_questions`**: Questions comprising a quiz (supports multiple-choice, essay, etc.).
 * **`test_answers`**: Correct and incorrect options for the questions.
 * **`student_test_attempts`**: Student attempts on a test, tracking time and score.
@@ -424,6 +458,8 @@ user_account ||--o{ node_reviews
 * **`student_selected_answers`**: Many-to-many relationship supporting multiple selected answers.
 * **`student_node_progress`**: Tracks path completion status (`LOCKED`, `COMPLETED`, etc.) for student dashboards.
 * **`submissions`**: Homework/hand-in assignments uploaded by students, graded by teachers/sub-mentors.
+* **`test_assignments`**: An ad-hoc pop quiz a teacher assigns during an `ON_CLASS` session, scoped to one learning node and one classroom-subject; `status` (`OPEN`/`CLOSED`) and optional `close_at` gate whether students can still start it.
+* **`test_assignment_students`**: Per-student targeting and progress for a `test_assignments` row (`PENDING`/`IN_PROGRESS`/`SUBMITTED`/`EXPIRED`), linking to the student's own `student_test_attempts` row once started.
 
 ### 5. Interaction & Q&A Module
 * **`node_questions`**: Discussions or questions posted by students regarding a specific lesson.

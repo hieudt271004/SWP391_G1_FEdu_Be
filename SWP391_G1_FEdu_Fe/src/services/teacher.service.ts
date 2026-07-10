@@ -11,6 +11,45 @@ import type {
 } from '../types/submentor';
 import type { SubmissionResponse } from './student.service';
 
+// ── Pop Quiz types ──────────────────────────────────────────────────────────
+export interface CreatePopQuizRequest {
+  title: string;
+  durationMinutes?: number;
+  closeAt?: string;
+  studentIds: number[];
+  questions?: {
+    questionContent: string;
+    questionType: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE';
+    score: number;
+    answers: {
+      answerContent: string;
+      isCorrect: boolean;
+    }[];
+  }[];
+  existingTestId?: number;
+}
+
+export interface PopQuizAssignmentResponse {
+  assignmentId: number;
+  testId: number;
+  nodeId: number;
+  classroomSubjectId: number;
+  status: 'OPEN' | 'CLOSED';
+}
+
+export interface PopQuizResultsResponse {
+  assignmentId: number;
+  title: string;
+  status: 'OPEN' | 'CLOSED';
+  students: {
+    studentId: number;
+    studentName: string;
+    status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED';
+    score?: number;
+    tabOutCount?: number;
+  }[];
+}
+
 export const teacherService = {
   getSubjectsByTeacher: (teacherId: number) =>
     http.get<Subject[]>(`/teacher/subjects/${teacherId}`),
@@ -56,4 +95,20 @@ export const teacherService = {
 
   gradeSubmission: (submissionId: number, grade: number, feedback?: string) =>
     http.put<SubmissionResponse>(`/teacher-manage/submissions/${submissionId}/grade`, { grade, feedback }),
+
+  // ─── Pop Quiz ──────────────────────────────────────────────────────────────
+  getActivePopQuiz: (nodeId: number) =>
+    http.get<PopQuizAssignmentResponse>(`/teacher-manage/on-class/${nodeId}/pop-quiz/active`),
+
+  createPopQuiz: (nodeId: number, req: CreatePopQuizRequest) =>
+    http.post<PopQuizAssignmentResponse>(`/teacher-manage/on-class/${nodeId}/pop-quiz`, req),
+
+  getPopQuizResults: (assignmentId: number) =>
+    http.get<PopQuizResultsResponse>(`/teacher-manage/pop-quiz/${assignmentId}/results`),
+
+  resetPopQuizStudent: (assignmentId: number, cssId: number) =>
+    http.post<void>(`/teacher-manage/pop-quiz/${assignmentId}/students/${cssId}/reset`, {}),
+
+  closePopQuiz: (assignmentId: number) =>
+    http.post<void>(`/teacher-manage/pop-quiz/${assignmentId}/close`, {}),
 };

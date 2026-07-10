@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { FileText, Settings, BookOpen, HelpCircle, Code2, Sparkles, AlertCircle, Trash2, Plus, X, GraduationCap, Calendar } from "lucide-react";
 import { learningPathService } from "../../services/learningPath.service";
 import type {
   LearningPathResponse,
@@ -13,6 +14,15 @@ import { toast } from "sonner";
 
 interface LearningPathManagerProps {
   subjectId: number;
+  /** Môn đang xuất bản ⇒ template của khoa bị khóa sửa (BE cũng chặn); gỡ xuất bản để chỉnh sửa. */
+  subjectPublished?: boolean;
+  /** Chọn sẵn template này khi mở (deep-link từ thư viện lộ trình của teacher). */
+  initialPathId?: number;
+  /**
+   * Teacher soạn template CÁ NHÂN: BE chỉ trả template của chính GV (không có của khoa),
+   * và template cá nhân không bị đóng băng theo trạng thái môn.
+   */
+  teacherMode?: boolean;
 }
 
 const LEVEL_OPTIONS: { value: "" | 1 | 2 | 3; label: string }[] = [
@@ -145,7 +155,7 @@ async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: num
   }
 }
 
-export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
+export function LearningPathManager({ subjectId, subjectPublished, initialPathId, teacherMode }: LearningPathManagerProps) {
   const [templates, setTemplates] = useState<LearningPathResponse[]>([]);
   const [path, setPath] = useState<LearningPathResponse | null>(null);
   const [showCreateTpl, setShowCreateTpl] = useState(false);
@@ -329,7 +339,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
         const tpls = (await learningPathService.getAdminSubjectTemplates(subjectId)).filter((t) => !t.classroomSubjectId);
         if (!active) return;
         setTemplates(tpls);
-        const p = tpls[0] ?? null;
+        const p = (initialPathId != null ? tpls.find((t) => t.pathId === initialPathId) : undefined) ?? tpls[0] ?? null;
         setPath(p);
         if (p) await loadGraph(p.pathId);
       } catch {
@@ -341,7 +351,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     return () => {
       active = false;
     };
-  }, [subjectId, loadGraph]);
+  }, [subjectId, loadGraph, initialPathId]);
 
   const refresh = async () => {
     if (path) await loadGraph(path.pathId);
@@ -1004,14 +1014,32 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
     return <div className="py-10 text-center text-sm text-slate-400">Đang tải lộ trình…</div>;
   }
 
+  // Môn đang xuất bản ⇒ khóa sửa template của khoa (template cá nhân của teacher không bị khóa).
+  // BE cũng chặn ở mọi endpoint — đây chỉ là lớp UX để admin biết phải gỡ xuất bản trước.
+  // Admin: môn published khóa cả khi chưa chọn path (tạo template khoa mới cũng bị BE chặn).
+  // Teacher: chỉ soạn template cá nhân (list đã chỉ còn của mình) → không đóng băng theo môn.
+  const tplFrozen = !!subjectPublished
+    && (teacherMode ? !!path && path.creatorRole !== "TEACHER" : !path || path.creatorRole !== "TEACHER");
+  const frozenBanner = tplFrozen ? (
+    <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <span>
+        <b>Môn đang xuất bản</b> — lộ trình mẫu đang bị khóa chỉnh sửa. Hãy <b>gỡ xuất bản</b> môn để
+        cập nhật; các lớp đã clone không bị ảnh hưởng. Xuất bản lại để giáo viên clone được phiên bản mới.
+      </span>
+    </div>
+  ) : null;
+
   if (!path) {
     return (
       <>
+        {frozenBanner}
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-300 p-8 text-center">
           <p className="text-sm text-slate-500">Môn học chưa có lộ trình mẫu nào.</p>
           <button
             onClick={() => setShowCreateTpl(true)}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            disabled={tplFrozen}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Tạo lộ trình
           </button>
@@ -1027,7 +1055,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
             <ModalActions onCancel={() => setShowCreateTpl(false)} onSave={submitCreateTpl} saving={saving} />
           </Modal>
         )}
-        <style>{`.lp-input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:14px;outline:none;color:#0f172a !important;background-color:#ffffff !important}.lp-input:focus{border-color:#6366f1}`}</style>
+        <style>{`.lp-input{width:100%;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:14px;outline:none;color:var(--foreground) !important;background-color:var(--muted) !important}.lp-input:focus{border-color:var(--primary)}`}</style>
       </>
     );
   }
@@ -1117,7 +1145,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   <button
                     type="button"
                     onClick={() => addAnswerOption(activeQuestionIdx)}
-                    className="text-indigo-600 hover:underline text-[10px]"
+                    className="text-primary hover:underline text-[10px]"
                   >
                     + Thêm đáp án
                   </button>
@@ -1148,7 +1176,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                             updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
                           }
                         }}
-                        className="h-3.5 w-3.5 text-indigo-600 cursor-pointer"
+                        className="h-3.5 w-3.5 text-primary cursor-pointer"
                       />
                       {builderQuestions[activeQuestionIdx].answers.length > 2 && (
                         <button
@@ -1183,6 +1211,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
 
   return (
     <div className="space-y-4">
+      {frozenBanner}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           {templates.map((t) => (
@@ -1191,8 +1220,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               onClick={() => selectPath(t)}
               className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
                 path.pathId === t.pathId
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                  ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                  : "border-input text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground"
               }`}
             >
               {t.pathName}
@@ -1200,16 +1229,17 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           ))}
           <button
             onClick={() => setShowCreateTpl(true)}
-            className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-50"
+            disabled={tplFrozen}
+            className="rounded-lg border border-dashed border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Tạo lộ trình
           </button>
           {path && (
             <span className="ml-1 inline-flex gap-1">
-              <button onClick={handleEditTemplate} title="Sửa lộ trình đang chọn" className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+              <button onClick={handleEditTemplate} disabled={tplFrozen} title="Sửa lộ trình đang chọn" className="rounded-lg border border-input px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
                 ✎ Sửa
               </button>
-              <button onClick={handleDeleteTemplate} title="Xóa lộ trình đang chọn" className="rounded-lg border border-rose-300 px-2.5 py-1.5 text-sm text-rose-600 hover:bg-rose-50">
+              <button onClick={handleDeleteTemplate} disabled={tplFrozen} title="Xóa lộ trình đang chọn" className="rounded-lg border border-destructive/30 px-2.5 py-1.5 text-sm text-destructive hover:bg-destructive/10 bg-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 🗑 Xóa
               </button>
             </span>
@@ -1217,8 +1247,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-slate-800">{path.pathName}</h3>
-            {path.description && <p className="text-sm text-slate-500">{path.description}</p>}
+            <h3 className="text-base font-semibold text-foreground">{path.pathName}</h3>
+            {path.description && <p className="text-sm text-muted-foreground">{path.description}</p>}
           </div>
           <button
             onClick={() => {
@@ -1228,7 +1258,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
               setActiveQuestionIdx(0);
               setShowAddNode(true);
             }}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            disabled={tplFrozen}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Thêm bài học
           </button>
@@ -1236,7 +1267,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="max-h-[70vh] overflow-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:max-h-[calc(100vh-2rem)] lg:w-[544px] lg:flex-shrink-0">
+        <div className="max-h-[70vh] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-muted/30 p-3 lg:max-h-[calc(100vh-2rem)] lg:w-[544px] lg:flex-shrink-0">
           <LearningPathFlow
             nodes={nodes}
             edges={edges}
@@ -1245,43 +1276,77 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
           />
         </div>
 
-        <aside className="overflow-y-auto rounded-xl border border-slate-200 bg-white lg:max-h-[calc(100vh-2rem)] lg:flex-1 lg:min-w-[360px]">
+        <aside className="overflow-y-auto rounded-xl border border-border bg-card lg:max-h-[calc(100vh-2rem)] lg:flex-1 lg:min-w-[360px]">
           {!selectedNode ? (
             <div className="p-8 text-center text-sm text-slate-400">
               Chọn một bài học trên lộ trình để xem &amp; chỉnh sửa.
             </div>
           ) : (
             <div className="flex flex-col">
-              <div className="flex items-start justify-between border-b border-slate-100 p-4">
-                <div>
-                  <h3 className="text-base font-semibold text-slate-800">{selectedNode.title}</h3>
-                  <p className="text-xs text-slate-500">
-                    {selectedNode.level == null ? "Node chung" : `Mức ${selectedNode.level}`} · Chặng{" "}
-                    {selectedNode.stageOrder ?? "—"} · {selectedNode.nodeType === "ON_CLASS" ? "Trên lớp" : "Tự học"}
-                  </p>
+              <div className="flex items-start justify-between border-b border-border p-4">
+                <div className="space-y-2 flex-1">
+                  <h3 className="text-base font-bold text-foreground tracking-tight">
+                    {selectedNode.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* Node Type Badge */}
+                    {selectedNode.testKind && selectedNode.testKind !== 'NONE' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-purple-500/10 text-purple-600 border border-purple-500/20 dark:text-purple-400">
+                        <AlertCircle className="w-2.5 h-2.5" />
+                        Test {selectedNode.testKind === 'PLACEMENT' ? 'Năng lực' : selectedNode.testKind === 'GATE' ? 'Phân luồng' : 'Tự do'}
+                      </span>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                        selectedNode.nodeType === 'ON_CLASS' 
+                          ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20 dark:text-blue-400' 
+                          : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 dark:text-emerald-400'
+                      }`}>
+                        <GraduationCap className="w-2.5 h-2.5" />
+                        {selectedNode.nodeType === 'ON_CLASS' ? 'Trên lớp' : 'Tự học'}
+                      </span>
+                    )}
+
+                    {/* Node Level Badge */}
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                      selectedNode.level === 1 
+                        ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:text-amber-400' 
+                        : selectedNode.level === 2 
+                        ? 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 dark:text-indigo-400' 
+                        : selectedNode.level === 3 
+                        ? 'bg-teal-500/10 text-teal-600 border border-teal-500/20 dark:text-teal-400' 
+                        : 'bg-slate-500/10 text-slate-600 border border-slate-500/20 dark:text-slate-400'
+                    }`}>
+                      Mức: {selectedNode.level === 1 ? 'Yếu' : selectedNode.level === 2 ? 'TB' : selectedNode.level === 3 ? 'Khá' : 'Chung'}
+                    </span>
+
+                    {/* Stage Badge */}
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-secondary text-secondary-foreground border border-border">
+                      <Calendar className="w-2.5 h-2.5" />
+                      Chặng {selectedNode.stageOrder ?? "—"}
+                    </span>
+                  </div>
                 </div>
-                <button onClick={closeDetail} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
-                  ✕
+                <button onClick={closeDetail} className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors hover:text-foreground shrink-0">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="space-y-5 p-4">
+              <div className="space-y-4 p-4">
                 {editingNodeTest ? (
-                  <section>
-                    <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cấu hình bài test</span>
+                  <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
+                    <div className="flex items-center justify-between mb-3 border-b border-border pb-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">Cấu hình bài test</span>
                       <button
                         type="button"
                         onClick={() => setEditingNodeTest(null)}
-                        className="text-[10px] text-slate-500 hover:text-slate-700 font-bold bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded transition-colors"
+                        className="text-[10px] text-muted-foreground hover:text-foreground font-bold bg-muted hover:bg-muted/80 px-2 py-0.5 rounded transition-colors"
                       >
                         ← Quay lại
                       </button>
                     </div>
-                    
                     <div className="space-y-3">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Tiêu đề bài test</label>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">Tiêu đề bài kiểm tra</label>
                         <input 
                           className="lp-input" 
                           placeholder="Tiêu đề test" 
@@ -1289,47 +1354,188 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                           onChange={(e) => setTTitle(e.target.value)} 
                         />
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-medium text-muted-foreground">Thời lượng (phút)</label>
                           <input 
                             type="number" 
                             min={1} 
-                            className="lp-input mt-1 text-center" 
+                            className="lp-input" 
                             value={tDuration} 
                             onChange={(e) => setTDuration(e.target.value)} 
                           />
                         </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-medium text-muted-foreground">% đạt</label>
                           <input 
                             type="number" 
                             min={0} 
                             max={100}
-                            className="lp-input mt-1 text-center" 
+                            className="lp-input" 
                             value={tPass} 
                             onChange={(e) => setTPass(e.target.value)} 
                           />
                         </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu</label>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-medium text-muted-foreground">Số câu hỏi</label>
                           <input 
                             type="number" 
                             min={0} 
-                            className="lp-input mt-1 text-center" 
+                            className="lp-input" 
                             value={numQuestions} 
                             onChange={(e) => handleNumQuestionsChange(e.target.value)} 
                           />
                         </div>
                       </div>
 
-                      {renderQuestionBuilder()}
+                      {Number(numQuestions) > 0 && (
+                        <div className="space-y-3 border-t border-border pt-3">
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                            {Array.from({ length: Math.max(0, parseInt(numQuestions, 10) || 0) }).map((_, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setActiveQuestionIdx(idx)}
+                                className={`size-7 shrink-0 rounded-md text-xs font-bold transition-all border ${
+                                  activeQuestionIdx === idx
+                                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                                    : "bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                                }`}
+                              >
+                                {idx + 1}
+                              </button>
+                            ))}
+                          </div>
+
+                          {builderQuestions[activeQuestionIdx] && (
+                            <div className="rounded-lg border border-border bg-muted/40 p-2.5 space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  Câu hỏi {activeQuestionIdx + 1}
+                                </span>
+                                <div className="flex items-center gap-1 bg-muted p-0.5 rounded-md">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_CHOICE')}
+                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                      builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE'
+                                        ? "bg-card text-foreground shadow-xs border border-border"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                  >
+                                    Một đáp án
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_SELECT')}
+                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                      builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT'
+                                        ? "bg-card text-foreground shadow-xs border border-border"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                  >
+                                    Nhiều đáp án
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'ESSAY')}
+                                    className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                      builderQuestions[activeQuestionIdx].questionType === 'ESSAY'
+                                        ? "bg-card text-foreground shadow-xs border border-border"
+                                        : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                  >
+                                    Tự luận
+                                  </button>
+                                </div>
+                              </div>
+
+                              <textarea
+                                className="lp-input text-xs w-full"
+                                placeholder="Nhập đề / nội dung câu hỏi..."
+                                rows={2}
+                                value={builderQuestions[activeQuestionIdx].questionContent}
+                                onChange={(e) => updateQuestionField(activeQuestionIdx, 'questionContent', e.target.value)}
+                              />
+
+                              {builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ||
+                              builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT' ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
+                                    <span>
+                                      ĐÁP ÁN ({builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'Chọn 1 đáp án đúng' : 'Chọn nhiều đáp án đúng'})
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => addAnswerOption(activeQuestionIdx)}
+                                      className="text-primary hover:underline text-[10px]"
+                                    >
+                                      + Thêm đáp án
+                                    </button>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    {builderQuestions[activeQuestionIdx].answers.map((ans: any, aIdx: number) => (
+                                      <div key={aIdx} className="flex items-center gap-2">
+                                        <span className="font-semibold text-[10px] text-muted-foreground/85 shrink-0 w-3">
+                                          {String.fromCharCode(65 + aIdx)}
+                                        </span>
+                                        <input
+                                          type="text"
+                                          placeholder={`Đáp án ${String.fromCharCode(65 + aIdx)}`}
+                                          className="lp-input flex-1 py-1 px-2 text-xs"
+                                          value={ans.answerContent}
+                                          onChange={(e) => updateAnswerField(activeQuestionIdx, aIdx, 'answerContent', e.target.value)}
+                                        />
+                                        <input
+                                          type={builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
+                                          name={`correct-ans-sidebar-${activeQuestionIdx}`}
+                                          checked={!!ans.isCorrect}
+                                          onChange={(e) => {
+                                            if (builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE') {
+                                              builderQuestions[activeQuestionIdx].answers.forEach((_: any, i: number) => {
+                                                updateAnswerField(activeQuestionIdx, i, 'isCorrect', i === aIdx);
+                                              });
+                                            } else {
+                                              updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
+                                            }
+                                          }}
+                                          className="h-3.5 w-3.5 text-primary cursor-pointer"
+                                        />
+                                        {builderQuestions[activeQuestionIdx].answers.length > 2 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => removeAnswerOption(activeQuestionIdx, aIdx)}
+                                            className="text-red-500 hover:text-red-700 text-xs px-1"
+                                          >
+                                            ×
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  <span className="text-[10px] font-bold text-muted-foreground block">CÂU TRẢ LỜI MẪU / HƯỚNG DẪN CHẤM</span>
+                                  <textarea
+                                    className="lp-input text-xs w-full"
+                                    placeholder="Nhập câu trả lời mẫu cho tự luận..."
+                                    rows={3}
+                                    value={builderQuestions[activeQuestionIdx].answers[0]?.answerContent || ""}
+                                    onChange={(e) => updateAnswerField(activeQuestionIdx, 0, 'answerContent', e.target.value)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <button
                         type="button"
                         onClick={saveSidebarNodeTest}
                         disabled={saving}
-                        className="w-full rounded-md bg-primary py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 mt-2"
+                        className="w-full rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 mt-2"
                       >
                         Lưu bài test
                       </button>
@@ -1337,63 +1543,222 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                   </section>
                 ) : (
                   <>
-                    <section>
-                      <SectionTitle>Tên &amp; mô tả</SectionTitle>
-                      <div className="space-y-2">
-                        <input className="lp-input" value={eTitle} onChange={(e) => setETitle(e.target.value)} />
-                        <textarea className="lp-input" rows={2} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Mô tả (tùy chọn)" />
-                        <button onClick={saveNodeEdit} disabled={saving} className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                          Lưu
-                        </button>
+                    <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
+                      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                        <FileText className="w-4 h-4 text-primary shrink-0" />
+                        <span>Tên &amp; mô tả bài học</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-medium text-muted-foreground">Tiêu đề bài học</label>
+                          <input className="lp-input" value={eTitle} onChange={(e) => setETitle(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-medium text-muted-foreground">Mô tả tóm tắt</label>
+                          <textarea className="lp-input" rows={2} value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="Mô tả ngắn gọn nội dung bài học..." />
+                        </div>
+                        <div className="flex justify-end pt-1">
+                          <button onClick={saveNodeEdit} disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-xs">
+                            Lưu thay đổi
+                          </button>
+                        </div>
                       </div>
                     </section>
 
-                    {selectedNode.testKind === 'PLACEMENT' ? (
-                      <section>
-                        <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Cấu hình bài test</span>
+                    {isTestNode ? (
+                      <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
+                        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                          <Settings className="w-4 h-4 text-primary shrink-0" />
+                          <span>
+                            {selectedNode.testKind === 'PLACEMENT' ? 'Cấu hình bài test năng lực' : 
+                             selectedNode.testKind === 'GATE' ? 'Cấu hình bài test chặng' : 'Cấu hình bài test tự chọn'}
+                          </span>
                         </div>
-                        
                         <div className="space-y-3">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase">Tiêu đề bài test</label>
-                            <input 
-                              className="lp-input" 
-                              placeholder="Tiêu đề test" 
-                              value={tTitle} 
-                              onChange={(e) => setTTitle(e.target.value)} 
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
+                          <div className={`grid gap-3 ${selectedNode.testKind === 'PLACEMENT' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                            <div className="space-y-1">
+                              <label className="text-[11px] font-medium text-muted-foreground">Thời lượng (phút)</label>
                               <input 
                                 type="number" 
                                 min={1} 
-                                className="lp-input mt-1 text-center" 
+                                className="lp-input" 
                                 value={tDuration} 
                                 onChange={(e) => setTDuration(e.target.value)} 
                               />
                             </div>
-                            <div>
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu</label>
+                            {selectedNode.testKind !== 'PLACEMENT' && (
+                              <div className="space-y-1">
+                                <label className="text-[11px] font-medium text-muted-foreground">% đạt</label>
+                                <input 
+                                  type="number" 
+                                  min={0} 
+                                  max={100}
+                                  className="lp-input" 
+                                  value={tPass} 
+                                  onChange={(e) => setTPass(e.target.value)} 
+                                />
+                              </div>
+                            )}
+                            <div className="space-y-1">
+                              <label className="text-[11px] font-medium text-muted-foreground">Số câu hỏi</label>
                               <input 
                                 type="number" 
                                 min={0} 
-                                className="lp-input mt-1 text-center" 
+                                className="lp-input" 
                                 value={numQuestions} 
                                 onChange={(e) => handleNumQuestionsChange(e.target.value)} 
                               />
                             </div>
                           </div>
 
-                          {renderQuestionBuilder()}
+                          {Number(numQuestions) > 0 && (
+                            <div className="space-y-3 border-t border-border pt-3">
+                              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                                {Array.from({ length: Math.max(0, parseInt(numQuestions, 10) || 0) }).map((_, idx) => (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => setActiveQuestionIdx(idx)}
+                                    className={`size-7 shrink-0 rounded-md text-xs font-bold transition-all border ${
+                                      activeQuestionIdx === idx
+                                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                                        : "bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+                                    }`}
+                                  >
+                                    {idx + 1}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {builderQuestions[activeQuestionIdx] && (
+                                <div className="rounded-lg border border-border bg-muted/40 p-2.5 space-y-2.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                      Câu hỏi {activeQuestionIdx + 1}
+                                    </span>
+                                    <div className="flex items-center gap-1 bg-muted p-0.5 rounded-md">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_CHOICE')}
+                                        className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                          builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE'
+                                            ? "bg-card text-foreground shadow-xs border border-border"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                      >
+                                        Một đáp án
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_SELECT')}
+                                        className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                          builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT'
+                                            ? "bg-card text-foreground shadow-xs border border-border"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                      >
+                                        Nhiều đáp án
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'ESSAY')}
+                                        className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
+                                          builderQuestions[activeQuestionIdx].questionType === 'ESSAY'
+                                            ? "bg-card text-foreground shadow-xs border border-border"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                      >
+                                        Tự luận
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <textarea
+                                    className="lp-input text-xs w-full"
+                                    placeholder="Nhập đề / nội dung câu hỏi..."
+                                    rows={2}
+                                    value={builderQuestions[activeQuestionIdx].questionContent}
+                                    onChange={(e) => updateQuestionField(activeQuestionIdx, 'questionContent', e.target.value)}
+                                  />
+
+                                  {builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ||
+                                  builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT' ? (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
+                                        <span>
+                                          ĐÁP ÁN ({builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'Chọn 1 đáp án đúng' : 'Chọn nhiều đáp án đúng'})
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => addAnswerOption(activeQuestionIdx)}
+                                          className="text-primary hover:underline text-[10px]"
+                                        >
+                                          + Thêm đáp án
+                                        </button>
+                                      </div>
+                                      <div className="space-y-1.5">
+                                        {builderQuestions[activeQuestionIdx].answers.map((ans: any, aIdx: number) => (
+                                          <div key={aIdx} className="flex items-center gap-2">
+                                            <span className="font-semibold text-[10px] text-muted-foreground/85 shrink-0 w-3">
+                                              {String.fromCharCode(65 + aIdx)}
+                                            </span>
+                                            <input
+                                              type="text"
+                                              placeholder={`Đáp án ${String.fromCharCode(65 + aIdx)}`}
+                                              className="lp-input flex-1 py-1 px-2 text-xs"
+                                              value={ans.answerContent}
+                                              onChange={(e) => updateAnswerField(activeQuestionIdx, aIdx, 'answerContent', e.target.value)}
+                                            />
+                                            <input
+                                              type={builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
+                                              name={`correct-ans-sidebar-${activeQuestionIdx}`}
+                                              checked={!!ans.isCorrect}
+                                              onChange={(e) => {
+                                                if (builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE') {
+                                                  builderQuestions[activeQuestionIdx].answers.forEach((_: any, i: number) => {
+                                                    updateAnswerField(activeQuestionIdx, i, 'isCorrect', i === aIdx);
+                                                  });
+                                                } else {
+                                                  updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
+                                                }
+                                              }}
+                                              className="h-3.5 w-3.5 text-primary cursor-pointer"
+                                            />
+                                            {builderQuestions[activeQuestionIdx].answers.length > 2 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => removeAnswerOption(activeQuestionIdx, aIdx)}
+                                                className="text-red-500 hover:text-red-700 text-xs px-1"
+                                              >
+                                                ×
+                                              </button>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-1.5">
+                                      <span className="text-[10px] font-bold text-muted-foreground block">CÂU TRẢ LỜI MẪU / HƯỚNG DẪN CHẤM</span>
+                                      <textarea
+                                        className="lp-input text-xs w-full"
+                                        placeholder="Nhập câu trả lời mẫu cho tự luận..."
+                                        rows={3}
+                                        value={builderQuestions[activeQuestionIdx].answers[0]?.answerContent || ""}
+                                        onChange={(e) => updateAnswerField(activeQuestionIdx, 0, 'answerContent', e.target.value)}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           <button
                             type="button"
                             onClick={saveSidebarNodeTest}
                             disabled={saving}
-                            className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 mt-2"
+                            className="w-full rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 mt-2"
                           >
                             Lưu bài test
                           </button>
@@ -1402,16 +1767,19 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                     ) : (
                       <>
                         {isLearningNode(selectedNode) && (
-                          <section>
-                            <SectionTitle>Học liệu</SectionTitle>
+                          <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
+                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                              <BookOpen className="w-4 h-4 text-primary shrink-0" />
+                              <span>Học liệu của bài học</span>
+                            </div>
                             {loadingContent ? (
-                              <p className="text-xs text-slate-400">Đang tải…</p>
+                              <p className="text-xs text-muted-foreground">Đang tải…</p>
                             ) : (
                               <ul className="space-y-1">
                                 {(content?.materials ?? []).map((m) => (
-                                  <li key={m.materialId} className="rounded-md bg-slate-50 p-2.5 text-sm">
+                                  <li key={m.materialId} className="rounded-md bg-muted p-2.5 text-sm border border-border">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="truncate font-medium text-slate-700">{m.title}</span>
+                                      <span className="truncate font-medium text-foreground">{m.title}</span>
                                       <button onClick={() => removeMaterial(m.materialId)} className="shrink-0 text-xs text-rose-500 hover:underline">
                                         xóa
                                       </button>
@@ -1419,11 +1787,11 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                                     <MaterialPreview material={m} />
                                   </li>
                                 ))}
-                                {(content?.materials ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có học liệu.</p>}
+                                {(content?.materials ?? []).length === 0 && <p className="text-xs text-muted-foreground">Chưa có học liệu.</p>}
                               </ul>
                             )}
-                            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm học liệu</p>
+                            <div className="mt-2 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Thêm học liệu</p>
                               <input className="lp-input" placeholder="Tiêu đề học liệu" value={mTitle} onChange={(e) => setMTitle(e.target.value)} />
                               <select className="lp-input" value={mType} onChange={(e) => setMType(e.target.value as "video" | "file")}>
                                 <option value="video">Video (URL)</option>
@@ -1437,54 +1805,57 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                               ) : (
                                 <input type="file" className="lp-input" onChange={(e) => setMFile(e.target.files?.[0] ?? null)} />
                               )}
-                              <button onClick={addMaterial} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                              <button onClick={addMaterial} disabled={saving} className="w-full rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
                                 Thêm học liệu
                               </button>
                             </div>
                           </section>
                         )}
 
-                        <section>
-                          <SectionTitle>Bài test</SectionTitle>
+                        <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
+                          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                            <HelpCircle className="w-4 h-4 text-primary shrink-0" />
+                            <span>Bài test đánh giá</span>
+                          </div>
                           <ul className="space-y-1">
                             {(content?.tests ?? []).map((t) => (
-                              <li key={t.testId} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
-                                <span className="truncate">
+                              <li key={t.testId} className="flex items-center justify-between gap-2 rounded-md bg-muted px-2.5 py-1.5 text-sm border border-border">
+                                <span className="truncate text-foreground">
                                   {t.title}
-                                  <span className="ml-2 text-xs text-slate-400">
+                                  <span className="ml-2 text-xs text-muted-foreground/80">
                                     {t.durationMinutes ?? "?"}′ · đạt {t.passingPercentage ?? 0}%
                                   </span>
                                 </span>
                                 <div className="flex items-center gap-2 shrink-0 text-xs">
-                                  <button type="button" onClick={() => startEditingNodeTest(t)} className="text-indigo-600 hover:underline">
+                                  <button type="button" onClick={() => startEditingNodeTest(t)} className="text-primary hover:underline">
                                     cấu hình
                                   </button>
-                                  <span className="text-slate-350">|</span>
+                                  <span className="text-muted-foreground/40">|</span>
                                   <button type="button" onClick={() => removeTest(t.testId)} className="text-rose-500 hover:underline">
                                     xóa
                                   </button>
                                 </div>
                               </li>
                             ))}
-                            {(content?.tests ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài test.</p>}
+                            {(content?.tests ?? []).length === 0 && <p className="text-xs text-muted-foreground">Chưa có bài test.</p>}
                           </ul>
                           {(content?.tests ?? []).length >= (isLearningNode(selectedNode) ? Infinity : 1) ? (
-                            <p className="mt-2 text-xs text-slate-400">Mỗi node test chỉ có 1 bài test.</p>
+                            <p className="mt-2 text-xs text-muted-foreground">Mỗi node test chỉ có 1 bài test.</p>
                           ) : (
-                            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài test</p>
+                            <div className="mt-2 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Thêm bài test</p>
                               <input className="lp-input" placeholder="Tiêu đề test" value={tTitle} onChange={(e) => setTTitle(e.target.value)} />
                               <div className="flex items-center gap-2">
-                                <label className="flex-1 text-xs text-slate-500">
+                                <label className="flex-1 text-xs text-muted-foreground">
                                   Thời lượng (phút)
                                   <input className="lp-input mt-1" type="number" min={1} value={tDuration} onChange={(e) => setTDuration(e.target.value)} />
                                 </label>
-                                <label className="flex-1 text-xs text-slate-500">
+                                <label className="flex-1 text-xs text-muted-foreground">
                                   % đạt
                                   <input className="lp-input mt-1" type="number" min={0} max={100} value={tPass} onChange={(e) => setTPass(e.target.value)} />
                                 </label>
                               </div>
-                              <button onClick={addTest} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                              <button onClick={addTest} disabled={saving} className="w-full rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
                                 Thêm bài test
                               </button>
                             </div>
@@ -1492,19 +1863,22 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                         </section>
 
                         {isLearningNode(selectedNode) && (
-                          <section>
-                            <SectionTitle>Thực hành</SectionTitle>
+                          <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
+                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                              <Code2 className="w-4 h-4 text-primary shrink-0" />
+                              <span>Bài tập thực hành</span>
+                            </div>
                             {loadingContent ? (
-                              <p className="text-xs text-slate-400">Đang tải…</p>
+                              <p className="text-xs text-muted-foreground">Đang tải…</p>
                             ) : (
                               <ul className="space-y-1">
                                 {(content?.exercises ?? []).map((ex) => (
-                                  <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm">
+                                  <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-muted px-2.5 py-1.5 text-sm border border-border">
                                     <div className="min-w-0">
-                                      <p className="truncate font-medium text-slate-700">{ex.title}</p>
+                                      <p className="truncate font-medium text-foreground">{ex.title}</p>
                                       <div className="mt-0.5 flex flex-wrap gap-1">
                                         {ex.allowText && (
-                                          <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-foreground">Tự luận</span>
+                                          <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground border border-border">Tự luận</span>
                                         )}
                                         {ex.allowFile && (
                                           <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Nộp file</span>
@@ -1516,14 +1890,14 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                                     </button>
                                   </li>
                                 ))}
-                                {(content?.exercises ?? []).length === 0 && <p className="text-xs text-slate-400">Chưa có bài tập.</p>}
+                                {(content?.exercises ?? []).length === 0 && <p className="text-xs text-muted-foreground">Chưa có bài tập.</p>}
                               </ul>
                             )}
-                            <div className="mt-2 space-y-2 rounded-lg border border-slate-200 p-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Thêm bài tập</p>
+                            <div className="mt-2 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Thêm bài tập</p>
                               <input className="lp-input" placeholder="Tiêu đề bài tập" value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
                               <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
-                              <div className="flex items-center gap-4 text-sm text-slate-600">
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                 <label className="flex cursor-pointer items-center gap-1.5">
                                   <input type="checkbox" checked={exAllowText} onChange={(e) => setExAllowText(e.target.checked)} />
                                   Tự luận
@@ -1533,7 +1907,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                                   Nộp file
                                 </label>
                               </div>
-                              <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-slate-800 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">
+                              <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
                                 Thêm bài tập
                               </button>
                             </div>
@@ -1545,8 +1919,8 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
                 )}
               </div>
 
-              <div className="border-t border-slate-100 p-4">
-                <button onClick={removeNode} className="w-full rounded-lg border border-rose-300 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">
+              <div className="border-t border-border p-4">
+                <button onClick={removeNode} className="w-full rounded-lg border border-destructive/30 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10 bg-transparent transition-colors">
                   Xóa bài học này
                 </button>
               </div>
@@ -1724,7 +2098,7 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
         </Modal>
       )}
 
-      <style>{`.lp-input{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:14px;outline:none;color:#0f172a !important;background-color:#ffffff !important}.lp-input:focus{border-color:#6366f1}`}</style>
+      <style>{`.lp-input{width:100%;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:14px;outline:none;color:var(--foreground) !important;background-color:var(--muted) !important}.lp-input:focus{border-color:var(--primary)}`}</style>
     </div>
   );
 }
@@ -1732,9 +2106,9 @@ export function LearningPathManager({ subjectId }: LearningPathManagerProps) {
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white p-5 shadow-xl">
-        <h3 className="mb-3 text-base font-semibold text-slate-800">{title}</h3>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5 shadow-xl text-card-foreground">
+        <h3 className="mb-3 text-base font-semibold text-foreground">{title}</h3>
         <div className="space-y-3">{children}</div>
       </div>
     </>
@@ -1744,7 +2118,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-600">{label}</span>
+      <span className="mb-1 block text-sm font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
   );
@@ -1753,10 +2127,10 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 function ModalActions({ onCancel, onSave, saving }: { onCancel: () => void; onSave: () => void; saving: boolean }) {
   return (
     <div className="mt-2 flex justify-end gap-2">
-      <button onClick={onCancel} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+      <button onClick={onCancel} className="rounded-lg border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground">
         Hủy
       </button>
-      <button onClick={onSave} disabled={saving} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+      <button onClick={onSave} disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition shadow-xs">
         {saving ? "Đang lưu…" : "Lưu"}
       </button>
     </div>
@@ -1764,7 +2138,7 @@ function ModalActions({ onCancel, onSave, saving }: { onCancel: () => void; onSa
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
-  return <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{children}</h4>;
+  return <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</h4>;
 }
 
 export default LearningPathManager;

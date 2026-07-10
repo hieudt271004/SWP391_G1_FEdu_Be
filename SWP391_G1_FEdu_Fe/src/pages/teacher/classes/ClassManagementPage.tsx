@@ -1271,7 +1271,7 @@ export function ClassManagementPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="h-[550px] overflow-auto rounded-xl border border-slate-200 bg-slate-50/30 p-2">
+                  <div className="h-[550px] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-muted/30 p-2">
                     <LearningPathFlow
                       nodes={nodes}
                       edges={edges}
@@ -1702,6 +1702,7 @@ export function ClassManagementPage() {
                   onChange={(e) => setNKind(e.target.value as AddNodeKind)}
                 >
                   <option value="AT_HOME">Tự học</option>
+                  <option value="ON_CLASS">Học trên lớp</option>
                   <option value="GATE">Test phân luồng</option>
                   <option value="PLACEMENT">Test năng lực</option>
                   <option value="FREE_CHOICE">Test tự do chọn</option>

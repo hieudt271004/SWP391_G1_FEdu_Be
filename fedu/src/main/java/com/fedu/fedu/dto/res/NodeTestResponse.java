@@ -15,4 +15,8 @@ public class NodeTestResponse {
     private Integer durationMinutes;
     private BigDecimal passingPercentage;
     private Integer orderIndex;
+    /** null = đề đã soạn nhưng CHƯA phát (ẩn với học sinh). */
+    private java.time.LocalDateTime releasedAt;
+    /** Hạn nộp chung cả lớp khi phát trong buổi live; null = không giới hạn chung. */
+    private java.time.LocalDateTime releaseEndsAt;
 }

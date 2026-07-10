@@ -4,9 +4,10 @@ import { Search, Filter, Plus, Edit2, Trash2, MoreVertical, Eye, ChevronLeft, Ch
 import { subjectService } from "../../services/subject.service";
 import { classroomService } from "../../services/classroom.service";
 import type { Subject } from "../../types/subject";
-import type { ClassroomResponse } from "../../types/classroom";
+import type { ClassroomSubjectResponse } from "../../types/classroomSubject";
 import { SubjectEditModal } from "./SubjectEditModal";
 import { Button } from "../../components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Badge } from "../../components/ui/badge";
 import { useConfirm } from "../../context/ConfirmContext";
 import { toast } from "sonner";
@@ -24,7 +25,7 @@ interface AdminCourse {
   thumbnail: string;
 }
 
-function subjectToRecord(s: Subject, classMap: Record<number, ClassroomResponse[]>): AdminCourse {
+function subjectToRecord(s: Subject, classMap: Record<number, ClassroomSubjectResponse[]>): AdminCourse {
   const codeInitials = (s.subjectCode || "SB").slice(0, 2).toUpperCase();
   const linkedClasses = classMap[s.subjectId] || [];
   
@@ -32,7 +33,7 @@ function subjectToRecord(s: Subject, classMap: Record<number, ClassroomResponse[
   const studentsCount = linkedClasses.reduce((sum, c) => sum + (c.studentCount || 0), 0);
   
   // Calculate active classes count
-  const activeClassesCount = linkedClasses.filter(c => c.status === "active").length;
+  const activeClassesCount = linkedClasses.length;
 
   return {
     id: s.subjectId,
@@ -41,7 +42,7 @@ function subjectToRecord(s: Subject, classMap: Record<number, ClassroomResponse[
     instructor: linkedClasses.length > 0 ? `${linkedClasses.length} lớp được mở` : "Chưa mở lớp",
     students: studentsCount,
     activeClasses: activeClassesCount,
-    status: s.status === "active" ? "published" : "draft",
+    status: s.status === "published" ? "published" : "draft",
     description: s.description || "",
     thumbnail: codeInitials,
   };
@@ -75,11 +76,11 @@ export function SubjectManagementPage() {
       const subjects = await subjectService.getAll();
       
       // Get linked classrooms per subject
-      const classMap: Record<number, ClassroomResponse[]> = {};
+      const classMap: Record<number, ClassroomSubjectResponse[]> = {};
       await Promise.all(
         subjects.map(async (s) => {
           try {
-            const classes = await classroomService.getBySubjectId(s.subjectId);
+            const classes = await classroomService.getClassroomsBySubject(s.subjectId);
             classMap[s.subjectId] = classes;
           } catch {
             classMap[s.subjectId] = [];
@@ -260,32 +261,43 @@ export function SubjectManagementPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Hiển thị</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-3 py-1.5 text-xs outline-none cursor-pointer bg-muted text-foreground border border-input rounded-md font-medium"
+            <Select
+              value={String(itemsPerPage)}
+              onValueChange={(value) => {
+                setItemsPerPage(Number(value));
+                setCurrentPage(1);
+              }}
             >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
+              <SelectTrigger className="h-9 w-[70px] bg-muted border-input text-foreground font-medium shadow-none focus-visible:ring-0">
+                <SelectValue placeholder={String(itemsPerPage)} />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
             <span className="text-sm text-muted-foreground">mục</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-muted-foreground" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                className="px-3 py-1.5 text-xs outline-none cursor-pointer bg-muted text-foreground border border-input rounded-md font-medium"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="published">Đã xuất bản</option>
-                <option value="draft">Bản nháp</option>
-              </select>
-            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+            >
+              <SelectTrigger className="w-full sm:w-auto bg-muted border-input h-9 text-foreground font-semibold flex items-center gap-2 shadow-none focus-visible:ring-0">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Tất cả trạng thái" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="published">Đã xuất bản</SelectItem>
+                <SelectItem value="draft">Bản nháp</SelectItem>
+              </SelectContent>
+            </Select>
 
             <div className="flex items-center gap-2 px-3 py-1.5 bg-muted text-muted-foreground border border-input rounded-md min-w-[250px] focus-within:ring-2 focus-within:ring-ring focus-within:bg-background transition-all">
               <Search className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -309,7 +321,7 @@ export function SubjectManagementPage() {
               <thead>
                 <tr className="bg-primary text-primary-foreground border-b border-border">
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[20%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("code")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -317,7 +329,7 @@ export function SubjectManagementPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[40%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("title")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -325,15 +337,7 @@ export function SubjectManagementPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
-                    onClick={() => handleSort("classes")}
-                  >
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
-                      LỚP HỌC {getSortIcon("classes")}
-                    </span>
-                  </th>
-                  <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[15%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("students")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -341,14 +345,14 @@ export function SubjectManagementPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[15%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("status")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
                       TRẠNG THÁI {getSortIcon("status")}
                     </span>
                   </th>
-                  <th className="text-left px-6 py-4">
+                  <th className="w-[10%] text-left px-6 py-4">
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
                       HÀNH ĐỘNG
                     </span>
@@ -364,9 +368,6 @@ export function SubjectManagementPage() {
                     <td className="px-6 py-4.5">
                       <div className="text-sm font-semibold text-foreground">{course.title}</div>
                       <div className="text-xs text-muted-foreground max-w-[300px] truncate mt-0.5">{course.description}</div>
-                    </td>
-                    <td className="px-6 py-4.5">
-                      <span className="text-sm text-muted-foreground">{course.instructor}</span>
                     </td>
                     <td className="px-6 py-4.5">
                       <span className="text-sm text-muted-foreground">

@@ -194,6 +194,33 @@ entity "tests" as tests {
   description : TEXT
   duration_minutes : INT
   passing_percentage : DECIMAL(5,2)
+  test_kind : VARCHAR(20)
+  is_deleted : BOOLEAN
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "test_assignments" as test_assignments {
+  * assignment_id : BIGSERIAL [PK]
+  --
+  * test_id : BIGINT [FK]
+  * node_id : BIGINT [FK]
+  * classroom_subject_id : BIGINT [FK]
+  * assigned_by : BIGINT [FK]
+  status : VARCHAR(20)
+  close_at : TIMESTAMP
+  is_deleted : BOOLEAN
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "test_assignment_students" as test_assignment_students {
+  * id : BIGSERIAL [PK]
+  --
+  * assignment_id : BIGINT [FK]
+  * classroom_subject_student_id : BIGINT [FK]
+  status : VARCHAR(20)
+  attempt_id : BIGINT [FK]
   is_deleted : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
@@ -353,6 +380,13 @@ node_materials ||--o{ files
 learning_nodes ||--o{ tests
 tests ||--o{ test_questions
 test_questions ||--o{ test_answers
+tests ||--o{ test_assignments
+learning_nodes ||--o{ test_assignments
+classroom_subjects ||--o{ test_assignments
+user_account ||--o{ test_assignments : "assigned_by"
+test_assignments ||--o{ test_assignment_students
+classroom_subject_students ||--o{ test_assignment_students
+student_test_attempts ||--o{ test_assignment_students
 tests ||--o{ student_test_attempts
 user_account ||--o{ student_test_attempts
 student_test_attempts ||--o{ student_test_responses

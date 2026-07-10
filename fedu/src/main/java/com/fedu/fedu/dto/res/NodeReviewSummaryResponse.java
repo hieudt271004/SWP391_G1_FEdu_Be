@@ -22,4 +22,5 @@ public class NodeReviewSummaryResponse {
     private boolean canReview;      // người gọi (học sinh) đã hoàn thành khóa, được phép đánh giá
     private NodeReviewResponse myReview;          // đánh giá của người gọi (null nếu chưa có / không phải học sinh)
     private List<NodeReviewResponse> reviews;     // danh sách đánh giá công khai trong lớp-môn
+    private List<NodeReviewResponse> comments;    // danh sách thảo luận/hỏi đáp công khai trong lớp-môn
 }

@@ -56,6 +56,11 @@ class LearningPathServiceImplTest {
     @Mock
     private NodeExerciseRepository nodeExerciseRepository;
 
+    // Guard thật (không mock) để isAdminTemplate/canUseTemplate chạy đúng logic trong test
+    @Spy
+    @InjectMocks
+    private TemplateEditGuard templateEditGuard;
+
     @InjectMocks
     private LearningPathServiceImpl learningPathService;
 

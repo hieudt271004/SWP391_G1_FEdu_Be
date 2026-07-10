@@ -17,6 +17,7 @@ public interface LearningPathRepository extends JpaRepository<LearningPath, Long
     // templates theo môn
     List<LearningPath> findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(Long subjectId);
 
+    List<LearningPath> findByCreatedByUserIdAndClassroomSubjectIsNullAndIsDeletedFalse(Long userId);
 
     List<LearningPath> findAllByClassroomSubjectIdAndIsDeletedFalse(Long classroomSubjectId);
 

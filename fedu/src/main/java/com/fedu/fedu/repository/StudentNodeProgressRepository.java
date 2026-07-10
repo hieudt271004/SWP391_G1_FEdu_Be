@@ -31,4 +31,12 @@ public interface StudentNodeProgressRepository extends JpaRepository<StudentNode
 
     @Query("SELECT p FROM StudentNodeProgress p WHERE p.classroomSubjectStudent.student.userId = :studentId")
     List<StudentNodeProgress> findAllByStudentId(@Param("studentId") Long studentId);
+
+    // Toàn bộ progress của 1 path (báo cáo lớp) — JOIN FETCH để group trong bộ nhớ không dính N+1;
+    // loại node đã soft-delete (xóa node vẫn để lại progress rows).
+    @Query("SELECT p FROM StudentNodeProgress p " +
+            "JOIN FETCH p.learningNode n " +
+            "JOIN FETCH p.classroomSubjectStudent " +
+            "WHERE p.learningPath.pathId = :pathId AND n.isDeleted = false")
+    List<StudentNodeProgress> findByLearningPathPathId(@Param("pathId") Long pathId);
 }

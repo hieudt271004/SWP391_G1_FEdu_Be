@@ -48,7 +48,9 @@ public class StudentTestServiceImpl implements StudentTestService {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
+        rejectPopQuiz(test);
         verifyStudentAccess(test.getLearningNode(), studentId);
+        assertTestReleased(test);
 
         List<TestQuestion> questions = testQuestionRepository.findByTestTestId(testId);
         List<QuestionResponse> questionResponses = questions.stream()
@@ -78,6 +80,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .description(test.getDescription())
                 .durationMinutes(test.getDurationMinutes())
                 .passingPercentage(test.getPassingPercentage())
+                .releaseEndsAt(test.getReleaseEndsAt())
                 .questions(questionResponses)
                 .build();
     }
@@ -128,7 +131,10 @@ public class StudentTestServiceImpl implements StudentTestService {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
+        rejectPopQuiz(test);
         verifyStudentAccess(test.getLearningNode(), studentId);
+        assertTestReleased(test);
+        assertWithinReleaseWindow(test, 0);
 
         UserAccount student = userAccountRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
@@ -188,6 +194,9 @@ public class StudentTestServiceImpl implements StudentTestService {
                     "Bài test năng lực đầu vào: hãy nộp qua luồng phân loại (placement).");
         }
 
+        // Đề phát trong buổi live có hạn nộp CHUNG cả lớp — quá hạn (grace 30s cho trễ mạng) thì từ chối
+        assertWithinReleaseWindow(test, 30);
+
         BigDecimal finalPercentage = gradeAttempt(test, attempt, request);
         boolean passed = finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
 
@@ -225,6 +234,22 @@ public class StudentTestServiceImpl implements StudentTestService {
             throw new AccessDeniedException("Lượt thi này không thuộc về bạn");
         }
         return gradeAttempt(test, attempt, request);
+    }
+
+    /** Đề trên node phải ĐÃ PHÁT (releasedAt != null) thì học sinh mới xem/làm được. */
+    private void assertTestReleased(com.fedu.fedu.entity.Test test) {
+        if (test.getLearningNode() != null && test.getReleasedAt() == null) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Đề chưa được phát. Vui lòng chờ giáo viên phát đề.");
+        }
+    }
+
+    /** Đề phát trong buổi live có hạn nộp CHUNG cả lớp (releaseEndsAt); quá hạn (+grace) thì chặn. */
+    private void assertWithinReleaseWindow(com.fedu.fedu.entity.Test test, long graceSeconds) {
+        if (test.getReleaseEndsAt() != null
+                && LocalDateTime.now().isAfter(test.getReleaseEndsAt().plusSeconds(graceSeconds))) {
+            throw new com.fedu.fedu.exception.InvalidDataException("Đã hết giờ làm bài của đề này.");
+        }
     }
 
     BigDecimal gradeAttempt(com.fedu.fedu.entity.Test test, StudentTestAttempt attempt, AttemptSubmissionRequest request) {
@@ -328,6 +353,18 @@ public class StudentTestServiceImpl implements StudentTestService {
         return finalPercentage;
     }
 
+    /**
+     * Test POP_QUIZ chỉ được truy cập qua flow pop-quiz (PopQuizService), có kiểm soát
+     * targeting theo TestAssignmentStudent. verifyStudentAccess không đủ vì nó return sớm
+     * khi node == null (nghĩa dành cho placement) — không có discriminator này thì pop-quiz
+     * test sẽ lộ qua endpoint generic cho bất kỳ học sinh nào.
+     */
+    private void rejectPopQuiz(com.fedu.fedu.entity.Test test) {
+        if (test.getTestKind() == com.fedu.fedu.utils.enums.TestKind.POP_QUIZ) {
+            throw new AccessDeniedException("Bài kiểm tra này chỉ truy cập được qua tính năng giao bài pop-quiz");
+        }
+    }
+
     private void verifyStudentAccess(LearningNode node, Long studentId) {
         // Bài test phân loại (placement) không gắn node — kiểm soát truy cập ở PlacementService.
         if (node == null) {
@@ -378,6 +415,17 @@ public class StudentTestServiceImpl implements StudentTestService {
         return true;
     }
 
+    // Đánh dấu hoàn thành node; quá deadline (node.deadlineAt) thì gắn cờ hoàn thành trễ.
+    // Chính sách mềm: quá hạn vẫn hoàn thành được, chỉ ghi nhận để báo cáo.
+    private void markCompleted(StudentNodeProgress progress, LearningNode node) {
+        LocalDateTime now = LocalDateTime.now();
+        progress.setStatus(StudentProgressStatus.COMPLETED);
+        progress.setCompletedAt(now);
+        if (node.getDeadlineAt() != null && now.isAfter(node.getDeadlineAt())) {
+            progress.setCompletedLate(true);
+        }
+    }
+
     // Mở 1 node nếu đang LOCKED (không xét điều kiện tiên quyết).
     private void openNode(Long studentId, LearningNode target, Long pathId) {
         StudentNodeProgress tp = getProgress(studentId, pathId, target.getNodeId());
@@ -415,8 +463,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
-                gp.setStatus(StudentProgressStatus.COMPLETED);
-                gp.setCompletedAt(LocalDateTime.now());
+                markCompleted(gp, gateNode);
             }
             studentNodeProgressRepository.save(gp);
         }
@@ -439,8 +486,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         StudentNodeProgress gp = getProgress(studentId, pathId, fcNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
-                gp.setStatus(StudentProgressStatus.COMPLETED);
-                gp.setCompletedAt(LocalDateTime.now());
+                markCompleted(gp, fcNode);
             }
             studentNodeProgressRepository.save(gp);
         }
@@ -496,8 +542,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (passed) {
             if (current.getStatus() != StudentProgressStatus.COMPLETED) {
                 if (!allNodeTestsPassed(studentId, node)) return;
-                current.setStatus(StudentProgressStatus.COMPLETED);
-                current.setCompletedAt(LocalDateTime.now());
+                markCompleted(current, node);
                 studentNodeProgressRepository.save(current);
             }
             for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(node.getNodeId())) {
@@ -537,8 +582,10 @@ public class StudentTestServiceImpl implements StudentTestService {
     @Transactional(readOnly = true)
     public List<StudentTestAttemptHistoryResponse> getStudentTestAttemptHistory(Long studentId) {
         List<StudentTestAttempt> attempts = studentTestAttemptRepository.findByStudentUserIdOrderBySubmittedAtDesc(studentId);
-        
-        return attempts.stream().map(a -> {
+
+        return attempts.stream()
+                .filter(a -> a.getTest().getTestKind() != com.fedu.fedu.utils.enums.TestKind.POP_QUIZ)
+                .map(a -> {
             com.fedu.fedu.entity.Test t = a.getTest();
             String csName = "N/A";
             

@@ -64,12 +64,20 @@ public class LearningPathManagementController {
                     learningPathService.getLearningPathById(pathId));
         }
 
-        @Operation(summary = "Get learning paths by subject")
+        @Operation(summary = "Get learning paths by subject (templates của khoa + cá nhân của chính GV)")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/subjects/{subjectId}/learning-paths")
         public ResponseData<List<LearningPathResponse>> getLearningPathsBySubjectId(@PathVariable Long subjectId) {
             return new ResponseData<>(HttpStatus.OK.value(), "Learning paths retrieved successfully",
-                    learningPathService.getLearningPathsBySubjectId(subjectId));
+                    learningPathService.getTemplatesVisibleToTeacher(subjectId));
+        }
+
+        @Operation(summary = "Các môn cho thư viện lộ trình: đã/đang dạy + môn có template cá nhân")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/library/subjects")
+        public ResponseData<List<SubjectResponse>> getLibrarySubjects() {
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved library subjects successfully",
+                    learningPathService.getLibrarySubjectsForCurrentTeacher());
         }
 
         @Operation(summary = "Clone a chosen template into the classroom-subject (single path)")
@@ -82,12 +90,29 @@ public class LearningPathManagementController {
                     learningPathService.cloneLearningPath(classroomSubjectId, templatePathId));
         }
 
+        @Operation(summary = "Replace current draft with a fresh clone of a template (atomic — draft cũ giữ nguyên nếu lỗi)")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PostMapping("/classroom-subjects/{classroomSubjectId}/replace-learning-path")
+        public ResponseData<LearningPathResponse> replaceLearningPath(@PathVariable Long classroomSubjectId,
+                                                                      @RequestParam Long templatePathId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Learning path replaced successfully",
+                    learningPathService.replaceDraftWithTemplate(classroomSubjectId, templatePathId));
+        }
+
         @Operation(summary = "Get classroom learning paths")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/classroom-subjects/{classroomSubjectId}/learning-paths")
         public ResponseData<List<LearningPathResponse>> getClassroomLearningPaths(@PathVariable Long classroomSubjectId) {
             return new ResponseData<>(HttpStatus.OK.value(), "Classroom learning paths retrieved successfully",
                     learningPathService.getClassroomLearningPaths(classroomSubjectId));
+        }
+
+        @Operation(summary = "Get cloneable paths for a classroom subject")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/classrooms/{classroomSubjectId}/cloneable-paths")
+        public ResponseData<List<CloneablePathResponse>> getCloneablePaths(@PathVariable Long classroomSubjectId) {
+            return new ResponseData<>(HttpStatus.OK.value(), "Cloneable paths retrieved successfully",
+                    learningPathService.getCloneablePaths(classroomSubjectId));
         }
 
         @Operation(summary = "Create learning node")

@@ -79,9 +79,11 @@ export function TemplatePicker({ classroomSubjectId, availableTemplates, onClone
     try {
       setCloning(true);
       if (existingDraftPathId != null) {
-        await learningPathService.deleteDraftPath(classroomSubjectId, existingDraftPathId);
+        // Đổi template = BE thay nháp bằng clone mới trong 1 transaction (lỗi thì nháp cũ còn nguyên)
+        await learningPathService.replaceDraftWithTemplate(classroomSubjectId, selectedTemplateId);
+      } else {
+        await learningPathService.cloneFromTemplate(classroomSubjectId, selectedTemplateId);
       }
-      await learningPathService.cloneFromTemplate(classroomSubjectId, selectedTemplateId);
       toast.success(existingDraftPathId != null ? "Đã đổi lộ trình mẫu thành công!" : "Đã clone lộ trình về lớp thành công!");
       onCloned();
     } catch (err: any) {
@@ -136,7 +138,7 @@ export function TemplatePicker({ classroomSubjectId, availableTemplates, onClone
           </div>
         ) : graph ? (
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-            <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/40 p-3 lg:w-[544px] lg:flex-shrink-0">
+            <div className="max-h-[60vh] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-muted/30 p-3 lg:w-[544px] lg:flex-shrink-0">
               <LearningPathFlow
                 nodes={graph.nodes}
                 edges={graph.edges}

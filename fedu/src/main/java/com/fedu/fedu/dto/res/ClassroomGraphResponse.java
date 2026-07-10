@@ -23,4 +23,6 @@ public class ClassroomGraphResponse {
     private List<Integer> missingLevels;
     private List<AvailableTemplateResponse> availableTemplates;
     private Long quizStartTestId;
+    private Integer totalMaterials;
+    private Integer completedMaterials;
 }

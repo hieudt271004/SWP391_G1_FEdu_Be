@@ -4,6 +4,7 @@ import { Search, Filter, Plus, Edit2, Trash2, Eye, ChevronLeft, ChevronRight, Li
 import { classroomService } from "../../services/classroom.service";
 import type { ClassroomResponse } from "../../types/classroom";
 import { Button } from "../../components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Badge } from "../../components/ui/badge";
 import { useConfirm } from "../../context/ConfirmContext";
 import { toast } from "sonner";
@@ -209,29 +210,43 @@ export function ClassListPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Hiển thị</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-3 py-1.5 text-xs outline-none cursor-pointer bg-muted text-foreground border border-input rounded-md font-medium"
+            <Select
+              value={String(itemsPerPage)}
+              onValueChange={(value) => {
+                setItemsPerPage(Number(value));
+                setCurrentPage(1);
+              }}
             >
-              <option value={5}>5</option><option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-            </select>
+              <SelectTrigger className="h-9 w-[70px] bg-muted border-input text-foreground font-medium shadow-none focus-visible:ring-0">
+                <SelectValue placeholder={String(itemsPerPage)} />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
             <span className="text-sm text-muted-foreground">mục</span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-muted-foreground" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                className="px-3 py-1.5 text-xs outline-none cursor-pointer bg-muted text-foreground border border-input rounded-md font-medium"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="active">Đang hoạt động</option>
-                <option value="inactive">Chưa bắt đầu</option>
-                <option value="completed">Đã hoàn thành</option>
-              </select>
-            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
+            >
+              <SelectTrigger className="w-full sm:w-auto bg-muted border-input h-9 text-foreground font-semibold flex items-center gap-2 shadow-none focus-visible:ring-0">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Tất cả trạng thái" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="active">Đang hoạt động</SelectItem>
+                <SelectItem value="inactive">Chưa bắt đầu</SelectItem>
+                <SelectItem value="completed">Đã hoàn thành</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-muted text-muted-foreground border border-input rounded-md min-w-[250px] focus-within:ring-2 focus-within:ring-ring focus-within:bg-background transition-all">
               <Search className="w-4 h-4 shrink-0 text-muted-foreground" />
               <input
@@ -254,7 +269,7 @@ export function ClassListPage() {
               <thead>
                 <tr className="bg-primary text-primary-foreground border-b border-border">
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[40%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("className")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -262,7 +277,7 @@ export function ClassListPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[20%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("subjects")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -270,7 +285,7 @@ export function ClassListPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[15%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("students")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
@@ -278,14 +293,14 @@ export function ClassListPage() {
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[15%] text-left px-6 py-4 cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("status")}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
                       TRẠNG THÁI {getSortIcon("status")}
                     </span>
                   </th>
-                  <th className="text-left px-6 py-4">
+                  <th className="w-[10%] text-left px-6 py-4">
                     <span className="flex items-center gap-1 text-[11px] font-bold text-primary-foreground uppercase tracking-wider">
                       HÀNH ĐỘNG
                     </span>

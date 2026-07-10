@@ -14,6 +14,7 @@ import { useConfirm } from "../../context/ConfirmContext";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 type ViewMode = "list" | "grid";
 
@@ -333,36 +334,44 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm text-muted-foreground">Hiển thị</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(Number(e.target.value));
+            <Select
+              value={String(itemsPerPage)}
+              onValueChange={(value) => {
+                setItemsPerPage(Number(value));
                 setCurrentPage(1);
               }}
-              className="px-3 py-1.5 text-xs outline-none cursor-pointer bg-muted text-foreground border border-input rounded-md font-medium"
             >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
+              <SelectTrigger className="h-9 w-[70px] bg-muted border-input text-foreground font-medium shadow-none focus-visible:ring-0">
+                <SelectValue placeholder={String(itemsPerPage)} />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
             <span className="text-sm text-muted-foreground">mục</span>
           </div>
           
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto justify-end">
             {filterRole === "all" && (
-              <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md border border-input focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-auto shrink-0">
-                <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
-                  className="bg-transparent border-none text-sm text-foreground font-semibold outline-none cursor-pointer w-full"
-                >
-                  <option value="all">Tất cả vai trò</option>
-                  <option value="STUDENT">Học viên</option>
-                  <option value="TEACHER">Giảng viên</option>
-                </select>
-              </div>
+              <Select
+                value={roleFilter}
+                onValueChange={(value) => setRoleFilter(value as typeof roleFilter)}
+              >
+                <SelectTrigger className="w-full sm:w-auto bg-muted border-input h-9 text-foreground font-semibold flex items-center gap-2 shadow-none focus-visible:ring-0">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <SelectValue placeholder="Tất cả vai trò" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="all">Tất cả vai trò</SelectItem>
+                  <SelectItem value="STUDENT">Học viên</SelectItem>
+                  <SelectItem value="TEACHER">Giảng viên</SelectItem>
+                </SelectContent>
+              </Select>
             )}
             
             <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md border border-input focus-within:ring-2 focus-within:ring-primary/10 w-full sm:w-[280px] shrink-0">
@@ -387,7 +396,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
               <thead>
                 <tr className="bg-primary text-primary-foreground border-b border-border">
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[25%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("name")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
@@ -395,7 +404,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[26%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("email")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
@@ -403,7 +412,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[15%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("joinedDate")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
@@ -411,7 +420,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[12%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("role")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
@@ -419,14 +428,14 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                     </span>
                   </th>
                   <th 
-                    className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
+                    className="w-[14%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider cursor-pointer select-none hover:bg-primary-dark transition-colors"
                     onClick={() => handleSort("status")}
                   >
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
                       TRẠNG THÁI {getSortIcon("status")}
                     </span>
                   </th>
-                  <th className="text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider">
+                  <th className="w-[8%] text-left px-6 py-4 font-semibold text-xs uppercase tracking-wider">
                     <span className="flex items-center gap-1.5 font-semibold text-primary-foreground uppercase tracking-wider">
                       HÀNH ĐỘNG
                     </span>

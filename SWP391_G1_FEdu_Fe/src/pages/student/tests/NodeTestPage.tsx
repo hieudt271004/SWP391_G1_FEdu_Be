@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -38,7 +38,14 @@ export function NodeTestPage() {
     studentService
       .getTestDetails(id)
       .then((data) => {
-        if (active) setDetails(data);
+        if (!active) return;
+        // Đề phát trong buổi live có hạn nộp CHUNG cả lớp: vào trễ thì đồng hồ chỉ còn
+        // phần thời gian tới hạn chung (BE vẫn là nguồn chân lý khi nộp).
+        if (data.releaseEndsAt && data.durationMinutes) {
+          const remainMin = Math.floor((new Date(data.releaseEndsAt).getTime() - Date.now()) / 60000);
+          data = { ...data, durationMinutes: Math.max(1, Math.min(data.durationMinutes, remainMin)) };
+        }
+        setDetails(data);
       })
       .catch((err: unknown) => {
         if (active) setError(err instanceof Error ? err.message : 'Không tải được bài test');
@@ -77,8 +84,22 @@ export function NodeTestPage() {
     }
   };
 
+  // Rời tab khi đang làm bài → ghi nhận về BE (chống gian lận) + cảnh báo khi quay lại.
+  const handleTabOut = useCallback(async () => {
+    if (attemptId == null) return;
+    try {
+      const count = await studentService.recordTabOut(id, attemptId);
+      toast.warning(`Bạn vừa rời khỏi tab khi đang làm bài (lần ${count}). Hành vi này được ghi nhận.`, {
+        duration: 8000,
+      });
+    } catch {
+      // Không chặn việc làm bài nếu ghi nhận thất bại
+    }
+  }, [id, attemptId]);
+
   const goBack = () => {
-    navigate(-1);
+    if (csId) navigate(`/student/classroom-subjects/${csId}/learning-path`);
+    else navigate('/student/courses');
   };
 
   if (loading) {
@@ -147,6 +168,7 @@ export function NodeTestPage() {
         submitting={submitting}
         onStart={handleStart}
         onSubmit={handleSubmit}
+        onTabOut={handleTabOut}
       />
     </div>
   );

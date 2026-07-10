@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -74,6 +74,20 @@ export function PlacementPage() {
     }
   };
 
+  // Rời tab khi đang làm bài phân loại → ghi nhận về BE (chống gian lận) + cảnh báo khi quay lại.
+  const testId = details?.testId;
+  const handleTabOut = useCallback(async () => {
+    if (attemptId == null || testId == null) return;
+    try {
+      const count = await studentService.recordTabOut(testId, attemptId);
+      toast.warning(`Bạn vừa rời khỏi tab khi đang làm bài (lần ${count}). Hành vi này được ghi nhận.`, {
+        duration: 8000,
+      });
+    } catch {
+      // Không chặn việc làm bài nếu ghi nhận thất bại
+    }
+  }, [testId, attemptId]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -94,7 +108,7 @@ export function PlacementPage() {
           </AlertDescription>
         </Alert>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" onClick={() => navigate('/student/courses')}>
             <ArrowLeft className="size-4" /> Quay lại
           </Button>
         </div>
@@ -124,7 +138,7 @@ export function PlacementPage() {
               <Button onClick={() => navigate(`/student/classroom-subjects/${id}/level-history`)}>
                 <History className="size-4" /> Xem lịch sử mức
               </Button>
-              <Button variant="outline" onClick={() => navigate(-1)}>
+              <Button variant="outline" onClick={() => navigate(`/student/classroom-subjects/${id}/learning-path`)}>
                 <ArrowLeft className="size-4" /> Quay lại
               </Button>
             </div>
@@ -136,7 +150,7 @@ export function PlacementPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+      <Button variant="ghost" size="sm" onClick={() => navigate('/student/courses')}>
         <ArrowLeft className="size-4" /> Quay lại
       </Button>
       <TestRunner
@@ -146,6 +160,7 @@ export function PlacementPage() {
         submitting={submitting}
         onStart={handleStart}
         onSubmit={handleSubmit}
+        onTabOut={handleTabOut}
         startLabel="Bắt đầu thi phân loại"
         submitLabel="Nộp bài phân loại"
       />

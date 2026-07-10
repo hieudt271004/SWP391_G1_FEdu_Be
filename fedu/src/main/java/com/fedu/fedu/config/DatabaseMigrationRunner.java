@@ -350,6 +350,60 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                     log.info("Migration successful: added 'study_date' and 'slot_id' columns to 'learning_nodes' table.");
                 }
             }
+
+            // Deadline hoàn thành node + cờ hoàn thành trễ hạn của học sinh
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS deadline_at TIMESTAMP NULL");
+                statement.execute("ALTER TABLE student_node_progress ADD COLUMN IF NOT EXISTS completed_late BOOLEAN DEFAULT FALSE");
+                log.info("Node deadline: columns 'deadline_at' (learning_nodes), 'completed_late' (student_node_progress) added/verified.");
+            }
+
+            // Buổi học live (node ON_CLASS): teacher bấm bắt đầu/kết thúc trong khung giờ slot
+            // + phát đề giữa buổi (released_at null = đề đã soạn nhưng CHƯA phát cho học sinh)
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS session_started_at TIMESTAMP NULL");
+                statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS session_ended_at TIMESTAMP NULL");
+                // Hạn nộp CHUNG cả lớp của đề phát trong buổi (null = không giới hạn chung — đề thường)
+                statement.execute("ALTER TABLE tests ADD COLUMN IF NOT EXISTS release_ends_at TIMESTAMP NULL");
+            }
+            boolean hasReleasedAt = false;
+            try (ResultSet resultSet = metaData.getColumns(null, null, "tests", "released_at")) {
+                if (resultSet.next()) {
+                    hasReleasedAt = true;
+                }
+            }
+            if (!hasReleasedAt) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute("ALTER TABLE tests ADD COLUMN released_at TIMESTAMP NULL");
+                    // Backfill MỘT LẦN duy nhất lúc tạo cột: test có sẵn trước tính năng này coi như
+                    // đã phát từ lúc tạo (giữ hành vi cũ). Không chạy lại để khỏi "phát" nhầm đề đang chờ.
+                    statement.execute("UPDATE tests SET released_at = created_at WHERE released_at IS NULL");
+                    log.info("Live session: added 'released_at' (tests) with one-time backfill.");
+                }
+            }
+
+            // Check if student_material_progress table exists
+            boolean hasStudentMaterialProgressTable = false;
+            try (ResultSet resultSet = metaData.getTables(null, null, "student_material_progress", null)) {
+                if (resultSet.next()) {
+                    hasStudentMaterialProgressTable = true;
+                }
+            }
+            if (!hasStudentMaterialProgressTable) {
+                log.info("Table 'student_material_progress' does not exist. Creating table...");
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute(
+                        "CREATE TABLE student_material_progress (" +
+                        "    progress_id BIGSERIAL PRIMARY KEY," +
+                        "    classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE," +
+                        "    material_id BIGINT NOT NULL REFERENCES node_materials(material_id) ON DELETE CASCADE," +
+                        "    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                        "    UNIQUE(classroom_subject_student_id, material_id)" +
+                        ")"
+                    );
+                    log.info("Migration successful: created 'student_material_progress' table.");
+                }
+            }
         } catch (Exception e) {
             log.error("Failed to run database migration: {}", e.getMessage(), e);
         }

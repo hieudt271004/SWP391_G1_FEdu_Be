@@ -6,7 +6,6 @@ import {
   GraduationCap, 
   Award, 
   Zap, 
-  HelpCircle, 
   ArrowUpRight 
 } from "lucide-react";
 
@@ -53,43 +52,44 @@ const LEVEL_STYLE: Record<
     strokeActive: string;
   }
 > = {
+  // Node chung: trung tính theo design token (muted) — hòa với các node học, không nổi trắng.
   chung: { 
-    border: "border-slate-300 bg-white", 
-    bg: "bg-white", 
-    text: "text-slate-700", 
-    chip: "bg-slate-100 text-slate-600 border border-slate-200/50", 
+    border: "border-border bg-muted/60 dark:bg-muted/40", 
+    bg: "bg-muted/60 dark:bg-muted/40", 
+    text: "text-foreground", 
+    chip: "bg-background text-muted-foreground border border-border/80", 
     label: "Chung", 
-    glow: "0 0 16px rgba(148, 163, 184, 0.4)",
-    stroke: "#cbd5e1", // slate-300
-    strokeActive: "#64748b", // slate-500
+    glow: "0 0 16px rgba(148, 163, 184, 0.2)",
+    stroke: "#64748b", // slate-505
+    strokeActive: "#3b82f6", // blue-500
   },
   l1: { 
-    border: "border-amber-400 bg-amber-50/50", 
-    bg: "bg-amber-50/50", 
-    text: "text-amber-900", 
-    chip: "bg-amber-100/80 text-amber-700 border border-amber-200/50", 
-    label: "Yếu", 
-    glow: "0 0 16px rgba(245, 158, 11, 0.4)",
+    border: "border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/20", 
+    bg: "bg-amber-500/10 dark:bg-amber-500/20", 
+    text: "text-amber-750 dark:text-amber-300", 
+    chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20", 
+    label: "Yêu", 
+    glow: "0 0 16px rgba(245, 158, 11, 0.3)",
     stroke: "#fcd34d", // amber-300
     strokeActive: "#d97706", // amber-600
   },
   l2: { 
-    border: "border-indigo-400 bg-indigo-50/50", 
-    bg: "bg-indigo-50/50", 
-    text: "text-indigo-900", 
-    chip: "bg-indigo-100/80 text-indigo-700 border border-indigo-200/50", 
+    border: "border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20", 
+    bg: "bg-indigo-500/10 dark:bg-indigo-500/20", 
+    text: "text-indigo-750 dark:text-indigo-300", 
+    chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20", 
     label: "TB", 
-    glow: "0 0 16px rgba(99, 102, 241, 0.4)",
+    glow: "0 0 16px rgba(99, 102, 241, 0.3)",
     stroke: "#c7d2fe", // indigo-300
     strokeActive: "#4f46e5", // indigo-600
   },
   l3: { 
-    border: "border-emerald-400 bg-emerald-50/50", 
-    bg: "bg-emerald-50/50", 
-    text: "text-emerald-900", 
-    chip: "bg-emerald-100/80 text-emerald-700 border border-emerald-200/50", 
+    border: "border-emerald-500/50 bg-emerald-500/10 dark:bg-emerald-500/20", 
+    bg: "bg-emerald-500/10 dark:bg-emerald-500/20", 
+    text: "text-emerald-750 dark:text-emerald-300", 
+    chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20", 
     label: "Khá", 
-    glow: "0 0 16px rgba(16, 185, 129, 0.4)",
+    glow: "0 0 16px rgba(16, 185, 129, 0.3)",
     stroke: "#a7f3d0", // emerald-300
     strokeActive: "#059669", // emerald-600
   },
@@ -176,7 +176,7 @@ export function LearningPathFlow({
 
   if (placed.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-slate-300 text-sm text-slate-400">
+      <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
         Lộ trình chưa có bài học nào. Thêm node để bắt đầu.
       </div>
     );
@@ -187,8 +187,8 @@ export function LearningPathFlow({
   );
 
   return (
-    <div className="overflow-x-auto w-full p-6 rounded-xl border border-slate-200 bg-slate-50/50 shadow-inner animate-fade-in">
-      <div className="relative mx-auto bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden" style={{ width: WIDTH, height }}>
+    <div className="w-full flex justify-center bg-transparent animate-fade-in">
+      <div className="relative mx-auto bg-transparent overflow-hidden" style={{ width: WIDTH, height }}>
         <svg
           className="absolute inset-0 select-none pointer-events-none"
           width={WIDTH}
@@ -196,15 +196,6 @@ export function LearningPathFlow({
           viewBox={`0 0 ${WIDTH} ${height}`}
         >
           <defs>
-            <pattern
-              id="roadmap-grid"
-              width="20"
-              height="20"
-              patternUnits="userSpaceOnUse"
-            >
-              <circle cx="10" cy="10" r="1.2" fill="#ececf0" />
-            </pattern>
-            
             {/* Dynamic arrow markers for each level path and state */}
             {Object.entries(LEVEL_STYLE).map(([key, style]) => (
               <g key={key}>
@@ -233,11 +224,7 @@ export function LearningPathFlow({
               </g>
             ))}
           </defs>
-          
-          {/* Grid background */}
-          <rect width="100%" height="100%" fill="url(#roadmap-grid)" />
-          
-          {/* Flow connections */}
+          {/* Flat background (no grid dots pattern) */}
           {visibleEdges.map((e) => {
             const s = posById.get(e.fromNodeId)!;
             const t = posById.get(e.toNodeId)!;
@@ -246,19 +233,19 @@ export function LearningPathFlow({
             const x2 = t.x;
             const y2 = t.y - t.h / 2;
             const faded = highlightLevel != null && (s.dim || t.dim);
-            
+
             const isEdgeHighlighted = hoveredNodeId !== null && (e.fromNodeId === hoveredNodeId || e.toNodeId === hoveredNodeId);
             const isEdgeSelected = selectedNodeId !== null && (e.fromNodeId === selectedNodeId || e.toNodeId === selectedNodeId);
-            
+
             const sKey = levelKey(s.node.level);
             const sStyle = LEVEL_STYLE[sKey];
             const activeColor = sStyle.strokeActive;
             const trackColor = sStyle.stroke;
-            
+
             const dy = Math.max(32, (y2 - y1) / 2);
             // End slightly short of the node to avoid overlapping the borders with arrow heads
             const pathD = `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy - 6}, ${x2} ${y2 - 6}`;
-            
+
             return (
               <g key={e.edgeId} opacity={faded ? 0.15 : (hoveredNodeId !== null && !isEdgeHighlighted ? 0.35 : 1)} className="transition-opacity duration-300">
                 {/* Thick glow underlay */}
@@ -269,7 +256,7 @@ export function LearningPathFlow({
                   fill="none"
                   className="transition-colors duration-300"
                 />
-                
+
                 {/* Streaming dash flow line */}
                 <motion.path
                   d={pathD}
@@ -299,7 +286,7 @@ export function LearningPathFlow({
         {placed.map((p) => {
           const style = LEVEL_STYLE[levelKey(p.node.level)];
           const selected = selectedNodeId === p.node.nodeId;
-          
+
           // Determine the node icon
           const IconComponent = () => {
             const iconSize = p.isGate ? 13 : 15;
@@ -327,12 +314,12 @@ export function LearningPathFlow({
               onMouseLeave={() => setHoveredNodeId(null)}
               title={p.node.title}
               initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ 
-                opacity: p.dim ? 0.3 : 1, 
+              animate={{
+                opacity: p.dim ? 0.3 : 1,
                 scale: p.dim ? 0.95 : (selected ? 1.04 : 1),
                 filter: p.dim ? "grayscale(40%)" : "grayscale(0%)"
               }}
-              whileHover={{ 
+              whileHover={{
                 scale: p.dim ? 0.95 : 1.08,
                 boxShadow: p.dim ? "none" : style.glow,
                 zIndex: 10
@@ -348,7 +335,7 @@ export function LearningPathFlow({
                 style.border,
                 style.bg,
                 style.text,
-                selected ? "ring-2 ring-indigo-600 ring-offset-2 border-indigo-500 shadow-md z-1" : "shadow-sm",
+                selected ? "ring-2 ring-ring ring-offset-2 ring-offset-background shadow-md z-1" : "shadow-sm",
                 onNodeClick ? "cursor-pointer" : "cursor-default",
               ].join(" ")}
               style={{ left: p.x - p.w / 2, top: p.y - p.h / 2, width: p.w, height: p.h }}

@@ -131,11 +131,11 @@ export function StudentSchedulePage() {
       }
       
       if (now < startTimeObj) {
-        return <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Chưa bắt đầu</Badge>;
+        return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Chưa bắt đầu</Badge>;
       } else if (now >= startTimeObj && now <= endTimeObj) {
-        return <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-250 text-[10px] px-1.5 py-0.5 rounded-full font-bold animate-pulse">Đang diễn ra</Badge>;
+        return <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/25 text-[10px] px-1.5 py-0.5 rounded-full font-bold animate-pulse">Đang diễn ra</Badge>;
       } else {
-        return <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 text-[10px] px-1.5 py-0.5 rounded-full font-bold">Đã kết thúc</Badge>;
+        return <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px] px-1.5 py-0.5 rounded-full font-bold">Đã kết thúc</Badge>;
       }
     } catch (e) {
       return <Badge className="bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full border border-border">Lỗi lịch học</Badge>;
@@ -146,7 +146,7 @@ export function StudentSchedulePage() {
     <div className="container mx-auto py-8 max-w-7xl px-4 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Thời khóa biểu</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Thời khóa biểu</h1>
           <p className="text-muted-foreground mt-1">
             Theo dõi tất cả lịch học trên lớp của các lớp môn học bạn đang tham gia.
           </p>
@@ -155,7 +155,7 @@ export function StudentSchedulePage() {
           <Button variant="outline" size="icon" onClick={() => navigateWeek("prev")} className="h-9 w-9">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-md text-sm font-semibold bg-card text-primary shadow-sm">
+          <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-md text-sm font-semibold bg-card text-foreground shadow-sm">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span>
               {formatDateYear(startOfWeek)} - {formatDateYear(endOfWeek)}
@@ -197,18 +197,18 @@ export function StudentSchedulePage() {
         <div className="grid grid-cols-1 gap-6">
           {/* Calendar Grid Desktop */}
           <div className="hidden lg:block overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
-            <div className="grid grid-cols-8 border-b border-border bg-accent/40 text-center font-semibold text-sm min-w-[1000px]">
-              <div className="py-4 border-r border-border text-primary font-bold">Ca / Giờ</div>
+            <div className="grid grid-cols-8 border-b border-border bg-muted/40 text-center font-semibold text-sm min-w-[1000px]">
+              <div className="py-4 border-r border-border text-foreground font-bold">Ca / Giờ</div>
               {weekDays.map((day, idx) => (
                 <div
                   key={idx}
                   className={`py-3 border-r border-border last:border-r-0 flex flex-col items-center justify-center gap-0.5 ${
                     new Date().toDateString() === day.toDateString()
-                      ? "bg-primary/5 text-primary"
+                      ? "bg-primary/10 text-primary"
                       : "text-muted-foreground"
                   }`}
                 >
-                  <span className="font-bold text-primary">{getDayName(idx)}</span>
+                  <span className="font-bold text-foreground">{getDayName(idx)}</span>
                   <span className="text-xs font-medium">{formatDateLabel(day)}</span>
                 </div>
               ))}
@@ -217,8 +217,8 @@ export function StudentSchedulePage() {
             {slots.map((slot) => (
               <div key={slot.slotId} className="grid grid-cols-8 border-b border-border last:border-b-0 min-h-[140px] min-w-[1000px]">
                 {/* Slot Details Column */}
-                <div className="p-3 border-r border-border bg-accent/20 flex flex-col justify-center gap-1 text-center">
-                  <span className="font-bold text-sm text-primary">{slot.slotName}</span>
+                <div className="p-3 border-r border-border bg-muted/20 flex flex-col justify-center gap-1 text-center">
+                  <span className="font-bold text-sm text-foreground">{slot.slotName}</span>
                   <span className="text-xs text-muted-foreground font-mono">
                     {slot.startTime.substring(0, 5)} - {slot.endTime.substring(0, 5)}
                   </span>
@@ -233,16 +233,16 @@ export function StudentSchedulePage() {
                     <div
                       key={idx}
                       className={`p-2 border-r border-border last:border-r-0 flex flex-col gap-2 relative ${
-                        isConflict ? "bg-red-50/50 dark:bg-red-950/20" : ""
+                        isConflict ? "bg-destructive/10" : ""
                       } ${
                         new Date().toDateString() === day.toDateString()
-                          ? "bg-primary/[0.02]"
+                          ? "bg-primary/5"
                           : ""
                       }`}
                     >
                       {/* Conflict Warnings */}
                       {isConflict && (
-                        <div className="flex items-center gap-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded text-[10px] font-bold border border-red-200 dark:border-red-800">
+                        <div className="flex items-center gap-1 bg-destructive/15 text-destructive px-1.5 py-0.5 rounded text-[10px] font-bold border border-destructive/20">
                           <AlertTriangle className="h-3 w-3 shrink-0" />
                           <span>Trùng lịch ca học!</span>
                         </div>
@@ -253,7 +253,7 @@ export function StudentSchedulePage() {
                           key={entry.nodeId}
                           className={`flex flex-col gap-1.5 p-2 rounded-md border text-left bg-background shadow-xs hover:shadow-md transition-shadow ${
                             isConflict
-                              ? "border-red-300 dark:border-red-800 ring-1 ring-red-300 dark:ring-red-800"
+                              ? "border-destructive/50 ring-1 ring-destructive/50"
                               : "border-border hover:border-primary/50"
                           }`}
                         >
@@ -261,7 +261,7 @@ export function StudentSchedulePage() {
                             <span className="text-[10px] font-bold font-mono text-muted-foreground uppercase tracking-wider">
                               {entry.subjectCode} - {entry.className}
                             </span>
-                            <span className="text-xs font-bold text-primary line-clamp-2 leading-tight">
+                            <span className="text-xs font-bold text-foreground line-clamp-2 leading-tight">
                               {entry.title}
                             </span>
                           </div>
@@ -287,9 +287,9 @@ export function StudentSchedulePage() {
               const isToday = new Date().toDateString() === day.toDateString();
 
               return (
-                <Card key={idx} className={`border ${isToday ? "border-primary bg-primary/[0.01]" : "border-border bg-card"}`}>
-                  <CardHeader className="py-3 px-4 border-b border-border bg-accent/15 flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
+                <Card key={idx} className={`border ${isToday ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
+                  <CardHeader className="py-3 px-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between">
+                    <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
                       <span className="font-extrabold">{getDayName(idx)}</span>
                       <span className="text-xs font-normal text-muted-foreground">({formatDateYear(day)})</span>
                     </CardTitle>
@@ -307,7 +307,7 @@ export function StudentSchedulePage() {
                           <div key={entry.nodeId} className="py-3 first:pt-0 last:pb-0 flex flex-col gap-2">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5">
-                                <Badge variant="outline" className="font-mono text-xs px-1.5 py-0">
+                                <Badge variant="outline" className="font-mono text-xs px-1.5 py-0 border-border">
                                   {entry.slotName}
                                 </Badge>
                                 <span className="text-xs text-muted-foreground font-medium font-mono">
@@ -318,7 +318,7 @@ export function StudentSchedulePage() {
                             </div>
 
                             {isConflict && (
-                              <div className="flex items-center gap-1 bg-red-100 dark:bg-red-900/35 text-red-700 dark:text-red-300 px-2 py-0.5 rounded text-[10px] font-bold border border-red-200 dark:border-red-800 w-fit">
+                              <div className="flex items-center gap-1 bg-destructive/15 text-destructive px-2 py-0.5 rounded text-[10px] font-bold border border-destructive/20 w-fit">
                                 <AlertTriangle className="h-3 w-3 shrink-0" />
                                 <span>Trùng lịch ca học!</span>
                               </div>
@@ -328,7 +328,7 @@ export function StudentSchedulePage() {
                               <h4 className="text-xs font-bold font-mono text-muted-foreground uppercase">
                                 {entry.subjectCode} - {entry.subjectName} ({entry.className})
                               </h4>
-                              <p className="text-sm font-semibold text-primary mt-0.5">{entry.title}</p>
+                              <p className="text-sm font-semibold text-foreground mt-0.5">{entry.title}</p>
                               {entry.description && (
                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
                                   {entry.description}

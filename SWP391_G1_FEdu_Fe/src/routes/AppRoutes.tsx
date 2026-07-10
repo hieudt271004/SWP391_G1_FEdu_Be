@@ -40,6 +40,7 @@ import { CourseClassroomsPage } from '../pages/teacher/courses/CourseClassroomsP
 import { TeacherClassesPage } from '../pages/teacher/classes/TeacherClassesPage';
 import { ClassOverviewPage } from '../pages/teacher/classes/ClassOverviewPage';
 import { ClassManagementPage } from '../pages/teacher/classes/ClassManagementPage';
+import { TeacherLiveSessionPage } from '../pages/teacher/classes/TeacherLiveSessionPage';
 import { StudentDetailsPage } from '../pages/teacher/students/StudentDetailsPage';
 import { TeacherTicketsPage } from '../pages/teacher/tickets/TeacherTicketsPage';
 
@@ -49,6 +50,8 @@ import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
 // Student pages
 import { StudentDashboardPage } from '../pages/student/StudentDashboardPage';
 import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
+import { StudentLearningPathPage } from '../pages/student/StudentLearningPathPage';
+import { StudentLiveSessionPage } from '../pages/student/StudentLiveSessionPage';
 import { NodeTestPage } from '../pages/student/tests/NodeTestPage';
 import { PlacementPage } from '../pages/student/tests/PlacementPage';
 import { LevelHistoryPage } from '../pages/student/tests/LevelHistoryPage';
@@ -91,6 +94,8 @@ export function AppRoutes() {
             >
                 <Route path="/student/dashboard" element={<StudentDashboardPage />} />
                 <Route path="/student/courses" element={<StudentCoursesPage />} />
+                <Route path="/student/classroom-subjects/:csId/learning-path" element={<StudentLearningPathPage />} />
+                <Route path="/student/classroom-subjects/:csId/live/:nodeId" element={<StudentLiveSessionPage />} />
                 <Route path="/student/tests/:testId" element={<NodeTestPage />} />
                 <Route path="/student/classroom-subjects/:csId/placement" element={<PlacementPage />} />
                 <Route path="/student/classroom-subjects/:csId/level-history" element={<LevelHistoryPage />} />
@@ -113,6 +118,7 @@ export function AppRoutes() {
                 <Route path="/teacher/classes" element={<TeacherClassesPage />} />
                 <Route path="/teacher/classroom-subjects/:classroomSubjectId" element={<ClassOverviewPage />} />
                 <Route path="/teacher/classroom-subjects/:classroomSubjectId/manage" element={<ClassManagementPage />} />
+                <Route path="/teacher/classroom-subjects/:classroomSubjectId/live/:nodeId" element={<TeacherLiveSessionPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />
                 <Route path="/teacher/tickets" element={<TeacherTicketsPage />} />
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
