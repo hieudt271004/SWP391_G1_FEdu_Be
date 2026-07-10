@@ -479,7 +479,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     void routeFreeChoiceNode(Long studentId, LearningNode fcNode, Long pathId, boolean passed) {
-        if (!passed) {
+        if (!passed && !isDowngradeChoice(studentId, fcNode)) {
             return;
         }
         // Hoàn thành node free-choice đã chọn.
@@ -512,6 +512,21 @@ public class StudentTestServiceImpl implements StudentTestService {
         for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(fcNode.getNodeId())) {
             openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
         }
+    }
+
+    /** Học sinh đang chọn nhánh free-choice THẤP HƠN mức hiện tại (fcNode.level < currentLevel)? */
+    private boolean isDowngradeChoice(Long studentId, LearningNode fcNode) {
+        Integer target = fcNode.getLevel();
+        ClassroomSubject cs = fcNode.getLearningPath() != null
+                ? fcNode.getLearningPath().getClassroomSubject() : null;
+        if (target == null || cs == null) {
+            return false;
+        }
+        Integer current = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(cs.getId(), studentId)
+                .map(css -> css.getCurrentLevel())
+                .orElse(null);
+        return current != null && target < current;
     }
 
     @Override
