@@ -180,10 +180,11 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const [nStage, setNStage] = useState(1);
   const [nKind, setNKind] = useState<"AT_HOME" | "ON_CLASS" | "GATE" | "PLACEMENT" | "FREE_CHOICE">("AT_HOME");
   const [nApplies, setNApplies] = useState<number[]>([]);
-  const [nUpMin, setNUpMin] = useState("");
-  const [nDownMax, setNDownMax] = useState("");
-  const [nYeuMax, setNYeuMax] = useState("");
-  const [nTbMax, setNTbMax] = useState("");
+  // Ngưỡng phân luồng/năng lực KHÔNG nhập lúc tạo node — chỉnh ở panel chi tiết node (e*)
+  const [eUpMin, setEUpMin] = useState("");
+  const [eDownMax, setEDownMax] = useState("");
+  const [eYeuMax, setEYeuMax] = useState("");
+  const [eTbMax, setETbMax] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [mTitle, setMTitle] = useState("");
@@ -445,6 +446,10 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     setEditingNodeTest(null);
     setETitle(node.title);
     setEDesc(node.description ?? "");
+    setEUpMin(node.gateUpMin != null ? String(node.gateUpMin) : "");
+    setEDownMax(node.gateDownMax != null ? String(node.gateDownMax) : "");
+    setEYeuMax(node.placementYeuMax != null ? String(node.placementYeuMax) : "");
+    setETbMax(node.placementTbMax != null ? String(node.placementTbMax) : "");
     setContent(null);
     setLoadingContent(true);
     try {
@@ -510,12 +515,20 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       toast.error("Nhập tên node");
       return;
     }
+    // Ngưỡng gate vô tác dụng khi test chỉ phủ ĐÚNG 1 mức (bị kẹp không đổi mức);
+    // trống = mọi mức nên ngưỡng vẫn có nghĩa.
+    const gateEditable = selectedNode.testKind === "GATE" && parseApplies(selectedNode.appliesLevels).size !== 1;
+    const isPlacement = selectedNode.testKind === "PLACEMENT";
     setSaving(true);
     try {
       await learningPathService.updateAdminNode(selectedNode.nodeId, {
         title: eTitle.trim(),
         description: eDesc.trim(),
         nodeType: selectedNode.nodeType,
+        gateUpMin: gateEditable && eUpMin !== "" ? Number(eUpMin) : undefined,
+        gateDownMax: gateEditable && eDownMax !== "" ? Number(eDownMax) : undefined,
+        placementYeuMax: isPlacement && eYeuMax !== "" ? Number(eYeuMax) : undefined,
+        placementTbMax: isPlacement && eTbMax !== "" ? Number(eTbMax) : undefined,
       });
       toast.success("Đã lưu node");
       setSelectedNode({ ...selectedNode, title: eTitle.trim(), description: eDesc.trim() });
@@ -729,7 +742,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         toast.error(`Chặng ${nStage} là chặng test năng lực — không thêm node học.`);
         return;
       }
-      lvl = nLevel === "" ? null : Number(nLevel);
+      // Node Trên lớp = buổi học CHUNG cả lớp, không phân mức riêng (BE cũng chặn)
+      lvl = nKind === "ON_CLASS" ? null : nLevel === "" ? null : Number(nLevel);
       const atStage = stageNodes.filter((n) => n.testKind == null || n.testKind === "NONE");
       if (lvl == null) {
         if (atStage.length > 0) {
@@ -779,10 +793,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
           nodeType: nKind === "ON_CLASS" ? "ON_CLASS" : "AT_HOME",
           testKind: nKind === "GATE" ? "GATE" : nKind === "PLACEMENT" ? "PLACEMENT" : "NONE",
           appliesLevels,
-          gateUpMin: nKind === "GATE" && nUpMin !== "" ? Number(nUpMin) : undefined,
-          gateDownMax: nKind === "GATE" && nDownMax !== "" ? Number(nDownMax) : undefined,
-          placementYeuMax: nKind === "PLACEMENT" && nYeuMax !== "" ? Number(nYeuMax) : undefined,
-          placementTbMax: nKind === "PLACEMENT" && nTbMax !== "" ? Number(nTbMax) : undefined,
+          // Ngưỡng phân luồng/năng lực nhập sau ở panel chi tiết node
           displayOrder: 0,
           isRequired: true,
           stageOrder: nStage,
@@ -1566,6 +1577,60 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                       </div>
                     </section>
 
+                    {/* Ngưỡng phân luồng/năng lực — chỉnh tại chi tiết node (không nhập lúc tạo) */}
+                    {(selectedNode.testKind === "GATE" || selectedNode.testKind === "PLACEMENT") && (
+                      <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
+                        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                          <Settings className="w-4 h-4 text-primary shrink-0" />
+                          <span>{selectedNode.testKind === "GATE" ? "Ngưỡng phân luồng" : "Ngưỡng phân mức năng lực"}</span>
+                        </div>
+                        {selectedNode.testKind === "GATE" && parseApplies(selectedNode.appliesLevels).size === 1 ? (
+                          <p className="text-xs text-slate-500">
+                            Test này chỉ áp dụng 1 mức — là bài chặn đường (làm để mở bài kế tiếp),
+                            không đổi mức nên không cần ngưỡng lên/xuống.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-2 gap-3">
+                              {selectedNode.testKind === "GATE" ? (
+                                <>
+                                  <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground">Ngưỡng lên (≥ %)</label>
+                                    <input type="number" className="lp-input" value={eUpMin} onChange={(e) => setEUpMin(e.target.value)} placeholder="vd 80" />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground">Ngưỡng xuống (≤ %)</label>
+                                    <input type="number" className="lp-input" value={eDownMax} onChange={(e) => setEDownMax(e.target.value)} placeholder="vd 40" />
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground">Điểm Yếu tối đa (%)</label>
+                                    <input type="number" className="lp-input" value={eYeuMax} onChange={(e) => setEYeuMax(e.target.value)} placeholder="vd 40" />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[11px] font-medium text-muted-foreground">Điểm TB tối đa (%)</label>
+                                    <input type="number" className="lp-input" value={eTbMax} onChange={(e) => setETbMax(e.target.value)} placeholder="vd 70" />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              {selectedNode.testKind === "GATE"
+                                ? "Điểm ≥ ngưỡng lên → lên 1 mức; ≤ ngưỡng xuống → xuống 1 mức; ở giữa → giữ nguyên (trong phạm vi các mức của test)."
+                                : "Điểm ≤ Yếu tối đa → Yếu; ≤ TB tối đa → Trung bình; cao hơn → Khá."}
+                            </p>
+                            <div className="flex justify-end pt-1">
+                              <button onClick={saveNodeEdit} disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-xs">
+                                Lưu ngưỡng
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </section>
+                    )}
+
                     {isTestNode ? (
                       <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
                         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
@@ -1967,21 +2032,25 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
           {nKind === "AT_HOME" || nKind === "ON_CLASS" ? (
             <div className="grid grid-cols-2 gap-3">
               <Field label="Mức năng lực">
-                <Select
-                  value={nLevel ? String(nLevel) : "none"}
-                  onValueChange={(value) => setNLevel(value === "none" ? "" : (Number(value) as 1 | 2 | 3))}
-                >
-                  <SelectTrigger className="w-full bg-background border-border h-9 text-xs rounded-md text-foreground shadow-none focus-visible:ring-0">
-                    <SelectValue placeholder="Chọn mức năng lực" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {LEVEL_OPTIONS.map((o) => (
-                      <SelectItem key={String(o.value)} value={o.value ? String(o.value) : "none"}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {nKind === "ON_CLASS" ? (
+                  <p className="pt-2 text-sm text-slate-500">Học chung cả lớp — buổi trên lớp không phân mức</p>
+                ) : (
+                  <Select
+                    value={nLevel ? String(nLevel) : "none"}
+                    onValueChange={(value) => setNLevel(value === "none" ? "" : (Number(value) as 1 | 2 | 3))}
+                  >
+                    <SelectTrigger className="w-full bg-background border-border h-9 text-xs rounded-md text-foreground shadow-none focus-visible:ring-0">
+                      <SelectValue placeholder="Chọn mức năng lực" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {LEVEL_OPTIONS.map((o) => (
+                        <SelectItem key={String(o.value)} value={o.value ? String(o.value) : "none"}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </Field>
               <Field label="Chặng (stage)">
                 <input type="number" min={1} className="lp-input" value={nStage} onChange={(e) => setNStage(Number(e.target.value) || 1)} />
@@ -2025,16 +2094,9 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                 <>
                   <p className="text-xs text-slate-500">
                     Test năng lực phải đứng riêng một chặng; mọi học sinh đều làm và được phân về mức theo điểm.
+                    Ngưỡng phân mức (Điểm Yếu/TB tối đa) cấu hình sau ở phần chi tiết node.
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Điểm Yếu tối đa (%)">
-                      <input type="number" className="lp-input" value={nYeuMax} onChange={(e) => setNYeuMax(e.target.value)} placeholder="vd 40" />
-                    </Field>
-                    <Field label="Điểm TB tối đa (%)">
-                      <input type="number" className="lp-input" value={nTbMax} onChange={(e) => setNTbMax(e.target.value)} placeholder="vd 70" />
-                    </Field>
-                  </div>
-                  
+
                   {/* Inline Test Configuration */}
                   <div className="grid grid-cols-2 gap-3 mt-2">
                     <Field label="Thời lượng làm test (phút)">
@@ -2063,14 +2125,10 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                 </>
               )}
               {nKind === "GATE" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Ngưỡng lên (≥ %)">
-                    <input type="number" className="lp-input" value={nUpMin} onChange={(e) => setNUpMin(e.target.value)} placeholder="vd 80" />
-                  </Field>
-                  <Field label="Ngưỡng xuống (≤ %)">
-                    <input type="number" className="lp-input" value={nDownMax} onChange={(e) => setNDownMax(e.target.value)} placeholder="vd 40" />
-                  </Field>
-                </div>
+                <p className="text-xs text-slate-500">
+                  Ngưỡng lên/xuống cấu hình sau ở phần chi tiết node. Test chỉ chọn 1 mức là bài
+                  chặn đường (làm để mở bài kế tiếp), không đổi mức nên không cần ngưỡng.
+                </p>
               )}
               {nKind === "FREE_CHOICE" && (
                 <p className="text-xs text-slate-500">
