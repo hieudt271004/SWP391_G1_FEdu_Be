@@ -10,9 +10,6 @@ public class ScheduleNodeRequest {
     private LocalDate studyDate;
     private Long slotId;
     private boolean force;
-    /**
-     * Hạn hoàn thành node (tùy chọn). Nếu bỏ trống mà có studyDate + slot,
-     * deadline được suy ra = hết giờ buổi học (studyDate + slot.endTime).
-     */
-    private java.time.LocalDateTime deadlineAt;
+    // Lưu ý: node ON_CLASS không mang deadline (deadline chỉ dành cho node Tự học,
+    // đặt qua update node) — request xếp lịch không nhận deadline nữa.
 }

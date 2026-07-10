@@ -522,6 +522,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getDeadlineAt() != null && learningPath.getClassroomSubject() == null) {
             throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
         }
+        // Deadline CHỈ dành cho node Tự học (AT_HOME); node Trên lớp học theo buổi (lịch + live)
+        if (request.getDeadlineAt() != null && request.getNodeType() == NodeType.ON_CLASS) {
+            throw new InvalidDataException("Node 'Trên lớp' không dùng deadline — buổi học tính theo lịch (ngày + ca). Deadline chỉ đặt cho node 'Tự học'.");
+        }
 
         if (request.getStageOrder() != null && request.getStageOrder() < 1) {
             throw new InvalidDataException("stageOrder phải >= 1");
@@ -567,6 +571,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getDeadlineAt() != null && node.getLearningPath().getClassroomSubject() == null) {
             throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
         }
+        // Deadline CHỈ dành cho node Tự học (AT_HOME); node Trên lớp học theo buổi (lịch + live)
+        if (request.getDeadlineAt() != null && request.getNodeType() == NodeType.ON_CLASS) {
+            throw new InvalidDataException("Node 'Trên lớp' không dùng deadline — buổi học tính theo lịch (ngày + ca). Deadline chỉ đặt cho node 'Tự học'.");
+        }
 
         node.setTitle(request.getTitle());
         if (request.getDescription() != null) node.setDescription(request.getDescription());
@@ -583,6 +591,8 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getPlacementYeuMax() != null) node.setPlacementYeuMax(request.getPlacementYeuMax());
         if (request.getPlacementTbMax() != null) node.setPlacementTbMax(request.getPlacementTbMax());
         if (request.getDeadlineAt() != null) node.setDeadlineAt(request.getDeadlineAt());
+        // Đổi loại node sang Trên lớp thì gỡ deadline còn sót (bất biến: ON_CLASS không có deadline)
+        if (node.getNodeType() == NodeType.ON_CLASS) node.setDeadlineAt(null);
 
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
@@ -1388,10 +1398,9 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
 
         if (request.getStudyDate() == null || request.getSlotId() == null) {
-            // Xóa lịch học; deadline chỉ giữ lại nếu request vẫn gửi kèm (deadline thủ công)
+            // Xóa lịch học (node ON_CLASS không mang deadline — thời gian tính theo buổi)
             node.setStudyDate(null);
             node.setSlot(null);
-            node.setDeadlineAt(request.getDeadlineAt());
             learningNodeRepository.save(node);
             return mapToLearningNodeResponse(node);
         }
@@ -1470,13 +1479,10 @@ public class LearningPathServiceImpl implements LearningPathService {
             }
         }
 
-        // Lưu lịch học. Deadline: dùng giá trị teacher nhập; bỏ trống thì suy ra
-        // = hết giờ buổi học (studyDate + slot.endTime) để node có hạn hoàn thành.
+        // Lưu lịch học. Node ON_CLASS KHÔNG mang deadline — thời gian buổi học tính theo
+        // lịch (ngày + ca) và phiên live; deadline chỉ dành cho node Tự học (AT_HOME).
         node.setStudyDate(request.getStudyDate());
         node.setSlot(slot);
-        node.setDeadlineAt(request.getDeadlineAt() != null
-                ? request.getDeadlineAt()
-                : request.getStudyDate().atTime(slot.getEndTime()));
         learningNodeRepository.save(node);
 
         return mapToLearningNodeResponse(node);
