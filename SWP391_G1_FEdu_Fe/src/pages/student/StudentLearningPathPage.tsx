@@ -970,7 +970,7 @@ export function StudentLearningPathPage() {
             })}
           </div>
         </div>
-      </div>/div      {/* RIGHT MAIN PANEL: Content Viewer */}
+      </div>      {/* RIGHT MAIN PANEL: Content Viewer */}
       <div className="flex-1 flex flex-col h-full bg-background text-foreground relative overflow-hidden">
         {/* Top Header */}
         <div className="h-12 border-b border-border flex items-center justify-between px-6 bg-card shrink-0">
