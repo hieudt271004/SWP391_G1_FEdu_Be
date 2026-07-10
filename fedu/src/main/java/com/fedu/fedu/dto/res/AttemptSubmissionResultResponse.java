@@ -16,4 +16,6 @@ public class AttemptSubmissionResultResponse {
     private LocalDateTime startedAt;
     private LocalDateTime submittedAt;
     private BigDecimal passingPercentage;
+    /** Mức mới của học sinh nếu bài này làm ĐỔI MỨC (gate/free-choice); null = không đổi. */
+    private Integer newLevel;
 }

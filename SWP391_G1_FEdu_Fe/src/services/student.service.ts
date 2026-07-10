@@ -62,6 +62,8 @@ export interface AttemptResult {
   startedAt: string;
   submittedAt: string;
   passingPercentage: number;
+  /** Mức mới nếu bài này làm đổi mức (gate/free-choice); null = không đổi. */
+  newLevel?: number | null;
 }
 
 // PlacementResultResponse — kết quả phân loại

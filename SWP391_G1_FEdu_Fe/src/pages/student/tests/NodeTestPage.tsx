@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert';
 import { ArrowLeft, CheckCircle2, XCircle, Loader, AlertTriangle } from 'lucide-react';
+import { getLevelLabel } from '../../../utils/levels';
 import { TestRunner } from './components/TestRunner';
 import {
   studentService,
@@ -147,6 +148,17 @@ export function NodeTestPage() {
             <p className="text-sm text-muted-foreground">
               Điểm đạt yêu cầu: {result.passingPercentage}%
             </p>
+            {result.newLevel != null && (
+              <div className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${
+                passed
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
+              }`}>
+                {passed
+                  ? `Bạn đã được chuyển sang nhánh ${getLevelLabel(result.newLevel)} — lộ trình đã mở các bài học của nhánh mới.`
+                  : `Bài chưa đạt, nhưng bạn đã chủ động chuyển xuống nhánh ${getLevelLabel(result.newLevel)} — lộ trình đã mở các bài học của nhánh mới cho bạn.`}
+              </div>
+            )}
             <Button onClick={goBack}>
               <ArrowLeft className="size-4" /> Quay lại khóa học
             </Button>
