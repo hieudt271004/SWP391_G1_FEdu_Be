@@ -522,6 +522,14 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getDeadlineAt() != null && learningPath.getClassroomSubject() == null) {
             throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
         }
+        // Deadline CHỈ dành cho node Tự học (AT_HOME); node Trên lớp học theo buổi (lịch + live)
+        if (request.getDeadlineAt() != null && request.getNodeType() == NodeType.ON_CLASS) {
+            throw new InvalidDataException("Node 'Trên lớp' không dùng deadline — buổi học tính theo lịch (ngày + ca). Deadline chỉ đặt cho node 'Tự học'.");
+        }
+        // Node Trên lớp là buổi học CHUNG cả lớp — không gán mức riêng
+        if (request.getLevel() != null && request.getNodeType() == NodeType.ON_CLASS) {
+            throw new InvalidDataException("Node 'Trên lớp' là buổi học chung cả lớp — không gán mức riêng.");
+        }
 
         if (request.getStageOrder() != null && request.getStageOrder() < 1) {
             throw new InvalidDataException("stageOrder phải >= 1");
@@ -567,6 +575,14 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getDeadlineAt() != null && node.getLearningPath().getClassroomSubject() == null) {
             throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
         }
+        // Deadline CHỈ dành cho node Tự học (AT_HOME); node Trên lớp học theo buổi (lịch + live)
+        if (request.getDeadlineAt() != null && request.getNodeType() == NodeType.ON_CLASS) {
+            throw new InvalidDataException("Node 'Trên lớp' không dùng deadline — buổi học tính theo lịch (ngày + ca). Deadline chỉ đặt cho node 'Tự học'.");
+        }
+        // Node Trên lớp là buổi học CHUNG cả lớp — không gán mức riêng
+        if (request.getLevel() != null && request.getNodeType() == NodeType.ON_CLASS) {
+            throw new InvalidDataException("Node 'Trên lớp' là buổi học chung cả lớp — không gán mức riêng.");
+        }
 
         node.setTitle(request.getTitle());
         if (request.getDescription() != null) node.setDescription(request.getDescription());
@@ -583,9 +599,31 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getPlacementYeuMax() != null) node.setPlacementYeuMax(request.getPlacementYeuMax());
         if (request.getPlacementTbMax() != null) node.setPlacementTbMax(request.getPlacementTbMax());
         if (request.getDeadlineAt() != null) node.setDeadlineAt(request.getDeadlineAt());
+        // Bất biến node Trên lớp: học CHUNG cả lớp (level null) + không deadline —
+        // đổi loại sang ON_CLASS thì gỡ cả hai giá trị còn sót.
+        if (node.getNodeType() == NodeType.ON_CLASS) {
+            node.setDeadlineAt(null);
+            node.setLevel(null);
+        }
+        // GATE chỉ phủ ĐÚNG 1 mức là bài chặn đường (bị kẹp, không đổi mức) — dọn ngưỡng
+        // cho khỏi gây hiểu lầm (appliesLevels trống = mọi mức nên ngưỡng vẫn giữ).
+        if (node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.GATE
+                && countAppliesLevels(node.getAppliesLevels()) == 1) {
+            node.setGateUpMin(null);
+            node.setGateDownMax(null);
+        }
 
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
+    }
+
+    /** Số mức trong appliesLevels ("2,3" → 2); trống/null = 0 (nghĩa là áp mọi mức). */
+    private int countAppliesLevels(String appliesLevels) {
+        if (appliesLevels == null || appliesLevels.isBlank()) return 0;
+        return (int) java.util.Arrays.stream(appliesLevels.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .count();
     }
 
     @Override
@@ -1388,10 +1426,9 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
 
         if (request.getStudyDate() == null || request.getSlotId() == null) {
-            // Xóa lịch học; deadline chỉ giữ lại nếu request vẫn gửi kèm (deadline thủ công)
+            // Xóa lịch học (node ON_CLASS không mang deadline — thời gian tính theo buổi)
             node.setStudyDate(null);
             node.setSlot(null);
-            node.setDeadlineAt(request.getDeadlineAt());
             learningNodeRepository.save(node);
             return mapToLearningNodeResponse(node);
         }
@@ -1470,13 +1507,10 @@ public class LearningPathServiceImpl implements LearningPathService {
             }
         }
 
-        // Lưu lịch học. Deadline: dùng giá trị teacher nhập; bỏ trống thì suy ra
-        // = hết giờ buổi học (studyDate + slot.endTime) để node có hạn hoàn thành.
+        // Lưu lịch học. Node ON_CLASS KHÔNG mang deadline — thời gian buổi học tính theo
+        // lịch (ngày + ca) và phiên live; deadline chỉ dành cho node Tự học (AT_HOME).
         node.setStudyDate(request.getStudyDate());
         node.setSlot(slot);
-        node.setDeadlineAt(request.getDeadlineAt() != null
-                ? request.getDeadlineAt()
-                : request.getStudyDate().atTime(slot.getEndTime()));
         learningNodeRepository.save(node);
 
         return mapToLearningNodeResponse(node);

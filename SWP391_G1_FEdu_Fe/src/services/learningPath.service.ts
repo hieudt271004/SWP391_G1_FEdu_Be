@@ -507,8 +507,9 @@ export const learningPathService = {
     http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/end`),
   releaseLiveTest: (csId: number, nodeId: number, testId: number) =>
     http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/tests/${testId}/release`),
-  // deadlineAt (tùy chọn): hạn hoàn thành node; bỏ trống thì BE tự suy = hết giờ buổi học.
-  scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean; deadlineAt?: string | null }): Promise<LearningNodeResponse> => {
+  // Xếp lịch buổi học ON_CLASS (ngày + ca). Node ON_CLASS KHÔNG mang deadline —
+  // deadline chỉ dành cho node Tự học, đặt qua updateLearningNode.
+  scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean }): Promise<LearningNodeResponse> => {
     const response = await apiClient.put<{ status?: number; message?: string; data?: LearningNodeResponse }>(
       `/teacher-manage/learning-nodes/${nodeId}/schedule`,
       request

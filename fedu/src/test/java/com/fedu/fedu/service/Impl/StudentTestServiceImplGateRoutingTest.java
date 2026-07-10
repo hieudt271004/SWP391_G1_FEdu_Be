@@ -196,10 +196,38 @@ class StudentTestServiceImplGateRoutingTest {
     void freeChoice_notPassed_doesNothing() {
         LearningPath path = path(ClassroomSubject.builder().id(CS_ID).build());
         LearningNode fcKha = freeChoice(path, 300L, 3);
+        // Học sinh mức 1 chọn đề mức 3 (chiều LÊN) và trượt → không có gì xảy ra
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
+                .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(1).build()));
 
         service.routeFreeChoiceNode(STUDENT_ID, fcKha, PATH_ID, false);
 
         verifyNoInteractions(studentNodeProgressRepository);
         verifyNoInteractions(levelRoutingService);
+    }
+
+    @Test
+    void freeChoice_notPassed_downgrade_stillRoutes() {
+        ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
+        LearningPath path = path(cs);
+        LearningNode fcYeu = freeChoice(path, 301L, 1);
+        LearningNode branchYeu = branch(path, 1);
+        NodeEdge edge = NodeEdge.builder().fromNode(fcYeu).toNode(branchYeu).build();
+
+        StudentNodeProgress pYeu = progress(fcYeu, path, StudentProgressStatus.IN_PROGRESS);
+        StudentNodeProgress pBranch = progress(branchYeu, path, StudentProgressStatus.LOCKED);
+        List<StudentNodeProgress> all = new ArrayList<>(List.of(pYeu, pBranch));
+
+        when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(STUDENT_ID, PATH_ID))
+                .thenReturn(all);
+        when(nodeEdgeRepository.findByFromNodeNodeId(301L)).thenReturn(List.of(edge));
+        when(nodeEdgeRepository.findByToNodeNodeId(TARGET_ID)).thenReturn(List.of(edge));
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
+                .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(3).build()));
+
+        service.routeFreeChoiceNode(STUDENT_ID, fcYeu, PATH_ID, false);
+
+        assertEquals(StudentProgressStatus.COMPLETED, pYeu.getStatus()); // node đã chọn vẫn hoàn thành
+        verify(levelRoutingService).applyFreeChoiceRouting(eq(CS_ID), eq(fcYeu), eq(STUDENT_ID)); // đổi mức được gọi
     }
 }

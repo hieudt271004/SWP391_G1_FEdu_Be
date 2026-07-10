@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Badge } from '../../../components/ui/badge';
 import {
   ArrowLeft,
@@ -125,10 +126,7 @@ export function ClassManagementPage() {
   const [nLevel, setNLevel] = useState<'' | 1 | 2 | 3>('');
   const [nStage, setNStage] = useState(1);
   const [nApplies, setNApplies] = useState<number[]>([]);
-  const [nUpMin, setNUpMin] = useState('');
-  const [nDownMax, setNDownMax] = useState('');
-  const [nYeuMax, setNYeuMax] = useState('');
-  const [nTbMax, setNTbMax] = useState('');
+  // Ngưỡng phân luồng/năng lực KHÔNG nhập lúc tạo node — chỉnh ở dialog "Sửa node"
   const [tDuration, setTDuration] = useState('15');
   const [numQuestions, setNumQuestions] = useState('0');
   const [addingNode, setAddingNode] = useState(false);
@@ -796,7 +794,8 @@ export function ClassManagementPage() {
       kind: nKind,
       stage: nStage,
       applies: nApplies,
-      level: nLevel,
+      // Node Trên lớp = buổi học CHUNG cả lớp, không phân mức riêng (BE cũng chặn)
+      level: nKind === 'ON_CLASS' ? '' : nLevel,
       existingNodes: nodes,
     });
     if ('error' in placement) {
@@ -837,10 +836,7 @@ export function ClassManagementPage() {
           nodeType: nKind === 'ON_CLASS' ? 'ON_CLASS' : 'AT_HOME',
           testKind: nKind === 'GATE' ? 'GATE' : nKind === 'PLACEMENT' ? 'PLACEMENT' : 'NONE',
           appliesLevels: placement.appliesLevels,
-          gateUpMin: nKind === 'GATE' && nUpMin !== '' ? Number(nUpMin) : undefined,
-          gateDownMax: nKind === 'GATE' && nDownMax !== '' ? Number(nDownMax) : undefined,
-          placementYeuMax: nKind === 'PLACEMENT' && nYeuMax !== '' ? Number(nYeuMax) : undefined,
-          placementTbMax: nKind === 'PLACEMENT' && nTbMax !== '' ? Number(nTbMax) : undefined,
+          // Ngưỡng phân luồng/năng lực nhập sau ở dialog "Sửa node"
           displayOrder: 0,
           isRequired: true,
           stageOrder: nStage,
@@ -1696,32 +1692,45 @@ export function ClassManagementPage() {
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700">Loại</label>
-                <select
-                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
+                <Select
                   value={nKind}
-                  onChange={(e) => setNKind(e.target.value as AddNodeKind)}
+                  onValueChange={(value) => setNKind(value as AddNodeKind)}
                 >
-                  <option value="AT_HOME">Tự học</option>
-                  <option value="ON_CLASS">Học trên lớp</option>
-                  <option value="GATE">Test phân luồng</option>
-                  <option value="PLACEMENT">Test năng lực</option>
-                  <option value="FREE_CHOICE">Test tự do chọn</option>
-                </select>
+                  <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                    <SelectValue placeholder="Chọn loại bài học" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="AT_HOME">Tự học</SelectItem>
+                    <SelectItem value="ON_CLASS">Học trên lớp</SelectItem>
+                    <SelectItem value="GATE">Test phân luồng</SelectItem>
+                    <SelectItem value="PLACEMENT">Test năng lực</SelectItem>
+                    <SelectItem value="FREE_CHOICE">Test tự do chọn</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {nKind === 'AT_HOME' || nKind === 'ON_CLASS' ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Mức năng lực</label>
-                    <select
-                      className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
-                      value={nLevel}
-                      onChange={(e) => setNLevel(e.target.value === '' ? '' : (Number(e.target.value) as 1 | 2 | 3))}
-                    >
-                      {LEVEL_OPTIONS.map((o) => (
-                        <option key={String(o.value)} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
+                    {nKind === 'ON_CLASS' ? (
+                      <p className="pt-2 text-sm text-slate-500">Học chung cả lớp — buổi trên lớp không phân mức</p>
+                    ) : (
+                      <Select
+                        value={nLevel ? String(nLevel) : "none"}
+                        onValueChange={(value) => setNLevel(value === "none" ? "" : (Number(value) as 1 | 2 | 3))}
+                      >
+                        <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                          <SelectValue placeholder="Chọn mức năng lực" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none">-- Chọn mức --</SelectItem>
+                          {LEVEL_OPTIONS.map((o) => (
+                            <SelectItem key={String(o.value)} value={String(o.value)}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
@@ -1789,17 +1798,8 @@ export function ClassManagementPage() {
                     <>
                       <p className="text-xs text-slate-500">
                         Test năng lực phải đứng riêng một chặng; mọi học sinh đều làm và được phân về mức theo điểm.
+                        Ngưỡng phân mức (Điểm Yếu/TB tối đa) cấu hình sau ở dialog "Sửa node".
                       </p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-700">Điểm Yếu tối đa (%)</label>
-                          <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nYeuMax} onChange={(e) => setNYeuMax(e.target.value)} placeholder="vd 40" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-700">Điểm TB tối đa (%)</label>
-                          <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nTbMax} onChange={(e) => setNTbMax(e.target.value)} placeholder="vd 70" />
-                        </div>
-                      </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-slate-700">Thời lượng làm test (phút)</label>
@@ -1814,16 +1814,10 @@ export function ClassManagementPage() {
                   )}
 
                   {nKind === 'GATE' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-700">Ngưỡng lên (≥ %)</label>
-                        <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nUpMin} onChange={(e) => setNUpMin(e.target.value)} placeholder="vd 80" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-700">Ngưỡng xuống (≤ %)</label>
-                        <input type="number" className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={nDownMax} onChange={(e) => setNDownMax(e.target.value)} placeholder="vd 40" />
-                      </div>
-                    </div>
+                    <p className="text-xs text-slate-500">
+                      Ngưỡng lên/xuống cấu hình sau ở dialog "Sửa node". Test chỉ chọn 1 mức là bài
+                      chặn đường (làm để mở bài kế tiếp), không đổi mức nên không cần ngưỡng.
+                    </p>
                   )}
 
                   {nKind === 'FREE_CHOICE' && (
@@ -2171,27 +2165,35 @@ export function ClassManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Hình thức học</label>
-                  <select
-                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
+                  <Select
                     value={editNodeType}
-                    onChange={(e) => setEditNodeType(e.target.value as 'AT_HOME' | 'ON_CLASS')}
+                    onValueChange={(value) => setEditNodeType(value as 'AT_HOME' | 'ON_CLASS')}
                   >
-                    <option value="AT_HOME">Tự học (At Home)</option>
-                    <option value="ON_CLASS">Trên lớp (On Class)</option>
-                  </select>
+                    <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                      <SelectValue placeholder="Chọn hình thức học" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="AT_HOME">Tự học (At Home)</SelectItem>
+                      <SelectItem value="ON_CLASS">Trên lớp (On Class)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Trạng thái khóa học</label>
-                  <select
-                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
+                  <Select
                     value={editNodeStatus}
-                    onChange={(e) => setEditNodeStatus(e.target.value as 'LOCKED' | 'OPEN' | 'HIDDEN')}
+                    onValueChange={(value) => setEditNodeStatus(value as 'LOCKED' | 'OPEN' | 'HIDDEN')}
                   >
-                    <option value="LOCKED">Bị khóa (LOCKED)</option>
-                    <option value="OPEN">Mở (OPEN)</option>
-                    <option value="HIDDEN">Ẩn (HIDDEN)</option>
-                  </select>
+                    <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                      <SelectValue placeholder="Chọn trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="LOCKED">Bị khóa (LOCKED)</SelectItem>
+                      <SelectItem value="OPEN">Mở (OPEN)</SelectItem>
+                      <SelectItem value="HIDDEN">Ẩn (HIDDEN)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -2235,6 +2237,13 @@ export function ClassManagementPage() {
               )}
 
               {nodeToEdit.testKind === 'GATE' && (
+                // Ngưỡng vô tác dụng khi test chỉ phủ ĐÚNG 1 mức (bị kẹp, không đổi mức); trống = mọi mức
+                (nodeToEdit.appliesLevels ?? '').split(',').map((s) => s.trim()).filter(Boolean).length === 1 ? (
+                  <p className="text-xs text-slate-500">
+                    Test này chỉ áp dụng 1 mức — là bài chặn đường (làm để mở bài kế tiếp),
+                    không đổi mức nên không cần ngưỡng lên/xuống.
+                  </p>
+                ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Ngưỡng lên (≥ %)</label>
@@ -2257,6 +2266,7 @@ export function ClassManagementPage() {
                     />
                   </div>
                 </div>
+                )
               )}
 
               <div className="flex items-center gap-2 pt-2">

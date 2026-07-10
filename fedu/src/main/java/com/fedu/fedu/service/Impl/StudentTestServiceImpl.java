@@ -202,16 +202,20 @@ public class StudentTestServiceImpl implements StudentTestService {
 
         LearningNode node = test.getLearningNode();
         Long pathId = node.getLearningPath().getPathId();
+        ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
+        // Đo mức trước/sau routing để báo cho học sinh biết bài này có làm đổi nhánh không
+        Integer levelBefore = currentLevelOf(cs, studentId);
         if (node.getTestKind() == NodeTestKind.GATE) {
             // Cổng phân luồng: định tuyến theo điểm (đổi mức + mở nhánh đúng mức), không pass/fail.
             routeGateNode(studentId, node, pathId, finalPercentage);
         } else if (node.getTestKind() == NodeTestKind.FREE_CHOICE) {
-            // Test tự do chọn: đạt bài này → học theo nhánh của node (node.level).
+            // Test tự do chọn: đạt (hoặc chủ động xuống mức) → học theo nhánh của node (node.level).
             routeFreeChoiceNode(studentId, node, pathId, passed);
         } else {
             // Node học thường: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại.
             routeAfterAttempt(studentId, node, pathId, passed);
         }
+        Integer levelAfter = currentLevelOf(cs, studentId);
 
         return AttemptSubmissionResultResponse.builder()
                 .attemptId(attempt.getAttemptId())
@@ -220,7 +224,17 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .startedAt(attempt.getStartedAt())
                 .submittedAt(attempt.getSubmittedAt())
                 .passingPercentage(test.getPassingPercentage())
+                .newLevel(levelAfter != null && !levelAfter.equals(levelBefore) ? levelAfter : null)
                 .build();
+    }
+
+    /** Mức hiện tại của học sinh trong lớp-môn (null nếu chưa phân mức / không tìm thấy). */
+    private Integer currentLevelOf(ClassroomSubject cs, Long studentId) {
+        if (cs == null) return null;
+        return classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(cs.getId(), studentId)
+                .map(css -> css.getCurrentLevel())
+                .orElse(null);
     }
 
     @Override
@@ -479,7 +493,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     void routeFreeChoiceNode(Long studentId, LearningNode fcNode, Long pathId, boolean passed) {
-        if (!passed) {
+        if (!passed && !isDowngradeChoice(studentId, fcNode)) {
             return;
         }
         // Hoàn thành node free-choice đã chọn.
@@ -512,6 +526,21 @@ public class StudentTestServiceImpl implements StudentTestService {
         for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(fcNode.getNodeId())) {
             openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
         }
+    }
+
+    /** Học sinh đang chọn nhánh free-choice THẤP HƠN mức hiện tại (fcNode.level < currentLevel)? */
+    private boolean isDowngradeChoice(Long studentId, LearningNode fcNode) {
+        Integer target = fcNode.getLevel();
+        ClassroomSubject cs = fcNode.getLearningPath() != null
+                ? fcNode.getLearningPath().getClassroomSubject() : null;
+        if (target == null || cs == null) {
+            return false;
+        }
+        Integer current = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(cs.getId(), studentId)
+                .map(css -> css.getCurrentLevel())
+                .orElse(null);
+        return current != null && target < current;
     }
 
     @Override

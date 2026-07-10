@@ -355,6 +355,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS deadline_at TIMESTAMP NULL");
                 statement.execute("ALTER TABLE student_node_progress ADD COLUMN IF NOT EXISTS completed_late BOOLEAN DEFAULT FALSE");
+                statement.execute("UPDATE learning_nodes SET deadline_at = NULL WHERE node_type = 'ON_CLASS' AND deadline_at IS NOT NULL");
                 log.info("Node deadline: columns 'deadline_at' (learning_nodes), 'completed_late' (student_node_progress) added/verified.");
             }
 

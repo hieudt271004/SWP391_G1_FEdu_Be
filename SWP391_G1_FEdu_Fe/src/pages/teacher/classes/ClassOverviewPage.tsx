@@ -176,8 +176,9 @@ export function ClassOverviewPage() {
   const [schedulingNode, setSchedulingNode] = useState<LearningNodeResponse | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleSlotId, setScheduleSlotId] = useState("");
-  // Hạn hoàn thành node (datetime-local); bỏ trống → BE tự suy = hết giờ buổi học
-  const [scheduleDeadline, setScheduleDeadline] = useState("");
+  // Deadline CHỈ dành cho node Tự học (AT_HOME) — đặt ở panel node, không thuộc dialog xếp lịch
+  const [deadlineInput, setDeadlineInput] = useState("");
+  const [savingDeadline, setSavingDeadline] = useState(false);
   const [slotsList, setSlotsList] = useState<SlotResponse[]>([]);
   const [scheduleConflict, setScheduleConflict] = useState<any | null>(null);
   const [savingSchedule, setSavingSchedule] = useState(false);
@@ -198,8 +199,6 @@ export function ClassOverviewPage() {
     setSchedulingNode(node);
     setScheduleDate(node.studyDate || "");
     setScheduleSlotId(node.slotId ? String(node.slotId) : "");
-    // BE trả LocalDateTime dạng "YYYY-MM-DDTHH:mm:ss" → cắt về format của input datetime-local
-    setScheduleDeadline(node.deadlineAt ? node.deadlineAt.slice(0, 16) : "");
     setScheduleConflict(null);
     setIsScheduleModalOpen(true);
     
@@ -241,8 +240,6 @@ export function ClassOverviewPage() {
         studyDate: scheduleDate,
         slotId: Number(scheduleSlotId),
         force,
-        // Gửi nguyên chuỗi "YYYY-MM-DDTHH:mm" (LocalDateTime, không convert toISOString để khỏi lệch múi giờ)
-        deadlineAt: scheduleDeadline ? scheduleDeadline : null,
       };
 
       const res = await learningPathService.scheduleNode(schedulingNode.nodeId, payload);
@@ -286,7 +283,6 @@ export function ClassOverviewPage() {
         studyDate: null,
         slotId: null,
         force: false,
-        deadlineAt: null,
       };
 
       const res = await learningPathService.scheduleNode(schedulingNode.nodeId, payload);
@@ -294,7 +290,6 @@ export function ClassOverviewPage() {
 
       setScheduleDate("");
       setScheduleSlotId("");
-      setScheduleDeadline("");
       
       setSelectedNode(res);
       setIsScheduleModalOpen(false);
@@ -304,6 +299,36 @@ export function ClassOverviewPage() {
       toast.error(responseData?.message || err.message || "Lỗi khi hủy lịch học");
     } finally {
       setSavingSchedule(false);
+    }
+  };
+
+  // Đồng bộ ô nhập deadline khi đổi node (BE trả "YYYY-MM-DDTHH:mm:ss" → cắt cho datetime-local)
+  useEffect(() => {
+    setDeadlineInput(selectedNode?.deadlineAt ? selectedNode.deadlineAt.slice(0, 16) : "");
+  }, [selectedNode?.nodeId, selectedNode?.deadlineAt]);
+
+  // Đặt hạn hoàn thành cho node Tự học (AT_HOME) — node Trên lớp không dùng deadline
+  const handleSaveDeadline = async () => {
+    if (!selectedNode) return;
+    if (!deadlineInput) {
+      toast.error("Chọn thời điểm hạn hoàn thành");
+      return;
+    }
+    try {
+      setSavingDeadline(true);
+      // Gửi nguyên chuỗi "YYYY-MM-DDTHH:mm" (LocalDateTime — không toISOString để khỏi lệch múi giờ)
+      const res = await learningPathService.updateLearningNode(selectedNode.nodeId, {
+        title: selectedNode.title,
+        nodeType: selectedNode.nodeType,
+        deadlineAt: deadlineInput,
+      });
+      setSelectedNode(res);
+      toast.success("Đã đặt hạn hoàn thành cho bài tự học");
+      fetchClassroomData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Không đặt được hạn hoàn thành");
+    } finally {
+      setSavingDeadline(false);
     }
   };
 
@@ -2501,12 +2526,6 @@ export function ClassOverviewPage() {
                                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                       <span>Ca: {selectedNode.slotName} ({selectedNode.startTime?.substring(0, 5)} - {selectedNode.endTime?.substring(0, 5)})</span>
                                     </div>
-                                    {selectedNode.deadlineAt && (
-                                      <div className="flex items-center gap-1.5 font-semibold text-foreground">
-                                        <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
-                                        <span>Hạn hoàn thành: {new Date(selectedNode.deadlineAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                                      </div>
-                                    )}
                                   </div>
                                 ) : (
                                   <p className="text-slate-400 italic">Chưa xếp lịch học trên lớp</p>
@@ -2519,6 +2538,41 @@ export function ClassOverviewPage() {
                                 >
                                   {selectedNode.studyDate ? "Thay đổi lịch học" : "Xếp lịch học"}
                                 </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Deadline CHỈ cho node Tự học — node Trên lớp học theo buổi (lịch + live) */}
+                          {selectedNode.nodeType === 'AT_HOME' && (
+                            <div className="space-y-2 border-t border-border pt-3">
+                              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Hạn hoàn thành (deadline)</h4>
+                              <div className="bg-muted/50 border border-border rounded-lg p-3 text-xs flex flex-col gap-2">
+                                {selectedNode.deadlineAt ? (
+                                  <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                                    <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                                    <span>Hạn hiện tại: {new Date(selectedNode.deadlineAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-slate-400 italic">Chưa đặt hạn hoàn thành cho bài tự học này</p>
+                                )}
+                                <input
+                                  type="datetime-local"
+                                  value={deadlineInput}
+                                  onChange={(e) => setDeadlineInput(e.target.value)}
+                                  className="w-full border border-border rounded-xl px-3 py-2 text-xs bg-background text-foreground outline-none focus:border-primary/50"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleSaveDeadline}
+                                  disabled={savingDeadline}
+                                  className="w-full border-border text-xs text-primary font-semibold hover:bg-accent"
+                                >
+                                  {savingDeadline ? 'Đang lưu...' : 'Lưu hạn hoàn thành'}
+                                </Button>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Học sinh hoàn thành sau hạn sẽ bị đánh dấu "trễ". Node Trên lớp không dùng deadline.
+                                </p>
                               </div>
                             </div>
                           )}
@@ -4283,18 +4337,6 @@ export function ClassOverviewPage() {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="font-bold text-slate-700">Hạn hoàn thành (deadline)</label>
-              <input
-                type="datetime-local"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
-                value={scheduleDeadline}
-                onChange={(e) => setScheduleDeadline(e.target.value)}
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Bỏ trống → hệ thống tự đặt hạn = hết giờ buổi học. Học sinh hoàn thành sau hạn sẽ bị đánh dấu "trễ".
-              </p>
-            </div>
           </div>
 
           <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">

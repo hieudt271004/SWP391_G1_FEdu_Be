@@ -7,6 +7,7 @@ import { adminService } from "../../services/admin.service";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import type { AdminUserResponse } from "../../services/admin.service";
 import type { Subject } from "../../types/subject";
 import type { ClassroomResponse } from "../../types/classroom";
@@ -277,31 +278,43 @@ export function SubjectDetailPage() {
               )}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">Lớp (đang hoạt động) *</label>
-                <select
-                  value={newClassId}
-                  onChange={(e) => setNewClassId(Number(e.target.value))}
-                  className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-foreground"
+                <Select
+                  value={newClassId ? String(newClassId) : "none"}
+                  onValueChange={(value) => setNewClassId(value === "none" ? 0 : Number(value))}
                 >
-                  <option value={0} disabled>-- Chọn lớp --</option>
-                  {availableClassrooms.length === 0 ? (
-                    <option value={0} disabled>(Không còn lớp đang hoạt động nào chưa học môn này)</option>
-                  ) : availableClassrooms.map((c) => (
-                    <option key={c.classroomId} value={c.classroomId}>{c.className}{c.semester ? ` · ${c.semester}` : ""}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-background border-border h-9 text-sm rounded-md text-foreground shadow-none focus-visible:ring-0">
+                    <SelectValue placeholder="-- Chọn lớp --" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="none" disabled>-- Chọn lớp --</SelectItem>
+                    {availableClassrooms.length === 0 ? (
+                      <SelectItem value="none" disabled>(Không còn lớp đang hoạt động nào chưa học môn này)</SelectItem>
+                    ) : availableClassrooms.map((c) => (
+                      <SelectItem key={c.classroomId} value={String(c.classroomId)}>
+                        {c.className}{c.semester ? ` · ${c.semester}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">Giảng viên phụ trách *</label>
-                <select
-                  value={newClassLecturerId}
-                  onChange={(e) => setNewClassLecturerId(Number(e.target.value))}
-                  className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-foreground"
+                <Select
+                  value={newClassLecturerId ? String(newClassLecturerId) : "none"}
+                  onValueChange={(value) => setNewClassLecturerId(value === "none" ? 0 : Number(value))}
                 >
-                  <option value={0} disabled>-- Chọn giảng viên --</option>
-                  {teachers.map((t) => (
-                    <option key={t.userId} value={t.userId}>{t.firstName} {t.lastName} ({t.email})</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-background border-border h-9 text-sm rounded-md text-foreground shadow-none focus-visible:ring-0">
+                    <SelectValue placeholder="-- Chọn giảng viên --" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="none" disabled>-- Chọn giảng viên --</SelectItem>
+                    {teachers.map((t) => (
+                      <SelectItem key={t.userId} value={String(t.userId)}>
+                        {t.firstName} {t.lastName} ({t.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t">
