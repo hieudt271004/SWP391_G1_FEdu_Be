@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Badge } from '../../../components/ui/badge';
 import {
   ArrowLeft,
@@ -1696,32 +1697,41 @@ export function ClassManagementPage() {
 
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700">Loại</label>
-                <select
-                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
+                <Select
                   value={nKind}
-                  onChange={(e) => setNKind(e.target.value as AddNodeKind)}
+                  onValueChange={(value) => setNKind(value as AddNodeKind)}
                 >
-                  <option value="AT_HOME">Tự học</option>
-                  <option value="ON_CLASS">Học trên lớp</option>
-                  <option value="GATE">Test phân luồng</option>
-                  <option value="PLACEMENT">Test năng lực</option>
-                  <option value="FREE_CHOICE">Test tự do chọn</option>
-                </select>
+                  <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                    <SelectValue placeholder="Chọn loại bài học" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="AT_HOME">Tự học</SelectItem>
+                    <SelectItem value="ON_CLASS">Học trên lớp</SelectItem>
+                    <SelectItem value="GATE">Test phân luồng</SelectItem>
+                    <SelectItem value="PLACEMENT">Test năng lực</SelectItem>
+                    <SelectItem value="FREE_CHOICE">Test tự do chọn</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {nKind === 'AT_HOME' || nKind === 'ON_CLASS' ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Mức năng lực</label>
-                    <select
-                      className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 font-medium"
-                      value={nLevel}
-                      onChange={(e) => setNLevel(e.target.value === '' ? '' : (Number(e.target.value) as 1 | 2 | 3))}
+                    <Select
+                      value={nLevel ? String(nLevel) : "none"}
+                      onValueChange={(value) => setNLevel(value === "none" ? "" : (Number(value) as 1 | 2 | 3))}
                     >
-                      {LEVEL_OPTIONS.map((o) => (
-                        <option key={String(o.value)} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                        <SelectValue placeholder="Chọn mức năng lực" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="none">-- Chọn mức --</SelectItem>
+                        {LEVEL_OPTIONS.map((o) => (
+                          <SelectItem key={String(o.value)} value={String(o.value)}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
@@ -2171,27 +2181,35 @@ export function ClassManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Hình thức học</label>
-                  <select
-                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
+                  <Select
                     value={editNodeType}
-                    onChange={(e) => setEditNodeType(e.target.value as 'AT_HOME' | 'ON_CLASS')}
+                    onValueChange={(value) => setEditNodeType(value as 'AT_HOME' | 'ON_CLASS')}
                   >
-                    <option value="AT_HOME">Tự học (At Home)</option>
-                    <option value="ON_CLASS">Trên lớp (On Class)</option>
-                  </select>
+                    <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                      <SelectValue placeholder="Chọn hình thức học" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="AT_HOME">Tự học (At Home)</SelectItem>
+                      <SelectItem value="ON_CLASS">Trên lớp (On Class)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Trạng thái khóa học</label>
-                  <select
-                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 font-medium"
+                  <Select
                     value={editNodeStatus}
-                    onChange={(e) => setEditNodeStatus(e.target.value as 'LOCKED' | 'OPEN' | 'HIDDEN')}
+                    onValueChange={(value) => setEditNodeStatus(value as 'LOCKED' | 'OPEN' | 'HIDDEN')}
                   >
-                    <option value="LOCKED">Bị khóa (LOCKED)</option>
-                    <option value="OPEN">Mở (OPEN)</option>
-                    <option value="HIDDEN">Ẩn (HIDDEN)</option>
-                  </select>
+                    <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                      <SelectValue placeholder="Chọn trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="LOCKED">Bị khóa (LOCKED)</SelectItem>
+                      <SelectItem value="OPEN">Mở (OPEN)</SelectItem>
+                      <SelectItem value="HIDDEN">Ẩn (HIDDEN)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

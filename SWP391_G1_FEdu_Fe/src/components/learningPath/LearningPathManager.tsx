@@ -11,6 +11,7 @@ import { uploadService } from "../../services/upload.service";
 import { MaterialPreview, VideoPreview } from "./MaterialPreview";
 import { LearningPathFlow } from "./LearningPathFlow";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 interface LearningPathManagerProps {
   subjectId: number;
@@ -1793,10 +1794,18 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                             <div className="mt-2 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Thêm học liệu</p>
                               <input className="lp-input" placeholder="Tiêu đề học liệu" value={mTitle} onChange={(e) => setMTitle(e.target.value)} />
-                              <select className="lp-input" value={mType} onChange={(e) => setMType(e.target.value as "video" | "file")}>
-                                <option value="video">Video (URL)</option>
-                                <option value="file">Tệp tải lên</option>
-                              </select>
+                              <Select
+                                value={mType}
+                                onValueChange={(value) => setMType(value as "video" | "file")}
+                              >
+                                <SelectTrigger className="w-full bg-background border-border h-9 text-xs rounded-md text-foreground shadow-none focus-visible:ring-0">
+                                  <SelectValue placeholder="Chọn loại học liệu" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                  <SelectItem value="video">Video (URL)</SelectItem>
+                                  <SelectItem value="file">Tệp tải lên</SelectItem>
+                                </SelectContent>
+                              </Select>
                               {mType === "video" ? (
                                 <>
                                   <input className="lp-input" placeholder="https://… (YouTube, Vimeo hoặc .mp4)" value={mVideoUrl} onChange={(e) => setMVideoUrl(e.target.value)} />
@@ -1938,29 +1947,41 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
             <textarea className="lp-input" rows={2} value={nDesc} onChange={(e) => setNDesc(e.target.value)} />
           </Field>
           <Field label="Loại">
-            <select className="lp-input" value={nKind} onChange={(e) => setNKind(e.target.value as typeof nKind)}>
-              <option value="AT_HOME">Tự học</option>
-              <option value="ON_CLASS">Trên lớp</option>
-              <option value="GATE">Test phân luồng</option>
-              <option value="PLACEMENT">Test năng lực</option>
-              <option value="FREE_CHOICE">Test tự do chọn</option>
-            </select>
+            <Select
+              value={nKind}
+              onValueChange={(value) => setNKind(value as typeof nKind)}
+            >
+              <SelectTrigger className="w-full bg-background border-border h-9 text-xs rounded-md text-foreground shadow-none focus-visible:ring-0">
+                <SelectValue placeholder="Chọn loại bài học" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="AT_HOME">Tự học</SelectItem>
+                <SelectItem value="ON_CLASS">Trên lớp</SelectItem>
+                <SelectItem value="GATE">Test phân luồng</SelectItem>
+                <SelectItem value="PLACEMENT">Test năng lực</SelectItem>
+                <SelectItem value="FREE_CHOICE">Test tự do chọn</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
 
           {nKind === "AT_HOME" || nKind === "ON_CLASS" ? (
             <div className="grid grid-cols-2 gap-3">
               <Field label="Mức năng lực">
-                <select
-                  className="lp-input"
-                  value={nLevel}
-                  onChange={(e) => setNLevel(e.target.value === "" ? "" : (Number(e.target.value) as 1 | 2 | 3))}
+                <Select
+                  value={nLevel ? String(nLevel) : "none"}
+                  onValueChange={(value) => setNLevel(value === "none" ? "" : (Number(value) as 1 | 2 | 3))}
                 >
-                  {LEVEL_OPTIONS.map((o) => (
-                    <option key={String(o.value)} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-background border-border h-9 text-xs rounded-md text-foreground shadow-none focus-visible:ring-0">
+                    <SelectValue placeholder="Chọn mức năng lực" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {LEVEL_OPTIONS.map((o) => (
+                      <SelectItem key={String(o.value)} value={o.value ? String(o.value) : "none"}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Chặng (stage)">
                 <input type="number" min={1} className="lp-input" value={nStage} onChange={(e) => setNStage(Number(e.target.value) || 1)} />
