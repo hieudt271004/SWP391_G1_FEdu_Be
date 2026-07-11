@@ -28,6 +28,8 @@ public interface NodeContentService {
 
     void deleteExercise(Long exerciseId);
 
+    NodeExerciseResponse updateExercise(Long exerciseId, CreateNodeExerciseRequest request);
+
     void reorderContent(Long nodeId, List<ReorderContentRequest> requests);
 
     NodeTestResponse updateTest(Long testId, UpdateTestRequest request);
