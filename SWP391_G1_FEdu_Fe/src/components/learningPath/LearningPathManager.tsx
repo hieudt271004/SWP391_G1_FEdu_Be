@@ -326,6 +326,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const [exInstr, setExInstr] = useState("");
   const [exAllowText, setExAllowText] = useState(true);
   const [exAllowFile, setExAllowFile] = useState(true);
+  const [editingExercise, setEditingExercise] = useState<any | null>(null);
 
   const loadGraph = useCallback(async (pathId: number) => {
     const g = await learningPathService.getAdminTemplateGraph(pathId);
@@ -444,6 +445,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const openNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
     setEditingNodeTest(null);
+    setEditingExercise(null);
     setETitle(node.title);
     setEDesc(node.description ?? "");
     setEUpMin(node.gateUpMin != null ? String(node.gateUpMin) : "");
@@ -500,6 +502,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     setSelectedNode(null);
     setContent(null);
     setEditingNodeTest(null);
+    setEditingExercise(null);
     setMTitle("");
     setMVideoUrl("");
     setMFile(null);
@@ -980,6 +983,22 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     }
   };
 
+  const startEditingExercise = (ex: any) => {
+    setEditingExercise(ex);
+    setExTitle(ex.title);
+    setExInstr(ex.instructions || "");
+    setExAllowText(ex.allowText);
+    setExAllowFile(ex.allowFile);
+  };
+
+  const cancelEditingExercise = () => {
+    setEditingExercise(null);
+    setExTitle("");
+    setExInstr("");
+    setExAllowText(true);
+    setExAllowFile(true);
+  };
+
   const addExercise = async () => {
     if (!selectedNode || !exTitle.trim()) {
       toast.error("Nhập tiêu đề bài tập");
@@ -991,21 +1010,32 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     }
     setSaving(true);
     try {
-      await learningPathService.addAdminNodeExercise(selectedNode.nodeId, {
-        title: exTitle.trim(),
-        instructions: exInstr.trim() || undefined,
-        allowText: exAllowText,
-        allowFile: exAllowFile,
-      });
-      toast.success("Đã thêm bài tập");
+      if (editingExercise) {
+        await learningPathService.updateAdminNodeExercise(editingExercise.exerciseId, {
+          title: exTitle.trim(),
+          instructions: exInstr.trim() || undefined,
+          allowText: exAllowText,
+          allowFile: exAllowFile,
+        });
+        toast.success("Đã cập nhật bài tập");
+      } else {
+        await learningPathService.addAdminNodeExercise(selectedNode.nodeId, {
+          title: exTitle.trim(),
+          instructions: exInstr.trim() || undefined,
+          allowText: exAllowText,
+          allowFile: exAllowFile,
+        });
+        toast.success("Đã thêm bài tập");
+      }
       setExTitle("");
       setExInstr("");
       setExAllowText(true);
       setExAllowFile(true);
+      setEditingExercise(null);
       setContent(await learningPathService.getAdminNodeContent(selectedNode.nodeId));
       await refresh();
     } catch {
-      toast.error("Không thêm được bài tập");
+      toast.error(editingExercise ? "Không cập nhật được bài tập" : "Không thêm được bài tập");
     } finally {
       setSaving(false);
     }
@@ -1959,16 +1989,23 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                                         )}
                                       </div>
                                     </div>
-                                    <button onClick={() => removeExercise(ex.exerciseId)} className="shrink-0 text-xs text-rose-500 hover:underline">
-                                      xóa
-                                    </button>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <button onClick={() => startEditingExercise(ex)} className="text-xs text-primary hover:underline">
+                                        sửa
+                                      </button>
+                                      <button onClick={() => removeExercise(ex.exerciseId)} className="text-xs text-rose-500 hover:underline">
+                                        xóa
+                                      </button>
+                                    </div>
                                   </li>
                                 ))}
                                 {(content?.exercises ?? []).length === 0 && <p className="text-xs text-muted-foreground">Chưa có bài tập.</p>}
                               </ul>
                             )}
                             <div className="mt-2 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Thêm bài tập</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                                {editingExercise ? "Sửa bài tập" : "Thêm bài tập"}
+                              </p>
                               <input className="lp-input" placeholder="Tiêu đề bài tập" value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
                               <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -1981,9 +2018,16 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                                   Nộp file
                                 </label>
                               </div>
-                              <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                                Thêm bài tập
-                              </button>
+                              <div className="flex gap-2">
+                                <button onClick={addExercise} disabled={saving} className="flex-1 rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                                  {editingExercise ? "Cập nhật bài tập" : "Thêm bài tập"}
+                                </button>
+                                {editingExercise && (
+                                  <button onClick={cancelEditingExercise} className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold hover:bg-muted bg-transparent text-foreground">
+                                    Hủy
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </section>
                         )}

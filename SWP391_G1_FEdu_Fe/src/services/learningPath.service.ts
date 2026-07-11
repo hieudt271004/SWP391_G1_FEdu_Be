@@ -444,6 +444,8 @@ export const learningPathService = {
     http.post<NodeExerciseResponse>(`/admin/learning-nodes/${nodeId}/exercises`, request),
   deleteAdminNodeExercise: (exerciseId: number) =>
     http.delete<void>(`/admin/exercises/${exerciseId}`),
+  updateAdminNodeExercise: (exerciseId: number, request: CreateNodeExerciseRequest) =>
+    http.put<NodeExerciseResponse>(`/admin/exercises/${exerciseId}`, request),
   reorderAdminNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/admin/learning-nodes/${nodeId}/reorder-content`, requests),
 
@@ -466,6 +468,8 @@ export const learningPathService = {
     http.post<NodeExerciseResponse>(`/teacher-manage/learning-nodes/${nodeId}/exercises`, request),
   deleteTeacherNodeExercise: (exerciseId: number) =>
     http.delete<void>(`/teacher-manage/exercises/${exerciseId}`),
+  updateTeacherNodeExercise: (exerciseId: number, request: CreateNodeExerciseRequest) =>
+    http.put<NodeExerciseResponse>(`/teacher-manage/exercises/${exerciseId}`, request),
   reorderTeacherNodeContent: (nodeId: number, requests: ReorderContentRequest[]) =>
     http.post<void>(`/teacher-manage/learning-nodes/${nodeId}/reorder-content`, requests),
 
