@@ -20,4 +20,7 @@ public interface LevelRoutingService {
     void applyGateRouting(Long classroomSubjectId, LearningNode gateNode, Long studentId, BigDecimal percentage);
 
     void applyFreeChoiceRouting(Long classroomSubjectId, LearningNode freeChoiceNode, Long studentId);
+
+    void applyPlacementRetakeRouting(Long classroomSubjectId, LearningNode placementNode, Long studentId,
+                                     Long testId, BigDecimal percentage);
 }

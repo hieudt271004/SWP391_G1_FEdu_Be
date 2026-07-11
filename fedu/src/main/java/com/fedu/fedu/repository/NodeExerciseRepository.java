@@ -11,8 +11,7 @@ public interface NodeExerciseRepository extends JpaRepository<NodeExercise, Long
     List<NodeExercise> findByLearningNodeNodeIdAndIsDeletedFalse(Long nodeId);
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(e) FROM NodeExercise e " +
-           "WHERE e.learningNode.learningPath.pathId = :pathId " +
-           "AND e.isDeleted = false " +
-           "AND (e.learningNode.level IS NULL OR e.learningNode.level = :level)")
-    int countTotalExercisesByPathIdAndLevel(@org.springframework.data.repository.query.Param("pathId") Long pathId, @org.springframework.data.repository.query.Param("level") Integer level);
+           "WHERE e.learningNode.nodeId IN :nodeIds " +
+           "AND e.isDeleted = false")
+    int countByLearningNodeNodeIdInAndIsDeletedFalse(@org.springframework.data.repository.query.Param("nodeIds") java.util.Collection<Long> nodeIds);
 }

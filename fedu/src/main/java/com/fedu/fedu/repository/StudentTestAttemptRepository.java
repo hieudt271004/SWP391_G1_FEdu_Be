@@ -16,12 +16,10 @@ public interface StudentTestAttemptRepository extends JpaRepository<StudentTestA
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT a.test) FROM StudentTestAttempt a " +
            "WHERE a.student.userId = :studentId " +
-           "AND a.test.learningNode.learningPath.pathId = :pathId " +
+           "AND a.test.learningNode.nodeId IN :nodeIds " +
            "AND a.test.isDeleted = false " +
-           "AND (a.test.learningNode.level IS NULL OR a.test.learningNode.level = :level) " +
            "AND a.score >= COALESCE(a.test.passingPercentage, 0)")
-    int countCompletedTestsByStudentAndPathAndLevel(
-            @org.springframework.data.repository.query.Param("studentId") Long studentId, 
-            @org.springframework.data.repository.query.Param("pathId") Long pathId, 
-            @org.springframework.data.repository.query.Param("level") Integer level);
+    int countCompletedTestsByStudentAndNodeIds(
+            @org.springframework.data.repository.query.Param("studentId") Long studentId,
+            @org.springframework.data.repository.query.Param("nodeIds") java.util.Collection<Long> nodeIds);
 }
