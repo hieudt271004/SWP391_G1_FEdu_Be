@@ -18,4 +18,6 @@ public class AttemptSubmissionResultResponse {
     private BigDecimal passingPercentage;
     /** Mức mới của học sinh nếu bài này làm ĐỔI MỨC (gate/free-choice); null = không đổi. */
     private Integer newLevel;
+    /** true = đề có câu tự luận, chờ giáo viên chấm (score/passed chưa có, chưa định tuyến). */
+    private Boolean pendingManualGrading;
 }

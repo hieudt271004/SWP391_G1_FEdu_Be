@@ -152,8 +152,13 @@ export function StudentDashboardPage() {
     setNodeContents({});
     try {
       const graph = await studentService.getClassroomSubjectGraph(cs.classroomSubjectId);
-      // Sort nodes by displayOrder
-      const sortedNodes = (graph.nodes || []).sort((a, b) => a.displayOrder - b.displayOrder);
+      // Sắp theo CHẶNG (stageOrder) trước — displayOrder do editor luôn gửi 0 nên không tin được
+      const sortedNodes = (graph.nodes || []).sort((a, b) => {
+        const sA = a.stageOrder ?? 0;
+        const sB = b.stageOrder ?? 0;
+        if (sA !== sB) return sA - sB;
+        return ((a.displayOrder ?? 0) - (b.displayOrder ?? 0)) || (a.nodeId - b.nodeId);
+      });
       setNodes(sortedNodes);
     } catch (err: any) {
       console.error("Failed to load roadmap graph:", err);

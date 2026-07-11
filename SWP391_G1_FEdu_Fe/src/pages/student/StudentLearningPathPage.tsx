@@ -133,7 +133,7 @@ export function StudentLearningPathPage() {
       const sA = a.stageOrder ?? 0;
       const sB = b.stageOrder ?? 0;
       if (sA !== sB) return sA - sB;
-      return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+      return ((a.displayOrder ?? 0) - (b.displayOrder ?? 0)) || (a.nodeId - b.nodeId);
     });
     setNodes(sortedNodes);
     setTotalMaterials(graph.totalMaterials || 0);
@@ -296,7 +296,7 @@ export function StudentLearningPathPage() {
     setSubmittingPopQuiz(true);
     try {
       const res = await studentService.submitPopQuizAttempt(activePopQuiz.assignmentId, body);
-      setActivePopQuiz((prev) => prev ? { ...prev, status: 'SUBMITTED', score: res.score } : null);
+      setActivePopQuiz((prev) => prev ? { ...prev, status: 'SUBMITTED', score: res.score ?? undefined } : null);
       setShowPopQuizRunner(false);
       setShowPopQuizResult(true);
       toast.success("Nộp bài thành công!");
@@ -314,7 +314,7 @@ export function StudentLearningPathPage() {
     try {
       toast.warning("Hết giờ làm bài! Hệ thống đang nộp bài...", { duration: 5000 });
       const res = await studentService.submitPopQuizAttempt(activePopQuiz.assignmentId, { submissions: [] });
-      setActivePopQuiz((prev) => prev ? { ...prev, status: 'EXPIRED', score: res.score } : null);
+      setActivePopQuiz((prev) => prev ? { ...prev, status: 'EXPIRED', score: res.score ?? undefined } : null);
       setShowPopQuizRunner(false);
       setShowPopQuizResult(true);
       await refreshProgressData();
@@ -829,7 +829,8 @@ export function StudentLearningPathPage() {
                       </div>
 
                       <h4 className="font-bold text-foreground text-[11px] leading-snug pt-0.5">
-                        {index + 1}. {node.title}
+                        {/* Số chặng thật của lộ trình (không phải index — 1 chặng có thể có nhiều node) */}
+                        {node.stageOrder != null ? `Chặng ${node.stageOrder} · ` : `${index + 1}. `}{node.title}
                       </h4>
 
                       {node.deadlineAt && !isCompleted && (
@@ -1065,7 +1066,9 @@ export function StudentLearningPathPage() {
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái</span>
                           <p className="text-sm font-bold">
                             {highestAttempt ? (
-                              highestAttempt.score >= (activeItem.data.passingPercentage || 0) ? (
+                              highestAttempt.score == null ? (
+                                <span className="text-sky-600 dark:text-sky-400 font-bold">Chờ giáo viên chấm</span>
+                              ) : highestAttempt.score >= (activeItem.data.passingPercentage || 0) ? (
                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">Đạt ({highestAttempt.score}%)</span>
                               ) : (
                                 <span className="text-red-600 dark:text-red-400 font-bold">Chưa đạt ({highestAttempt.score}%)</span>
@@ -1090,7 +1093,8 @@ export function StudentLearningPathPage() {
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Lịch sử làm bài thi</span>
                           <div className="space-y-2">
                             {attemptsForTest.map((att, idx) => {
-                              const isPassed = att.score >= (activeItem.data.passingPercentage || 0);
+                              const isPending = att.score == null;
+                              const isPassed = !isPending && att.score >= (activeItem.data.passingPercentage || 0);
                               return (
                                 <div key={att.attemptId} className="flex justify-between items-center p-3 border border-border bg-muted/20 rounded-md text-xs">
                                   <span className="font-bold text-foreground">Lần nộp {attemptsForTest.length - idx}</span>
@@ -1098,14 +1102,16 @@ export function StudentLearningPathPage() {
                                     <span className="text-muted-foreground font-semibold text-[11px]">
                                       {new Date(att.submittedAt).toLocaleString('vi-VN')}
                                     </span>
-                                    <Badge 
+                                    <Badge
                                       className={`text-[9px] rounded-sm font-bold border-transparent ${
-                                        isPassed 
-                                          ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
+                                        isPending
+                                          ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400 hover:bg-sky-500/20'
+                                          : isPassed
+                                          ? 'bg-emerald-500 text-white hover:bg-emerald-600'
                                           : 'bg-muted text-muted-foreground hover:bg-muted/80'
                                       }`}
                                     >
-                                      Điểm: {att.score}% - {isPassed ? 'Đạt' : 'Chưa đạt'}
+                                      {isPending ? 'Chờ giáo viên chấm tự luận' : `Điểm: ${att.score}% - ${isPassed ? 'Đạt' : 'Chưa đạt'}`}
                                     </Badge>
                                   </div>
                                 </div>

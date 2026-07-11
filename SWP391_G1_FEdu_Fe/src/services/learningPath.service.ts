@@ -117,7 +117,8 @@ export interface ClassroomPathDto {
 
 export interface ClassroomGraphResponse {
   classroomSubjectId: number;
-  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED' | 'NEED_PLACEMENT';
+  /** PLACEMENT_PENDING = bài phân loại có câu tự luận đã nộp, chờ giáo viên chấm. */
+  state: 'NO_PATH' | 'DRAFT' | 'PUBLISHED' | 'NEED_PLACEMENT' | 'PLACEMENT_PENDING';
   pathId: number | null;
   publishedAt: string | null;
   nodes: LearningNodeResponse[];
@@ -298,8 +299,36 @@ export interface StudentAttemptResponse {
   passed?: boolean | null;
   startedAt?: string | null;
   submittedAt?: string | null;
-  status?: string | null; // IN_PROGRESS | SUBMITTED | CANCELLED | ...
+  status?: string | null; // IN_PROGRESS | PENDING_REVIEW | SUBMITTED | CANCELLED | ...
   tabOutCount?: number;
+}
+
+// ── Chấm tay câu tự luận (attempt PENDING_REVIEW) ────────────────────────────
+export interface ResponseGradingItem {
+  responseId: number;
+  questionId: number;
+  questionContent: string;
+  questionType: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY';
+  maxScore: number;
+  /** Trả lời văn bản (tự luận / điền từ). */
+  responseText?: string | null;
+  /** Nội dung các đáp án đã chọn (trắc nghiệm). */
+  selectedAnswers?: string[];
+  /** true/false = đã chấm; null = câu tự luận chờ chấm. */
+  isCorrect?: boolean | null;
+}
+
+export interface AttemptGradingDetail {
+  attemptId: number;
+  testId: number;
+  testTitle: string;
+  studentId?: number | null;
+  studentName?: string;
+  /** PENDING_REVIEW = còn câu tự luận chưa chấm; SUBMITTED = đã chốt điểm. */
+  status?: string | null;
+  score?: number | null;
+  submittedAt?: string | null;
+  responses: ResponseGradingItem[];
 }
 
 // Báo cáo tiến độ + hoàn thành trễ per học sinh của 1 lớp-môn (teacher)
@@ -491,6 +520,12 @@ export const learningPathService = {
   // Toàn bộ lượt làm bài của 1 test (đang làm + đã nộp, kèm tabOutCount) — màn hình theo dõi ON_CLASS
   getTestAttempts: (testId: number) =>
     http.get<StudentAttemptResponse[]>(`/teacher-manage/tests/${testId}/attempts`),
+  // Chi tiết bài làm để chấm tay câu tự luận (attempt PENDING_REVIEW)
+  getAttemptGrading: (attemptId: number) =>
+    http.get<AttemptGradingDetail>(`/teacher-manage/attempts/${attemptId}/grading`),
+  // Chấm đúng/sai câu tự luận; chấm đủ → BE chốt điểm + xếp mức/định tuyến
+  gradeEssayAttempt: (attemptId: number, grades: { responseId: number; isCorrect: boolean }[]) =>
+    http.put<AttemptGradingDetail>(`/teacher-manage/attempts/${attemptId}/grade`, { grades }),
   // Báo cáo tiến độ + hoàn thành trễ per học sinh của lớp-môn
   getProgressReport: (csId: number) =>
     http.get<StudentProgressReportResponse[]>(`/teacher-manage/classroom-subjects/${csId}/progress-report`),

@@ -43,4 +43,15 @@ public interface StudentTestService {
 
     /** Ghi nhận một lần học sinh rời tab khi đang làm bài; trả về tổng số lần đã rời của lượt thi. */
     int recordTabOut(Long testId, Long attemptId, Long studentId);
+
+    /** Chi tiết lượt làm bài (câu hỏi + trả lời) cho màn chấm tay của giáo viên. */
+    com.fedu.fedu.dto.res.AttemptGradingDetailResponse getAttemptForGrading(Long attemptId);
+
+    /**
+     * Giáo viên chấm đúng/sai các câu TỰ LUẬN của một lượt PENDING_REVIEW.
+     * Khi mọi câu tự luận đã được chấm: chốt điểm cuối + chạy định tuyến đã hoãn
+     * (placement → gán mức + seed tiến độ; gate/free-choice/node thường → mở node).
+     */
+    com.fedu.fedu.dto.res.AttemptGradingDetailResponse gradeEssayAttempt(
+            Long attemptId, com.fedu.fedu.dto.req.GradeEssayRequest request);
 }

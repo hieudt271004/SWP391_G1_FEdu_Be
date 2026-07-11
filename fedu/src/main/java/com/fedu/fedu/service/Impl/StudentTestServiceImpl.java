@@ -1,6 +1,7 @@
 package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.req.AttemptSubmissionRequest;
+import com.fedu.fedu.dto.req.GradeEssayRequest;
 import com.fedu.fedu.dto.res.*;
 import com.fedu.fedu.entity.*;
 import com.fedu.fedu.repository.*;
@@ -41,6 +42,8 @@ public class StudentTestServiceImpl implements StudentTestService {
     private final UserAccountRepository userAccountRepository;
     private final com.fedu.fedu.service.LevelRoutingService levelRoutingService;
     private final ClassroomSubjectRepository classroomSubjectRepository;
+    private final StudentLevelHistoryRepository studentLevelHistoryRepository;
+    private final com.fedu.fedu.service.LearningPathService learningPathService;
 
     @Override
     @Transactional(readOnly = true)
@@ -135,6 +138,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         verifyStudentAccess(test.getLearningNode(), studentId);
         assertTestReleased(test);
         assertWithinReleaseWindow(test, 0);
+        assertNoPendingReview(testId, studentId);
 
         UserAccount student = userAccountRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
@@ -198,23 +202,25 @@ public class StudentTestServiceImpl implements StudentTestService {
         assertWithinReleaseWindow(test, 30);
 
         BigDecimal finalPercentage = gradeAttempt(test, attempt, request);
+
+        if (finalPercentage == null) {
+            // Đề có câu tự luận — chờ giáo viên chấm; chưa tính đậu/trượt, chưa định tuyến.
+            return AttemptSubmissionResultResponse.builder()
+                    .attemptId(attempt.getAttemptId())
+                    .pendingManualGrading(true)
+                    .startedAt(attempt.getStartedAt())
+                    .submittedAt(attempt.getSubmittedAt())
+                    .passingPercentage(test.getPassingPercentage())
+                    .build();
+        }
+
         boolean passed = finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
 
         LearningNode node = test.getLearningNode();
-        Long pathId = node.getLearningPath().getPathId();
         ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
         // Đo mức trước/sau routing để báo cho học sinh biết bài này có làm đổi nhánh không
         Integer levelBefore = currentLevelOf(cs, studentId);
-        if (node.getTestKind() == NodeTestKind.GATE) {
-            // Cổng phân luồng: định tuyến theo điểm (đổi mức + mở nhánh đúng mức), không pass/fail.
-            routeGateNode(studentId, node, pathId, finalPercentage);
-        } else if (node.getTestKind() == NodeTestKind.FREE_CHOICE) {
-            // Test tự do chọn: đạt (hoặc chủ động xuống mức) → học theo nhánh của node (node.level).
-            routeFreeChoiceNode(studentId, node, pathId, passed);
-        } else {
-            // Node học thường: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại.
-            routeAfterAttempt(studentId, node, pathId, passed);
-        }
+        routeByTestKind(studentId, node, finalPercentage, passed);
         Integer levelAfter = currentLevelOf(cs, studentId);
 
         return AttemptSubmissionResultResponse.builder()
@@ -226,6 +232,21 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .passingPercentage(test.getPassingPercentage())
                 .newLevel(levelAfter != null && !levelAfter.equals(levelBefore) ? levelAfter : null)
                 .build();
+    }
+
+    /** Định tuyến sau khi CÓ điểm cuối (nộp bài không tự luận, hoặc giáo viên chấm xong tự luận). */
+    private void routeByTestKind(Long studentId, LearningNode node, BigDecimal percentage, boolean passed) {
+        Long pathId = node.getLearningPath().getPathId();
+        if (node.getTestKind() == NodeTestKind.GATE) {
+            // Cổng phân luồng: định tuyến theo điểm (đổi mức + mở nhánh đúng mức), không pass/fail.
+            routeGateNode(studentId, node, pathId, percentage);
+        } else if (node.getTestKind() == NodeTestKind.FREE_CHOICE) {
+            // Test tự do chọn: đạt (hoặc chủ động xuống mức) → học theo nhánh của node (node.level).
+            routeFreeChoiceNode(studentId, node, pathId, passed);
+        } else {
+            // Node học thường: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại.
+            routeAfterAttempt(studentId, node, pathId, passed);
+        }
     }
 
     /** Mức hiện tại của học sinh trong lớp-môn (null nếu chưa phân mức / không tìm thấy). */
@@ -266,10 +287,195 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
+    /** Còn lượt PENDING_REVIEW (chờ giáo viên chấm tự luận) thì không cho làm lại. */
+    private void assertNoPendingReview(Long testId, Long studentId) {
+        boolean pending = studentTestAttemptRepository
+                .findByStudentUserIdAndTestTestId(studentId, testId)
+                .stream()
+                .anyMatch(a -> a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW);
+        if (pending) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Bài làm trước của bạn đang chờ giáo viên chấm câu tự luận — chưa thể làm lại.");
+        }
+    }
+
+    // ==== Giáo viên chấm câu tự luận (attempt PENDING_REVIEW) ====
+
+    @Override
+    @Transactional(readOnly = true)
+    public AttemptGradingDetailResponse getAttemptForGrading(Long attemptId) {
+        StudentTestAttempt attempt = studentTestAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attempt not found with id: " + attemptId));
+        return buildGradingDetail(attempt,
+                studentTestResponseRepository.findByStudentTestAttemptAttemptId(attemptId));
+    }
+
+    @Override
+    @Transactional
+    public AttemptGradingDetailResponse gradeEssayAttempt(Long attemptId, GradeEssayRequest request) {
+        StudentTestAttempt attempt = studentTestAttemptRepository.findById(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Attempt not found with id: " + attemptId));
+        if (attempt.getStatus() != com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Lượt thi này không ở trạng thái chờ chấm tự luận.");
+        }
+
+        List<StudentTestResponse> responses =
+                studentTestResponseRepository.findByStudentTestAttemptAttemptId(attemptId);
+        Map<Long, StudentTestResponse> byId = responses.stream()
+                .collect(Collectors.toMap(StudentTestResponse::getResponseId, r -> r, (a, b) -> a));
+
+        for (GradeEssayRequest.EssayGrade g : request.getGrades()) {
+            StudentTestResponse r = byId.get(g.getResponseId());
+            if (r == null) {
+                throw new com.fedu.fedu.exception.InvalidDataException(
+                        "Câu trả lời " + g.getResponseId() + " không thuộc lượt thi này.");
+            }
+            if (r.getTestQuestion().getQuestionType() != QuestionType.ESSAY) {
+                throw new com.fedu.fedu.exception.InvalidDataException(
+                        "Chỉ chấm tay được câu tự luận.");
+            }
+            r.setIsCorrect(g.getIsCorrect());
+            studentTestResponseRepository.save(r);
+        }
+
+        boolean stillPending = responses.stream()
+                .anyMatch(r -> r.getTestQuestion().getQuestionType() == QuestionType.ESSAY
+                        && r.getIsCorrect() == null);
+        if (!stillPending) {
+            finalizeGradedAttempt(attempt, responses);
+        }
+        return buildGradingDetail(attempt, responses);
+    }
+
+    /** Chấm đủ mọi câu tự luận: chốt điểm cuối + chạy phần định tuyến đã hoãn lúc nộp bài. */
+    private void finalizeGradedAttempt(StudentTestAttempt attempt, List<StudentTestResponse> responses) {
+        BigDecimal totalScore = BigDecimal.ZERO;
+        BigDecimal maxScore = BigDecimal.ZERO;
+        for (StudentTestResponse r : responses) {
+            BigDecimal qScore = r.getTestQuestion().getScore() != null
+                    ? r.getTestQuestion().getScore() : BigDecimal.ONE;
+            maxScore = maxScore.add(qScore);
+            if (Boolean.TRUE.equals(r.getIsCorrect())) {
+                totalScore = totalScore.add(qScore);
+            }
+        }
+        BigDecimal pct = BigDecimal.ZERO;
+        if (maxScore.compareTo(BigDecimal.ZERO) > 0) {
+            pct = totalScore.multiply(BigDecimal.valueOf(100)).divide(maxScore, 2, RoundingMode.HALF_UP);
+        }
+        attempt.setScore(pct);
+        attempt.setStatus(com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED);
+        studentTestAttemptRepository.save(attempt);
+
+        com.fedu.fedu.entity.Test test = attempt.getTest();
+        Long studentId = attempt.getStudent().getUserId();
+        LearningNode node = test.getLearningNode();
+
+        // Test phân loại (quizStart không gắn node, hoặc test trên node PLACEMENT):
+        // gán mức + seed tiến độ — phần submitPlacement đã hoãn khi treo chờ chấm.
+        if (node == null || node.getTestKind() == NodeTestKind.PLACEMENT) {
+            finalizePlacementAfterGrading(test, studentId, pct);
+            return;
+        }
+        boolean passed = test.getPassingPercentage() != null
+                && pct.compareTo(test.getPassingPercentage()) >= 0;
+        routeByTestKind(studentId, node, pct, passed);
+    }
+
+    /** Gán mức placement sau khi chấm xong tự luận. Chỉ gán khi học sinh CHƯA có mức. */
+    private void finalizePlacementAfterGrading(com.fedu.fedu.entity.Test test, Long studentId, BigDecimal pct) {
+        ClassroomSubject cs = classroomSubjectRepository.findByQuizStartTestId(test.getTestId())
+                .orElse(null);
+        if (cs == null && test.getLearningNode() != null) {
+            cs = test.getLearningNode().getLearningPath().getClassroomSubject();
+        }
+        if (cs == null) {
+            log.warn("Không tìm thấy lớp-môn cho placement test {} — bỏ qua gán mức.", test.getTestId());
+            return;
+        }
+        ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(cs.getId(), studentId)
+                .orElse(null);
+        if (css == null) {
+            log.warn("Học sinh {} không thuộc lớp-môn {} — bỏ qua gán mức.", studentId, cs.getId());
+            return;
+        }
+        if (css.getCurrentLevel() != null) {
+            return; // đã có mức (gán tay / thi lại xong trước đó) — không đè
+        }
+
+        Integer level = levelRoutingService.resolveLevel(test.getTestId(), pct);
+        if (level == null) {
+            log.warn("Điểm placement {} ngoài mọi band của test {} — mặc định mức {}.",
+                    pct, test.getTestId(), com.fedu.fedu.utils.LearningLevels.WEAK);
+            level = com.fedu.fedu.utils.LearningLevels.WEAK;
+        }
+        boolean isRetake = !studentLevelHistoryRepository
+                .findByStudentUserIdAndClassroomSubjectIdOrderByChangedAtAsc(studentId, cs.getId())
+                .isEmpty();
+        levelRoutingService.assignInitialLevel(cs.getId(), studentId, level,
+                isRetake ? com.fedu.fedu.utils.enums.LevelChangeReason.RETAKE
+                        : com.fedu.fedu.utils.enums.LevelChangeReason.PLACEMENT);
+        learningPathService.backfillProgressForStudent(cs.getId(), studentId);
+    }
+
+    /** Map attempt + câu trả lời sang DTO cho màn chấm bài của giáo viên. */
+    private AttemptGradingDetailResponse buildGradingDetail(StudentTestAttempt attempt,
+                                                            List<StudentTestResponse> responses) {
+        String studentName = "";
+        if (attempt.getStudent() != null) {
+            String firstName = attempt.getStudent().getFirstName() != null ? attempt.getStudent().getFirstName() : "";
+            String lastName = attempt.getStudent().getLastName() != null ? attempt.getStudent().getLastName() : "";
+            studentName = (firstName + " " + lastName).trim();
+        }
+
+        List<AttemptGradingDetailResponse.ResponseGradingItem> items = responses.stream()
+                .map(r -> {
+                    TestQuestion q = r.getTestQuestion();
+                    List<String> selected = new ArrayList<>();
+                    if (r.getSelectedAnswer() != null) {
+                        selected.add(r.getSelectedAnswer().getAnswerContent());
+                    }
+                    if (r.getSelectedAnswers() != null) {
+                        r.getSelectedAnswers().forEach(a -> selected.add(a.getAnswerContent()));
+                    }
+                    return AttemptGradingDetailResponse.ResponseGradingItem.builder()
+                            .responseId(r.getResponseId())
+                            .questionId(q.getQuestionId())
+                            .questionContent(q.getQuestionContent())
+                            .questionType(q.getQuestionType())
+                            .maxScore(q.getScore() != null ? q.getScore() : BigDecimal.ONE)
+                            .responseText(r.getResponseText())
+                            .selectedAnswers(selected)
+                            .isCorrect(r.getIsCorrect())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return AttemptGradingDetailResponse.builder()
+                .attemptId(attempt.getAttemptId())
+                .testId(attempt.getTest().getTestId())
+                .testTitle(attempt.getTest().getTitle())
+                .studentId(attempt.getStudent() != null ? attempt.getStudent().getUserId() : null)
+                .studentName(studentName)
+                .status(attempt.getStatus() != null ? attempt.getStatus().name() : null)
+                .score(attempt.getScore())
+                .submittedAt(attempt.getSubmittedAt())
+                .responses(items)
+                .build();
+    }
+
+    /**
+     * Chấm bài và lưu câu trả lời. Trả về điểm % cuối, hoặc NULL nếu đề có câu TỰ LUẬN:
+     * khi đó lượt thi treo ở PENDING_REVIEW (isCorrect câu tự luận = null), giáo viên chấm
+     * qua gradeEssayAttempt xong mới có điểm cuối + chạy định tuyến (xếp mức / mở node).
+     */
     BigDecimal gradeAttempt(com.fedu.fedu.entity.Test test, StudentTestAttempt attempt, AttemptSubmissionRequest request) {
         List<TestQuestion> questions = testQuestionRepository.findByTestTestId(test.getTestId());
         BigDecimal totalScore = BigDecimal.ZERO;
         BigDecimal maxScore = BigDecimal.ZERO;
+        boolean hasEssay = false;
 
         Map<Long, AttemptSubmissionRequest.QuestionSubmission> submissionMap = request.getSubmissions().stream()
                 .collect(Collectors.toMap(
@@ -282,7 +488,7 @@ public class StudentTestServiceImpl implements StudentTestService {
             maxScore = maxScore.add(question.getScore() != null ? question.getScore() : BigDecimal.ONE);
             AttemptSubmissionRequest.QuestionSubmission sub = submissionMap.get(question.getQuestionId());
 
-            boolean isCorrect = false;
+            Boolean isCorrect = false;
             TestAnswer selectedAnswer = null;
             List<TestAnswer> selectedAnswersList = new ArrayList<>();
             String responseText = null;
@@ -330,11 +536,16 @@ public class StudentTestServiceImpl implements StudentTestService {
                     }
                 } else if (question.getQuestionType() == QuestionType.ESSAY) {
                     responseText = sub.getResponseText();
-                    isCorrect = true; // Mark essays as auto-correct/pass for flow continuation
                 }
             }
 
-            if (isCorrect) {
+            if (question.getQuestionType() == QuestionType.ESSAY) {
+                // Tự luận: hệ thống KHÔNG tự chấm — isCorrect = null chờ giáo viên chấm.
+                isCorrect = null;
+                hasEssay = true;
+            }
+
+            if (Boolean.TRUE.equals(isCorrect)) {
                 totalScore = totalScore.add(question.getScore() != null ? question.getScore() : BigDecimal.ONE);
             }
 
@@ -354,13 +565,22 @@ public class StudentTestServiceImpl implements StudentTestService {
             }
         }
 
+        attempt.setSubmittedAt(LocalDateTime.now());
+
+        if (hasEssay) {
+            // Đề có câu tự luận: chưa có điểm cuối — treo chờ giáo viên chấm.
+            attempt.setScore(null);
+            attempt.setStatus(com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW);
+            studentTestAttemptRepository.save(attempt);
+            return null;
+        }
+
         BigDecimal finalPercentage = BigDecimal.ZERO;
         if (maxScore.compareTo(BigDecimal.ZERO) > 0) {
             finalPercentage = totalScore.multiply(BigDecimal.valueOf(100)).divide(maxScore, 2, RoundingMode.HALF_UP);
         }
 
         attempt.setScore(finalPercentage);
-        attempt.setSubmittedAt(LocalDateTime.now());
         attempt.setStatus(com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED);
         studentTestAttemptRepository.save(attempt);
 

@@ -91,7 +91,12 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
   const entryForLevel = (s: number, x: Lvl): LearningNodeResponse | null => {
     const pl = placementAt(s);
     if (pl) return pl;
-    return learnAt(s, x) ?? chungLearnAt(s);
+    const learn = learnAt(s, x) ?? chungLearnAt(s);
+    if (learn) return learn;
+    // Chặng CHỈ CÓ test (không có node học đứng cùng): phải nối cạnh vào thẳng node test,
+    // nếu không test sẽ "mồ côi" cạnh vào → BE seed coi node không có cạnh vào là entry
+    // và MỞ NGAY từ đầu → học sinh nhảy cóc làm test rồi mở luôn các chặng sau.
+    return freeChoiceForLevel(s, x) ?? gateCovering(s, x);
   };
 
   const result = new Set<string>();
@@ -1262,19 +1267,41 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
             <h3 className="text-base font-semibold text-foreground">{path.pathName}</h3>
             {path.description && <p className="text-sm text-muted-foreground">{path.description}</p>}
           </div>
-          <button
-            onClick={() => {
-              setTDuration("15");
-              setNumQuestions("0");
-              setBuilderQuestions([]);
-              setActiveQuestionIdx(0);
-              setShowAddNode(true);
-            }}
-            disabled={tplFrozen}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            + Thêm bài học
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                if (!path) return;
+                if (!confirm("Tính lại toàn bộ liên kết giữa các bài học theo chặng?\nCạnh thừa sẽ bị xóa, cạnh thiếu sẽ được thêm.")) return;
+                setSaving(true);
+                try {
+                  await rewireAll(path.pathId);
+                  toast.success("Đã đồng bộ lại liên kết giữa các bài học.");
+                } catch (e: any) {
+                  toast.error(e.response?.data?.message || "Đồng bộ liên kết thất bại");
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              disabled={tplFrozen || saving}
+              title="Vá lộ trình bị sai/thiếu cạnh (vd node test không có cạnh vào)"
+              className="rounded-lg border border-input px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted bg-transparent hover:text-foreground transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ⟳ Đồng bộ cạnh
+            </button>
+            <button
+              onClick={() => {
+                setTDuration("15");
+                setNumQuestions("0");
+                setBuilderQuestions([]);
+                setActiveQuestionIdx(0);
+                setShowAddNode(true);
+              }}
+              disabled={tplFrozen}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              + Thêm bài học
+            </button>
+          </div>
         </div>
       </div>
 

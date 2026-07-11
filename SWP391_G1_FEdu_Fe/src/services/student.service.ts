@@ -57,20 +57,26 @@ export interface StudentTestAttempt {
 // AttemptSubmissionResultResponse — kết quả chấm node test
 export interface AttemptResult {
   attemptId: number;
-  score: number;
-  passed: boolean;
+  /** null khi bài có câu tự luận chờ giáo viên chấm. */
+  score: number | null;
+  passed: boolean | null;
   startedAt: string;
   submittedAt: string;
   passingPercentage: number;
   /** Mức mới nếu bài này làm đổi mức (gate/free-choice); null = không đổi. */
   newLevel?: number | null;
+  /** true = đề có câu tự luận, chờ giáo viên chấm xong mới có điểm + định tuyến. */
+  pendingManualGrading?: boolean | null;
 }
 
 // PlacementResultResponse — kết quả phân loại
 export interface PlacementResult {
   testId: number;
-  score: number;
-  assignedLevel: number; // 1=yếu, 2=trung bình, 3=khá
+  /** null khi bài có câu tự luận chờ giáo viên chấm. */
+  score: number | null;
+  assignedLevel: number | null; // 1=yếu, 2=trung bình, 3=khá
+  /** true = bài có câu tự luận, chờ chấm xong mới xếp mức. */
+  pendingManualGrading?: boolean | null;
 }
 
 // StudentLevelHistoryResponse
@@ -124,7 +130,8 @@ export interface StudentTestAttemptHistoryResponse {
   classroomSubjectName: string;
   testTitle: string;
   testDescription: string;
-  score: number;
+  /** null = bài có câu tự luận đang chờ giáo viên chấm. */
+  score: number | null;
   submittedAt: string;
 }
 
@@ -226,9 +233,13 @@ export const studentService = {
       `/student/support-tickets?classroomSubjectId=${csId}`
     ),
 
+  // LƯU Ý: axios instance mặc định Content-Type application/json — với FormData nó sẽ
+  // serialize FormData thành JSON → BE (chỉ nhận multipart) trả 415. Phải ép multipart
+  // như các service upload khác; axios/browser tự thêm boundary.
   submitExercise: (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
+    const multipartHeaders = { 'Content-Type': 'multipart/form-data' };
     if (contentOrFormData instanceof FormData) {
-      return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, contentOrFormData);
+      return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, contentOrFormData, multipartHeaders);
     }
     const formData = new FormData();
     if (contentOrFormData) {
@@ -237,7 +248,7 @@ export const studentService = {
     if (file) {
       formData.append('file', file);
     }
-    return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData);
+    return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData, multipartHeaders);
   },
 
   getMyExerciseSubmission: (exerciseId: number) =>

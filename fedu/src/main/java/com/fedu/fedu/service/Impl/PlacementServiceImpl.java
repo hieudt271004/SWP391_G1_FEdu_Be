@@ -80,6 +80,15 @@ public class PlacementServiceImpl implements PlacementService {
 
         BigDecimal score = studentTestService.submitForGrading(quiz.getTestId(), attemptId, studentId, request);
 
+        if (score == null) {
+            // Bài có câu TỰ LUẬN: treo chờ giáo viên chấm — chưa có điểm, chưa xếp mức,
+            // chưa seed tiến độ. Chấm xong (gradeEssayAttempt) sẽ gán mức + seed.
+            return PlacementResultResponse.builder()
+                    .testId(quiz.getTestId())
+                    .pendingManualGrading(true)
+                    .build();
+        }
+
         Integer level = levelRoutingService.resolveLevel(quiz.getTestId(), score);
         if (level == null) {
             // Default to weak if outside all bands
@@ -144,7 +153,8 @@ public class PlacementServiceImpl implements PlacementService {
                 .findByStudentUserIdAndTestTestId(studentId, quiz.getTestId());
         for (StudentTestAttempt att : attempts) {
             if (com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED.equals(att.getStatus())
-                    || com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS.equals(att.getStatus())) {
+                    || com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS.equals(att.getStatus())
+                    || com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(att.getStatus())) {
                 att.setStatus(com.fedu.fedu.utils.enums.AttemptStatus.CANCELLED);
                 studentTestAttemptRepository.save(att);
             }
@@ -167,6 +177,18 @@ public class PlacementServiceImpl implements PlacementService {
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
         if (css.getCurrentLevel() != null) {
             throw new InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
+        }
+        // Bài nộp trước còn treo chờ giáo viên chấm tự luận → không xem đề / làm lại.
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId).orElse(null);
+        if (cs != null && cs.getQuizStart() != null) {
+            boolean pending = studentTestAttemptRepository
+                    .findByStudentUserIdAndTestTestId(studentId, cs.getQuizStart().getTestId())
+                    .stream()
+                    .anyMatch(a -> com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(a.getStatus()));
+            if (pending) {
+                throw new InvalidDataException(
+                        "Bài phân loại của bạn có câu tự luận đang chờ giáo viên chấm. Vui lòng quay lại sau.");
+            }
         }
     }
 

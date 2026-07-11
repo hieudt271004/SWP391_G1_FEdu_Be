@@ -119,6 +119,33 @@ export function PlacementPage() {
   if (!details) return null;
 
   if (result) {
+    // Bài có câu tự luận: chưa có điểm/mức — chờ giáo viên chấm xong mới xếp mức.
+    if (result.pendingManualGrading) {
+      return (
+        <div className="mx-auto max-w-2xl">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GraduationCap className="size-6 text-sky-600" />
+                Đã nộp bài phân loại
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Alert className="border-sky-200 bg-sky-50/50">
+                <AlertTitle>Bài của bạn đang chờ giáo viên chấm</AlertTitle>
+                <AlertDescription className="text-sm">
+                  Đề có câu tự luận nên cần giáo viên chấm tay. Điểm và mức xếp lớp
+                  sẽ hiển thị sau khi giáo viên chấm xong — bạn không cần làm lại bài.
+                </AlertDescription>
+              </Alert>
+              <Button variant="outline" onClick={() => navigate('/student/courses')}>
+                <ArrowLeft className="size-4" /> Quay lại khóa học
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
     return (
       <div className="mx-auto max-w-2xl">
         <Card>

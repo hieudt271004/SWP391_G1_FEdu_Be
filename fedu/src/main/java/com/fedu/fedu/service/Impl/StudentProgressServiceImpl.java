@@ -61,9 +61,16 @@ public class StudentProgressServiceImpl implements StudentProgressService {
         }
 
         if (enrollment.getCurrentLevel() == null) {
+            // Bài phân loại có câu tự luận đã nộp nhưng chưa chấm xong → báo FE hiện màn chờ,
+            // tránh cho học sinh thấy nút "làm bài phân loại" rồi bị chặn khi bấm.
+            com.fedu.fedu.entity.Test quizStart = enrollment.getClassroomSubject().getQuizStart();
+            boolean pendingReview = quizStart != null && studentTestAttemptRepository
+                    .findByStudentUserIdAndTestTestId(studentId, quizStart.getTestId())
+                    .stream()
+                    .anyMatch(a -> a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW);
             return ClassroomGraphResponse.builder()
                     .classroomSubjectId(classroomSubjectId)
-                    .state("NEED_PLACEMENT")
+                    .state(pendingReview ? "PLACEMENT_PENDING" : "NEED_PLACEMENT")
                     .pathId(null)
                     .publishedAt(null)
                     .nodes(Collections.emptyList())
@@ -156,6 +163,12 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                             .displayOrder(n.getDisplayOrder())
                             .isRequired(n.getIsRequired())
                             .isDeleted(n.getIsDeleted())
+                            // stageOrder/level/testKind: FE sắp thứ tự bài theo CHẶNG (không phải
+                            // displayOrder — editor luôn gửi displayOrder=0) + hiển thị đúng loại node.
+                            .stageOrder(n.getStageOrder())
+                            .level(n.getLevel())
+                            .testKind(n.getTestKind())
+                            .appliesLevels(n.getAppliesLevels())
                             .studyDate(n.getStudyDate())
                             .slotId(n.getSlot() != null ? n.getSlot().getSlotId() : null)
                             .slotName(n.getSlot() != null ? n.getSlot().getSlotName() : null)

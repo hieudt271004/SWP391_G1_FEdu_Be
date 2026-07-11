@@ -30,6 +30,7 @@ public class LearningPathManagementController {
         private final LearningPathService learningPathService;
         private final NodeContentService nodeContentService;
         private final NodeEdgeService nodeEdgeService;
+        private final com.fedu.fedu.service.StudentTestService studentTestService;
 
         @Operation(summary = "Create learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
@@ -223,6 +224,26 @@ public class LearningPathManagementController {
             log.info("Teacher fetching student attempts for test ID: {}", testId);
             return new ResponseData<>(HttpStatus.OK.value(), "Retrieved student attempts successfully",
                     nodeContentService.getTestAttempts(testId));
+        }
+
+        @Operation(summary = "Chi tiết bài làm của học sinh để chấm tay câu tự luận")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/attempts/{attemptId}/grading")
+        public ResponseData<AttemptGradingDetailResponse> getAttemptGrading(@PathVariable Long attemptId) {
+            log.info("Teacher fetching attempt {} for grading", attemptId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved attempt grading detail successfully",
+                    studentTestService.getAttemptForGrading(attemptId));
+        }
+
+        @Operation(summary = "Chấm đúng/sai câu tự luận; chấm đủ → chốt điểm + xếp mức/định tuyến")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @PutMapping("/attempts/{attemptId}/grade")
+        public ResponseData<AttemptGradingDetailResponse> gradeEssayAttempt(
+                @PathVariable Long attemptId,
+                @Valid @RequestBody GradeEssayRequest request) {
+            log.info("Teacher grading essay responses of attempt {}", attemptId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Đã lưu kết quả chấm",
+                    studentTestService.gradeEssayAttempt(attemptId, request));
         }
 
 

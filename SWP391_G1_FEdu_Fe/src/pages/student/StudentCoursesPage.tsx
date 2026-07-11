@@ -80,6 +80,8 @@ export function StudentCoursesPage() {
   const [subjects, setSubjects] = useState<ClassroomSubjectResponse[]>([]);
   const [subjectLevels, setSubjectLevels] = useState<Record<number, number | null>>({});
   const [subjectProgress, setSubjectProgress] = useState<Record<number, { completed: number; total: number }>>({});
+  // Bài phân loại có câu tự luận đã nộp, đang chờ giáo viên chấm (graph state = PLACEMENT_PENDING)
+  const [pendingPlacements, setPendingPlacements] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,6 +184,7 @@ export function StudentCoursesPage() {
         // Load level history and graph progress for each subject in parallel
         const levelsMap: Record<number, number | null> = {};
         const progressMap: Record<number, { completed: number; total: number }> = {};
+        const pendingMap: Record<number, boolean> = {};
 
         await Promise.all(
           (enrolledSubjects || []).map(async (s) => {
@@ -201,6 +204,7 @@ export function StudentCoursesPage() {
             // Fetch graph to calculate node progress
             try {
               const graph = await studentService.getClassroomSubjectGraph(s.classroomSubjectId);
+              pendingMap[s.classroomSubjectId] = graph?.state === 'PLACEMENT_PENDING';
               if (graph && graph.nodes && graph.nodes.length > 0) {
                 const completedCount = graph.nodes.filter(n => n.studentStatus === 'COMPLETED').length;
                 progressMap[s.classroomSubjectId] = {
@@ -218,6 +222,7 @@ export function StudentCoursesPage() {
 
         setSubjectLevels(levelsMap);
         setSubjectProgress(progressMap);
+        setPendingPlacements(pendingMap);
       } catch (err: any) {
         console.error('Error fetching student courses:', err);
         setError(err.response?.data?.message || 'Không thể tải danh sách khóa học. Vui lòng thử lại sau.');
@@ -501,17 +506,28 @@ export function StudentCoursesPage() {
                 <CardFooter className="bg-muted/30 p-4 border-t border-border flex flex-col gap-3">
                   {currentLevel === null ? (
                     <div className="w-full space-y-2">
-                      <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
-                        <p className="text-[10.5px] leading-relaxed text-amber-600 dark:text-amber-400 font-medium">
-                          Môn học này yêu cầu làm bài kiểm tra phân loại đầu vào để nhận lộ trình cá nhân hóa.
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/placement`)}
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs"
-                      >
-                        <Play className="size-3.5 fill-current" /> Bắt đầu kiểm tra phân loại
-                      </Button>
+                      {pendingPlacements[c.classroomSubjectId] ? (
+                        <div className="p-2.5 bg-sky-500/10 border border-sky-500/20 rounded-xl text-center">
+                          <p className="text-[10.5px] leading-relaxed text-sky-600 dark:text-sky-400 font-medium">
+                            Bài phân loại của bạn có câu tự luận, đang chờ giáo viên chấm.
+                            Kết quả và lộ trình sẽ hiện sau khi chấm xong.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
+                            <p className="text-[10.5px] leading-relaxed text-amber-600 dark:text-amber-400 font-medium">
+                              Môn học này yêu cầu làm bài kiểm tra phân loại đầu vào để nhận lộ trình cá nhân hóa.
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/placement`)}
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs"
+                          >
+                            <Play className="size-3.5 fill-current" /> Bắt đầu kiểm tra phân loại
+                          </Button>
+                        </>
+                      )}
                       <Button
                         onClick={() => handleOpenCreateTicket(c)}
                         variant="outline"

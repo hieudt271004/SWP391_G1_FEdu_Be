@@ -74,7 +74,12 @@ export function computeDesiredEdges(
   const entryForLevel = (s: number, x: Lvl): LearningNodeResponse | null => {
     const pl = placementAt(s);
     if (pl) return pl;
-    return learnAt(s, x) ?? chungLearnAt(s);
+    const learn = learnAt(s, x) ?? chungLearnAt(s);
+    if (learn) return learn;
+    // Chặng CHỈ CÓ test (không có node học đứng cùng): phải nối cạnh vào thẳng node test,
+    // nếu không test sẽ "mồ côi" cạnh vào → BE seed coi node không có cạnh vào là entry
+    // và MỞ NGAY từ đầu → học sinh nhảy cóc làm test rồi mở luôn các chặng sau.
+    return freeChoiceForLevel(s, x) ?? gateCovering(s, x);
   };
 
   const result = new Set<string>();

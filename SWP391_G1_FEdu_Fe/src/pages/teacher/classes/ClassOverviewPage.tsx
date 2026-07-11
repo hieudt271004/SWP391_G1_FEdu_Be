@@ -50,7 +50,9 @@ import {
   Lock,
   AlertCircle,
   Activity,
-  Radio
+  Radio,
+  RotateCcw,
+  GitBranch
 } from 'lucide-react';
 import {
   teacherService,
@@ -70,9 +72,11 @@ import {
   NodeContentResponse,
   StudentInClassResponse,
   StudentAttemptResponse,
-  StudentProgressReportResponse
+  StudentProgressReportResponse,
+  AttemptGradingDetail
 } from '../../../services/learningPath.service';
 import { slotService, SlotResponse } from '../../../services/slot.service';
+import { computeDesiredEdges, syncEdges } from '../../../components/learningPath/learningPathWiring';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -361,11 +365,68 @@ export function ClassOverviewPage() {
     };
   }, [activeTab, classroomSubjectId]);
 
-  // Theo dõi bài làm (node ON_CLASS): dialog 2 tab — đang làm / cảnh báo gian lận (rời tab)
+  // Theo dõi bài làm (node ON_CLASS): dialog 3 tab — đang làm / gian lận / chờ chấm tự luận
   const [monitorTest, setMonitorTest] = useState<{ testId: number; title: string } | null>(null);
   const [monitorAttempts, setMonitorAttempts] = useState<StudentAttemptResponse[]>([]);
   const [monitorLoading, setMonitorLoading] = useState(false);
-  const [monitorTab, setMonitorTab] = useState<'doing' | 'cheat'>('doing');
+  const [monitorTab, setMonitorTab] = useState<'doing' | 'cheat' | 'grading'>('doing');
+
+  // Chấm tay câu tự luận của một attempt PENDING_REVIEW
+  const [gradingAttempt, setGradingAttempt] = useState<AttemptGradingDetail | null>(null);
+  const [gradingLoading, setGradingLoading] = useState(false);
+  const [essayMarks, setEssayMarks] = useState<Record<number, boolean>>({});
+  const [savingEssayGrades, setSavingEssayGrades] = useState(false);
+
+  const openEssayGrading = async (attemptId: number) => {
+    setGradingLoading(true);
+    setEssayMarks({});
+    try {
+      const detail = await learningPathService.getAttemptGrading(attemptId);
+      setGradingAttempt(detail);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể tải bài làm để chấm');
+    } finally {
+      setGradingLoading(false);
+    }
+  };
+
+  const handleSaveEssayGrades = async () => {
+    if (!gradingAttempt) return;
+    const pendingEssays = gradingAttempt.responses.filter(
+      (r) => r.questionType === 'ESSAY' && r.isCorrect == null
+    );
+    const grades: { responseId: number; isCorrect: boolean }[] = [];
+    for (const r of pendingEssays) {
+      const mark = essayMarks[r.responseId];
+      if (mark !== undefined) grades.push({ responseId: r.responseId, isCorrect: mark });
+    }
+    if (grades.length === 0) {
+      toast.error('Hãy chấm Đạt/Không đạt cho ít nhất một câu tự luận.');
+      return;
+    }
+    setSavingEssayGrades(true);
+    try {
+      const updated = await learningPathService.gradeEssayAttempt(gradingAttempt.attemptId, grades);
+      if (updated.status === 'SUBMITTED') {
+        toast.success(`Đã chấm xong — điểm cuối: ${updated.score ?? 0}%. Hệ thống đã xếp mức/mở bài cho học sinh.`);
+        setGradingAttempt(null);
+      } else {
+        toast.success('Đã lưu kết quả chấm. Vẫn còn câu tự luận chưa chấm.');
+        setGradingAttempt(updated);
+        setEssayMarks({});
+      }
+      // Làm mới danh sách lượt làm bài trong dialog theo dõi
+      if (monitorTest) {
+        try {
+          setMonitorAttempts((await learningPathService.getTestAttempts(monitorTest.testId)) ?? []);
+        } catch { /* poll 10s sẽ tự cập nhật */ }
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lưu kết quả chấm thất bại');
+    } finally {
+      setSavingEssayGrades(false);
+    }
+  };
 
   useEffect(() => {
     if (!monitorTest) return;
@@ -681,6 +742,52 @@ export function ClassOverviewPage() {
       setLevelHistory([]);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  // Hủy phân mức: xóa mức + toàn bộ tiến độ + hủy lượt placement → học sinh làm lại từ đầu.
+  const [cancellingPlacementId, setCancellingPlacementId] = useState<number | null>(null);
+  const handleCancelPlacement = async (student: Student) => {
+    if (!classroomSubjectId) return;
+    if (!confirm(
+      `Hủy kết quả phân mức của "${student.fullName}"?\n\n` +
+      `Toàn bộ tiến độ lộ trình của học sinh này sẽ bị XÓA và học sinh phải làm lại bài phân loại từ đầu.`
+    )) return;
+    setCancellingPlacementId(student.rawUserId);
+    try {
+      await teacherService.cancelStudentPlacement(Number(classroomSubjectId), student.rawUserId);
+      toast.success(`Đã hủy phân mức của ${student.fullName} — học sinh sẽ làm lại bài phân loại.`);
+      await fetchClassroomData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Hủy phân mức thất bại');
+    } finally {
+      setCancellingPlacementId(null);
+    }
+  };
+
+  // Đồng bộ lại toàn bộ liên kết (cạnh) của lộ trình lớp theo quy tắc chặng hiện hành —
+  // dùng để VÁ path đã publish khi wiring cũ sinh cạnh sai/thiếu (vd node test mồ côi
+  // cạnh vào nên mở từ đầu). TemplateEditGuard không chặn path của lớp nên vá được tại chỗ.
+  const [rewiring, setRewiring] = useState(false);
+  const handleRewireEdges = async () => {
+    if (!classroomSubjectId) return;
+    if (!confirm(
+      'Đồng bộ lại toàn bộ liên kết giữa các bài học theo chặng?\n\n' +
+      'Cạnh thừa sẽ bị xóa, cạnh thiếu sẽ được thêm. Nên "Hủy phân mức" các học sinh đã học lệch sau khi đồng bộ.'
+    )) return;
+    setRewiring(true);
+    try {
+      const g = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
+      await syncEdges(g.edges ?? [], computeDesiredEdges(g.nodes ?? []), {
+        createEdge: (r) => learningPathService.createNodeEdge(r),
+        deleteEdge: (id) => learningPathService.deleteNodeEdge(id),
+      });
+      toast.success('Đã đồng bộ lại liên kết giữa các bài học.');
+      await fetchClassroomData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Đồng bộ liên kết thất bại');
+    } finally {
+      setRewiring(false);
     }
   };
 
@@ -2245,6 +2352,18 @@ export function ClassOverviewPage() {
               Publish lộ trình
             </Button>
           )}
+          {(graphData?.state === 'PUBLISHED' || graphData?.state === 'DRAFT') && (
+            <Button
+              variant="outline"
+              className="text-primary hover:bg-primary/5 border-primary/20 font-semibold rounded-xl flex items-center gap-1.5"
+              onClick={handleRewireEdges}
+              disabled={isNonIdle || rewiring}
+              title="Tính lại toàn bộ liên kết giữa các bài học theo chặng (vá lộ trình bị sai cạnh)"
+            >
+              {rewiring ? <Loader className="size-4 animate-spin" /> : <GitBranch className="size-4" />}
+              Đồng bộ lại cạnh
+            </Button>
+          )}
           {graphData?.state === 'PUBLISHED' && (
             <Button
               variant="outline"
@@ -2668,14 +2787,13 @@ export function ClassOverviewPage() {
                                         <div className="flex-1 min-w-0">
                                           <p className="font-medium text-foreground truncate">{t.title} ({t.durationMinutes} phút)</p>
                                         </div>
-                                        {selectedNode.nodeType === 'ON_CLASS' && (
-                                          <Button
-                                            onClick={() => { setMonitorTab('doing'); setMonitorTest({ testId: t.testId, title: t.title }); }}
-                                            className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
-                                          >
-                                            <Activity className="w-3 h-3 mr-1" /> Theo dõi
-                                          </Button>
-                                        )}
+                                        {/* Mọi test đều theo dõi được: đang làm / gian lận / CHỜ CHẤM TỰ LUẬN */}
+                                        <Button
+                                          onClick={() => { setMonitorTab(selectedNode.nodeType === 'ON_CLASS' ? 'doing' : 'grading'); setMonitorTest({ testId: t.testId, title: t.title }); }}
+                                          className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
+                                        >
+                                          <Activity className="w-3 h-3 mr-1" /> Theo dõi
+                                        </Button>
                                       </div>
                                     ))}
                                     {nodeContent.exercises?.map((e) => (
@@ -2821,6 +2939,13 @@ export function ClassOverviewPage() {
                       <span className="font-medium text-slate-650">Thời gian làm bài:</span>
                       <span className="font-bold text-slate-800">{placementQuiz.durationMinutes} phút</span>
                     </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => { setMonitorTab('grading'); setMonitorTest({ testId: placementQuiz.testId, title: placementQuiz.title }); }}
+                      className="w-full h-8 rounded-lg text-[11px] font-bold text-primary border-primary/20 hover:bg-primary/5"
+                    >
+                      <Activity className="size-3.5 mr-1" /> Bài làm & chấm tự luận
+                    </Button>
                   </CardContent>
                 </Card>
 
@@ -3101,6 +3226,19 @@ export function ClassOverviewPage() {
                                 </>
                               )}
                             </Button>
+                            {student.currentLevel != null && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCancelPlacement(student)}
+                                disabled={cancellingPlacementId === student.rawUserId}
+                                title="Xóa mức + toàn bộ tiến độ; học sinh làm lại bài phân loại từ đầu"
+                                className="h-7 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg font-semibold flex items-center gap-1"
+                              >
+                                <RotateCcw className="size-3.5" />
+                                {cancellingPlacementId === student.rawUserId ? 'Đang hủy…' : 'Hủy phân mức'}
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -4254,8 +4392,8 @@ export function ClassOverviewPage() {
       {/* Modal: Xếp lịch học cho node trên lớp */}
       <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
         <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl text-xs">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <Calendar className="size-5 text-primary" /> Xếp lịch học trên lớp
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5">
@@ -4302,10 +4440,10 @@ export function ClassOverviewPage() {
             )}
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-700">Ngày học</label>
+              <label className="font-bold text-foreground">Ngày học</label>
               <input
                 type="date"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
+                className="w-full border border-border rounded-xl px-3 py-2 text-xs bg-background text-foreground outline-none focus:border-primary/50"
                 value={scheduleDate}
                 onChange={(e) => {
                   setScheduleDate(e.target.value);
@@ -4315,7 +4453,7 @@ export function ClassOverviewPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-700">Ca học (Slot)</label>
+              <label className="font-bold text-foreground">Ca học (Slot)</label>
               <Select
                 value={scheduleSlotId ? String(scheduleSlotId) : "none"}
                 onValueChange={(value) => {
@@ -4323,7 +4461,7 @@ export function ClassOverviewPage() {
                   setScheduleConflict(null); // Clear conflicts
                 }}
               >
-                <SelectTrigger className="w-full bg-white border-slate-200 rounded-xl h-9 text-slate-700 text-xs outline-none focus-visible:ring-0 shadow-none">
+                <SelectTrigger className="w-full bg-background border-border rounded-xl h-9 text-foreground text-xs outline-none focus-visible:ring-0 shadow-none">
                   <SelectValue placeholder="-- Chọn ca học --" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
@@ -4339,13 +4477,13 @@ export function ClassOverviewPage() {
 
           </div>
 
-          <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+          <DialogFooter className="border-t border-border pt-3 flex gap-2 justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={handleClearSchedule}
               disabled={savingSchedule}
-              className="h-9 rounded-xl text-xs border-slate-200 text-destructive hover:bg-destructive/10"
+              className="h-9 rounded-xl text-xs text-destructive hover:bg-destructive/10"
             >
               Hủy lịch học
             </Button>
@@ -4353,7 +4491,7 @@ export function ClassOverviewPage() {
               type="button"
               variant="outline"
               onClick={() => setIsScheduleModalOpen(false)}
-              className="h-9 rounded-xl text-xs border-slate-200"
+              className="h-9 rounded-xl text-xs"
             >
               Đóng
             </Button>
@@ -4361,7 +4499,7 @@ export function ClassOverviewPage() {
               type="button"
               onClick={() => handleSaveSchedule(false)}
               disabled={savingSchedule}
-              className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold"
+              className="h-9 rounded-xl text-xs font-semibold"
             >
               {savingSchedule ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
               Lưu lịch học
@@ -4384,6 +4522,7 @@ export function ClassOverviewPage() {
             const cheaters = monitorAttempts
               .filter((a) => (a.tabOutCount ?? 0) > 0 && a.status !== 'CANCELLED')
               .sort((x, y) => (y.tabOutCount ?? 0) - (x.tabOutCount ?? 0));
+            const pendingGrade = monitorAttempts.filter((a) => a.status === 'PENDING_REVIEW');
             const tabOutBadge = (count: number) => (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-[6px] border ${
                 count >= 3
@@ -4412,6 +4551,14 @@ export function ClassOverviewPage() {
                   >
                     Cảnh báo gian lận ({cheaters.length})
                   </button>
+                  <button
+                    onClick={() => setMonitorTab('grading')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      monitorTab === 'grading' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Chờ chấm tự luận ({pendingGrade.length})
+                  </button>
                   <span className="ml-auto text-[10px] text-muted-foreground italic">Tự làm mới mỗi 10 giây</span>
                 </div>
 
@@ -4438,20 +4585,45 @@ export function ClassOverviewPage() {
                       ))}
                     </div>
                   )
-                ) : cheaters.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic py-6 text-center">Chưa ghi nhận học sinh nào rời tab khi làm bài.</p>
+                ) : monitorTab === 'cheat' ? (
+                  cheaters.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic py-6 text-center">Chưa ghi nhận học sinh nào rời tab khi làm bài.</p>
+                  ) : (
+                    <div className="max-h-[50vh] overflow-y-auto divide-y divide-border border border-border rounded-xl">
+                      {cheaters.map((a) => (
+                        <div key={a.attemptId} className="flex items-center gap-3 p-2.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-foreground truncate">{a.studentName || a.studentEmail || `HS #${a.studentId}`}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{a.studentEmail}</p>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {a.status === 'IN_PROGRESS' ? 'Đang làm' : a.score != null ? `Đã nộp — ${a.score} điểm` : 'Đã nộp'}
+                          </span>
+                          {tabOutBadge(a.tabOutCount ?? 0)}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : pendingGrade.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-6 text-center">Không có bài nào chờ chấm tự luận.</p>
                 ) : (
                   <div className="max-h-[50vh] overflow-y-auto divide-y divide-border border border-border rounded-xl">
-                    {cheaters.map((a) => (
+                    {pendingGrade.map((a) => (
                       <div key={a.attemptId} className="flex items-center gap-3 p-2.5">
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-foreground truncate">{a.studentName || a.studentEmail || `HS #${a.studentId}`}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{a.studentEmail}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            Nộp lúc: {a.submittedAt ? new Date(a.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—'}
+                          </p>
                         </div>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
-                          {a.status === 'IN_PROGRESS' ? 'Đang làm' : a.score != null ? `Đã nộp — ${a.score} điểm` : 'Đã nộp'}
-                        </span>
-                        {tabOutBadge(a.tabOutCount ?? 0)}
+                        <Button
+                          size="sm"
+                          onClick={() => openEssayGrading(a.attemptId)}
+                          disabled={gradingLoading}
+                          className="h-7 rounded-lg text-[10px] font-bold px-2.5"
+                        >
+                          Chấm tự luận
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -4459,6 +4631,108 @@ export function ClassOverviewPage() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog chấm tay câu tự luận: chấm đủ mọi câu → BE chốt điểm + xếp mức/mở bài */}
+      <Dialog open={!!gradingAttempt} onOpenChange={(open) => { if (!open) setGradingAttempt(null); }}>
+        <DialogContent className="sm:max-w-2xl bg-background border-border shadow-2xl text-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <Activity className="size-5 text-primary" />
+              Chấm tự luận — {gradingAttempt?.studentName || `HS #${gradingAttempt?.studentId}`}
+            </DialogTitle>
+            <p className="text-[11px] text-muted-foreground">
+              {gradingAttempt?.testTitle} · Câu trắc nghiệm đã được chấm tự động.
+              Chấm đủ mọi câu tự luận thì hệ thống chốt điểm và xếp mức/mở bài cho học sinh.
+            </p>
+          </DialogHeader>
+
+          <div className="max-h-[55vh] overflow-y-auto space-y-2.5 pr-1">
+            {(gradingAttempt?.responses ?? []).map((r, idx) => {
+              const isEssay = r.questionType === 'ESSAY';
+              const pendingEssay = isEssay && r.isCorrect == null;
+              const mark = essayMarks[r.responseId];
+              return (
+                <div key={r.responseId} className="border border-border rounded-xl p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold text-foreground text-[11.5px] leading-snug">
+                      Câu {idx + 1}. {r.questionContent}
+                    </p>
+                    <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-[6px] border uppercase ${
+                      isEssay
+                        ? 'bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400'
+                        : 'bg-muted border-border text-muted-foreground'
+                    }`}>
+                      {isEssay ? 'Tự luận' : 'Tự chấm'}
+                    </span>
+                  </div>
+
+                  <div className="bg-muted/40 border border-border rounded-lg p-2 text-[11px] text-foreground whitespace-pre-wrap break-words">
+                    {isEssay || r.questionType === 'SHORT_ANSWER'
+                      ? (r.responseText?.trim() ? r.responseText : <span className="italic text-muted-foreground">Học sinh không trả lời</span>)
+                      : (r.selectedAnswers && r.selectedAnswers.length > 0
+                          ? r.selectedAnswers.join(', ')
+                          : <span className="italic text-muted-foreground">Không chọn đáp án</span>)}
+                  </div>
+
+                  {pendingEssay ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Chấm:</span>
+                      <button
+                        onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: true }))}
+                        className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
+                          mark === true
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
+                        }`}
+                      >
+                        Đạt (+{r.maxScore} điểm)
+                      </button>
+                      <button
+                        onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: false }))}
+                        className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
+                          mark === false
+                            ? 'bg-rose-600 border-rose-600 text-white'
+                            : 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20'
+                        }`}
+                      >
+                        Không đạt (0 điểm)
+                      </button>
+                    </div>
+                  ) : (
+                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-[6px] border ${
+                      r.isCorrect
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
+                    }`}>
+                      {r.isCorrect ? `Đúng · +${r.maxScore} điểm` : 'Sai · 0 điểm'}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setGradingAttempt(null)}
+              className="h-9 rounded-xl text-xs font-semibold"
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveEssayGrades}
+              disabled={savingEssayGrades || gradingAttempt?.status !== 'PENDING_REVIEW'}
+              className="h-9 rounded-xl text-xs font-semibold"
+            >
+              {savingEssayGrades ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
+              Lưu kết quả chấm
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
