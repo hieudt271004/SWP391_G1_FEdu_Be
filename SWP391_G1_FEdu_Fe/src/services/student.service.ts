@@ -228,7 +228,11 @@ export const studentService = {
 
   submitExercise: (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
     if (contentOrFormData instanceof FormData) {
-      return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, contentOrFormData);
+      return http.post<SubmissionResponse>(
+        `/student/exercises/${exerciseId}/submissions`,
+        contentOrFormData,
+        { 'Content-Type': 'multipart/form-data' }
+      );
     }
     const formData = new FormData();
     if (contentOrFormData) {
@@ -237,7 +241,11 @@ export const studentService = {
     if (file) {
       formData.append('file', file);
     }
-    return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData);
+    return http.post<SubmissionResponse>(
+      `/student/exercises/${exerciseId}/submissions`,
+      formData,
+      { 'Content-Type': 'multipart/form-data' }
+    );
   },
 
   getMyExerciseSubmission: (exerciseId: number) =>
