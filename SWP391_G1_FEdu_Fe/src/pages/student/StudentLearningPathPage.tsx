@@ -1156,7 +1156,7 @@ export function StudentLearningPathPage() {
                           if (submission.status === 'GRADED') {
                             return (
                               <Badge className="bg-emerald-500 text-white hover:bg-emerald-600 rounded-sm font-bold text-[9px] px-2 py-0.5 border-transparent">
-                                Đã chấm: {submission.grade} / 100
+                                Đã chấm: {submission.grade} / 10
                               </Badge>
                             );
                           }
@@ -1324,7 +1324,7 @@ export function StudentLearningPathPage() {
                                   <div className="flex items-center gap-2">
                                     <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Đánh giá của giáo viên</span>
                                     <Badge className="bg-primary text-primary-foreground hover:bg-primary/95 font-bold text-[9px] px-2 py-0.5 border-transparent">
-                                      Điểm số: {submission.grade} / 100
+                                      Điểm số: {submission.grade} / 10
                                     </Badge>
                                   </div>
 
