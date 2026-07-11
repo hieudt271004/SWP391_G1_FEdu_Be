@@ -27,9 +27,11 @@ import {
   learningPathService,
   LiveSessionState,
   StudentAttemptResponse,
+  StudentInClassResponse,
 } from '../../../services/learningPath.service';
 import { uploadService } from '../../../services/upload.service';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
+import { TeacherPopQuizPanel } from '../../../components/popQuiz/TeacherPopQuizPanel';
 
 
 
@@ -56,6 +58,8 @@ export function TeacherLiveSessionPage() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [monitorTab, setMonitorTab] = useState<'doing' | 'cheat'>('doing');
+  const [students, setStudents] = useState<StudentInClassResponse[]>([]);
+  const [pollTick, setPollTick] = useState(0);
 
   
   const clockOffsetRef = useRef(0);
@@ -99,13 +103,29 @@ export function TeacherLiveSessionPage() {
 
   useEffect(() => {
     fetchState(false);
-    const poll = setInterval(() => fetchState(true), POLL_MS);
+    const poll = setInterval(() => {
+      fetchState(true);
+      setPollTick((prev) => prev + 1);
+    }, POLL_MS);
     const tick = setInterval(() => setNowTick(Date.now()), 1000);
     return () => {
       clearInterval(poll);
       clearInterval(tick);
     };
   }, [fetchState]);
+
+  useEffect(() => {
+    const loadStudents = async () => {
+      if (!nid) return;
+      try {
+        const list = await learningPathService.getNodeStudents(nid);
+        setStudents(list ?? []);
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách học sinh:", err);
+      }
+    };
+    loadStudents();
+  }, [nid]);
 
   const serverNow = nowTick + clockOffsetRef.current;
 
@@ -399,6 +419,16 @@ export function TeacherLiveSessionPage() {
               Soạn câu hỏi cho đề trong trang quản lý node (tab nội dung) trước khi phát.
             </p>
           </div>
+
+          {state && (
+            <TeacherPopQuizPanel
+              nodeId={nid}
+              students={students}
+              live={state.live}
+              pollTick={pollTick}
+              tests={tests}
+            />
+          )}
         </div>
 
         {}

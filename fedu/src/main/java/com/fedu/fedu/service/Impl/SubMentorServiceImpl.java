@@ -119,6 +119,10 @@ public class SubMentorServiceImpl implements SubMentorService {
             throw new InvalidDataException("Cặp (sub-mentor, học sinh) này đã tồn tại");
         }
 
+        if (assignmentRepository.existsByStudentCss_Id(request.getStudentCssId())) {
+            throw new InvalidDataException("Học sinh này đã được gán cho một trợ giảng khác quản lý");
+        }
+
         SubMentorStudentAssignment assignment = SubMentorStudentAssignment.builder()
                 .subMentorCss(subMentorCss)
                 .studentCss(studentCss)

@@ -14,6 +14,8 @@ public interface SubMentorStudentAssignmentRepository extends JpaRepository<SubM
     
     boolean existsBySubMentorCss_IdAndStudentCss_Id(Long subMentorCssId, Long studentCssId);
 
+    boolean existsByStudentCss_Id(Long studentCssId);
+
     
     List<SubMentorStudentAssignment> findBySubMentorCss_Id(Long subMentorCssId);
 

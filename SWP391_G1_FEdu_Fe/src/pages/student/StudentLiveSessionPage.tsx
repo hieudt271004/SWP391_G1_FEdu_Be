@@ -6,6 +6,7 @@ import { AlarmClock, ArrowLeft, Award, FileText, Loader2, Radio } from 'lucide-r
 import { studentService } from '../../services/student.service';
 import type { LiveSessionState } from '../../services/learningPath.service';
 import { MaterialPreview } from '../../components/learningPath/MaterialPreview';
+import { StudentPopQuizRunner } from '../../components/popQuiz/StudentPopQuizRunner';
 
 
 
@@ -198,6 +199,7 @@ export function StudentLiveSessionPage() {
           )}
         </>
       )}
+      {nid && <StudentPopQuizRunner nodeId={nid} />}
     </div>
   );
 }

@@ -33,17 +33,14 @@ import { useAuth } from '../../context/AuthContext';
 import {
   studentService,
   type SubmissionResponse,
-  type StudentTestAttemptHistoryResponse,
-  type PopQuizPendingResponse,
-  type PopQuizPaperResponse,
-  type AttemptSubmission
+  type StudentTestAttemptHistoryResponse
 } from '../../services/student.service';
 import { classroomService } from '../../services/classroom.service';
 import { resolveAssetUrl, MaterialPreview } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
 import { NodeDiscussion } from '../../components/learningPath/NodeDiscussion';
-import { TestRunner } from './tests/components/TestRunner';
+
 import {
   Dialog,
   DialogContent,
@@ -109,22 +106,7 @@ export function StudentLearningPathPage() {
   
   const [completedMaterials, setCompletedMaterials] = useState<Record<string, boolean>>({});
 
-  
-  const [activePopQuiz, setActivePopQuiz] = useState<{
-    assignmentId: number;
-    title: string;
-    durationMinutes: number;
-    status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED';
-    remainingSeconds?: number;
-    score?: number;
-  } | null>(null);
-  const [popQuizPaper, setPopQuizPaper] = useState<PopQuizPaperResponse | null>(null);
-  const [startingPopQuiz, setStartingPopQuiz] = useState(false);
-  const [submittingPopQuiz, setSubmittingPopQuiz] = useState(false);
-  const [showPopQuizAlert, setShowPopQuizAlert] = useState(false);
-  const [showPopQuizRunner, setShowPopQuizRunner] = useState(false);
-  const [showPopQuizResult, setShowPopQuizResult] = useState(false);
-  const [popQuizSecondsLeft, setPopQuizSecondsLeft] = useState<number>(0);
+
 
   const refreshProgressData = async () => {
     if (!user?.userId || !classroomSubjectId) return null;
@@ -211,133 +193,7 @@ export function StudentLearningPathPage() {
   }, [user?.userId, classroomSubjectId]);
 
   
-  useEffect(() => {
-    if (!user?.userId || !classroomSubjectId || nodes.length === 0) return;
-    
-    
-    const onClassNodes = nodes.filter(n => n.nodeType === 'ON_CLASS' && n.studentStatus !== 'LOCKED');
-    if (onClassNodes.length === 0) return;
-    
-    
-    const targetNodeId = onClassNodes[0].nodeId;
 
-    const poll = async () => {
-      try {
-        const res = await studentService.getPendingPopQuiz(targetNodeId);
-        if (res) {
-          setActivePopQuiz(res);
-          if (res.status === 'PENDING') {
-            setShowPopQuizAlert(true);
-          } else if (res.status === 'IN_PROGRESS') {
-            setShowPopQuizAlert(false);
-            if (!popQuizPaper) {
-              const paper = await studentService.getPopQuizPaper(res.assignmentId);
-              setPopQuizPaper(paper);
-              setPopQuizSecondsLeft(paper.remainingSeconds);
-              setShowPopQuizRunner(true);
-            }
-          } else if (res.status === 'SUBMITTED' || res.status === 'EXPIRED') {
-            if (showPopQuizRunner) {
-              setShowPopQuizRunner(false);
-              setShowPopQuizResult(true);
-            }
-          }
-        } else {
-          setActivePopQuiz(null);
-          setPopQuizPaper(null);
-          setShowPopQuizAlert(false);
-          setShowPopQuizRunner(false);
-        }
-      } catch (err) {
-        console.error("Error polling pop quiz:", err);
-      }
-    };
-
-    poll();
-    const interval = setInterval(poll, 5000);
-    return () => clearInterval(interval);
-  }, [user?.userId, classroomSubjectId, nodes, popQuizPaper, showPopQuizRunner]);
-
-  
-  useEffect(() => {
-    if (!showPopQuizRunner || popQuizSecondsLeft <= 0) return;
-    const interval = setInterval(() => {
-      setPopQuizSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleAutoSubmitPopQuiz();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [showPopQuizRunner, popQuizSecondsLeft]);
-
-  const handleStartPopQuiz = async () => {
-    if (!activePopQuiz) return;
-    setStartingPopQuiz(true);
-    try {
-      const paper = await studentService.startPopQuizAttempt(activePopQuiz.assignmentId);
-      setPopQuizPaper(paper);
-      setPopQuizSecondsLeft(paper.remainingSeconds);
-      setShowPopQuizAlert(false);
-      setShowPopQuizRunner(true);
-      toast.success("Bắt đầu làm bài kiểm tra nhanh!");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Không thể bắt đầu làm bài");
-    } finally {
-      setStartingPopQuiz(false);
-    }
-  };
-
-  const handleSubmitPopQuiz = async (body: AttemptSubmission) => {
-    if (!activePopQuiz) return;
-    setSubmittingPopQuiz(true);
-    try {
-      const res = await studentService.submitPopQuizAttempt(activePopQuiz.assignmentId, body);
-      setActivePopQuiz((prev) => prev ? { ...prev, status: 'SUBMITTED', score: res.score ?? undefined } : null);
-      setShowPopQuizRunner(false);
-      setShowPopQuizResult(true);
-      toast.success("Nộp bài thành công!");
-      await refreshProgressData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Nộp bài thất bại");
-    } finally {
-      setSubmittingPopQuiz(false);
-    }
-  };
-
-  const handleAutoSubmitPopQuiz = async () => {
-    if (!activePopQuiz) return;
-    setSubmittingPopQuiz(true);
-    try {
-      toast.warning("Hết giờ làm bài! Hệ thống đang nộp bài...", { duration: 5000 });
-      const res = await studentService.submitPopQuizAttempt(activePopQuiz.assignmentId, { submissions: [] });
-      setActivePopQuiz((prev) => prev ? { ...prev, status: 'EXPIRED', score: res.score ?? undefined } : null);
-      setShowPopQuizRunner(false);
-      setShowPopQuizResult(true);
-      await refreshProgressData();
-    } catch (err) {
-      setActivePopQuiz((prev) => prev ? { ...prev, status: 'EXPIRED', score: 0 } : null);
-      setShowPopQuizRunner(false);
-      setShowPopQuizResult(true);
-    } finally {
-      setSubmittingPopQuiz(false);
-    }
-  };
-
-  const handlePopQuizTabOut = async () => {
-    if (!popQuizPaper) return;
-    try {
-      const count = await studentService.recordTabOut(0, popQuizPaper.attemptId);
-      toast.warning(`Bạn vừa rời khỏi tab khi đang làm bài (lần ${count}). Hành vi này được ghi nhận.`, {
-        duration: 8000,
-      });
-    } catch {
-      
-    }
-  };
 
   
   const ensureNodeContent = async (nodeId: number): Promise<NodeContentResponse | null> => {
@@ -517,7 +373,7 @@ export function StudentLearningPathPage() {
 
   const highestAttempt = useMemo(() => {
     if (attemptsForTest.length === 0) return null;
-    return attemptsForTest.reduce((max, curr) => curr.score > max.score ? curr : max, attemptsForTest[0]);
+    return attemptsForTest.reduce((max, curr) => (curr.score ?? 0) > (max.score ?? 0) ? curr : max, attemptsForTest[0]);
   }, [attemptsForTest]);
 
   
@@ -575,7 +431,7 @@ export function StudentLearningPathPage() {
     }
     if (activeItem.type === 'test') {
       const history = testHistory.filter(h => h.testId === activeItem.id);
-      return history.some(h => h.score >= activeItem.data.passingPercentage);
+      return history.some(h => (h.score ?? 0) >= activeItem.data.passingPercentage);
     }
     if (activeItem.type === 'exercise') {
       const submission = exerciseSubmissions[activeItem.id];
@@ -615,7 +471,7 @@ export function StudentLearningPathPage() {
 
         const allTestsDone = tests.every(t => {
           const history = testHistory.filter(h => h.testId === t.testId);
-          return history.some(h => h.score >= (t.passingPercentage ?? 0));
+          return history.some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0));
         });
 
         const allExercisesDone = exercises.every(e => {
@@ -921,7 +777,7 @@ export function StudentLearningPathPage() {
                                   <Award className={`size-3.5 shrink-0 ${isItemActive ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
                                   <span className="truncate">{t.title}</span>
                                 </div>
-                                {(isCompleted || testHistory.filter(h => h.testId === t.testId).some(h => h.score >= (t.passingPercentage ?? 0))) && (
+                                {(isCompleted || testHistory.filter(h => h.testId === t.testId).some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0))) && (
                                   <CheckCircle2 className={`size-3.5 shrink-0 ${isItemActive ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-450'}`} />
                                 )}
                               </button>
@@ -1094,7 +950,7 @@ export function StudentLearningPathPage() {
                           <div className="space-y-2">
                             {attemptsForTest.map((att, idx) => {
                               const isPending = att.score == null;
-                              const isPassed = !isPending && att.score >= (activeItem.data.passingPercentage || 0);
+                              const isPassed = !isPending && (att.score ?? 0) >= (activeItem.data.passingPercentage || 0);
                               return (
                                 <div key={att.attemptId} className="flex justify-between items-center p-3 border border-border bg-muted/20 rounded-md text-xs">
                                   <span className="font-bold text-foreground">Lần nộp {attemptsForTest.length - idx}</span>
@@ -1128,7 +984,7 @@ export function StudentLearningPathPage() {
                         >
                           <span>
                             {attemptsForTest.length > 0 
-                              ? (highestAttempt && highestAttempt.score >= (activeItem.data.passingPercentage || 0) 
+                              ? (highestAttempt && (highestAttempt.score ?? 0) >= (activeItem.data.passingPercentage || 0) 
                                 ? 'Làm lại bài thi (Cải thiện điểm)' 
                                 : 'Làm lại bài thi') 
                               : 'Bắt đầu làm bài thi'}
@@ -1419,103 +1275,7 @@ export function StudentLearningPathPage() {
         )}
       </div>
 
-      {}
-      <Dialog open={showPopQuizAlert} onOpenChange={setShowPopQuizAlert}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
-              <span className="animate-pulse">🔔</span>
-              <span>Bài kiểm tra nhanh (Pop Quiz)!</span>
-            </DialogTitle>
-            <DialogDescription>
-              Giảng viên vừa giao bài kiểm tra nhanh cho bạn:
-              <strong className="block text-foreground text-base mt-2 font-bold">{activePopQuiz?.title}</strong>
-              Thời gian làm bài: {activePopQuiz?.durationMinutes} phút.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:justify-end mt-4">
-            <Button
-              onClick={handleStartPopQuiz}
-              disabled={startingPopQuiz}
-              className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl"
-            >
-              {startingPopQuiz ? "Đang kết nối..." : "Bắt đầu làm bài"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {}
-      <Dialog open={showPopQuizRunner} onOpenChange={() => {}}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-3 mb-4">
-            <div className="flex justify-between items-center pr-6">
-              <DialogTitle className="text-lg font-bold">Pop Quiz: {popQuizPaper?.title}</DialogTitle>
-              <div className="flex items-center gap-2 bg-amber-55 border border-amber-200 px-3 py-1.5 rounded-lg text-amber-700 font-extrabold text-sm animate-pulse">
-                <span>⏱️ Còn lại:</span>
-                <span>
-                  {Math.floor(popQuizSecondsLeft / 60)}m {popQuizSecondsLeft % 60}s
-                </span>
-              </div>
-            </div>
-          </DialogHeader>
-          {popQuizPaper && (
-            <div className="py-2">
-              <TestRunner
-                details={{
-                  testId: popQuizPaper.assignmentId,
-                  title: popQuizPaper.title,
-                  durationMinutes: popQuizPaper.durationMinutes,
-                  questions: popQuizPaper.questions.map((q) => ({
-                    questionId: q.questionId,
-                    questionContent: q.questionContent,
-                    questionType: q.questionType as any,
-                    score: q.score,
-                    answers: q.answers,
-                  })),
-                }}
-                started={true}
-                submitting={submittingPopQuiz}
-                onStart={() => {}}
-                onSubmit={handleSubmitPopQuiz}
-                onTabOut={handlePopQuizTabOut}
-                submitLabel="Nộp bài Pop Quiz"
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {}
-      <Dialog open={showPopQuizResult} onOpenChange={setShowPopQuizResult}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-center">Kết quả Pop Quiz</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-6 space-y-4">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-4xl border border-emerald-200 font-bold">
-              {activePopQuiz?.score != null ? `${activePopQuiz.score}%` : '---'}
-            </div>
-            <p className="text-sm text-zinc-500 font-medium text-center">
-              {activePopQuiz?.status === 'EXPIRED' 
-                ? 'Bài làm của bạn đã quá hạn nộp. Hệ thống ghi nhận 0 điểm.' 
-                : 'Bài kiểm tra nhanh của bạn đã được ghi nhận thành công.'}
-            </p>
-          </div>
-          <DialogFooter className="sm:justify-center mt-2">
-            <Button
-              onClick={() => {
-                setShowPopQuizResult(false);
-                setActivePopQuiz(null);
-                setPopQuizPaper(null);
-              }}
-              className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl px-6"
-            >
-              Đồng ý
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
