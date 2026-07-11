@@ -191,9 +191,9 @@ public class StudentTestServiceImpl implements StudentTestService {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài test phân loại: hãy dùng endpoint nộp bài phân loại (placement).");
         }
-        
-        
-        if (test.getLearningNode().getTestKind() == NodeTestKind.PLACEMENT) {
+
+
+        if (test.getLearningNode().getTestKind() == NodeTestKind.PLACEMENT && isEntryPlacementTest(test)) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài test năng lực đầu vào: hãy nộp qua luồng phân loại (placement).");
         }
@@ -214,7 +214,8 @@ public class StudentTestServiceImpl implements StudentTestService {
                     .build();
         }
 
-        boolean passed = finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
+        boolean passed = test.getPassingPercentage() != null
+                && finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
 
         LearningNode node = test.getLearningNode();
         ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
@@ -237,16 +238,24 @@ public class StudentTestServiceImpl implements StudentTestService {
     
     private void routeByTestKind(Long studentId, LearningNode node, BigDecimal percentage, boolean passed) {
         Long pathId = node.getLearningPath().getPathId();
-        if (node.getTestKind() == NodeTestKind.GATE) {
-            
+        if (node.getTestKind() == NodeTestKind.PLACEMENT) {
+
+            routePlacementRetakeNode(studentId, node, pathId, percentage);
+        } else if (node.getTestKind() == NodeTestKind.GATE) {
+
             routeGateNode(studentId, node, pathId, percentage);
         } else if (node.getTestKind() == NodeTestKind.FREE_CHOICE) {
-            
+
             routeFreeChoiceNode(studentId, node, pathId, passed);
         } else {
-            
+
             routeAfterAttempt(studentId, node, pathId, passed);
         }
+    }
+
+
+    private boolean isEntryPlacementTest(com.fedu.fedu.entity.Test test) {
+        return classroomSubjectRepository.findByQuizStartTestId(test.getTestId()).isPresent();
     }
 
     
@@ -372,9 +381,8 @@ public class StudentTestServiceImpl implements StudentTestService {
         Long studentId = attempt.getStudent().getUserId();
         LearningNode node = test.getLearningNode();
 
-        
-        
-        if (node == null || node.getTestKind() == NodeTestKind.PLACEMENT) {
+
+        if (node == null || (node.getTestKind() == NodeTestKind.PLACEMENT && isEntryPlacementTest(test))) {
             finalizePlacementAfterGrading(test, studentId, pct);
             return;
         }
@@ -697,6 +705,30 @@ public class StudentTestServiceImpl implements StudentTestService {
         routeMainNode(studentId, node, pathId, passed);
     }
     
+    void routePlacementRetakeNode(Long studentId, LearningNode placementNode, Long pathId, BigDecimal percentage) {
+        StudentNodeProgress gp = getProgress(studentId, pathId, placementNode.getNodeId());
+        if (gp != null) {
+            if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
+                markCompleted(gp, placementNode);
+            }
+            studentNodeProgressRepository.save(gp);
+        }
+
+        ClassroomSubject cs = placementNode.getLearningPath().getClassroomSubject();
+        if (cs != null) {
+            Long testId = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(placementNode.getNodeId())
+                    .stream()
+                    .findFirst()
+                    .map(com.fedu.fedu.entity.Test::getTestId)
+                    .orElse(null);
+            levelRoutingService.applyPlacementRetakeRouting(cs.getId(), placementNode, studentId, testId, percentage);
+        }
+
+        for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(placementNode.getNodeId())) {
+            openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
+        }
+    }
+
     void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage) {
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
         if (gp != null) {

@@ -229,7 +229,8 @@ public class NodeContentServiceImpl implements NodeContentService {
 
         if (node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT) {
             ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
-            if (cs != null) {
+            if (cs != null && com.fedu.fedu.utils.NodeRoutingUtils.isEntryPlacement(node,
+                    learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(node.getLearningPath().getPathId()))) {
                 cs.setQuizStart(test);
             }
         }

@@ -102,9 +102,11 @@ function SidebarContent({
         </div>
         <button
           onClick={() => {
-            logout();
+            navigate("/");
+            setTimeout(() => {
+              logout();
+            }, 0);
             if (onItemClick) onItemClick();
-            window.location.href = "/";
           }}
           className="w-full px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
         >

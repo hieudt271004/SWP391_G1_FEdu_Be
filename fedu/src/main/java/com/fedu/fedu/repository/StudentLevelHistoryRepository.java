@@ -9,4 +9,6 @@ public interface StudentLevelHistoryRepository extends JpaRepository<StudentLeve
 
     List<StudentLevelHistory> findByStudentUserIdAndClassroomSubjectIdOrderByChangedAtAsc(
             Long studentId, Long classroomSubjectId);
+
+    void deleteByStudentUserIdAndClassroomSubjectId(Long studentId, Long classroomSubjectId);
 }

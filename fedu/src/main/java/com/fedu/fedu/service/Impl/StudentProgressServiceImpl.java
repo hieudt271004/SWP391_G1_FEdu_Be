@@ -80,26 +80,16 @@ public class StudentProgressServiceImpl implements StudentProgressService {
         }
 
         Integer level = enrollment.getCurrentLevel();
-        
-        
-        List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId())
-                .stream()
-                .filter(n -> n.getLevel() == null || n.getLevel().equals(level)
-                        || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE)
-                .collect(Collectors.toList());
-        Set<Long> visibleNodeIds = nodes.stream().map(LearningNode::getNodeId).collect(Collectors.toSet());
-        List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId())
-                .stream()
-                .filter(e -> visibleNodeIds.contains(e.getFromNode().getNodeId())
-                        && visibleNodeIds.contains(e.getToNode().getNodeId()))
-                .collect(Collectors.toList());
 
-        
+        List<LearningNode> allNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
+        LearningNode entryPlacement = com.fedu.fedu.utils.NodeRoutingUtils.entryPlacementNode(allNodes);
+        Long entryPlacementId = entryPlacement != null ? entryPlacement.getNodeId() : null;
+
         List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
-        
+
         boolean healed = false;
         List<StudentNodeProgress> incompletePlacements = progressList.stream()
-                .filter(p -> p.getLearningNode().getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT
+                .filter(p -> p.getLearningNode().getNodeId().equals(entryPlacementId)
                         && p.getStatus() != StudentProgressStatus.COMPLETED)
                 .collect(Collectors.toList());
 
@@ -115,7 +105,7 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 healed = true;
             }
 
-            
+
             List<NodeEdge> pathEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
             for (StudentNodeProgress p : progressList) {
                 if (p.getStatus() == StudentProgressStatus.LOCKED) {
@@ -139,7 +129,7 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 }
             }
 
-            
+
             if (healed) {
                 progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
             }
@@ -151,6 +141,41 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                         p -> p,
                         (a, b) -> a
                 ));
+
+
+        Set<Integer> stagesDoneAtOtherLevel = allNodes.stream()
+                .filter(n -> {
+                    StudentNodeProgress p = progressMap.get(n.getNodeId());
+                    return p != null && p.getStatus() == StudentProgressStatus.COMPLETED;
+                })
+                .filter(n -> (n.getTestKind() == null || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.NONE)
+                        && n.getLevel() != null && !n.getLevel().equals(level)
+                        && n.getStageOrder() != null)
+                .map(LearningNode::getStageOrder)
+                .collect(Collectors.toSet());
+
+
+        List<LearningNode> nodes = allNodes.stream()
+                .filter(n -> {
+                    StudentNodeProgress p = progressMap.get(n.getNodeId());
+                    if (p != null && p.getStatus() == StudentProgressStatus.COMPLETED) {
+                        return true;
+                    }
+                    if (n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE) {
+                        return true;
+                    }
+                    if (n.getLevel() == null) {
+                        return true;
+                    }
+                    return n.getLevel().equals(level) && !stagesDoneAtOtherLevel.contains(n.getStageOrder());
+                })
+                .collect(Collectors.toList());
+        Set<Long> visibleNodeIds = nodes.stream().map(LearningNode::getNodeId).collect(Collectors.toSet());
+        List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId())
+                .stream()
+                .filter(e -> visibleNodeIds.contains(e.getFromNode().getNodeId())
+                        && visibleNodeIds.contains(e.getToNode().getNodeId()))
+                .collect(Collectors.toList());
 
         List<LearningNodeResponse> nodeResponses = nodes.stream()
                 .map(n -> {
@@ -194,20 +219,33 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                         .build())
                 .collect(Collectors.toList());
 
-        
-        int totalMat = nodeMaterialRepository.countTotalMaterialsByPathIdAndLevel(path.getPathId(), level);
-        int completedMat = studentMaterialProgressRepository.countCompletedMaterialsByStudentAndPathAndLevel(studentId, path.getPathId(), level);
 
-        
-        int totalExe = nodeExerciseRepository.countTotalExercisesByPathIdAndLevel(path.getPathId(), level);
-        int completedExe = submissionRepository.countCompletedExercisesByStudentAndPathAndLevel(studentId, path.getPathId(), level);
+        Set<Long> countableNodeIds = nodes.stream()
+                .filter(n -> {
+                    StudentNodeProgress p = progressMap.get(n.getNodeId());
+                    if (p != null && p.getStatus() == StudentProgressStatus.COMPLETED) {
+                        return true;
+                    }
+                    return n.getLevel() == null || n.getLevel().equals(level);
+                })
+                .map(LearningNode::getNodeId)
+                .collect(Collectors.toSet());
 
-        
-        int totalTst = testRepository.countTotalTestsByPathIdAndLevel(path.getPathId(), level);
-        int completedTst = studentTestAttemptRepository.countCompletedTestsByStudentAndPathAndLevel(studentId, path.getPathId(), level);
+        int totalMaterials = 0;
+        int completedMaterials = 0;
+        if (!countableNodeIds.isEmpty()) {
+            int totalMat = nodeMaterialRepository.countByLearningNodeNodeIdInAndIsDeletedFalse(countableNodeIds);
+            int completedMat = studentMaterialProgressRepository.countCompletedMaterialsByStudentAndNodeIds(studentId, countableNodeIds);
 
-        int totalMaterials = totalMat + totalExe + totalTst;
-        int completedMaterials = completedMat + completedExe + completedTst;
+            int totalExe = nodeExerciseRepository.countByLearningNodeNodeIdInAndIsDeletedFalse(countableNodeIds);
+            int completedExe = submissionRepository.countCompletedExercisesByStudentAndNodeIds(studentId, countableNodeIds);
+
+            int totalTst = testRepository.countByLearningNodeNodeIdInAndIsDeletedFalse(countableNodeIds);
+            int completedTst = studentTestAttemptRepository.countCompletedTestsByStudentAndNodeIds(studentId, countableNodeIds);
+
+            totalMaterials = totalMat + totalExe + totalTst;
+            completedMaterials = completedMat + completedExe + completedTst;
+        }
 
         return ClassroomGraphResponse.builder()
                 .classroomSubjectId(classroomSubjectId)

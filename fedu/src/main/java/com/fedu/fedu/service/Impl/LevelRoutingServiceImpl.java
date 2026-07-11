@@ -49,25 +49,29 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         }
 
         
-        
+
         Test test = testRepository.findById(testId).orElse(null);
         LearningNode node = test != null ? test.getLearningNode() : null;
         if (node != null && node.getTestKind() == NodeTestKind.PLACEMENT) {
-            BigDecimal yeuMax = node.getPlacementYeuMax() != null ? node.getPlacementYeuMax() : DEFAULT_YEU_MAX;
-            BigDecimal tbMax = node.getPlacementTbMax() != null ? node.getPlacementTbMax() : DEFAULT_TB_MAX;
-            if (node.getPlacementYeuMax() == null || node.getPlacementTbMax() == null) {
-                log.warn("Node PLACEMENT {} thiếu ngưỡng phân mức — dùng mặc định {}/{}.",
-                        node.getNodeId(), DEFAULT_YEU_MAX, DEFAULT_TB_MAX);
-            }
-            if (percentage.compareTo(yeuMax) <= 0) {
-                return LearningLevels.WEAK;
-            }
-            if (percentage.compareTo(tbMax) <= 0) {
-                return LearningLevels.MEDIUM;
-            }
-            return LearningLevels.GOOD;
+            return resolveByPlacementThresholds(node, percentage);
         }
         return null;
+    }
+
+    private Integer resolveByPlacementThresholds(LearningNode node, BigDecimal percentage) {
+        BigDecimal yeuMax = node.getPlacementYeuMax() != null ? node.getPlacementYeuMax() : DEFAULT_YEU_MAX;
+        BigDecimal tbMax = node.getPlacementTbMax() != null ? node.getPlacementTbMax() : DEFAULT_TB_MAX;
+        if (node.getPlacementYeuMax() == null || node.getPlacementTbMax() == null) {
+            log.warn("Node PLACEMENT {} thiếu ngưỡng phân mức — dùng mặc định {}/{}.",
+                    node.getNodeId(), DEFAULT_YEU_MAX, DEFAULT_TB_MAX);
+        }
+        if (percentage.compareTo(yeuMax) <= 0) {
+            return LearningLevels.WEAK;
+        }
+        if (percentage.compareTo(tbMax) <= 0) {
+            return LearningLevels.MEDIUM;
+        }
+        return LearningLevels.GOOD;
     }
 
     @Override
@@ -152,6 +156,42 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         reopenBranchNodesForLevel(classroomSubjectId, studentId, target);
     }
 
+    @Override
+    @Transactional
+    public void applyPlacementRetakeRouting(Long classroomSubjectId, LearningNode placementNode, Long studentId,
+                                            Long testId, BigDecimal percentage) {
+        if (placementNode == null || placementNode.getTestKind() != NodeTestKind.PLACEMENT || percentage == null) {
+            return;
+        }
+        ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
+                .orElse(null);
+        if (css == null) {
+            return;
+        }
+        Integer current = css.getCurrentLevel();
+        if (current == null) {
+            return;
+        }
+
+        Set<Integer> applies = parseApplies(placementNode.getAppliesLevels());
+        if (!applies.isEmpty() && !applies.contains(current)) {
+            return;
+        }
+
+        Integer newLevel = testId != null ? resolveLevel(testId, percentage) : null;
+        if (newLevel == null) {
+            newLevel = resolveByPlacementThresholds(placementNode, percentage);
+        }
+        if (newLevel == null || current.equals(newLevel)) {
+            return;
+        }
+        css.setCurrentLevel(newLevel);
+        classroomSubjectStudentRepository.save(css);
+        writeHistory(css, current, newLevel, LevelChangeReason.RETAKE);
+        reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel);
+    }
+
     private static Set<Integer> parseApplies(String s) {
         Set<Integer> out = new LinkedHashSet<>();
         if (s == null || s.isBlank()) {
@@ -183,18 +223,32 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
                 .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(),
                         StudentNodeProgress::getStatus, (a, b) -> a));
 
+
+        Set<Integer> stagesDoneAtOtherLevel = list.stream()
+                .filter(p -> p.getStatus() == StudentProgressStatus.COMPLETED)
+                .map(StudentNodeProgress::getLearningNode)
+                .filter(n -> (n.getTestKind() == null || n.getTestKind() == NodeTestKind.NONE)
+                        && n.getLevel() != null && !n.getLevel().equals(newLevel)
+                        && n.getStageOrder() != null)
+                .map(LearningNode::getStageOrder)
+                .collect(Collectors.toSet());
+
         for (StudentNodeProgress p : list) {
             LearningNode node = p.getLearningNode();
             if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
-                continue; 
+                continue;
             }
             if (node.getLevel() == null) {
-                continue; 
+                continue;
             }
             if (p.getStatus() == StudentProgressStatus.COMPLETED) {
-                continue; 
+                continue;
             }
             if (node.getLevel().equals(newLevel)) {
+
+                if (stagesDoneAtOtherLevel.contains(node.getStageOrder())) {
+                    continue;
+                }
                 List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(node.getNodeId());
                 boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusByNode, newLevel);
                 if (p.getStatus() == StudentProgressStatus.LOCKED && prereqMet) {
@@ -202,7 +256,7 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
                     p.setUnlockedAt(LocalDateTime.now());
                 }
             } else if (p.getStatus() != StudentProgressStatus.LOCKED) {
-                
+
                 p.setStatus(StudentProgressStatus.LOCKED);
             }
         }

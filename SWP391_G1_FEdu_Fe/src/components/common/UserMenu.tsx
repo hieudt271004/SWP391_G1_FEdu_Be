@@ -28,8 +28,10 @@ export function UserMenu() {
 
   const handleLogout = () => {
     setOpen(false);
-    logout();
-    window.location.href = "/";
+    navigate("/");
+    setTimeout(() => {
+      logout();
+    }, 0);
   };
 
   const handleNavigate = (path: string) => {
