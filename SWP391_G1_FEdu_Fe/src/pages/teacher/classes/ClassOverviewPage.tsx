@@ -2344,11 +2344,11 @@ export function ClassOverviewPage() {
 
 
       {graphData?.state === 'PUBLISHED' && (
-        <Card className="border-emerald-100 bg-emerald-50/10" role="alert">
+        <Card className="border-emerald-500/20 bg-emerald-500/5" role="alert">
           <CardContent className="pt-6">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-emerald-950 font-semibold">
-                <CheckCircle2 className="size-5 text-emerald-600" />
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
                 <span>Đã publish lúc {graphData.publishedAt ? new Date(graphData.publishedAt).toLocaleString() : ''}</span>
               </div>
               <p className="text-sm text-muted-foreground">Lộ trình học đã được mở cho học sinh. Mọi tiến độ học tập đang được ghi nhận.</p>
@@ -2361,13 +2361,13 @@ export function ClassOverviewPage() {
       )}
 
       {}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-border">
         <button
           onClick={() => setActiveTab('roadmap')}
           className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
             activeTab === 'roadmap'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              ? 'border-primary text-foreground font-bold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           Lộ trình học tập
@@ -2377,8 +2377,8 @@ export function ClassOverviewPage() {
           onClick={() => setActiveTab('students')}
           className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
             activeTab === 'students'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              ? 'border-primary text-foreground font-bold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           Danh sách học sinh ({students.length})
@@ -3382,18 +3382,18 @@ export function ClassOverviewPage() {
 
       {}
       <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận Publish lộ trình học</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Xác nhận Publish lộ trình học</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Hành động này sẽ chính thức kích hoạt lộ trình học cho sinh viên.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600 leading-relaxed">
-              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong>{students.length} học sinh</strong> đang enroll trong lớp học này.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong className="text-foreground font-bold">{students.length} học sinh</strong> đang enroll trong lớp học này.
             </p>
-            <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-100">
+            <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 p-3 rounded-md border border-amber-500/20">
               <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
@@ -3404,7 +3404,7 @@ export function ClassOverviewPage() {
               />
               <label
                 htmlFor="understand-publish"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-foreground/90 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
               </label>
@@ -3421,7 +3421,7 @@ export function ClassOverviewPage() {
             <Button
               onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
-              className="font-medium"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium border-transparent"
             >
               {actionState === 'publishing' ? (
                 <>
@@ -3438,18 +3438,18 @@ export function ClassOverviewPage() {
 
       {}
       <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Rút lại lộ trình học để chỉnh sửa thêm bản nháp.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600 leading-relaxed font-medium">
+            <p className="text-sm text-muted-foreground leading-relaxed font-medium">
               Toàn bộ tiến độ học tập và ghi nhận bài học hiện tại của học sinh sẽ bị xóa sạch khỏi hệ thống.
             </p>
-            <p className="text-sm text-red-700 bg-red-50 p-3 rounded-md border border-red-100">
+            <p className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-md border border-red-500/20">
               <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
@@ -3460,7 +3460,7 @@ export function ClassOverviewPage() {
               />
               <label
                 htmlFor="understand-unpublish"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-foreground/90 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
               </label>
@@ -3477,7 +3477,7 @@ export function ClassOverviewPage() {
             <Button
               onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
-              className="font-medium"
+              className="bg-amber-600 hover:bg-amber-500 text-white font-medium border-transparent"
             >
               {actionState === 'unpublishing' ? <Loader className="size-4 animate-spin mr-1" /> : null}
               Xác nhận Unpublish
@@ -3488,18 +3488,18 @@ export function ClassOverviewPage() {
 
       {}
       <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
+            <DialogTitle className="text-destructive flex items-center gap-2">
               <AlertTriangle className="size-5 shrink-0" />
               <span>Không thể unpublish</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="py-2 text-sm text-gray-600 leading-relaxed">
+          <div className="py-2 text-sm text-muted-foreground leading-relaxed">
             {unpublishErrorMsg || 'Đã có học sinh hoàn thành node, không thể unpublish.'}
           </div>
           <DialogFooter className="sm:justify-end">
-            <Button onClick={() => setShowUnpublishError(false)}>
+            <Button onClick={() => setShowUnpublishError(false)} className="bg-primary text-primary-foreground">
               Đồng ý
             </Button>
           </DialogFooter>
@@ -3508,11 +3508,11 @@ export function ClassOverviewPage() {
 
       {}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Lịch sử xếp lớp học sinh</DialogTitle>
-            <DialogDescription>
-              Xem nhật ký phân loại học lực và đổi nhánh lộ trình của <span className="font-bold text-slate-800">{selectedStudentName}</span>.
+            <DialogTitle className="text-foreground">Lịch sử xếp lớp học sinh</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Xem nhật ký phân loại học lực và đổi nhánh lộ trình của <span className="font-bold text-primary">{selectedStudentName}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 text-xs">
@@ -3521,8 +3521,8 @@ export function ClassOverviewPage() {
                 <Loader className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : levelHistory.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                <History className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
                 <p className="text-xs">Chưa có lịch sử thay đổi mức năng lực.</p>
               </div>
             ) : (
@@ -3537,20 +3537,20 @@ export function ClassOverviewPage() {
                   };
 
                   return (
-                    <div key={hist.id || idx} className="flex gap-4 items-start p-3 border border-slate-100 bg-slate-50/30 rounded-xl">
-                      <div className="flex flex-col items-center justify-center bg-primary/5 text-primary p-2 rounded-lg font-bold shrink-0 min-w-10 text-center">
-                        <span className="text-[10px] text-slate-400 block uppercase font-medium">Mức mới</span>
-                        <span className="text-sm font-extrabold text-primary">{getLvlLabel(hist.newLevel)}</span>
+                    <div key={hist.id || idx} className="flex gap-4 items-start p-3 border border-border bg-card rounded-xl">
+                      <div className="flex flex-col items-center justify-center bg-muted text-foreground p-2 rounded-lg font-bold shrink-0 min-w-10 text-center border border-border">
+                        <span className="text-[10px] text-muted-foreground block uppercase font-medium">Mức mới</span>
+                        <span className="text-sm font-extrabold text-foreground">{getLvlLabel(hist.newLevel)}</span>
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="flex justify-between items-center">
-                          <span className="font-bold text-slate-800">Lý do: {getReasonLabel(hist.reason)}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">
+                          <span className="font-bold text-foreground">Lý do: {getReasonLabel(hist.reason)}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">
                             {new Date(hist.changedAt).toLocaleString('vi-VN')}
                           </span>
                         </div>
-                        <p className="text-slate-500 leading-relaxed text-[11px]">
-                          Chuyển từ mức <span className="font-semibold text-slate-700">{hist.oldLevel ? getLvlLabel(hist.oldLevel) : 'Chưa xếp lớp'}</span> sang mức <span className="font-semibold text-slate-700">{getLvlLabel(hist.newLevel)}</span>.
+                        <p className="text-muted-foreground leading-relaxed text-[11px]">
+                          Chuyển từ mức <span className="font-semibold text-foreground/90">{hist.oldLevel ? getLvlLabel(hist.oldLevel) : 'Chưa xếp lớp'}</span> sang mức <span className="font-semibold text-foreground/90">{getLvlLabel(hist.newLevel)}</span>.
                         </p>
                       </div>
                     </div>
@@ -3560,7 +3560,7 @@ export function ClassOverviewPage() {
             )}
           </div>
           <DialogFooter className="sm:justify-end">
-            <Button type="button" onClick={() => setIsHistoryOpen(false)} className="font-semibold">
+            <Button type="button" onClick={() => setIsHistoryOpen(false)} className="font-semibold bg-primary text-primary-foreground">
               Đóng
             </Button>
           </DialogFooter>
@@ -3569,12 +3569,12 @@ export function ClassOverviewPage() {
 
       {}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+        <DialogContent className="sm:max-w-xl bg-background border-border shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <User className="size-5 text-primary" /> Thông tin chi tiết học sinh
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-muted-foreground">
               Xem hồ sơ học tập và lộ trình của học sinh trong lớp học.
             </DialogDescription>
           </DialogHeader>
@@ -3582,19 +3582,19 @@ export function ClassOverviewPage() {
           {selectedStudent && (
             <div className="py-4 space-y-4">
               {}
-              <div className="flex items-center gap-4 bg-slate-50/50 p-4 border border-slate-100 rounded-2xl">
-                <div className="size-12 bg-primary/5 text-primary rounded-full flex items-center justify-center font-extrabold text-lg border border-primary/10">
+              <div className="flex items-center gap-4 bg-muted/30 p-4 border border-border rounded-2xl">
+                <div className="size-12 bg-muted text-foreground rounded-full flex items-center justify-center font-extrabold text-lg border border-border">
                   {selectedStudent.fullName.split(' ').pop()?.charAt(0).toUpperCase() || 'S'}
                 </div>
                 <div className="flex-1 space-y-1">
-                  <h4 className="font-bold text-slate-800 text-sm leading-none">{selectedStudent.fullName}</h4>
-                  <div className="flex items-center gap-4 text-slate-500 text-xs mt-1">
+                  <h4 className="font-bold text-foreground text-sm leading-none">{selectedStudent.fullName}</h4>
+                  <div className="flex items-center gap-4 text-muted-foreground text-xs mt-1">
                     <span className="flex items-center gap-1 font-medium">
-                      <span className="font-bold text-slate-400">Mã HS:</span> {selectedStudent.id}
+                      <span className="font-bold text-muted-foreground">Mã HS:</span> {selectedStudent.id}
                     </span>
                     {selectedStudent.email && (
                       <span className="flex items-center gap-1">
-                        <Mail className="size-3 text-slate-400" /> {selectedStudent.email}
+                        <Mail className="size-3 text-muted-foreground" /> {selectedStudent.email}
                       </span>
                     )}
                   </div>
@@ -3602,12 +3602,12 @@ export function ClassOverviewPage() {
               </div>
 
               {}
-              <div className="flex border-b border-slate-100 gap-4 text-xs font-semibold text-slate-500">
+              <div className="flex border-b border-border gap-4 text-xs font-semibold text-muted-foreground">
                 <button
                   type="button"
                   onClick={() => setDetailTab('info')}
                   className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'info' ? 'text-primary border-b-2 border-primary' : 'hover:text-slate-700'
+                    detailTab === 'info' ? 'text-primary border-b-2 border-primary' : 'hover:text-foreground'
                   }`}
                 >
                   Học lực & Lộ trình
@@ -3616,7 +3616,7 @@ export function ClassOverviewPage() {
                   type="button"
                   onClick={() => setDetailTab('history')}
                   className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'history' ? 'text-primary border-b-2 border-primary' : 'hover:text-slate-700'
+                    detailTab === 'history' ? 'text-primary border-b-2 border-primary' : 'hover:text-foreground'
                   }`}
                 >
                   Lịch sử xếp lớp
@@ -3629,18 +3629,18 @@ export function ClassOverviewPage() {
                   <div className="space-y-4 pt-1">
                     <div className="grid grid-cols-2 gap-4">
                       {}
-                      <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/20 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Phân loại học lực</span>
+                      <div className="p-3 border border-border rounded-xl bg-muted/10 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Phân loại học lực</span>
                         <div className="pt-1">
                           {(() => {
                             const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
                             const badgeColor = selectedStudent.currentLevel === 1
-                              ? 'bg-rose-50 border-rose-200 text-rose-700'
+                              ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
                               : selectedStudent.currentLevel === 2
-                                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
                                 : selectedStudent.currentLevel === 3
-                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                  : 'bg-slate-50 border-slate-200 text-slate-500';
+                                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                  : 'bg-muted border-border text-muted-foreground';
                             return (
                               <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 ${badgeColor}`}>
                                 {label}
@@ -3651,29 +3651,29 @@ export function ClassOverviewPage() {
                       </div>
 
                       {}
-                      <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/20 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Lộ trình học tập</span>
-                        <div className="pt-1 font-semibold text-slate-700 text-xs">
+                      <div className="p-3 border border-border rounded-xl bg-muted/10 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Lộ trình học tập</span>
+                        <div className="pt-1 font-semibold text-foreground text-xs">
                           {selectedStudent.assignedPathName || (
-                            <span className="text-slate-400 italic font-normal">Chưa gán lộ trình</span>
+                            <span className="text-muted-foreground italic font-normal">Chưa gán lộ trình</span>
                           )}
                         </div>
                       </div>
                     </div>
 
                     {}
-                    <div className="p-4 border border-slate-100 rounded-xl bg-slate-50/10 space-y-3">
+                    <div className="p-4 border border-border rounded-xl bg-muted/5 space-y-3">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                        <span className="font-bold text-foreground flex items-center gap-1.5">
                           <TrendingUp className="size-4 text-primary" /> Tiến độ lộ trình
                         </span>
-                        <span className="font-semibold text-primary">0%</span>
+                        <span className="font-semibold text-foreground">0%</span>
                       </div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
                         <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: '0%' }} />
                       </div>
-                      <p className="text-[10.5px] text-slate-500 leading-relaxed">
-                        Học sinh đang học theo nhánh riêng biệt của mức năng lực <span className="font-semibold">{selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại'}</span>. Tiến độ sẽ tự động tăng khi học sinh làm bài test cổng phụ hoặc hoàn thành bài học.
+                      <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                        Học sinh đang học theo nhánh riêng biệt của mức năng lực <span className="font-semibold text-foreground">{selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại'}</span>. Tiến độ sẽ tự động tăng khi học sinh làm bài test cổng phụ hoặc hoàn thành bài học.
                       </p>
                     </div>
                     {selectedStudent.currentLevel != null && (
@@ -3700,8 +3700,8 @@ export function ClassOverviewPage() {
                         <Loader className="w-8 h-8 animate-spin text-primary" />
                       </div>
                     ) : levelHistory.length === 0 ? (
-                      <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                        <History className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                        <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
                         <p className="text-xs">Chưa có lịch sử thay đổi mức năng lực.</p>
                       </div>
                     ) : (
@@ -3716,20 +3716,20 @@ export function ClassOverviewPage() {
                           };
 
                           return (
-                            <div key={hist.id || idx} className="flex gap-3 items-start p-2.5 border border-slate-100 bg-slate-50/30 rounded-xl">
-                              <div className="flex flex-col items-center justify-center bg-primary/5 text-primary p-1.5 rounded-lg font-bold shrink-0 min-w-10 text-center">
-                                <span className="text-[9px] text-slate-400 block uppercase font-medium">Mức mới</span>
-                                <span className="text-xs font-extrabold text-primary">{getLvlLabel(hist.newLevel)}</span>
+                            <div key={hist.id || idx} className="flex gap-3 items-start p-2.5 border border-border bg-card rounded-xl">
+                              <div className="flex flex-col items-center justify-center bg-muted text-foreground border border-border p-1.5 rounded-lg font-bold shrink-0 min-w-10 text-center">
+                                <span className="text-[9px] text-muted-foreground block uppercase font-medium">Mức mới</span>
+                                <span className="text-xs font-extrabold text-foreground">{getLvlLabel(hist.newLevel)}</span>
                               </div>
                               <div className="flex-1 space-y-0.5">
                                 <div className="flex justify-between items-center">
-                                  <span className="font-bold text-slate-700">Lý do: {getReasonLabel(hist.reason)}</span>
-                                  <span className="text-[9px] text-slate-400">
+                                  <span className="font-bold text-foreground">Lý do: {getReasonLabel(hist.reason)}</span>
+                                  <span className="text-[9px] text-muted-foreground">
                                     {new Date(hist.changedAt).toLocaleString('vi-VN')}
                                   </span>
                                 </div>
-                                <p className="text-slate-500 leading-relaxed text-[10.5px]">
-                                  Chuyển từ mức <span className="font-semibold text-slate-650">{hist.oldLevel ? getLvlLabel(hist.oldLevel) : 'Chưa xếp lớp'}</span> sang mức <span className="font-semibold text-slate-650">{getLvlLabel(hist.newLevel)}</span>.
+                                <p className="text-muted-foreground leading-relaxed text-[10.5px]">
+                                  Chuyển từ mức <span className="font-semibold text-foreground">{hist.oldLevel ? getLvlLabel(hist.oldLevel) : 'Chưa xếp lớp'}</span> sang mức <span className="font-semibold text-foreground">{getLvlLabel(hist.newLevel)}</span>.
                                 </p>
                               </div>
                             </div>
@@ -3743,8 +3743,8 @@ export function ClassOverviewPage() {
             </div>
           )}
 
-          <DialogFooter className="border-t border-slate-100 pt-3 sm:justify-end">
-            <Button type="button" onClick={() => setIsDetailOpen(false)} className="font-semibold">
+          <DialogFooter className="border-t border-border pt-3 sm:justify-end">
+            <Button type="button" onClick={() => setIsDetailOpen(false)} className="font-semibold bg-primary text-primary-foreground">
               Đóng
             </Button>
           </DialogFooter>
@@ -3937,21 +3937,21 @@ export function ClassOverviewPage() {
 
       {}
       <Dialog open={isAssignStudentModalOpen} onOpenChange={setIsAssignStudentModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <UserCheck className="size-5 text-primary" /> Thêm học sinh kèm cặp
             </DialogTitle>
-            <DialogDescription>
-              Giao phó học sinh cho trợ giảng <strong>{selectedSubMentor?.fullName}</strong> kèm cặp.
+            <DialogDescription className="text-muted-foreground">
+              Giao phó học sinh cho trợ giảng <strong className="text-foreground font-bold">{selectedSubMentor?.fullName}</strong> kèm cặp.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateAssignment}>
             <div className="py-4 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 block">Chọn học sinh trong lớp:</label>
-                <div className="max-h-[250px] overflow-y-auto pr-2 space-y-2 py-2 border border-slate-200 rounded-xl bg-white p-2">
+                <label className="text-xs font-bold text-foreground block">Chọn học sinh trong lớp:</label>
+                <div className="max-h-[250px] overflow-y-auto pr-2 space-y-2 py-2 border border-border rounded-xl bg-muted/20 p-2">
                   {students.filter(s => {
                     if (s.isSubmentor) return false;
                     if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
@@ -3960,7 +3960,7 @@ export function ClassOverviewPage() {
                     );
                     return !isAssignedToThis;
                   }).length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-4">Tất cả học sinh khả dụng đã được gán.</p>
+                    <p className="text-xs text-muted-foreground text-center py-4">Tất cả học sinh khả dụng đã được gán.</p>
                   ) : (
                     students.filter(s => {
                       if (s.isSubmentor) return false;
@@ -3970,10 +3970,10 @@ export function ClassOverviewPage() {
                       );
                       return !isAssignedToThis;
                     }).map(s => (
-                      <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
+                      <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border cursor-pointer transition-colors">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 rounded border-slate-300 focus:ring-primary"
+                          className="w-4 h-4 rounded border-border bg-background focus:ring-primary text-foreground"
                           checked={selectedStudentsToAssign.includes(s.classroomSubjectStudentId!)}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -3984,8 +3984,8 @@ export function ClassOverviewPage() {
                           }}
                         />
                         <div>
-                          <p className="text-sm font-semibold text-slate-700">{s.fullName}</p>
-                          <p className="text-xs text-slate-500">{s.id} {s.isSubmentor ? " [Trợ giảng]" : ""}</p>
+                          <p className="text-sm font-semibold text-foreground">{s.fullName}</p>
+                          <p className="text-xs text-muted-foreground">{s.id} {s.isSubmentor ? " [Trợ giảng]" : ""}</p>
                         </div>
                       </label>
                     ))
@@ -3994,7 +3994,7 @@ export function ClassOverviewPage() {
               </div>
             </div>
 
-            <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+            <DialogFooter className="border-t border-border pt-3 flex gap-2 justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -4002,14 +4002,14 @@ export function ClassOverviewPage() {
                   setIsAssignStudentModalOpen(false);
                   setSelectedStudentsToAssign([]);
                 }}
-                className="h-9 rounded-xl text-xs border-slate-200"
+                className="h-9 rounded-xl text-xs border-border"
               >
                 Hủy
               </Button>
               <Button
                 type="submit"
                 disabled={submittingAssignment || selectedStudentsToAssign.length === 0}
-                className="h-9 rounded-xl text-xs font-semibold"
+                className="h-9 rounded-xl text-xs font-semibold bg-primary text-primary-foreground"
               >
                 {submittingAssignment ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
                 Lưu phân công
@@ -4255,25 +4255,25 @@ export function ClassOverviewPage() {
       )}
 
       <Dialog open={isAssignSubMentorModalOpen} onOpenChange={setIsAssignSubMentorModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <UserPlus className="size-5 text-primary" /> Chỉ định trợ giảng
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-muted-foreground">
               Chọn các học sinh để cấp quyền trợ giảng trong lớp này.
             </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 py-2">
             {students.filter(s => !s.isSubmentor).length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-4">Không có học sinh nào khả dụng.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">Không có học sinh nào khả dụng.</p>
             ) : (
               students.filter(s => !s.isSubmentor).map(s => (
-                <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
+                <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border cursor-pointer transition-colors">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 rounded border-slate-300 focus:ring-primary"
+                    className="w-4 h-4 rounded border-border bg-background focus:ring-primary text-foreground"
                     checked={assignSubMentorIds.includes(s.classroomSubjectStudentId!)}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -4284,15 +4284,15 @@ export function ClassOverviewPage() {
                     }}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-slate-700">{s.fullName}</p>
-                    <p className="text-xs text-slate-500">{s.id}</p>
+                    <p className="text-sm font-semibold text-foreground">{s.fullName}</p>
+                    <p className="text-xs text-muted-foreground">{s.id}</p>
                   </div>
                 </label>
               ))
             )}
           </div>
 
-          <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+          <DialogFooter className="border-t border-border pt-3 flex gap-2 justify-end">
             <Button
               type="button"
               variant="outline"
@@ -4300,13 +4300,13 @@ export function ClassOverviewPage() {
                 setIsAssignSubMentorModalOpen(false);
                 setAssignSubMentorIds([]);
               }}
-              className="h-9 rounded-xl text-xs border-slate-200"
+              className="h-9 rounded-xl text-xs border-border"
             >
               Hủy
             </Button>
             <Button
               onClick={handleConfirmAssignSubMentors}
-              className="h-9 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+              className="h-9 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-primary text-primary-foreground"
               disabled={assignSubMentorIds.length === 0 || loadingSupport}
             >
               <Save className="size-3.5" />

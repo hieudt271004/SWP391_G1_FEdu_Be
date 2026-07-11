@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -130,6 +130,7 @@ export function ClassManagementPage() {
   const [tDuration, setTDuration] = useState('15');
   const [numQuestions, setNumQuestions] = useState('0');
   const [addingNode, setAddingNode] = useState(false);
+  const isAddingNodeRef = useRef(false);
 
   
   const [isEditNodeOpen, setIsEditNodeOpen] = useState(false);
@@ -594,10 +595,6 @@ export function ClassManagementPage() {
     setNLevel('');
     setNStage(1);
     setNApplies([]);
-    setNUpMin('');
-    setNDownMax('');
-    setNYeuMax('');
-    setNTbMax('');
     setTDuration('15');
     setNumQuestions('0');
     setIsAddNodeOpen(true);
@@ -773,6 +770,7 @@ export function ClassManagementPage() {
 
   const handleAddNodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (addingNode || isAddingNodeRef.current) return;
     if (!newNodeTitle.trim()) {
       toast.error('Tiêu đề bài học không được để trống');
       return;
@@ -805,6 +803,7 @@ export function ClassManagementPage() {
 
     const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
 
+    isAddingNodeRef.current = true;
     setAddingNode(true);
     try {
       if (nKind === 'FREE_CHOICE') {
@@ -872,6 +871,7 @@ export function ClassManagementPage() {
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Không thể thêm bài học');
     } finally {
+      isAddingNodeRef.current = false;
       setAddingNode(false);
     }
   };
@@ -2307,18 +2307,18 @@ export function ClassManagementPage() {
       )}
       {}
       <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận Publish lộ trình học</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Xác nhận Publish lộ trình học</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Hành động này sẽ chính thức kích hoạt lộ trình học cho sinh viên.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600 leading-relaxed">
-              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong>{students.length} học sinh</strong> đang enroll trong lớp học này.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong className="text-foreground font-bold">{students.length} học sinh</strong> đang enroll trong lớp học này.
             </p>
-            <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-100">
+            <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 p-3 rounded-md border border-amber-500/20">
               <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
@@ -2329,7 +2329,7 @@ export function ClassManagementPage() {
               />
               <label
                 htmlFor="understand-publish"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-foreground/90 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
               </label>
@@ -2346,7 +2346,7 @@ export function ClassManagementPage() {
             <Button
               onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium border-transparent"
             >
               {actionState === 'publishing' ? (
                 <>
@@ -2363,18 +2363,18 @@ export function ClassManagementPage() {
 
       {}
       <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Rút lại lộ trình học để chỉnh sửa thêm bản nháp.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600 leading-relaxed font-medium">
+            <p className="text-sm text-muted-foreground leading-relaxed font-medium">
               Toàn bộ tiến độ học tập và ghi nhận bài học hiện tại của học sinh sẽ bị xóa sạch khỏi hệ thống.
             </p>
-            <p className="text-sm text-red-700 bg-red-50 p-3 rounded-md border border-red-100">
+            <p className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-md border border-red-500/20">
               <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
@@ -2385,7 +2385,7 @@ export function ClassManagementPage() {
               />
               <label
                 htmlFor="understand-unpublish"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-foreground/90 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
               </label>
@@ -2402,7 +2402,7 @@ export function ClassManagementPage() {
             <Button
               onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+              className="bg-amber-600 hover:bg-amber-500 text-white font-medium border-transparent"
             >
               {actionState === 'unpublishing' ? <Loader className="size-4 animate-spin mr-1" /> : null}
               Xác nhận Unpublish
@@ -2413,18 +2413,18 @@ export function ClassManagementPage() {
 
       {}
       <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
+            <DialogTitle className="text-destructive flex items-center gap-2">
               <AlertTriangle className="size-5 shrink-0" />
               <span>Không thể unpublish</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="py-2 text-sm text-gray-600 leading-relaxed">
+          <div className="py-2 text-sm text-muted-foreground leading-relaxed">
             {unpublishErrorMsg || 'Đã có học sinh hoàn thành node, không thể unpublish.'}
           </div>
           <DialogFooter className="sm:justify-end">
-            <Button onClick={() => setShowUnpublishError(false)}>
+            <Button onClick={() => setShowUnpublishError(false)} className="bg-primary text-primary-foreground">
               Đồng ý
             </Button>
           </DialogFooter>

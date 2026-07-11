@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { FileText, Settings, BookOpen, HelpCircle, Code2, Sparkles, AlertCircle, Trash2, Plus, X, GraduationCap, Calendar } from "lucide-react";
 import { learningPathService } from "../../services/learningPath.service";
 import type {
@@ -204,6 +204,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const [eYeuMax, setEYeuMax] = useState("");
   const [eTbMax, setETbMax] = useState("");
   const [saving, setSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   const [mTitle, setMTitle] = useState("");
   const [mType, setMType] = useState<"video" | "file">("video");
@@ -391,10 +392,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const submitCreateTpl = async () => {
+    if (saving || isSavingRef.current) return;
     if (!cTplName.trim()) {
       toast.error("Nhập tên lộ trình");
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const created = await learningPathService.createAdminTemplate({
@@ -415,6 +418,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch {
       toast.error("Không tạo được lộ trình");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -427,7 +431,9 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const submitEditTpl = async () => {
+    if (saving || isSavingRef.current) return;
     if(!path || !eTplDesc.trim()) { toast.error("Nhập tên lộ trình"); return; }
+    isSavingRef.current = true;
     setSaving(true);
     try{
       await learningPathService.updateAdminTemplate(path.pathId, {
@@ -441,6 +447,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       toast.error("Không cập nhật được lộ trình");
     }
     finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   }
@@ -529,6 +536,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const saveNodeEdit = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode || !eTitle.trim()) {
       toast.error("Nhập tên node");
       return;
@@ -537,6 +545,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     
     const gateEditable = selectedNode.testKind === "GATE" && parseApplies(selectedNode.appliesLevels).size !== 1;
     const isPlacement = selectedNode.testKind === "PLACEMENT";
+    isSavingRef.current = true;
     setSaving(true);
     try {
       await learningPathService.updateAdminNode(selectedNode.nodeId, {
@@ -554,6 +563,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch {
       toast.error("Không lưu được node");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -587,6 +597,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const saveSidebarNodeTest = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode) return;
     const isTestNode = selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE' || selectedNode.testKind === 'FREE_CHOICE';
     const testTitleToUse = isTestNode ? eTitle.trim() : tTitle.trim();
@@ -624,6 +635,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       }
     }
 
+    isSavingRef.current = true;
     setSaving(true);
     try {
       
@@ -667,6 +679,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       console.error(e);
       toast.error(e.response?.data?.message || "Không lưu được bài test");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -679,6 +692,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const submitAddNode = async () => {
+    if (saving || isSavingRef.current) return;
     if (!path) return;
     if (!nTitle.trim()) {
       toast.error("Nhập tiêu đề bài học");
@@ -779,6 +793,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         }
       }
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       if (nKind === "FREE_CHOICE") {
@@ -852,10 +867,6 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       setNStage(1);
       setNKind("AT_HOME");
       setNApplies([]);
-      setNUpMin("");
-      setNDownMax("");
-      setNYeuMax("");
-      setNTbMax("");
       setTDuration("15");
       setNumQuestions("0");
       setBuilderQuestions([]);
@@ -864,6 +875,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       console.error(e);
       toast.error(e.response?.data?.message || "Không thêm được bài học");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -914,10 +926,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const addMaterial = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode || !mTitle.trim()) {
       toast.error("Nhập tiêu đề học liệu");
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const fd = new FormData();
@@ -949,15 +963,18 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Không thêm được học liệu");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
 
   const addTest = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode || !tTitle.trim()) {
       toast.error("Nhập tiêu đề bài test");
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       await learningPathService.addAdminNodeTest(selectedNode.nodeId, {
@@ -972,6 +989,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch {
       toast.error("Không thêm được bài test");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -999,6 +1017,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const addExercise = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode || !exTitle.trim()) {
       toast.error("Nhập tiêu đề bài tập");
       return;
@@ -1007,6 +1026,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       toast.error("Chọn ít nhất một hình thức nộp (tự luận hoặc file)");
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       await learningPathService.addAdminNodeExercise(selectedNode.nodeId, {
@@ -1025,6 +1045,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch {
       toast.error("Không thêm được bài tập");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
