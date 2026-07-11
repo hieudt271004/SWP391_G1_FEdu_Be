@@ -72,7 +72,7 @@ class NodeReviewServiceImplTest {
 
     @Test
     void testCommentMidCourseAllowed() {
-        // Enrolled student can comment without course completion gate
+        
         when(learningNodeRepository.findById(500L)).thenReturn(Optional.of(learningNode));
         when(classroomSubjectStudentRepository.existsByClassroomSubject_IdAndStudent_UserId(300L, 100L)).thenReturn(true);
         when(userAccountRepository.findById(100L)).thenReturn(Optional.of(studentUser));
@@ -91,11 +91,11 @@ class NodeReviewServiceImplTest {
 
     @Test
     void testReviewMidCourseRejected() {
-        // Student can't submit rated review if not finished the path
+        
         when(learningNodeRepository.findById(500L)).thenReturn(Optional.of(learningNode));
         when(classroomSubjectStudentRepository.existsByClassroomSubject_IdAndStudent_UserId(300L, 100L)).thenReturn(true);
         
-        // Mock not completed
+        
         when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(100L, 400L)).thenReturn(Collections.emptyList());
 
         CreateNodeReviewRequest request = CreateNodeReviewRequest.builder()
@@ -110,7 +110,7 @@ class NodeReviewServiceImplTest {
 
     @Test
     void testOutsiderDenied() {
-        // Outsider who is not student and not lecturer is denied
+        
         when(learningNodeRepository.findById(500L)).thenReturn(Optional.of(learningNode));
         when(classroomSubjectStudentRepository.existsByClassroomSubject_IdAndStudent_UserId(300L, 999L)).thenReturn(false);
 
@@ -125,7 +125,7 @@ class NodeReviewServiceImplTest {
 
     @Test
     void testTeacherCommentAllowed() {
-        // Lecturer can comment
+        
         when(learningNodeRepository.findById(500L)).thenReturn(Optional.of(learningNode));
         when(classroomSubjectStudentRepository.existsByClassroomSubject_IdAndStudent_UserId(300L, 200L)).thenReturn(false);
         when(userAccountRepository.findById(200L)).thenReturn(Optional.of(teacherUser));
@@ -142,7 +142,7 @@ class NodeReviewServiceImplTest {
 
     @Test
     void testReplyToReplyRejected() {
-        // Enrolled student/teacher can't reply to a reply
+        
         when(learningNodeRepository.findById(500L)).thenReturn(Optional.of(learningNode));
         when(classroomSubjectStudentRepository.existsByClassroomSubject_IdAndStudent_UserId(300L, 100L)).thenReturn(true);
 
@@ -167,7 +167,7 @@ class NodeReviewServiceImplTest {
 
     @Test
     void testAuthorScopedDeleteWithLargeIds() {
-        // Author check uses .equals() (Long objects > 127)
+        
         Long largeAuthorId = 2000L;
         UserAccount author = new UserAccount();
         author.setUserId(largeAuthorId);
@@ -175,11 +175,11 @@ class NodeReviewServiceImplTest {
         NodeReview reply = new NodeReview();
         reply.setReviewId(800L);
         reply.setAuthor(author);
-        reply.setParentReview(new NodeReview()); // make it a reply
+        reply.setParentReview(new NodeReview()); 
 
         when(nodeReviewRepository.findById(800L)).thenReturn(Optional.of(reply));
 
-        // Delete with matching Long value (2000L) but distinct objects
+        
         Long sameIdObj = Long.valueOf("2000");
         
         nodeReviewService.deleteReply(800L, sameIdObj);
@@ -190,7 +190,7 @@ class NodeReviewServiceImplTest {
 
     @Test
     void testSummarySplitAndAverageIgnoresComments() {
-        // Roots are split into reviews and comments, average ignores comments
+        
         NodeReview review1 = new NodeReview();
         review1.setReviewId(10L);
         review1.setRating(5);
@@ -198,7 +198,7 @@ class NodeReviewServiceImplTest {
 
         NodeReview comment1 = new NodeReview();
         comment1.setReviewId(20L);
-        comment1.setRating(null); // comment
+        comment1.setRating(null); 
         comment1.setLearningNode(learningNode);
 
         when(learningNodeRepository.findById(500L)).thenReturn(Optional.of(learningNode));

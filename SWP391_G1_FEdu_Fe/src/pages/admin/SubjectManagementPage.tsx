@@ -12,7 +12,7 @@ import { Badge } from "../../components/ui/badge";
 import { useConfirm } from "../../context/ConfirmContext";
 import { toast } from "sonner";
 
-// Map Subject (BE) → AdminCourse (display)
+
 interface AdminCourse {
   id: number;
   title: string;
@@ -29,10 +29,10 @@ function subjectToRecord(s: Subject, classMap: Record<number, ClassroomSubjectRe
   const codeInitials = (s.subjectCode || "SB").slice(0, 2).toUpperCase();
   const linkedClasses = classMap[s.subjectId] || [];
   
-  // Calculate students count
+  
   const studentsCount = linkedClasses.reduce((sum, c) => sum + (c.studentCount || 0), 0);
   
-  // Calculate active classes count
+  
   const activeClassesCount = linkedClasses.length;
 
   return {
@@ -72,10 +72,10 @@ export function SubjectManagementPage() {
       setLoading(true);
       setError(null);
       
-      // Get all subjects
+      
       const subjects = await subjectService.getAll();
       
-      // Get linked classrooms per subject
+      
       const classMap: Record<number, ClassroomSubjectResponse[]> = {};
       await Promise.all(
         subjects.map(async (s) => {
@@ -100,7 +100,7 @@ export function SubjectManagementPage() {
     fetchSubjects();
   }, [fetchSubjects]);
 
-  // Handle clicking outside to close dropdowns
+  
   useEffect(() => {
     function handleClickOutside() {
       setOpenDropdown(null);
@@ -224,7 +224,7 @@ export function SubjectManagementPage() {
 
   return (
     <div className="space-y-6 text-foreground bg-background">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Tất cả môn học</h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -256,7 +256,7 @@ export function SubjectManagementPage() {
         </Button>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="bg-card text-card-foreground border border-border rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -313,7 +313,7 @@ export function SubjectManagementPage() {
         </div>
       </div>
 
-      {/* List View */}
+      {}
       {viewMode === "list" && (
         <div className="overflow-hidden bg-card text-card-foreground border border-border rounded-xl">
           <div className="overflow-x-auto">
@@ -414,7 +414,7 @@ export function SubjectManagementPage() {
             </table>
           </div>
 
-          {/* Pagination */}
+          {}
           <div className="flex items-center justify-between px-6 py-5 border-t border-border">
             <div className="text-sm text-muted-foreground">
               Hiển thị {(currentPage - 1) * itemsPerPage + 1} – {Math.min(currentPage * itemsPerPage, filteredCourses.length)} trong tổng số {filteredCourses.length} môn học
@@ -451,7 +451,7 @@ export function SubjectManagementPage() {
         </div>
       )}
 
-      {/* Grid View */}
+      {}
       {viewMode === "grid" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -523,7 +523,7 @@ export function SubjectManagementPage() {
             ))}
           </div>
 
-          {/* Pagination */}
+          {}
           <div className="bg-card text-card-foreground border border-border rounded-xl mt-6">
             <div className="flex items-center justify-between px-6 py-5">
               <div className="text-sm text-muted-foreground">
@@ -562,7 +562,7 @@ export function SubjectManagementPage() {
         </div>
       )}
 
-      {/* Edit Modal */}
+      {}
       <SubjectEditModal
         isOpen={editModalOpen}
         onClose={() => { setSelectedCourse(null); setEditModalOpen(false); }}

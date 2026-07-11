@@ -20,7 +20,7 @@ import { ResetSuccessPage } from '../pages/auth/reset/ResetSuccessPage';
 import { TermsPage } from '../pages/auth/terms/TermsPage';
 import { PrivacyPage } from '../pages/auth/privacy/PrivacyPage';
 
-// Admin pages
+
 import { DashboardPage } from '../pages/admin/DashboardPage';
 import { UserManagementPage } from '../pages/admin/UserManagementPage';
 import { UserDetailPage } from '../pages/admin/UserDetailPage';
@@ -33,7 +33,7 @@ import { ClassroomSubjectDetailPage } from '../pages/admin/ClassroomSubjectDetai
 import { AddClassPage } from '../pages/admin/AddClassPage';
 import { SlotManagementPage } from '../pages/admin/SlotManagementPage';
 
-// Teacher pages
+
 import { TeacherDashboardPage } from '../pages/teacher/TeacherDashboardPage';
 import { TeacherCoursesPage } from '../pages/teacher/courses/TeacherCoursesPage';
 import { CourseClassroomsPage } from '../pages/teacher/courses/CourseClassroomsPage';
@@ -44,10 +44,10 @@ import { TeacherLiveSessionPage } from '../pages/teacher/classes/TeacherLiveSess
 import { StudentDetailsPage } from '../pages/teacher/students/StudentDetailsPage';
 import { TeacherTicketsPage } from '../pages/teacher/tickets/TeacherTicketsPage';
 
-// Common pages
+
 import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
 
-// Student pages
+
 import { StudentDashboardPage } from '../pages/student/StudentDashboardPage';
 import { StudentCoursesPage } from '../pages/student/StudentCoursesPage';
 import { StudentLearningPathPage } from '../pages/student/StudentLearningPathPage';
@@ -59,9 +59,9 @@ import { StudentSubmissionsPage } from '../pages/student/submissions/StudentSubm
 import { StudentSchedulePage } from '../pages/student/StudentSchedulePage';
 
 
-// Removed UserDetailPageWrapper, using UserDetailPage directly
 
-// ──────────────────────────────────────────────────────────────────────────
+
+
 
 export function AppRoutes() {
     return (
@@ -124,7 +124,7 @@ export function AppRoutes() {
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
             </Route>
 
-            {/* ── ADMIN ─────────────────────────────────────────────── */}
+            {}
             <Route
                 element={
                     <RoleRoute allowedRoles={['ADMIN']}>
@@ -132,38 +132,38 @@ export function AppRoutes() {
                     </RoleRoute>
                 }
             >
-                {/* Redirect /admin → /admin/dashboard */}
+                {}
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
-                {/* Dashboard */}
+                {}
                 <Route path="/admin/dashboard" element={<DashboardPage />} />
 
-                {/* Slots management */}
+                {}
                 <Route path="/admin/slots" element={<SlotManagementPage />} />
 
-                {/* Profile */}
+                {}
                 <Route path="/admin/profile" element={<ProfileEditPage />} />
 
-                {/* User management */}
+                {}
                 <Route path="/admin/users" element={<UserManagementPage filterRole="all" />} />
                 <Route path="/admin/users/students" element={<UserManagementPage filterRole="STUDENT" />} />
                 <Route path="/admin/users/teachers" element={<UserManagementPage filterRole="TEACHER" />} />
                 <Route path="/admin/users/:id" element={<UserDetailPage />} />
 
-                {/* Course management */}
+                {}
                 <Route path="/admin/subjects" element={<SubjectManagementPage />} />
                 <Route path="/admin/subjects/add" element={<AddSubjectPage />} />
                 <Route path="/admin/subjects/:id/edit" element={<AddSubjectPage />} />
                 <Route path="/admin/subjects/:id" element={<SubjectDetailPage />} />
 
-                {/* Class management */}
+                {}
                 <Route path="/admin/classes" element={<ClassListPage />} />
                 <Route path="/admin/classes/add" element={<AddClassPage />} />
                 <Route path="/admin/classes/:id/edit" element={<AddClassPage />} />
                 <Route path="/admin/classes/:classroomId/subjects/:csId" element={<ClassroomSubjectDetailPage />} />
                 <Route path="/admin/classes/:id" element={<ClassDetailPage />} />
             </Route>
-            {/* ─────────────────────────────────────────────────────── */}
+            {}
 
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

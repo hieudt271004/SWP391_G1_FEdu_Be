@@ -50,10 +50,10 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Override
     @Transactional(readOnly = true)
     public List<LearningPathResponse> getLearningPathsBySubjectId(Long subjectId) {
-        // Endpoint listing của EDITOR (/admin/subjects/{id}/learning-paths):
-        // teacher chỉ được soạn template cá nhân → chỉ trả template DO CHÍNH MÌNH tạo
-        // (không hiện template khoa lẫn template cá nhân của giảng viên khác);
-        // admin/test thấy tất cả. Thư viện teacher (khoa + của mình) dùng getTemplatesVisibleToTeacher.
+        
+        
+        
+        
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
         boolean isAdmin = auth == null || auth.getAuthorities().stream()
@@ -61,8 +61,8 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (!isAdmin) {
             return getTemplatesVisibleToTeacher(subjectId);
         }
-        // Admin (và test không auth): CHỈ template của khoa — template cá nhân của GV là riêng tư,
-        // admin không thấy và không sửa được (TemplateEditGuard chặn cả khi gọi API thẳng).
+        
+        
         return learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId)
                 .stream()
@@ -75,9 +75,9 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional(readOnly = true)
     public List<LearningPathResponse> getTemplatesVisibleToTeacher(Long subjectId) {
         assertTeacherTeachesSubject(subjectId);
-        // Thư viện + editor của teacher: CHỈ template cá nhân do chính mình tạo.
-        // Template của khoa không hiện ở đây — nó chỉ xuất hiện khi chọn lộ trình clone
-        // vào lớp (getCloneablePaths, yêu cầu môn đang xuất bản).
+        
+        
+        
         UserAccount actor = currentUser();
         return learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId)
@@ -88,22 +88,22 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .collect(Collectors.toList());
     }
 
-    /** Môn cho thư viện template của teacher: đã/đang dạy + môn có template cá nhân của chính mình. */
+    
     @Override
     @Transactional(readOnly = true)
     public List<SubjectResponse> getLibrarySubjectsForCurrentTeacher() {
         UserAccount actor = currentUser();
         if (actor == null) return Collections.emptyList();
         Map<Long, SubjectResponse> bySubjectId = new LinkedHashMap<>();
-        // Môn đã/đang dạy — mọi lớp từng đứng, không lọc trạng thái lớp
+        
         for (ClassroomSubject cs : classroomSubjectRepository.findByLecturerId(actor.getUserId())) {
             Subject s = cs.getSubject();
             if (s != null && !Boolean.TRUE.equals(s.getIsDeleted())) {
                 bySubjectId.putIfAbsent(s.getSubjectId(), SubjectResponse.from(s));
             }
         }
-        // Môn có template cá nhân do chính mình tạo — không bao giờ mồ côi khỏi thư viện
-        // (kể cả khi lớp đã bị admin đổi giảng viên)
+        
+        
         for (LearningPath p : learningPathRepository
                 .findByCreatedByUserIdAndClassroomSubjectIsNullAndIsDeletedFalse(actor.getUserId())) {
             Subject s = p.getSubject();
@@ -124,12 +124,12 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .subject(subject)
                 .pathName(request.getPathName())
                 .description(request.getDescription())
-                // Gắn người tạo để phân biệt template của khoa (admin) và template cá nhân (teacher)
+                
                 .createdBy(currentUser())
                 .isDeleted(false)
                 .build();
 
-        // Môn đang xuất bản thì khóa cả việc thêm template mới của khoa (teacher tạo template cá nhân không bị chặn)
+        
         templateEditGuard.assertTemplateEditable(learningPath);
         learningPathRepository.save(learningPath);
         return mapToResponse(learningPath);
@@ -183,12 +183,12 @@ public class LearningPathServiceImpl implements LearningPathService {
         return cloneTemplateIntoClassroom(template, cs);
     }
 
-    /**
-     * Thay bản nháp hiện tại bằng clone mới từ template — ATOMIC trong 1 transaction:
-     * validate nguồn clone trước, rồi mới xóa nháp cũ + clone. Lỗi ở bất kỳ bước nào → rollback,
-     * nháp cũ còn nguyên (thay cho flow cũ của FE: delete-draft rồi clone bằng 2 request rời,
-     * chết giữa chừng là mất nháp).
-     */
+    
+
+
+
+
+
     @Override
     @Transactional
     public LearningPathResponse replaceDraftWithTemplate(Long classroomSubjectId, Long templatePathId) {
@@ -199,10 +199,10 @@ public class LearningPathServiceImpl implements LearningPathService {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
 
-        // 1) Validate nguồn clone TRƯỚC khi đụng vào nháp cũ (môn phải đang xuất bản, template hợp lệ)
+        
         LearningPath template = resolveTemplateForClone(cs, templatePathId);
 
-        // 2) Path hiện tại (nếu có) phải là nháp chưa publish và lớp chưa phân loại học sinh
+        
         List<LearningPath> existingPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         for (LearningPath old : existingPaths) {
             if (old.getPublishedAt() != null) {
@@ -213,7 +213,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Đã có học sinh được phân loại (làm placement), không thể thay lộ trình.");
         }
 
-        // 3) Xóa nháp cũ + clone mới trong CÙNG transaction
+        
         for (LearningPath old : existingPaths) {
             old.setIsDeleted(true);
             learningPathRepository.save(old);
@@ -226,7 +226,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         return cloneTemplateIntoClassroom(template, cs);
     }
 
-    /** Kiểm tra + trả về template hợp lệ để clone cho lớp-môn (môn phải đang xuất bản). */
+    
     private LearningPath resolveTemplateForClone(ClassroomSubject cs, Long templatePathId) {
         if (!"published".equalsIgnoreCase(cs.getSubject().getStatus())) {
             throw new InvalidDataException("Môn học chưa được xuất bản — không thể clone lộ trình cho lớp.");
@@ -249,7 +249,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             templatePathId = candidates.get(0).getPathId();
         }
 
-        // Nguồn clone chỉ được là TEMPLATE (của khoa hoặc cá nhân) — không clone từ path của lớp khác.
+        
         LearningPath template = learningPathRepository.findById(templatePathId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path template not found"));
         if (template.getClassroomSubject() != null || Boolean.TRUE.equals(template.getIsDeleted())
@@ -266,7 +266,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         return template;
     }
 
-    /** Clone path + node + edge + toàn bộ nội dung node từ template vào lớp-môn. */
+    
     private LearningPathResponse cloneTemplateIntoClassroom(LearningPath template, ClassroomSubject cs) {
         List<LearningNode> templateNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(template.getPathId());
         List<NodeEdge> templateEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(template.getPathId());
@@ -316,7 +316,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         return mapToResponse(clonedPath);
     }
 
-    /** Copy material(+video,+file) và test(+question,+answer) từ node template sang node clone. */
+    
     private void copyNodeContent(LearningNode src, LearningNode dst) {
         for (NodeMaterial m : nodeMaterialRepository.findByLearningNodeNodeIdAndIsDeletedFalse(src.getNodeId())) {
             NodeMaterial nm = NodeMaterial.builder()
@@ -353,7 +353,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .durationMinutes(t.getDurationMinutes())
                     .passingPercentage(t.getPassingPercentage())
                     .orderIndex(t.getOrderIndex())
-                    // Bản clone cho lớp coi như đã phát (học sinh thấy khi node mở — hành vi cũ)
+                    
                     .releasedAt(java.time.LocalDateTime.now())
                     .isDeleted(false)
                     .build();
@@ -469,13 +469,13 @@ public class LearningPathServiceImpl implements LearningPathService {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
 
-        // Môn chưa xuất bản ⇒ chưa mở nguồn clone (admin có thể đang soạn/sửa template).
+        
         if (!"published".equalsIgnoreCase(cs.getSubject().getStatus())) {
             return Collections.emptyList();
         }
 
-        // Theo requirement: nguồn clone = template của khoa (admin) + template cá nhân của chính GV.
-        // Cả hai đều phải đạt điều kiện xuất bản; template cá nhân của GV khác không hiển thị.
+        
+        
         List<CloneablePathResponse> results = new ArrayList<>();
         List<LearningPath> templates = learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
@@ -503,7 +503,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         return results;
     }
 
-    //  Learning Node
+    
 
     @Override
     @Transactional
@@ -516,17 +516,17 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .orElseThrow(() -> new ResourceNotFoundException("Learning path not found"));
         assertCanModifyPath(learningPath);
 
-        // Cho phép tạo node loại 'Trên lớp'
+        
 
-        // Lộ trình mẫu không mang deadline — deadline do giáo viên thiết lập sau khi clone về lớp.
+        
         if (request.getDeadlineAt() != null && learningPath.getClassroomSubject() == null) {
             throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
         }
-        // Deadline CHỈ dành cho node Tự học (AT_HOME); node Trên lớp học theo buổi (lịch + live)
+        
         if (request.getDeadlineAt() != null && request.getNodeType() == NodeType.ON_CLASS) {
             throw new InvalidDataException("Node 'Trên lớp' không dùng deadline — buổi học tính theo lịch (ngày + ca). Deadline chỉ đặt cho node 'Tự học'.");
         }
-        // Node Trên lớp là buổi học CHUNG cả lớp — không gán mức riêng
+        
         if (request.getLevel() != null && request.getNodeType() == NodeType.ON_CLASS) {
             throw new InvalidDataException("Node 'Trên lớp' là buổi học chung cả lớp — không gán mức riêng.");
         }
@@ -569,17 +569,17 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .orElseThrow(() -> new ResourceNotFoundException("Node not found"));
         assertCanModifyPath(node.getLearningPath());
 
-        // Không cho đổi node thành loại "Trên lớp" trên lộ trình của lớp-môn (chỉ admin/lộ trình gốc).
+        
 
-        // Lộ trình mẫu không mang deadline — deadline do giáo viên thiết lập sau khi clone về lớp.
+        
         if (request.getDeadlineAt() != null && node.getLearningPath().getClassroomSubject() == null) {
             throw new InvalidDataException("Lộ trình mẫu không đặt deadline — deadline được thiết lập sau khi clone về lớp.");
         }
-        // Deadline CHỈ dành cho node Tự học (AT_HOME); node Trên lớp học theo buổi (lịch + live)
+        
         if (request.getDeadlineAt() != null && request.getNodeType() == NodeType.ON_CLASS) {
             throw new InvalidDataException("Node 'Trên lớp' không dùng deadline — buổi học tính theo lịch (ngày + ca). Deadline chỉ đặt cho node 'Tự học'.");
         }
-        // Node Trên lớp là buổi học CHUNG cả lớp — không gán mức riêng
+        
         if (request.getLevel() != null && request.getNodeType() == NodeType.ON_CLASS) {
             throw new InvalidDataException("Node 'Trên lớp' là buổi học chung cả lớp — không gán mức riêng.");
         }
@@ -599,14 +599,14 @@ public class LearningPathServiceImpl implements LearningPathService {
         if (request.getPlacementYeuMax() != null) node.setPlacementYeuMax(request.getPlacementYeuMax());
         if (request.getPlacementTbMax() != null) node.setPlacementTbMax(request.getPlacementTbMax());
         if (request.getDeadlineAt() != null) node.setDeadlineAt(request.getDeadlineAt());
-        // Bất biến node Trên lớp: học CHUNG cả lớp (level null) + không deadline —
-        // đổi loại sang ON_CLASS thì gỡ cả hai giá trị còn sót.
+        
+        
         if (node.getNodeType() == NodeType.ON_CLASS) {
             node.setDeadlineAt(null);
             node.setLevel(null);
         }
-        // GATE chỉ phủ ĐÚNG 1 mức là bài chặn đường (bị kẹp, không đổi mức) — dọn ngưỡng
-        // cho khỏi gây hiểu lầm (appliesLevels trống = mọi mức nên ngưỡng vẫn giữ).
+        
+        
         if (node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.GATE
                 && countAppliesLevels(node.getAppliesLevels()) == 1) {
             node.setGateUpMin(null);
@@ -617,7 +617,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         return mapToLearningNodeResponse(node);
     }
 
-    /** Số mức trong appliesLevels ("2,3" → 2); trống/null = 0 (nghĩa là áp mọi mức). */
+    
     private int countAppliesLevels(String appliesLevels) {
         if (appliesLevels == null || appliesLevels.isBlank()) return 0;
         return (int) java.util.Arrays.stream(appliesLevels.split(","))
@@ -634,9 +634,9 @@ public class LearningPathServiceImpl implements LearningPathService {
         assertCanModifyPath(node.getLearningPath());
         node.setIsDeleted(true);
         learningNodeRepository.save(node);
-        // Cạnh dính tới node đã xóa phải gỡ theo: cạnh "ma" vẫn được đọc thẳng từ DB
-        // ở điều kiện mở khóa (checkIncomingPrerequisites/unlockOnClassNode) làm node sau
-        // kẹt vĩnh viễn, còn node mất hết cạnh vào sẽ bị seed coi là entry và mở từ đầu.
+        
+        
+        
         nodeEdgeRepository.deleteAll(nodeEdgeRepository.findByFromNodeNodeId(nodeId));
         nodeEdgeRepository.deleteAll(nodeEdgeRepository.findByToNodeNodeId(nodeId));
     }
@@ -810,8 +810,8 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
 
         if (paths.isEmpty()) {
-            // Chỉ liệt kê lộ trình đạt điều kiện xuất bản — teacher không thấy/clone bản nháp.
-            // Môn chưa xuất bản ⇒ không chào template nào (admin có thể đang sửa phiên bản mới).
+            
+            
             boolean subjectPublished = "published".equalsIgnoreCase(cs.getSubject().getStatus());
             List<LearningPath> templates = !subjectPublished ? Collections.emptyList()
                     : learningPathRepository
@@ -865,7 +865,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .build();
 
         List<AvailableTemplateResponse> draftTemplates = null;
-        // Nguồn "clone đè nháp" chỉ mở khi môn đang xuất bản — đồng bộ với gate ở cloneLearningPath.
+        
         if ("DRAFT".equals(state) && "published".equalsIgnoreCase(cs.getSubject().getStatus())) {
             draftTemplates = learningPathRepository
                     .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(cs.getSubject().getSubjectId())
@@ -947,14 +947,14 @@ public class LearningPathServiceImpl implements LearningPathService {
         return PublishResultResponse.builder().seededStudents(seededCount).build();
     }
 
-    /**
-     * Chặn publish khi có node NGOÀI CHẶNG ĐẦU không có cạnh vào ("mồ côi").
-     * Node mồ côi bị seed coi là entry và MỞ NGAY từ đầu → học sinh nhảy cóc
-     * (vd node test đứng riêng chặng mà wiring cũ không nối cạnh vào, hoặc cạnh
-     * bị mất sau khi xóa node). Đây là lỗi cấu hình — bắt tại publish thay vì
-     * để lộ trình chạy sai. (Kiểm tra cấu trúc thuần in-degree, tách biệt với
-     * validateLevelTraversability.)
-     */
+    
+
+
+
+
+
+
+
     private void validateNoOrphanNodes(List<LearningNode> nodes, List<NodeEdge> edges) {
         if (nodes.isEmpty()) {
             return;
@@ -1004,7 +1004,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         for (int level = 1; level <= 3; level++) {
             final int lv = level;
 
-            // Node "hiện" với mức lv = node chung (level null) hoặc đúng mức lv.
+            
             List<LearningNode> entries = nodes.stream()
                     .filter(n -> entryIds.contains(n.getNodeId()) && isVisibleForLevel(n, lv))
                     .collect(Collectors.toList());
@@ -1014,9 +1014,9 @@ public class LearningPathServiceImpl implements LearningPathService {
                         + levelName(lv) + " — mức này sẽ không vào học được.");
             }
 
-            // BFS từ entry của mức, chỉ đi qua node "hiện" với mức → tập node THỰC SỰ tới được.
-            // Node chung nằm trên nhánh của mức khác (vd Test chung chỉ nối Yếu/TB) sẽ không
-            // reachable cho mức Khá nên không bị coi là "kẹt".
+            
+            
+            
             Set<Long> reachable = new HashSet<>();
             Deque<LearningNode> queue = new ArrayDeque<>(entries);
             entries.forEach(n -> reachable.add(n.getNodeId()));
@@ -1029,7 +1029,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 }
             }
 
-            // Chỉ kiểm node reachable cho mức: có nhánh đi tiếp nhưng không nhánh nào "hiện" → kẹt.
+            
             for (Long id : reachable) {
                 LearningNode n = byId.get(id);
                 List<LearningNode> outs = outgoing.getOrDefault(id, Collections.emptyList());
@@ -1046,7 +1046,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
     }
 
-    /** Node "hiện" (đi được) với một mức: node chung (level null) hoặc đúng mức đó. */
+    
     private static boolean isVisibleForLevel(LearningNode n, int level) {
         return n.getLevel() == null || n.getLevel().equals(level);
     }
@@ -1119,7 +1119,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .ifPresent(cs -> clearQuizStartIfOwnedByPath(cs, path));
     }
 
-    /** Gỡ quizStart của lớp nếu bài test đó thuộc path vừa bị xóa (tránh trỏ tới test của nháp đã xóa). */
+    
     private void clearQuizStartIfOwnedByPath(ClassroomSubject cs, LearningPath path) {
         Test qs = cs.getQuizStart();
         if (qs != null && qs.getLearningNode() != null
@@ -1159,7 +1159,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .map(LearningNode::getNodeId)
                 .collect(Collectors.toSet());
 
-        // Tìm danh sách Node ID nằm ngay sau Node PLACEMENT
+        
         Set<Long> nodesAfterPlacement = edges.stream()
                 .filter(e -> placementNodeIds.contains(e.getFromNode().getNodeId()))
                 .map(e -> e.getToNode().getNodeId())
@@ -1169,17 +1169,17 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
-            // Test tự do mở cho MỌI mức (level của nó là mức đích, học sinh được chọn chéo mức).
+            
             boolean levelOk = node.getLevel() == null || node.getLevel().equals(level)
                     || node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE;
-            // Một node được mở khóa ban đầu nếu nó là entry node HOẶC nằm ngay sau node PLACEMENT,
-            // thỏa mãn level; node ON_CLASS chỉ mở khi teacher đã mở khóa (status OPEN).
+            
+            
             boolean isAfterPlacement = nodesAfterPlacement.contains(node.getNodeId());
             boolean openIt = (entryNodes.contains(node) || isAfterPlacement)
                     && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN)
                     && levelOk;
 
-            // Tự động hoàn thành node test đầu vào (PLACEMENT) khi khởi tạo lộ trình
+            
             boolean isPlacement = node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT;
             StudentProgressStatus initialStatus = isPlacement ? StudentProgressStatus.COMPLETED :
                     (openIt ? StudentProgressStatus.OPEN : StudentProgressStatus.LOCKED);
@@ -1218,7 +1218,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         node.setStatus(NodeStatus.OPEN);
         learningNodeRepository.save(node);
 
-        // TODO: sau này tự mở theo thời gian buổi học (chưa có thuộc tính thời gian) — hiện giáo viên mở thủ công.
+        
         List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(nodeId);
         List<UserAccount> students =
                 classroomSubjectStudentRepository.findDistinctStudentsByClassroomSubjectId(classroomSubjectId);
@@ -1236,14 +1236,14 @@ public class LearningPathServiceImpl implements LearningPathService {
                     .findFirst().orElse(null);
             if (target == null || target.getStatus() != StudentProgressStatus.LOCKED) continue;
 
-            // Lấy thông tin lớp học sinh để biết level hiện tại
+            
             ClassroomSubjectStudent css = classroomSubjectStudentRepository
                     .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, student.getUserId())
                     .orElse(null);
             if (css == null || css.getCurrentLevel() == null) continue;
             Integer studentLevel = css.getCurrentLevel();
 
-            // Tôn trọng điều kiện tiên quyết: chỉ mở cho học sinh đã hoàn thành các node trước (bỏ qua các node của level khác)
+            
             boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusMap, studentLevel);
             if (!prereqMet) continue;
 
@@ -1255,7 +1255,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         return opened;
     }
 
-    /** User đang đăng nhập (null trong ngữ cảnh test/seed không có SecurityContext). */
+    
     private UserAccount currentUser() {
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
@@ -1263,12 +1263,12 @@ public class LearningPathServiceImpl implements LearningPathService {
         return userAccountRepository.findByEmail(auth.getName()).orElse(null);
     }
 
-    /** Template "của khoa": do admin tạo, hoặc dữ liệu cũ không ghi người tạo. */
+    
     private boolean isAdminTemplate(LearningPath template) {
         return templateEditGuard.isAdminTemplate(template);
     }
 
-    /** Template dùng được cho user hiện tại: của khoa, hoặc template cá nhân do chính mình tạo. */
+    
     private boolean canUseTemplate(LearningPath template) {
         if (isAdminTemplate(template)) return true;
         UserAccount actor = currentUser();
@@ -1276,18 +1276,18 @@ public class LearningPathServiceImpl implements LearningPathService {
                 && template.getCreatedBy().getUserId() == actor.getUserId();
     }
 
-    /**
-     * Quyền chỉnh sửa path: admin đi qua tự do; teacher chỉ sửa được template do chính mình tạo,
-     * còn path của lớp thì phải là giảng viên phụ trách lớp-môn đó.
-     */
+    
+
+
+
     private void assertCanModifyPath(LearningPath path) {
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
-        if (auth == null) return; // test/seed
+        if (auth == null) return; 
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         if (isAdmin) {
-            // Admin cũng bị khóa sửa template của khoa khi môn đang xuất bản — gỡ xuất bản trước.
+            
             templateEditGuard.assertTemplateEditable(path);
             return;
         }
@@ -1307,7 +1307,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private void assertTeacherOwnsClassroomSubject(Long csId) {
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
-        if (auth == null) return; // test/seed
+        if (auth == null) return; 
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         if (isAdmin) return;
@@ -1318,15 +1318,15 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
     }
 
-    /**
-     * Teacher chỉ thao tác thư viện template trong phạm vi môn đã/đang dạy (mọi lớp từng đứng,
-     * không lọc trạng thái lớp), HOẶC môn đã có template cá nhân của chính mình
-     * (lớp bị admin đổi giảng viên thì template cũ vẫn thao tác tiếp được). Admin đi qua tự do.
-     */
+    
+
+
+
+
     private void assertTeacherTeachesSubject(Long subjectId) {
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
-        if (auth == null) return; // test/seed
+        if (auth == null) return; 
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         if (isAdmin) return;
@@ -1388,7 +1388,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         Long csId = path.getClassroomSubject().getId();
         Integer stage = node.getStageOrder();
         
-        // Find other nodes in the same stage (row)
+        
         List<LearningNode> sameStageNodes = learningNodeRepository
                 .findByLearningPathPathIdAndIsDeletedFalse(path.getPathId())
                 .stream()
@@ -1403,7 +1403,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             boolean shouldAssign = assignSet.contains(studentId);
 
             if (shouldAssign) {
-                // Remove progress records for other nodes in the same stage
+                
                 for (LearningNode otherNode : sameStageNodes) {
                     if (!otherNode.getNodeId().equals(nodeId)) {
                         List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
@@ -1415,11 +1415,11 @@ public class LearningPathServiceImpl implements LearningPathService {
                     }
                 }
                 
-                // Ensure progress record exists for target node
+                
                 List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
                 boolean exists = list.stream().anyMatch(p -> p.getLearningNode().getNodeId().equals(nodeId));
                 if (!exists) {
-                    // Find entry nodes to decide whether to open it
+                    
                     List<LearningNode> allNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
                     List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
                     List<LearningNode> entryNodes = validateAndGetEntryNodes(allNodes, edges);
@@ -1436,7 +1436,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                     studentNodeProgressRepository.save(progress);
                 }
             } else {
-                // If not assigned, ensure no progress record exists for target node
+                
                 List<StudentNodeProgress> list = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
                 for (StudentNodeProgress p : list) {
                     if (p.getLearningNode().getNodeId().equals(nodeId)) {
@@ -1460,7 +1460,7 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
 
-        // 1. Lớp học đang/ đã diễn ra thì không được thay đổi lịch
+        
         if (node.getStudyDate() != null && node.getSlot() != null) {
             LocalDateTime existingStart = LocalDateTime.of(node.getStudyDate(), node.getSlot().getStartTime());
             if (existingStart.isBefore(LocalDateTime.now())) {
@@ -1469,7 +1469,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
 
         if (request.getStudyDate() == null || request.getSlotId() == null) {
-            // Xóa lịch học (node ON_CLASS không mang deadline — thời gian tính theo buổi)
+            
             node.setStudyDate(null);
             node.setSlot(null);
             learningNodeRepository.save(node);
@@ -1479,7 +1479,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         Slot slot = slotRepository.findById(request.getSlotId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca học với id: " + request.getSlotId()));
 
-        // 2. Không thể thay đổi thành slot trong quá khứ (< thời gian hiện tại)
+        
         LocalDateTime newStart = LocalDateTime.of(request.getStudyDate(), slot.getStartTime());
         if (newStart.isBefore(LocalDateTime.now())) {
             throw new InvalidDataException("Không thể xếp lịch học vào thời gian trong quá khứ.");
@@ -1488,7 +1488,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         Long csId = path.getClassroomSubject().getId();
         Long lecturerId = path.getClassroomSubject().getLecturer().getUserId();
 
-        // 1. Kiểm tra trùng lịch giảng viên (KHÔNG cho phép ghi đè kể cả force = true)
+        
         List<LearningNode> teacherClashes = learningNodeRepository.findTeacherConflicts(
                 lecturerId, request.getStudyDate(), request.getSlotId(), nodeId
         );
@@ -1505,7 +1505,7 @@ public class LearningPathServiceImpl implements LearningPathService {
             throw new InvalidDataException("Không thể xếp lịch học: " + teacherMsg + " Lịch trùng của giảng viên không được phép ghi đè.");
         }
 
-        // 2. Kiểm tra trùng lịch sinh viên (cho phép ghi đè bằng cờ force)
+        
         if (!request.isForce()) {
             List<ClassroomSubjectStudent> enrolledStudents = classroomSubjectStudentRepository.findAllByClassroomSubjectId(csId);
             List<StudentConflictDto> studentConflicts = new ArrayList<>();
@@ -1543,15 +1543,15 @@ public class LearningPathServiceImpl implements LearningPathService {
             if (!studentConflicts.isEmpty()) {
                 ScheduleConflictResponse conflictResponse = ScheduleConflictResponse.builder()
                         .hasConflict(true)
-                        .teacherConflictMessage(null) // Giảng viên không trùng (vì đã bị chặn ở trên)
+                        .teacherConflictMessage(null) 
                         .studentConflicts(studentConflicts)
                         .build();
                 throw new ScheduleConflictException(conflictResponse);
             }
         }
 
-        // Lưu lịch học. Node ON_CLASS KHÔNG mang deadline — thời gian buổi học tính theo
-        // lịch (ngày + ca) và phiên live; deadline chỉ dành cho node Tự học (AT_HOME).
+        
+        
         node.setStudyDate(request.getStudyDate());
         node.setSlot(slot);
         learningNodeRepository.save(node);

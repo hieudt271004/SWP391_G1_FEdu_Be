@@ -108,7 +108,7 @@ public class PublicAboutServiceImpl implements PublicAboutService {
         long totalQuestions = ((Number) entityManager.createNativeQuery(
                 "SELECT COUNT(*) FROM node_questions WHERE is_deleted = false OR is_deleted IS NULL").getSingleResult()).longValue();
 
-        // Fetch detailed lists
+        
         List<Object[]> pathsRaw = entityManager.createNativeQuery(
                 "SELECT lp.path_id, lp.path_name, s.subject_code " +
                 "FROM learning_paths lp " +

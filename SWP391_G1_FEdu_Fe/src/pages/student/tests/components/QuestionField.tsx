@@ -19,8 +19,8 @@ interface QuestionFieldProps {
   disabled?: boolean;
 }
 
-// Render input phù hợp với từng loại câu hỏi. Không bao giờ hiển thị đáp án đúng
-// (backend đã loại bỏ isCorrect khỏi payload trả về cho học sinh).
+
+
 export const QuestionField = memo(function QuestionField({
   question,
   value,
@@ -96,7 +96,7 @@ export const QuestionField = memo(function QuestionField({
     );
   }
 
-  // Fallback: loại câu hỏi backend trả về mà frontend chưa hỗ trợ — hiện rõ thay vì im lặng.
+  
   return (
     <Alert variant="destructive">
       <AlertTriangle />

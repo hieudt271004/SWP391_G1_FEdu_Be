@@ -46,16 +46,16 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Composers state
+  
   const [newCommentContent, setNewCommentContent] = useState<string>('');
   const [submittingComment, setSubmittingComment] = useState<boolean>(false);
 
-  // Reply states
+  
   const [activeReplyParentId, setActiveReplyParentId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState<string>('');
   const [submittingReply, setSubmittingReply] = useState<boolean>(false);
 
-  // Review form states (student only)
+  
   const [isEditingReview, setIsEditingReview] = useState<boolean>(false);
   const [reviewRating, setReviewRating] = useState<number>(0);
   const [reviewHoverRating, setReviewHoverRating] = useState<number>(0);
@@ -87,7 +87,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     loadData();
   }, [loadData]);
 
-  // Submit comment
+  
   const handlePostComment = async () => {
     if (!newCommentContent.trim()) return;
     setSubmittingComment(true);
@@ -115,7 +115,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     }
   };
 
-  // Submit reply
+  
   const handlePostReply = async (parentId: number) => {
     if (!replyContent.trim()) return;
     setSubmittingReply(true);
@@ -153,7 +153,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     }
   };
 
-  // Delete comment / review / reply
+  
   const handleDeleteEntry = async (item: NodeReviewResponse) => {
     const isReply = item.parentReviewId != null;
     const isReview = item.rating != null;
@@ -229,7 +229,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     }
   };
 
-  // Submit star review (student only)
+  
   const handleSubmitReview = async () => {
     if (reviewRating === 0) {
       toast.warning('Vui lòng chọn số sao đánh giá.');
@@ -246,7 +246,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
       setSummary((prev) => {
         if (!prev) return null;
 
-        // Cập nhật lại reviews trong list: nếu là chỉnh sửa thì thay thế, nếu là mới thì chèn vào
+        
         let updatedReviews = [...(prev.reviews || [])];
         const index = updatedReviews.findIndex((r) => r.studentId === user?.userId);
         if (index >= 0) {
@@ -259,8 +259,8 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
           onLoadSummaryRef.current(updatedReviews.length + (prev.comments?.length || 0));
         }
 
-        // Lấy lại trung bình cộng (tính đơn giản ở client hoặc gọi loadData lại)
-        // Gọi loadData() là giải pháp chính xác nhất để lấy averageRating và reviewCount chuẩn từ DB
+        
+        
         setTimeout(() => loadData(), 200);
 
         return {
@@ -284,7 +284,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     }
   };
 
-  // Render stars helper
+  
   const renderStars = (rating: number, interactive = false, size = 'w-4 h-4') => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
@@ -345,7 +345,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
 
   return (
     <div className="space-y-6 py-1 font-sans">
-      {/* Header Summary */}
+      {}
       {summary && summary.reviewCount > 0 && (
         <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">
           <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
@@ -355,7 +355,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
         </div>
       )}
 
-      {/* Main Comment Composer */}
+      {}
       <div className="space-y-3">
         <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Hỏi đáp & Thảo luận</h4>
         <div className="relative border border-slate-200 rounded-lg bg-white p-3 hover:border-slate-350 transition-colors focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:border-slate-900">
@@ -386,7 +386,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
         </div>
       </div>
 
-      {/* Empty State */}
+      {}
       {totalItems === 0 ? (
         <div className="flex flex-col items-center justify-center border border-dashed border-slate-200 bg-slate-50/50 rounded-xl py-12 px-6 text-center">
           <HelpCircle className="w-8 h-8 text-slate-350 mb-3 stroke-[1.5]" />
@@ -397,7 +397,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
         </div>
       ) : (
         <div className="space-y-5">
-          {/* Comments and Reviews List */}
+          {}
           <div className="space-y-4">
             {[...allReviews, ...allComments].map((item) => {
               const isOwnEntry = user && item.studentId === user.userId;
@@ -428,7 +428,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                         </span>
                       </div>
 
-                      {/* Display stars if it is a review */}
+                      {}
                       {isReview && item.rating != null && (
                         <div className="flex items-center gap-1.5">
                           {renderStars(item.rating, false, 'w-3.5 h-3.5')}
@@ -440,9 +440,9 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                         {item.content}
                       </p>
 
-                      {/* Thread action triggers */}
+                      {}
                       <div className="flex items-center gap-4 pt-1 text-[10px] text-slate-500 font-bold">
-                        {/* Only root items can have replies */}
+                        {}
                         {item.parentReviewId == null && (
                           <button
                             type="button"
@@ -473,7 +473,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                     </div>
                   </div>
 
-                  {/* Replies section */}
+                  {}
                   {item.replies && item.replies.length > 0 && (
                     <div className="mt-3.5 pl-6 border-l-2 border-slate-100 space-y-3.5">
                       {item.replies.map((reply) => {
@@ -524,7 +524,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                     </div>
                   )}
 
-                  {/* Inline reply composer */}
+                  {}
                   {activeReplyParentId === item.reviewId && (
                     <div className="mt-3.5 pl-6 border-l-2 border-slate-100 space-y-2.5">
                       <div className="relative border border-slate-200 rounded-md bg-white p-2">
@@ -570,7 +570,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
         </div>
       )}
 
-      {/* Review Block (student role only) */}
+      {}
       {role === 'student' && summary && (
         <div className="border-t border-slate-150 pt-5 space-y-4">
           <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Đánh giá bài học</h4>

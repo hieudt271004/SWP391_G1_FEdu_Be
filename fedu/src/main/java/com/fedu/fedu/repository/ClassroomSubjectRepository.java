@@ -18,10 +18,10 @@ public interface ClassroomSubjectRepository extends JpaRepository<ClassroomSubje
 
     List<ClassroomSubject> findBySubjectSubjectId(Long subjectId);
 
-    // Tìm mối quan hệ lớp học - môn học cụ thể
+    
     Optional<ClassroomSubject> findByClassroomClassroomIdAndSubjectSubjectId(Long classroomId, Long subjectId);
 
-    // Tìm tất cả lớp học của một giảng viên
+    
     @Query("SELECT cs FROM ClassroomSubject cs WHERE cs.lecturer.userId = :lecturerId")
     List<ClassroomSubject> findByLecturerId(@Param("lecturerId") Long lecturerId);
 

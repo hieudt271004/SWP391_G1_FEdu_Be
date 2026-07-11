@@ -60,13 +60,13 @@ public class JwtServiceImpl implements JwtService {
         return generateResetToken(new HashMap<>(), user);
     }
 
-    //get subject from claim
+    
     @Override
     public String extractUsername(String token, TokenType type) {
         return extractClaim(token, type, Claims::getSubject);
     }
 
-    //check valid token follow username and expiration
+    
     @Override
     public boolean isValid(String token, TokenType type, UserDetails userDetails) {
         log.info("---------- isValid ----------");
@@ -109,7 +109,7 @@ public class JwtServiceImpl implements JwtService {
                 .compact();
     }
 
-    //get key from token type
+    
     private Key getKey(TokenType type) {
         log.info("---------- getKey ----------");
         switch (type) {
@@ -132,17 +132,17 @@ public class JwtServiceImpl implements JwtService {
         return claimResolver.apply(claims);
     }
 
-    //extract token get claims
+    
     private Claims extraAllClaim(String token, TokenType type) {
         return Jwts.parserBuilder().setSigningKey(getKey(type)).build().parseClaimsJws(token).getBody();
     }
 
-    //check token expiration
+    
     private boolean isTokenExpired(String token, TokenType type) {
         return extractExpiration(token, type).before(new Date());
     }
 
-    //get expiration from token and token type
+    
     private Date extractExpiration(String token, TokenType type) {
         return extractClaim(token, type, Claims::getExpiration);
     }

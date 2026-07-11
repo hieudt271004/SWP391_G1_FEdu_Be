@@ -12,6 +12,6 @@ public class StudentLevelHistoryResponse {
     private Long id;
     private Integer oldLevel;
     private Integer newLevel;
-    private String reason; // PLACEMENT | GATE
+    private String reason; 
     private LocalDateTime changedAt;
 }

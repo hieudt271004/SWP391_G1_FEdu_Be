@@ -87,7 +87,7 @@ export function AddSubjectPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* Header & Breadcrumb */}
+      {}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -116,7 +116,7 @@ export function AddSubjectPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Mã môn học */}
+              {}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
                   Mã môn học <span className="text-destructive">*</span>
@@ -130,7 +130,7 @@ export function AddSubjectPage() {
                 />
               </div>
 
-              {/* Tên môn học */}
+              {}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
                   Tên môn học <span className="text-destructive">*</span>
@@ -144,7 +144,7 @@ export function AddSubjectPage() {
                 />
               </div>
 
-              {/* Mô tả */}
+              {}
               <div className="md:col-span-2 space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
                   Mô tả
@@ -160,7 +160,7 @@ export function AddSubjectPage() {
           </CardContent>
         </Card>
 
-        {/* Actions */}
+        {}
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={submitting} className="px-8">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}

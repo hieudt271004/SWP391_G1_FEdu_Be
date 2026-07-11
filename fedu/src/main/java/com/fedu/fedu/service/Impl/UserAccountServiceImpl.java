@@ -123,7 +123,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     private void assignUserRole(UserAccount userAccount, com.fedu.fedu.utils.enums.UserRole userRole) {
-        // Mặc định USER nếu input null/invalid — KHÔNG bao giờ fallback về ADMIN
+        
         com.fedu.fedu.utils.enums.UserRole targetRole =
                 (userRole != null) ? userRole : com.fedu.fedu.utils.enums.UserRole.USER;
 
@@ -147,7 +147,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     @Transactional
     public void save(RegisterRequest request) {
-        // Check duplicate user
+        
         if (userAccountRepository.existsByEmail(request.getEmail())) {
             throw new InvalidDataException("Email already exists");
         }
@@ -215,7 +215,7 @@ public class UserAccountServiceImpl implements UserAccountService {
             }
         }
         
-        // Update fields
+        
         userAccount.setFirstName(request.getFirstName());
         userAccount.setLastName(request.getLastName());
         userAccount.setPhone(request.getPhone());
@@ -280,7 +280,7 @@ public class UserAccountServiceImpl implements UserAccountService {
             }
         }
         
-        // Update profile fields
+        
         userAccount.setFirstName(request.getFirstName());
         userAccount.setLastName(request.getLastName());
         userAccount.setPhone(request.getPhone());
@@ -291,7 +291,7 @@ public class UserAccountServiceImpl implements UserAccountService {
             userAccount.setAvatarUrl(request.getAvatarUrl());
         }
         
-        // Update status
+        
         if (request.getStatus() != null) {
             userAccount.setStatus(request.getStatus());
         }

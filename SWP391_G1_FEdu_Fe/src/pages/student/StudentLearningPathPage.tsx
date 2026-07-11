@@ -61,7 +61,7 @@ interface LearningPathItem {
   data: any;
 }
 
-// Deadline node (BE trả LocalDateTime không timezone → new Date() parse theo giờ local là đúng)
+
 const formatDeadline = (iso: string) => {
   const d = new Date(iso);
   return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ${d.toLocaleDateString('vi-VN')}`;
@@ -74,28 +74,28 @@ export function StudentLearningPathPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Data states
+  
   const [subject, setSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [totalMaterials, setTotalMaterials] = useState<number>(0);
   const [totalCompleted, setTotalCompleted] = useState<number>(0);
   
-  // Loading & error states
+  
   const [loading, setLoading] = useState(true);
   const [loadingNodeContent, setLoadingNodeContent] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
-  // URL search params
+  
   const [searchParams, setSearchParams] = useSearchParams();
   const isLearnMode = searchParams.get('mode') === 'learn';
   const paramItemId = searchParams.get('itemId');
   const paramItemType = searchParams.get('itemType');
 
-  // UI state
+  
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
 
-  // Exercise Submission states
+  
   const [exerciseSubmissions, setExerciseSubmissions] = useState<Record<number, SubmissionResponse | null>>({});
   const [submissionText, setSubmissionText] = useState('');
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
@@ -103,13 +103,13 @@ export function StudentLearningPathPage() {
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Test attempt history states
+  
   const [testHistory, setTestHistory] = useState<StudentTestAttemptHistoryResponse[]>([]);
 
-  // Load completed materials from Backend
+  
   const [completedMaterials, setCompletedMaterials] = useState<Record<string, boolean>>({});
 
-  // Pop Quiz states
+  
   const [activePopQuiz, setActivePopQuiz] = useState<{
     assignmentId: number;
     title: string;
@@ -161,7 +161,7 @@ export function StudentLearningPathPage() {
     return sortedNodes;
   };
 
-  // Fetch initial graph and subject info
+  
   useEffect(() => {
     if (!user?.userId || !classroomSubjectId) return;
 
@@ -170,18 +170,18 @@ export function StudentLearningPathPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch subject details
+        
         const subjectsList = await classroomService.getClassroomSubjectsByStudent(user.userId);
         const currentSub = subjectsList.find(s => s.classroomSubjectId === classroomSubjectId);
         if (currentSub) {
           setSubject(currentSub);
         }
 
-        // Fetch roadmap graph & test history
+        
         const sortedNodes = await refreshProgressData();
 
         if (sortedNodes) {
-          // Auto-expand non-locked nodes and pre-fetch content
+          
           const initialExpanded: Record<number, boolean> = {};
           const openNodeIds: number[] = [];
 
@@ -193,7 +193,7 @@ export function StudentLearningPathPage() {
           });
           setExpandedNodes(initialExpanded);
 
-          // Fetch contents of open nodes in parallel
+          
           await Promise.all(
             openNodeIds.map(nodeId => ensureNodeContent(nodeId))
           );
@@ -210,15 +210,15 @@ export function StudentLearningPathPage() {
     loadInitialData();
   }, [user?.userId, classroomSubjectId]);
 
-  // Polling for pending pop quiz on active/unlocked ON_CLASS nodes
+  
   useEffect(() => {
     if (!user?.userId || !classroomSubjectId || nodes.length === 0) return;
     
-    // Find ON_CLASS nodes that are not locked
+    
     const onClassNodes = nodes.filter(n => n.nodeType === 'ON_CLASS' && n.studentStatus !== 'LOCKED');
     if (onClassNodes.length === 0) return;
     
-    // Poll the first unlocked ON_CLASS node
+    
     const targetNodeId = onClassNodes[0].nodeId;
 
     const poll = async () => {
@@ -258,7 +258,7 @@ export function StudentLearningPathPage() {
     return () => clearInterval(interval);
   }, [user?.userId, classroomSubjectId, nodes, popQuizPaper, showPopQuizRunner]);
 
-  // Countdown timer for Pop Quiz
+  
   useEffect(() => {
     if (!showPopQuizRunner || popQuizSecondsLeft <= 0) return;
     const interval = setInterval(() => {
@@ -335,11 +335,11 @@ export function StudentLearningPathPage() {
         duration: 8000,
       });
     } catch {
-      // Ignore record errors
+      
     }
   };
 
-  // Helper: Fetch node content if not cached
+  
   const ensureNodeContent = async (nodeId: number): Promise<NodeContentResponse | null> => {
     if (nodeContents[nodeId]) return nodeContents[nodeId];
     setLoadingNodeContent(prev => ({ ...prev, [nodeId]: true }));
@@ -355,7 +355,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Toggle node expand/collapse
+  
   const handleToggleNode = async (node: LearningNodeResponse) => {
     if (node.studentStatus === 'LOCKED') {
       toast.error('Bài học này đang bị khóa. Hãy hoàn thành các bài học trước!');
@@ -369,7 +369,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Flattened accessible items across all nodes for navigation
+  
   const allItems = useMemo(() => {
     const list: LearningPathItem[] = [];
     nodes.forEach(node => {
@@ -377,7 +377,7 @@ export function StudentLearningPathPage() {
       const content = nodeContents[node.nodeId];
       if (!content) return;
 
-      // Materials
+      
       if (content.materials) {
         content.materials.forEach(m => {
           list.push({
@@ -390,7 +390,7 @@ export function StudentLearningPathPage() {
         });
       }
 
-      // Tests
+      
       if (content.tests) {
         content.tests.forEach(t => {
           list.push({
@@ -403,7 +403,7 @@ export function StudentLearningPathPage() {
         });
       }
 
-      // Exercises
+      
       if (content.exercises) {
         content.exercises.forEach(e => {
           list.push({
@@ -419,7 +419,7 @@ export function StudentLearningPathPage() {
     return list;
   }, [nodes, nodeContents]);
 
-  // Derive activeItem from searchParams
+  
   const activeItem = useMemo(() => {
     if (!isLearnMode || !paramItemId || !paramItemType) return null;
     const itemId = Number(paramItemId);
@@ -438,7 +438,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Set default active item on load ONLY if in learn mode but no item is chosen
+  
   useEffect(() => {
     if (isLearnMode && allItems.length > 0 && !activeItem) {
       const firstIncomplete = allItems.find(item => {
@@ -450,7 +450,7 @@ export function StudentLearningPathPage() {
     }
   }, [isLearnMode, allItems, activeItem]);
 
-  // Handle active item changes (fetch submission data if it's an exercise)
+  
   useEffect(() => {
     if (activeItem && activeItem.type === 'exercise') {
       fetchExerciseSubmission(activeItem.id);
@@ -470,7 +470,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Exercise submission action
+  
   const handleExerciseSubmit = async () => {
     if (!activeItem || activeItem.type !== 'exercise') return;
     const exerciseId = activeItem.id;
@@ -520,7 +520,7 @@ export function StudentLearningPathPage() {
     return attemptsForTest.reduce((max, curr) => curr.score > max.score ? curr : max, attemptsForTest[0]);
   }, [attemptsForTest]);
 
-  // Navigations (Prev & Next)
+  
   const currentItemIndex = useMemo(() => {
     if (!activeItem) return -1;
     return allItems.findIndex(item => item.type === activeItem.type && item.id === activeItem.id);
@@ -548,7 +548,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Calculate general progress
+  
   const progressStats = useMemo(() => {
     if (totalMaterials === 0) return { completed: 0, total: 0, percent: 0 };
     return {
@@ -558,7 +558,7 @@ export function StudentLearningPathPage() {
     };
   }, [totalMaterials, totalCompleted]);
 
-  // Complete active node logic
+  
   const activeNode = useMemo(() => {
     if (!activeItem) return null;
     return nodes.find(n => n.nodeId === activeItem.nodeId) || null;
@@ -566,7 +566,7 @@ export function StudentLearningPathPage() {
 
   const isNodeCompleted = activeNode?.studentStatus === 'COMPLETED';
 
-  // Check if active item is individually completed
+  
   const isItemCompleted = useMemo(() => {
     if (!activeItem || !activeNode) return false;
     if (activeNode.studentStatus === 'COMPLETED') return true;
@@ -591,7 +591,7 @@ export function StudentLearningPathPage() {
     try {
       setCompletingNodeId(activeNode.nodeId);
       
-      // 1. Mark this specific material completed on Backend
+      
       await studentService.completeMaterial(activeItem.id);
       
       const key = `${user.userId}-${activeItem.id}`;
@@ -601,7 +601,7 @@ export function StudentLearningPathPage() {
       toast.success("Đã đánh dấu hoàn thành bài học!");
       await refreshProgressData();
 
-      // 2. Check if all items in this node are completed
+      
       const content = nodeContents[activeNode.nodeId];
       if (content) {
         const materials = content.materials || [];
@@ -624,14 +624,14 @@ export function StudentLearningPathPage() {
         });
 
         if (allMaterialsDone && allTestsDone && allExercisesDone) {
-          // Complete node on backend
+          
           await studentService.completeNode(activeNode.nodeId);
           toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
           await refreshProgressData();
         }
       }
 
-      // 3. Proactively go to next item
+      
       if (currentItemIndex < allItems.length - 1) {
         setActiveItem(allItems[currentItemIndex + 1]);
       }
@@ -683,7 +683,7 @@ export function StudentLearningPathPage() {
             )}
           </div>
 
-          {/* Right side next item button removed as requested */}
+          {}
         </div>
 
         <div className="flex items-center gap-6 text-muted-foreground text-xs font-semibold pt-2">
@@ -704,7 +704,7 @@ export function StudentLearningPathPage() {
     );
   };
 
-  // Loading indicator
+  
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] gap-3">
@@ -714,7 +714,7 @@ export function StudentLearningPathPage() {
     );
   }
 
-  // Error layout
+  
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 max-w-md mx-auto text-center">
@@ -753,9 +753,9 @@ export function StudentLearningPathPage() {
 
   return (
     <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden select-none font-sans">
-      {/* LEFT SIDEBAR: Roadmap Timeline */}
+      {}
       <div className="w-80 border-r border-border flex flex-col h-full bg-muted/30 shrink-0">
-        {/* Sidebar Header */}
+        {}
         <div className="p-4 border-b border-border bg-card">
           <button 
             onClick={() => setSearchParams({})}
@@ -772,7 +772,7 @@ export function StudentLearningPathPage() {
             Lớp: {subject?.className} • Mã môn: {subject?.subjectCode}
           </p>
 
-          {/* Progress bar */}
+          {}
           <div className="mt-4 space-y-1.5">
             <Progress value={progressStats.percent} className="h-1.5 bg-muted [&>div]:bg-primary rounded-full" />
             <div className="flex justify-between text-[10px] font-bold text-muted-foreground mb-0.5">
@@ -782,7 +782,7 @@ export function StudentLearningPathPage() {
           </div>
         </div>
 
-        {/* Sidebar List (Scrollable) */}
+        {}
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="p-3 space-y-2">
             {nodes.map((node, index) => {
@@ -794,7 +794,7 @@ export function StudentLearningPathPage() {
 
               return (
                 <div key={node.nodeId} className="border border-border rounded-lg overflow-hidden bg-card shadow-xs">
-                  {/* Node Title Header */}
+                  {}
                   <div 
                     onClick={() => handleToggleNode(node)}
                     className={`p-3 flex justify-between items-start cursor-pointer hover:bg-muted/50 transition-colors select-none ${
@@ -829,7 +829,7 @@ export function StudentLearningPathPage() {
                       </div>
 
                       <h4 className="font-bold text-foreground text-[11px] leading-snug pt-0.5">
-                        {/* Số chặng thật của lộ trình (không phải index — 1 chặng có thể có nhiều node) */}
+                        {}
                         {node.stageOrder != null ? `Chặng ${node.stageOrder} · ` : `${index + 1}. `}{node.title}
                       </h4>
 
@@ -866,7 +866,7 @@ export function StudentLearningPathPage() {
                     </div>
                   </div>
 
-                  {/* Expanded Items */}
+                  {}
                   {isExpanded && !isLocked && (
                     <div className="border-t border-border bg-muted/10 divide-y divide-border">
                       {loadingNodeContent[node.nodeId] ? (
@@ -876,7 +876,7 @@ export function StudentLearningPathPage() {
                         </div>
                       ) : (
                         <>
-                          {/* Materials */}
+                          {}
                           {content?.materials?.map(m => {
                             const isItemActive = activeItem?.type === 'material' && activeItem?.id === m.materialId;
                             return (
@@ -904,7 +904,7 @@ export function StudentLearningPathPage() {
                             );
                           })}
 
-                          {/* Tests */}
+                          {}
                           {content?.tests?.map(t => {
                             const isItemActive = activeItem?.type === 'test' && activeItem?.id === t.testId;
                             return (
@@ -928,7 +928,7 @@ export function StudentLearningPathPage() {
                             );
                           })}
 
-                          {/* Exercises */}
+                          {}
                           {content?.exercises?.map(e => {
                             const isItemActive = activeItem?.type === 'exercise' && activeItem?.id === e.exerciseId;
                             const submission = exerciseSubmissions[e.exerciseId];
@@ -971,9 +971,9 @@ export function StudentLearningPathPage() {
             })}
           </div>
         </div>
-      </div>      {/* RIGHT MAIN PANEL: Content Viewer */}
+      </div>      {}
       <div className="flex-1 flex flex-col h-full bg-background text-foreground relative overflow-hidden">
-        {/* Top Header */}
+        {}
         <div className="h-12 border-b border-border flex items-center justify-between px-6 bg-card shrink-0">
           <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
             <span>Lộ trình học tập</span>
@@ -1000,12 +1000,12 @@ export function StudentLearningPathPage() {
           </button>
         </div>
 
-        {/* Content Body (Scrollable) */}
+        {}
         <div className="flex-1 overflow-y-auto p-8 bg-muted/10">
           <div className="max-w-3xl mx-auto space-y-6 pb-20">
             {activeItem ? (
               <>
-                {/* 1. MATERIAL VIEWER */}
+                {}
                 {activeItem.type === 'material' && (
                   <div className="space-y-5">
                     <div className="space-y-2">
@@ -1023,12 +1023,12 @@ export function StudentLearningPathPage() {
                       ) : null}
                     </div>
 
-                    {/* Preview Area */}
+                    {}
                     <div className="border border-border rounded-lg overflow-hidden bg-card p-1.5 shadow-sm">
                       <MaterialPreview material={activeItem.data} />
                     </div>
 
-                    {/* Description */}
+                    {}
                     {activeItem.data.video?.description && (
                       <div className="space-y-1.5 border-t border-border pt-4">
                         <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mô tả chi tiết</h4>
@@ -1044,7 +1044,7 @@ export function StudentLearningPathPage() {
                   </div>
                 )}
 
-                {/* 2. TEST VIEWER */}
+                {}
                 {activeItem.type === 'test' && (
                   <div className="space-y-5">
                     <div className="space-y-2">
@@ -1087,7 +1087,7 @@ export function StudentLearningPathPage() {
                         </div>
                       )}
 
-                      {/* Display past attempt history */}
+                      {}
                       {attemptsForTest.length > 0 && (
                         <div className="border-t border-border pt-4 space-y-3">
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Lịch sử làm bài thi</span>
@@ -1140,7 +1140,7 @@ export function StudentLearningPathPage() {
                   </div>
                 )}
 
-                {/* 3. EXERCISE VIEWER & SUBMISSION */}
+                {}
                 {activeItem.type === 'exercise' && (
                   <div className="space-y-5">
                     <div className="space-y-2">
@@ -1150,7 +1150,7 @@ export function StudentLearningPathPage() {
                           <h1 className="text-xl font-bold text-foreground leading-tight tracking-tight">{activeItem.title}</h1>
                         </div>
                         
-                        {/* Submission status badge */}
+                        {}
                         {(() => {
                           const submission = exerciseSubmissions[activeItem.id];
                           if (!submission) {
@@ -1171,7 +1171,7 @@ export function StudentLearningPathPage() {
                       </div>
                     </div>
 
-                    {/* Instructions */}
+                    {}
                     {activeItem.data.instructions && (
                       <div className="border border-border bg-muted/20 rounded-lg p-4 space-y-1.5">
                         <h4 className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Yêu cầu & Hướng dẫn làm bài</h4>
@@ -1179,7 +1179,7 @@ export function StudentLearningPathPage() {
                       </div>
                     )}
 
-                    {/* Submission content view / form */}
+                    {}
                     {(() => {
                       const submission = exerciseSubmissions[activeItem.id];
                       const hasSubmitted = submission && (submission.status === 'SUBMITTED' || submission.status === 'GRADED');
@@ -1192,7 +1192,7 @@ export function StudentLearningPathPage() {
                               {isResubmitting ? 'Nộp lại bài làm của bạn' : 'Tiến hành nộp bài'}
                             </h3>
 
-                            {/* Text Submission Form */}
+                            {}
                             {activeItem.data.allowText && (
                               <div className="space-y-1.5">
                                 <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -1207,7 +1207,7 @@ export function StudentLearningPathPage() {
                               </div>
                             )}
 
-                            {/* File Upload Form */}
+                            {}
                             {activeItem.data.allowFile && (
                               <div className="space-y-1.5">
                                 <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -1256,7 +1256,7 @@ export function StudentLearningPathPage() {
                               </div>
                             )}
 
-                            {/* Form Action buttons */}
+                            {}
                             <div className="flex items-center gap-2.5 pt-2">
                               <Button
                                 onClick={handleExerciseSubmit}
@@ -1347,7 +1347,7 @@ export function StudentLearningPathPage() {
                                 </div>
                               )}
 
-                              {/* Resubmit button if not graded or if allowed */}
+                              {}
                               <div className="border-t border-border pt-4 flex justify-end">
                                 <Button
                                   onClick={() => {
@@ -1369,16 +1369,16 @@ export function StudentLearningPathPage() {
                   </div>
                 )}
                 
-                {/* Completion Footer (Coursera style) */}
+                {}
                 {renderCompletionFooter()}
 
-                {/* Hỏi đáp & Thảo luận */}
+                {}
                 <div className="border-t border-border pt-8 mt-12">
                   <NodeDiscussion nodeId={activeItem.nodeId} role="student" />
                 </div>
               </>
             ) : (
-              // 4. ROADMAP OVERVIEW (IF NO ACTIVE ITEM SELECTED)
+              
               <div className="text-center py-20 border border-dashed border-border rounded-lg bg-card">
                 <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3 stroke-[1.5]" />
                 <h2 className="text-sm font-bold text-foreground">Chọn một mục để học</h2>
@@ -1390,7 +1390,7 @@ export function StudentLearningPathPage() {
           </div>
         </div>
 
-        {/* BOTTOM NAVIGATION PANEL: Prev / Next buttons */}
+        {}
         {activeItem && allItems.length > 0 && (
           <div className="h-14 border-t border-border bg-card flex items-center justify-between px-8 shrink-0">
             <Button
@@ -1419,7 +1419,7 @@ export function StudentLearningPathPage() {
         )}
       </div>
 
-      {/* Pop Quiz Alert Dialog */}
+      {}
       <Dialog open={showPopQuizAlert} onOpenChange={setShowPopQuizAlert}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1445,7 +1445,7 @@ export function StudentLearningPathPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pop Quiz Runner Dialog */}
+      {}
       <Dialog open={showPopQuizRunner} onOpenChange={() => {}}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-3 mb-4">
@@ -1486,7 +1486,7 @@ export function StudentLearningPathPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pop Quiz Result Dialog */}
+      {}
       <Dialog open={showPopQuizResult} onOpenChange={setShowPopQuizResult}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

@@ -82,7 +82,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
                     HttpResponse.BodyHandlers.ofString());
             log.info("Cloudinary destroy {} ({}) -> {}", publicId, rt, resp.body());
         } catch (Exception e) {
-            // best-effort: không chặn việc xóa material trong app nếu Cloudinary lỗi
+            
             log.warn("Xóa asset Cloudinary {} thất bại: {}", publicId, e.getMessage());
         }
     }

@@ -80,13 +80,13 @@ export function StudentCoursesPage() {
   const [subjects, setSubjects] = useState<ClassroomSubjectResponse[]>([]);
   const [subjectLevels, setSubjectLevels] = useState<Record<number, number | null>>({});
   const [subjectProgress, setSubjectProgress] = useState<Record<number, { completed: number; total: number }>>({});
-  // Bài phân loại có câu tự luận đã nộp, đang chờ giáo viên chấm (graph state = PLACEMENT_PENDING)
+  
   const [pendingPlacements, setPendingPlacements] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Roadmap Modal State
+  
   const [isRoadmapOpen, setIsRoadmapOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
@@ -97,7 +97,7 @@ export function StudentCoursesPage() {
   const [activeTabs, setActiveTabs] = useState<Record<number, string>>({});
   const [discussionCounts, setDiscussionCounts] = useState<Record<number, number>>({});
 
-  // Exercise states
+  
   const [exerciseSubmissions, setExerciseSubmissions] = useState<Record<number, SubmissionResponse | null>>({});
   const [selectedExercise, setSelectedExercise] = useState<any | null>(null);
   const [exerciseText, setExerciseText] = useState('');
@@ -105,7 +105,7 @@ export function StudentCoursesPage() {
   const [submittingExercise, setSubmittingExercise] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState<SubmissionResponse | null>(null);
 
-  // Sub-mentor Support Modal State
+  
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [subMentorSubject, setSubMentorSubject] = useState<ClassroomSubjectResponse | null>(null);
 
@@ -114,7 +114,7 @@ export function StudentCoursesPage() {
     setIsSupportModalOpen(true);
   };
 
-  // Student Support Ticket creation State
+  
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
   const [ticketSubject, setTicketSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [ticketQuestion, setTicketQuestion] = useState('');
@@ -177,18 +177,18 @@ export function StudentCoursesPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch enrolled classroom subjects
+        
         const enrolledSubjects = await classroomService.getClassroomSubjectsByStudent(user.userId);
         setSubjects(enrolledSubjects || []);
 
-        // Load level history and graph progress for each subject in parallel
+        
         const levelsMap: Record<number, number | null> = {};
         const progressMap: Record<number, { completed: number; total: number }> = {};
         const pendingMap: Record<number, boolean> = {};
 
         await Promise.all(
           (enrolledSubjects || []).map(async (s) => {
-            // Fetch level history
+            
             try {
               const history = await studentService.getLevelHistory(s.classroomSubjectId);
               if (history && history.length > 0) {
@@ -201,7 +201,7 @@ export function StudentCoursesPage() {
               levelsMap[s.classroomSubjectId] = null;
             }
 
-            // Fetch graph to calculate node progress
+            
             try {
               const graph = await studentService.getClassroomSubjectGraph(s.classroomSubjectId);
               pendingMap[s.classroomSubjectId] = graph?.state === 'PLACEMENT_PENDING';
@@ -262,7 +262,7 @@ export function StudentCoursesPage() {
 
     const alreadyLoaded = !!nodeContents[nodeId];
     if (alreadyLoaded) {
-      // Refresh submissions
+      
       const content = nodeContents[nodeId];
       if (content.exercises && content.exercises.length > 0) {
         content.exercises.forEach(async (ex) => {
@@ -386,7 +386,7 @@ export function StudentCoursesPage() {
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Header and Search */}
+      {}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -397,7 +397,7 @@ export function StudentCoursesPage() {
           </p>
         </div>
         
-        {/* Search bar */}
+        {}
         <div className="relative w-full sm:w-64">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
             <Search className="size-4" />
@@ -412,7 +412,7 @@ export function StudentCoursesPage() {
         </div>
       </div>
 
-      {/* Courses Cards Grid */}
+      {}
       {filteredSubjects.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
           <BookOpen className="size-12 text-slate-400 mx-auto mb-3" />
@@ -444,11 +444,11 @@ export function StudentCoursesPage() {
 
             return (
               <Card key={c.classroomSubjectId} className="bg-card border border-border shadow-xs rounded-2xl hover:shadow-md transition-all flex flex-col justify-between overflow-hidden">
-                {/* Visual Accent Header */}
+                {}
                 <div className="h-2 bg-gradient-to-r from-primary to-primary/80" />
                 
                 <div className="p-5 space-y-4">
-                  {/* Subject details */}
+                  {}
                   <div>
                     <div className="flex justify-between items-start">
                       <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Lớp: {c.className}</span>
@@ -471,10 +471,10 @@ export function StudentCoursesPage() {
                     </p>
                   </div>
 
-                  {/* Divider */}
+                  {}
                   <div className="border-t border-border" />
 
-                  {/* Progress section (Only shown if classified) */}
+                  {}
                   {currentLevel !== null && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs">
@@ -490,7 +490,7 @@ export function StudentCoursesPage() {
                     </div>
                   )}
 
-                  {/* Teacher Info */}
+                  {}
                   <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-muted/30 text-xs">
                     <div className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold border border-primary/20 shrink-0">
                       {c.lecturerName ? c.lecturerName.split(' ').pop()?.charAt(0).toUpperCase() : 'GV'}
@@ -502,7 +502,7 @@ export function StudentCoursesPage() {
                   </div>
                 </div>
 
-                {/* Card Actions Footer */}
+                {}
                 <CardFooter className="bg-muted/30 p-4 border-t border-border flex flex-col gap-3">
                   {currentLevel === null ? (
                     <div className="w-full space-y-2">
@@ -589,7 +589,7 @@ export function StudentCoursesPage() {
         </div>
       )}
 
-      {/* Roadmap Graph Modal */}
+      {}
       <Dialog open={isRoadmapOpen} onOpenChange={setIsRoadmapOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-card text-foreground">
           <DialogHeader className="p-6 pb-4 border-b border-border shrink-0">
@@ -623,7 +623,7 @@ export function StudentCoursesPage() {
 
                   return (
                     <div key={node.nodeId} className="relative">
-                      {/* Timeline Dot Indicator */}
+                      {}
                       <span className={`absolute -left-[35px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full border ring-4 ring-background shrink-0 z-10 transition-colors ${
                         isCompleted 
                           ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -640,7 +640,7 @@ export function StudentCoursesPage() {
                         )}
                       </span>
 
-                      {/* Content Card */}
+                      {}
                       <Card className={`border transition-all ${
                         isOpen 
                           ? 'border-blue-500/30 shadow-sm bg-blue-500/5' 
@@ -684,7 +684,7 @@ export function StudentCoursesPage() {
                               </p>
                             )}
                           </div>
-                          {/* Right side: Slot details & status (for ON_CLASS nodes) */}
+                          {}
                           <div className="flex flex-col items-end gap-1.5 text-right shrink-0">
                             {node.nodeType === 'ON_CLASS' && (
                               <>
@@ -718,7 +718,7 @@ export function StudentCoursesPage() {
                           </div>
                         </div>
 
-                        {/* Expanded details (Materials and tests) */}
+                        {}
                         {isExpanded && !isLocked && (
                           <div className="p-4 pt-0 border-t border-border bg-card/50 rounded-b-xl space-y-4 text-xs">
                             {loadingNodeContent[node.nodeId] ? (
@@ -745,7 +745,7 @@ export function StudentCoursesPage() {
                                 </TabsList>
 
                                 <TabsContent value="content" className="space-y-4 pt-1 divide-y divide-border mt-0">
-                                  {/* Materials */}
+                                  {}
                                   {nodeContents[node.nodeId]?.materials && nodeContents[node.nodeId].materials.length > 0 && (
                                     <div className="space-y-2">
                                       <h5 className="font-bold text-foreground flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -769,7 +769,7 @@ export function StudentCoursesPage() {
                                     </div>
                                   )}
 
-                                  {/* Tests */}
+                                  {}
                                   {nodeContents[node.nodeId]?.tests && nodeContents[node.nodeId].tests.length > 0 && (
                                     <div className="space-y-2 pt-4">
                                       <h5 className="font-bold text-foreground flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -807,7 +807,7 @@ export function StudentCoursesPage() {
                                     </div>
                                   )}
 
-                                  {/* Exercises */}
+                                  {}
                                   {(() => {
                                     const content = nodeContents[node.nodeId];
                                     if (!content) return null;
@@ -865,7 +865,7 @@ export function StudentCoursesPage() {
                                           </div>
                                         )}
 
-                                        {/* Empty state for content */}
+                                        {}
                                         {materials.length === 0 && tests.length === 0 && exercises.length === 0 && (
                                           <div className="text-center py-6 text-muted-foreground italic">
                                             Bài học này chưa có nội dung tài liệu, bài kiểm tra hoặc bài thực hành.
@@ -910,7 +910,7 @@ export function StudentCoursesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Exercise Submission Modal */}
+      {}
       {selectedExercise && (
         <Dialog open={!!selectedExercise} onOpenChange={() => handleCloseExerciseModal()}>
           <DialogContent className="sm:max-w-lg bg-card text-foreground">
@@ -998,7 +998,7 @@ export function StudentCoursesPage() {
         </Dialog>
       )}
 
-      {/* Exercise Feedback View Modal */}
+      {}
       {showFeedbackModal && (
         <Dialog open={!!showFeedbackModal} onOpenChange={() => setShowFeedbackModal(null)}>
           <DialogContent className="sm:max-w-md bg-card text-foreground">
@@ -1044,14 +1044,14 @@ export function StudentCoursesPage() {
         </Dialog>
       )}
 
-      {/* Sub-mentor Support Modal */}
+      {}
       <SubMentorSupportModal
         isOpen={isSupportModalOpen}
         onClose={() => setIsSupportModalOpen(false)}
         subject={subMentorSubject}
       />
 
-      {/* Ask Support Ticket Modal */}
+      {}
       <Dialog open={isCreateTicketOpen} onOpenChange={setIsCreateTicketOpen}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col p-0 overflow-hidden bg-card text-foreground">
           <DialogHeader className="p-6 pb-4 border-b border-border bg-card shrink-0">
@@ -1063,7 +1063,7 @@ export function StudentCoursesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Tabs Group */}
+          {}
           <div className="flex border-b border-border bg-muted/30 p-1 gap-1 shrink-0">
             <button
               type="button"
@@ -1322,7 +1322,7 @@ export function SubMentorSupportModal({ isOpen, onClose, subject }: SubMentorSup
                         {ticket.messageStudent}
                       </div>
 
-                      {/* Answering layout directly visible */}
+                      {}
                       <div className="space-y-3 pt-1">
                         <textarea
                           value={currentResponse}

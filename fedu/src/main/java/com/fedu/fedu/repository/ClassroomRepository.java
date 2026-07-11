@@ -20,7 +20,7 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
 
     long countByIsDeletedFalse();
 
-    /** Số môn + số lượt học sinh của từng lớp, gom trong 1 query (tránh N+1 khi list lớp). */
+    
     @Query("""
             SELECT c.classroomId AS classroomId,
                    COUNT(DISTINCT cs.id) AS subjectCount,

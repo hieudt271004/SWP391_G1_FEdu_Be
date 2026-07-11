@@ -13,7 +13,7 @@ interface TestRunnerProps {
   submitting?: boolean;
   onStart: () => void;
   onSubmit: (body: AttemptSubmission) => void;
-  /** Gọi mỗi lần học sinh rời tab (chuyển tab/thu nhỏ) khi đang làm bài — chống gian lận. */
+  
   onTabOut?: () => void;
   startLabel?: string;
   submitLabel?: string;
@@ -21,8 +21,8 @@ interface TestRunnerProps {
 
 const EMPTY_ANSWER: AnswerValue = { selectedAnswerIds: [], responseText: '' };
 
-// Thành phần dùng chung cho cả node test và placement quiz.
-// Giữ state câu trả lời theo questionId rồi chuẩn hoá về payload submissions[].
+
+
 export function TestRunner({
   details,
   started,
@@ -36,8 +36,8 @@ export function TestRunner({
 }: TestRunnerProps) {
   const [answers, setAnswers] = useState<Record<number, AnswerValue>>({});
 
-  // Đang làm bài mà tab bị ẩn (chuyển tab / thu nhỏ cửa sổ) → báo về BE đếm số lần.
-  // Sau khi nộp, trang cha chuyển sang màn kết quả nên TestRunner unmount, listener tự gỡ.
+  
+  
   useEffect(() => {
     if (!started || !onTabOut) return;
     const handleVisibility = () => {

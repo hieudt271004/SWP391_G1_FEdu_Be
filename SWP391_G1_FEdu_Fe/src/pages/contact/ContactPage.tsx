@@ -39,7 +39,7 @@ export function ContactPage() {
       return;
     }
 
-    // Basic email validation
+    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Địa chỉ email không hợp lệ.");
@@ -55,7 +55,7 @@ export function ContactPage() {
         setIsSuccess(true);
         setFormData({ name: "", email: "", subject: "", message: "" });
         
-        // Auto reset success message after 5s
+        
         setTimeout(() => {
           if (!isMountedRef.current) return;
           setIsSuccess(false);
@@ -70,11 +70,11 @@ export function ContactPage() {
 
   return (
     <div className="bg-background text-foreground min-h-screen py-20 md:py-24 font-sans relative overflow-hidden">
-      {/* Glow effect */}
+      {}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-primary/5 blur-[130px] pointer-events-none" />
 
       <div className="relative max-w-6xl mx-auto px-6">
-        {/* Header */}
+        {}
         <div className="text-center max-w-2xl mx-auto mb-16 relative">
           <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-3.5 py-1.5 text-xs text-muted-foreground font-semibold mb-4">
             Liên hệ hỗ trợ
@@ -87,9 +87,9 @@ export function ContactPage() {
           </p>
         </div>
 
-        {/* Content */}
+        {}
         <div className="grid gap-6 md:grid-cols-5 items-start relative">
-          {/* Info Columns (2/5 size) */}
+          {}
           <div className="md:col-span-2 space-y-6">
             <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
               <h2 className="text-sm font-bold text-foreground mb-6">Thông tin liên lạc</h2>
@@ -145,7 +145,7 @@ export function ContactPage() {
             </div>
           </div>
 
-          {/* Contact Form (3/5 size) */}
+          {}
           <div className="md:col-span-3">
             <div className="rounded-2xl border border-border bg-card p-6 shadow-xs">
               <h2 className="text-sm font-bold text-foreground mb-6">Gửi tin nhắn cho chúng tôi</h2>

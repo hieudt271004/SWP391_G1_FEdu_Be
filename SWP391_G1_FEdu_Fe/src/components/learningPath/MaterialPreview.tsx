@@ -1,13 +1,13 @@
 import { API_BASE_URL } from "../../services/api.client";
 import type { NodeMaterialResponse } from "../../services/learningPath.service";
 
-// File /uploads cũ là URL tương đối → prefix BE; URL Cloudinary đã tuyệt đối.
+
 export function resolveAssetUrl(url?: string): string {
   if (!url) return "";
   return url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
 }
 
-// Nhận diện link video để nhúng xem trước: YouTube, Vimeo, hoặc file video trực tiếp.
+
 function getVideoEmbed(raw: string): { kind: "youtube" | "vimeo" | "file" | "none"; src: string } {
   const url = (raw || "").trim();
   if (!url) return { kind: "none", src: "" };
@@ -47,12 +47,12 @@ export function VideoPreview({ url }: { url: string }) {
   );
 }
 
-/**
- * Xem trước học liệu inline (read-only):
- * - Ảnh → <img>; PDF → <iframe>; video file → <video>; video link → embed.
- * - Word/Excel/PPT → Microsoft Office Online viewer (cần URL công khai, vd Cloudinary).
- * - Còn lại / Office trên localhost → link mở/tải.
- */
+
+
+
+
+
+
 export function MaterialPreview({ material }: { material: NodeMaterialResponse }) {
   if (material.video?.videoUrl) {
     return (
@@ -73,7 +73,7 @@ export function MaterialPreview({ material }: { material: NodeMaterialResponse }
   const isOffice =
     /\.(docx?|xlsx?|pptx?)(\?.*)?$/i.test(file.fileUrl) ||
     /word|excel|powerpoint|officedocument|ms-?excel|ms-?word|ms-?powerpoint/i.test(type);
-  // Office Online viewer chỉ fetch được URL công khai (không phải localhost).
+  
   const isPublicHttp = /^https?:\/\//i.test(url) && !/localhost|127\.0\.0\.1/i.test(url);
 
   if (isImage) {

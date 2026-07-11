@@ -60,7 +60,7 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new InvalidDataException("Bài tập này không cho phép nộp file.");
         }
 
-        // Nộp lại = cập nhật bài nộp cũ (mỗi học sinh 1 bài nộp / bài tập).
+        
         Submission submission = submissionRepository
                 .findByNodeExerciseExerciseIdAndStudentUserIdAndIsDeletedFalse(exerciseId, studentId)
                 .orElseGet(() -> Submission.builder()
@@ -75,7 +75,7 @@ public class SubmissionServiceImpl implements SubmissionService {
         submission.setFileUrl(hasFile ? storeFile(file) : null);
         submission.setStatus(SubmissionStatus.SUBMITTED);
         submission.setSubmittedAt(LocalDateTime.now());
-        // Nộp lại → cần chấm lại, xóa kết quả chấm cũ.
+        
         submission.setGrade(null);
         submission.setFeedback(null);
         submission.setGradedBy(null);
@@ -127,7 +127,7 @@ public class SubmissionServiceImpl implements SubmissionService {
         return mapSubmission(submission);
     }
 
-    // ===================== Helpers =====================
+    
 
     private NodeExercise getExercise(Long exerciseId) {
         NodeExercise exercise = nodeExerciseRepository.findById(exerciseId)

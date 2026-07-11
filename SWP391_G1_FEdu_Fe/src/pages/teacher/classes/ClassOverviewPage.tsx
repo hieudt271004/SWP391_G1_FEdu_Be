@@ -120,20 +120,20 @@ export function ClassOverviewPage() {
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [loadingContents, setLoadingContents] = useState<Record<number, boolean>>({});
 
-  // New classroom publish flow states
+  
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'cloning' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [cloneablePaths, setCloneablePaths] = useState<CloneablePathResponse[]>([]);
   const [loadingCloneablePaths, setLoadingCloneablePaths] = useState(false);
-  // Xem trước lộ trình mẫu trước khi áp dụng/đè lên
+  
   const [templatePreview, setTemplatePreview] = useState<{ pathId: number; nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  // Path đã được auto-chọn + auto-preview (chỉ làm 1 lần/path, để "Bỏ xem trước" không bị bật lại)
+  
   const autoPreviewedPathRef = useRef<number | null>(null);
   const [showApplyTemplateConfirm, setShowApplyTemplateConfirm] = useState(false);
 
-  // Dialog visibility and confirmation states
+  
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [understandPublish, setUnderstandPublish] = useState(false);
 
@@ -145,7 +145,7 @@ export function ClassOverviewPage() {
 
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
-  // Selected Node Details state
+  
   const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
   const [nodeStudents, setNodeStudents] = useState<StudentInClassResponse[]>([]);
   const [nodeContent, setNodeContent] = useState<NodeContentResponse | null>(null);
@@ -153,7 +153,7 @@ export function ClassOverviewPage() {
   const [activeTabs, setActiveTabs] = useState<Record<number, string>>({});
   const [discussionCounts, setDiscussionCounts] = useState<Record<number, number>>({});
 
-  // Teacher Pop Quiz states
+  
   const [activePQAssignment, setActivePQAssignment] = useState<PopQuizResultsResponse | null>(null);
   const [loadingPQResults, setLoadingPQResults] = useState(false);
   const [submittingCreatePQ, setSubmittingCreatePQ] = useState(false);
@@ -172,12 +172,12 @@ export function ClassOverviewPage() {
     }[];
   }[]>([]);
 
-  // Node scheduling states
+  
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [schedulingNode, setSchedulingNode] = useState<LearningNodeResponse | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleSlotId, setScheduleSlotId] = useState("");
-  // Deadline CHỈ dành cho node Tự học (AT_HOME) — đặt ở panel node, không thuộc dialog xếp lịch
+  
   const [deadlineInput, setDeadlineInput] = useState("");
   const [savingDeadline, setSavingDeadline] = useState(false);
   const [slotsList, setSlotsList] = useState<SlotResponse[]>([]);
@@ -219,7 +219,7 @@ export function ClassOverviewPage() {
       return;
     }
 
-    // Kiểm tra không cho phép chọn ca học trong quá khứ
+    
     const selectedSlot = slotsList.find(s => String(s.slotId) === scheduleSlotId);
     if (selectedSlot) {
       const now = new Date();
@@ -303,12 +303,12 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Đồng bộ ô nhập deadline khi đổi node (BE trả "YYYY-MM-DDTHH:mm:ss" → cắt cho datetime-local)
+  
   useEffect(() => {
     setDeadlineInput(selectedNode?.deadlineAt ? selectedNode.deadlineAt.slice(0, 16) : "");
   }, [selectedNode?.nodeId, selectedNode?.deadlineAt]);
 
-  // Đặt hạn hoàn thành cho node Tự học (AT_HOME) — node Trên lớp không dùng deadline
+  
   const handleSaveDeadline = async () => {
     if (!selectedNode) return;
     if (!deadlineInput) {
@@ -317,7 +317,7 @@ export function ClassOverviewPage() {
     }
     try {
       setSavingDeadline(true);
-      // Gửi nguyên chuỗi "YYYY-MM-DDTHH:mm" (LocalDateTime — không toISOString để khỏi lệch múi giờ)
+      
       const res = await learningPathService.updateLearningNode(selectedNode.nodeId, {
         title: selectedNode.title,
         nodeType: selectedNode.nodeType,
@@ -336,7 +336,7 @@ export function ClassOverviewPage() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
 
-  // Báo cáo tiến độ + hoàn thành trễ per học sinh (cột trong tab Học sinh), key = userId
+  
   const [progressReport, setProgressReport] = useState<Record<number, StudentProgressReportResponse>>({});
   const [loadingReport, setLoadingReport] = useState(false);
 
@@ -351,7 +351,7 @@ export function ClassOverviewPage() {
           setProgressReport(Object.fromEntries((rows ?? []).map((r) => [r.studentId, r])));
         }
       } catch (err) {
-        // Cột phụ — lỗi thì để trống, không toast làm phiền
+        
         console.error('Không thể tải báo cáo theo dõi học sinh:', err);
       } finally {
         if (!cancelled) setLoadingReport(false);
@@ -362,13 +362,13 @@ export function ClassOverviewPage() {
     };
   }, [activeTab, classroomSubjectId]);
 
-  // Theo dõi bài làm (node ON_CLASS): dialog 3 tab — đang làm / gian lận / chờ chấm tự luận
+  
   const [monitorTest, setMonitorTest] = useState<{ testId: number; title: string } | null>(null);
   const [monitorAttempts, setMonitorAttempts] = useState<StudentAttemptResponse[]>([]);
   const [monitorLoading, setMonitorLoading] = useState(false);
   const [monitorTab, setMonitorTab] = useState<'doing' | 'cheat' | 'grading'>('doing');
 
-  // Chấm tay câu tự luận của một attempt PENDING_REVIEW
+  
   const [gradingAttempt, setGradingAttempt] = useState<AttemptGradingDetail | null>(null);
   const [gradingLoading, setGradingLoading] = useState(false);
   const [essayMarks, setEssayMarks] = useState<Record<number, boolean>>({});
@@ -412,11 +412,11 @@ export function ClassOverviewPage() {
         setGradingAttempt(updated);
         setEssayMarks({});
       }
-      // Làm mới danh sách lượt làm bài trong dialog theo dõi
+      
       if (monitorTest) {
         try {
           setMonitorAttempts((await learningPathService.getTestAttempts(monitorTest.testId)) ?? []);
-        } catch { /* poll 10s sẽ tự cập nhật */ }
+        } catch {  }
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Lưu kết quả chấm thất bại');
@@ -442,7 +442,7 @@ export function ClassOverviewPage() {
       }
     };
     fetchAttempts(true);
-    // "Live" nhẹ nhàng: refetch mỗi 10s khi dialog đang mở (không cần websocket)
+    
     const interval = setInterval(() => fetchAttempts(false), 10000);
     return () => {
       cancelled = true;
@@ -450,7 +450,7 @@ export function ClassOverviewPage() {
     };
   }, [monitorTest]);
 
-  // Submissions Grading States
+  
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
   const [selectedExerciseTitle, setSelectedExerciseTitle] = useState('');
   const [submissionsList, setSubmissionsList] = useState<SubmissionResponse[]>([]);
@@ -499,11 +499,11 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Support Tab functions
+  
   const [isAssignSubMentorModalOpen, setIsAssignSubMentorModalOpen] = useState(false);
   const [assignSubMentorIds, setAssignSubMentorIds] = useState<number[]>([]);
 
-  // Sync activeTab from ?tab= query parameter (e.g. when redirected from ClassManagementPage)
+  
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam === 'placement' || tabParam === 'students' || tabParam === 'support' || tabParam === 'roadmap') {
@@ -511,7 +511,7 @@ export function ClassOverviewPage() {
     }
   }, [searchParams]);
 
-  // Placement Quiz states
+  
   const [placementQuiz, setPlacementQuiz] = useState<any>(null);
   const [loadingPlacement, setLoadingPlacement] = useState(false);
   const [isCreateQuizOpen, setIsCreateQuizOpen] = useState(false);
@@ -520,11 +520,11 @@ export function ClassOverviewPage() {
   const [quizDuration, setQuizDuration] = useState('45');
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
 
-  // Score bands state
+  
   const [scoreBands, setScoreBands] = useState<any[]>([]);
   const [savingBands, setSavingBands] = useState(false);
 
-  // Questions state
+  
   const [questions, setQuestions] = useState<any[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
@@ -539,13 +539,13 @@ export function ClassOverviewPage() {
   ]);
   const [submittingQuestion, setSubmittingQuestion] = useState(false);
 
-  // Student level history modal state
+  
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedStudentName, setSelectedStudentName] = useState('');
   const [levelHistory, setLevelHistory] = useState<any[]>([]);
 
-  // Student details modal state
+  
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [detailTab, setDetailTab] = useState<'info' | 'history'>('info');
@@ -559,7 +559,7 @@ export function ClassOverviewPage() {
     };
   }, []);
 
-  // Support & Peer Mentoring states
+  
   const [escalatedTickets, setEscalatedTickets] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loadingSupport, setLoadingSupport] = useState(false);
@@ -708,7 +708,7 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Keep track of which first nodes have been initialized to avoid redundant calls or state resets
+  
   const initializedPathsRef = useRef<Set<number>>(new Set());
 
   const handleViewHistory = async (student: Student) => {
@@ -808,7 +808,7 @@ export function ClassOverviewPage() {
       setIsCreateQuizOpen(false);
       await fetchPlacementQuiz();
 
-      // Update graphData to check quizStartTestId
+      
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
     } catch (err: any) {
@@ -1049,7 +1049,7 @@ export function ClassOverviewPage() {
         feedbackValue.trim()
       );
 
-      // Update submissionsList locally and re-sort
+      
       setSubmissionsList((prev) => {
         const updated = prev.map((s) => (s.submissionId === res.submissionId ? res : s));
         return updated.sort((a, b) => {
@@ -1147,9 +1147,9 @@ export function ClassOverviewPage() {
     fetchClassroomData();
   }, [classroomSubjectId]);
 
-  // Auto-select template if there's only one template available
-  // (kèm nạp preview — set mỗi selectedTemplateId thì dropdown "đã chọn sẵn" nhưng
-  //  không bao giờ hiện bản xem trước vì onChange không bắn khi chọn lại cùng giá trị)
+  
+  
+  
   useEffect(() => {
     if (graphData?.state === 'NO_PATH' && graphData.availableTemplates) {
       if (graphData.availableTemplates.length === 1) {
@@ -1162,7 +1162,7 @@ export function ClassOverviewPage() {
     }
   }, [graphData]);
 
-  // Cross-tab consistency
+  
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && classroomSubjectId) {
@@ -1245,7 +1245,7 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Polling results for teacher
+  
   useEffect(() => {
     if (!selectedNode || selectedNode.nodeType !== 'ON_CLASS' || !activePQAssignment || activePQAssignment.status !== 'OPEN') return;
     
@@ -1788,7 +1788,7 @@ export function ClassOverviewPage() {
         setLoadingCloneablePaths(true);
         const res = await learningPathService.getCloneablePaths(Number(classroomSubjectId));
         setCloneablePaths(res);
-        // Chỉ có đúng 1 lựa chọn và lớp chưa có lộ trình → chọn sẵn + hiện luôn bản xem trước
+        
         if (graphData?.state === 'NO_PATH' && res.length === 1 && autoPreviewedPathRef.current !== res[0].pathId) {
           autoPreviewedPathRef.current = res[0].pathId;
           handlePreviewTemplate(res[0].pathId);
@@ -1805,7 +1805,7 @@ export function ClassOverviewPage() {
     }
   }, [graphData?.state, classroomSubjectId]);
 
-  // Chọn 1 template ở dropdown → tải graph mẫu để xem trước trong khung "Sơ đồ lộ trình học tập".
+  
   const handlePreviewTemplate = async (templatePathId: number | null) => {
     setSelectedTemplateId(templatePathId);
     setSelectedNode(null);
@@ -1825,8 +1825,8 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Áp dụng template đang xem trước. Nếu lớp đã có bản nháp → BE thay nháp bằng clone mới
-  // trong 1 transaction (không dùng delete-rồi-clone 2 request rời — lỗi giữa chừng sẽ mất nháp).
+  
+  
   const handleApplyTemplate = async () => {
     if (!classroomSubjectId || !selectedTemplateId) return;
     try {
@@ -1969,7 +1969,7 @@ export function ClassOverviewPage() {
     const colNodes = pathDto.nodes || [];
     const colEdges = pathDto.edges || [];
 
-    const isColSubNode = (_n: LearningNodeResponse) => false; // model mới không còn "nhánh phụ" (cạnh có max_score)
+    const isColSubNode = (_n: LearningNodeResponse) => false; 
     const colSubDepth = (n: LearningNodeResponse, seen: Set<number> = new Set()): number => {
       if (!isColSubNode(n)) return 0;
       if (seen.has(n.nodeId)) return 1;
@@ -1983,7 +1983,7 @@ export function ClassOverviewPage() {
     const subInfo: Record<number, { base: string; idx: number }> = {};
     let lessonCounter = 0;
 
-    // Sort nodes by displayOrder, then nodeId for stable sorting
+    
     const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
 
     for (const n of sortedColNodes) {
@@ -2021,7 +2021,7 @@ export function ClassOverviewPage() {
     return (
       <Card className="border border-slate-200 bg-white shadow-xs flex flex-col min-h-[500px] p-6 rounded-2xl">
         <div className="flex-1">
-          {/* Column Header */}
+          {}
           <div className="pb-4 mb-4 border-b border-slate-100">
             <div className="flex items-center gap-2 mb-1.5">
               <BookOpen className="w-5 h-5 text-primary shrink-0" />
@@ -2032,7 +2032,7 @@ export function ClassOverviewPage() {
             </p>
           </div>
 
-          {/* Stats Bar */}
+          {}
           {sortedColNodes.length > 0 && (
             <div className="flex items-center flex-wrap gap-x-3 gap-y-1 pb-3 mb-4 border-b border-slate-100 text-[11px] text-slate-500 font-medium">
               <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 text-primary" /> {sortedColNodes.length} bài học</span>
@@ -2048,7 +2048,7 @@ export function ClassOverviewPage() {
             </div>
           )}
 
-          {/* Nodes list */}
+          {}
           {sortedColNodes.length === 0 ? (
             <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
               <Map className="w-8 h-8 mx-auto text-slate-300 mb-2" />
@@ -2065,7 +2065,7 @@ export function ClassOverviewPage() {
 
                 return (
                   <div key={node.nodeId} className="w-full relative" style={{ marginLeft: `${depth * 28}px` }}>
-                    {/* Branch connector on the left */}
+                    {}
                     {depth > 0 && (
                       <div className="absolute top-0 bottom-0 flex items-start justify-center pointer-events-none" style={{ left: `-${28}px`, width: `${28}px` }}>
                         <svg className="w-full h-12 text-slate-300" viewBox="0 0 28 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -2075,7 +2075,7 @@ export function ClassOverviewPage() {
                       </div>
                     )}
 
-                    {/* Standard vertical line connector for main nodes */}
+                    {}
                     {index > 0 && depth === 0 && (
                       <div className="flex flex-col items-center justify-center my-1.5">
                         <div className="h-4 w-0.5 bg-slate-200 relative flex items-center justify-center">
@@ -2092,7 +2092,7 @@ export function ClassOverviewPage() {
                             : "bg-slate-50/50 hover:bg-white hover:border-slate-300 border-slate-200"
                       }`}
                     >
-                      {/* Node Header */}
+                      {}
                       <div
                         onClick={() => toggleNode(node.nodeId)}
                         className="flex items-center justify-between p-3.5 cursor-pointer select-none"
@@ -2122,14 +2122,14 @@ export function ClassOverviewPage() {
                         </div>
                       </div>
 
-                      {/* Node Expanded Content */}
+                      {}
                       {isExpanded && (
                         <div className="px-3.5 pb-3.5 pt-1.5 bg-slate-50/30 border-t border-slate-100 space-y-3">
                           <p className="text-xs text-slate-500 leading-relaxed">
                             {node.description || "Chưa có mô tả chi tiết."}
                           </p>
 
-                          {/* Materials & Tests list */}
+                          {}
                           <div className="border border-slate-200/80 rounded-lg p-2.5 bg-white space-y-2">
                             <div className="text-[10px] font-bold text-slate-700 flex items-center gap-1">
                               <BookOpen className="w-3 h-3 text-primary" />
@@ -2293,7 +2293,7 @@ export function ClassOverviewPage() {
               Bắt đầu lớp học
             </Button>
           )}
-          {/* "Kết thúc lớp học" chỉ dành cho admin — đã bỏ ở giao diện giáo viên. */}
+          {}
           {graphData?.state === 'DRAFT' && (
             <Button
               className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
@@ -2318,7 +2318,7 @@ export function ClassOverviewPage() {
         </div>
       </div>
 
-      {/* Banner trạng thái khi lớp chưa có lộ trình */}
+      {}
       {graphData?.state === 'NO_PATH' && (
         <Card className="border-primary/20 bg-primary/5 rounded-2xl">
           <CardContent className="pt-6">
@@ -2360,7 +2360,7 @@ export function ClassOverviewPage() {
         </Card>
       )}
 
-      {/* Tab Navigation */}
+      {}
       <div className="flex border-b border-slate-200">
         <button
           onClick={() => setActiveTab('roadmap')}
@@ -2395,7 +2395,7 @@ export function ClassOverviewPage() {
         </button>
       </div>
 
-      {/* Tab Content */}
+      {}
       {activeTab === 'roadmap' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between pl-1">
@@ -2417,8 +2417,8 @@ export function ClassOverviewPage() {
             )}
           </div>
 
-          {/* Chọn nguồn lộ trình để áp dụng: template của khoa hoặc template cá nhân của GV.
-              Hiện khi lớp chưa có lộ trình hoặc còn bản nháp (áp dụng sẽ ghi đè nháp). */}
+          {
+}
           {(graphData?.state === 'NO_PATH' || graphData?.state === 'DRAFT') && (
             <Card className="border border-primary/20 bg-primary/5 rounded-2xl mb-6">
               <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
@@ -2543,7 +2543,7 @@ export function ClassOverviewPage() {
                         </div>
                       ) : (
                         <>
-                          {/* Student list above materials */}
+                          {}
                           <div className="space-y-2">
                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Danh sách sinh viên ({nodeStudents.length})</h4>
                             {nodeStudents.length === 0 ? (
@@ -2570,7 +2570,7 @@ export function ClassOverviewPage() {
                             )}
                           </div>
 
-                          {/* Scheduling for ON_CLASS nodes */}
+                          {}
                           {selectedNode.nodeType === 'ON_CLASS' && (
                             <div className="space-y-2 border-t border-border pt-3">
                               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Lịch học trên lớp</h4>
@@ -2601,7 +2601,7 @@ export function ClassOverviewPage() {
                             </div>
                           )}
 
-                          {/* Deadline CHỈ cho node Tự học — node Trên lớp học theo buổi (lịch + live) */}
+                          {}
                           {selectedNode.nodeType === 'AT_HOME' && (
                             <div className="space-y-2 border-t border-border pt-3">
                               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Hạn hoàn thành (deadline)</h4>
@@ -2636,7 +2636,7 @@ export function ClassOverviewPage() {
                             </div>
                           )}
 
-                          {/* Unlocking status and action for ON_CLASS nodes */}
+                          {}
                           {selectedNode.nodeType === 'ON_CLASS' && (
                             <div className="space-y-2 border-t border-border pt-3">
                               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Trạng thái buổi học</h4>
@@ -2697,7 +2697,7 @@ export function ClassOverviewPage() {
                             </TabsList>
 
                             <TabsContent value="content" className="mt-0 space-y-4">
-                              {/* Materials */}
+                              {}
                               <div className="space-y-2 pt-3 border-t border-border">
                                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tài liệu học tập</h4>
                                 {!nodeContent || (!nodeContent.materials?.length && !nodeContent.tests?.length && !nodeContent.exercises?.length) ? (
@@ -2727,7 +2727,7 @@ export function ClassOverviewPage() {
                                         <div className="flex-1 min-w-0">
                                           <p className="font-medium text-foreground truncate">{t.title} ({t.durationMinutes} phút)</p>
                                         </div>
-                                        {/* Mọi test đều theo dõi được: đang làm / gian lận / CHỜ CHẤM TỰ LUẬN */}
+                                        {}
                                         <Button
                                           onClick={() => { setMonitorTab(selectedNode.nodeType === 'ON_CLASS' ? 'doing' : 'grading'); setMonitorTest({ testId: t.testId, title: t.title }); }}
                                           className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
@@ -2793,7 +2793,7 @@ export function ClassOverviewPage() {
         </div>
       )}
 
-      {/* Xác nhận ghi đè template lên bản nháp hiện tại */}
+      {}
       <Dialog open={showApplyTemplateConfirm} onOpenChange={(o) => { if (!o) setShowApplyTemplateConfirm(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -2849,9 +2849,9 @@ export function ClassOverviewPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
-              {/* Left Column: Quiz Info & Score Bands */}
+              {}
               <div className="lg:col-span-1 space-y-6">
-                {/* General Info Card */}
+                {}
                 <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white">
                   <CardHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
                     <CardTitle className="text-sm font-bold text-slate-850 flex items-center gap-1.5">
@@ -2889,7 +2889,7 @@ export function ClassOverviewPage() {
                   </CardContent>
                 </Card>
 
-                {/* Score Bands Card */}
+                {}
                 <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white">
                   <CardHeader className="border-b border-slate-100 pb-3 flex items-center justify-between flex-row">
                     <CardTitle className="text-sm font-bold text-slate-855 flex items-center gap-1.5">
@@ -2964,7 +2964,7 @@ export function ClassOverviewPage() {
                 </Card>
               </div>
 
-              {/* Right Column: Question Library */}
+              {}
               <div className="lg:col-span-2">
                 <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white h-full flex flex-col justify-between">
                   <div>
@@ -3178,7 +3178,7 @@ export function ClassOverviewPage() {
         </Card>
       )}
 
-      {/* Dialog: Create/Update Placement Quiz */}
+      {}
       <Dialog open={isCreateQuizOpen} onOpenChange={setIsCreateQuizOpen}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleCreateOrUpdateQuiz}>
@@ -3236,7 +3236,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Add/Edit Question */}
+      {}
       <Dialog open={isQuestionModalOpen} onOpenChange={setIsQuestionModalOpen}>
         <DialogContent className="sm:max-w-xl">
           <form onSubmit={handleQuestionSubmit}>
@@ -3380,7 +3380,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Modal for Publish */}
+      {}
       <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -3436,7 +3436,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Modal for Unpublish */}
+      {}
       <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -3486,7 +3486,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Unpublish Error Modal (already completed nodes) */}
+      {}
       <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -3506,7 +3506,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Student Level History Modal */}
+      {}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -3567,7 +3567,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Student Details & History Modal */}
+      {}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader className="pb-3 border-b border-slate-100">
@@ -3581,7 +3581,7 @@ export function ClassOverviewPage() {
 
           {selectedStudent && (
             <div className="py-4 space-y-4">
-              {/* Profile Card Header */}
+              {}
               <div className="flex items-center gap-4 bg-slate-50/50 p-4 border border-slate-100 rounded-2xl">
                 <div className="size-12 bg-primary/5 text-primary rounded-full flex items-center justify-center font-extrabold text-lg border border-primary/10">
                   {selectedStudent.fullName.split(' ').pop()?.charAt(0).toUpperCase() || 'S'}
@@ -3601,7 +3601,7 @@ export function ClassOverviewPage() {
                 </div>
               </div>
 
-              {/* Tabs selector */}
+              {}
               <div className="flex border-b border-slate-100 gap-4 text-xs font-semibold text-slate-500">
                 <button
                   type="button"
@@ -3623,12 +3623,12 @@ export function ClassOverviewPage() {
                 </button>
               </div>
 
-              {/* Tab Contents */}
+              {}
               <div className="min-h-[220px]">
                 {detailTab === 'info' && (
                   <div className="space-y-4 pt-1">
                     <div className="grid grid-cols-2 gap-4">
-                      {/* Left Block */}
+                      {}
                       <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/20 space-y-1">
                         <span className="text-[10px] uppercase font-bold text-slate-400 block">Phân loại học lực</span>
                         <div className="pt-1">
@@ -3650,7 +3650,7 @@ export function ClassOverviewPage() {
                         </div>
                       </div>
 
-                      {/* Right Block */}
+                      {}
                       <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/20 space-y-1">
                         <span className="text-[10px] uppercase font-bold text-slate-400 block">Lộ trình học tập</span>
                         <div className="pt-1 font-semibold text-slate-700 text-xs">
@@ -3661,7 +3661,7 @@ export function ClassOverviewPage() {
                       </div>
                     </div>
 
-                    {/* Progress details */}
+                    {}
                     <div className="p-4 border border-slate-100 rounded-xl bg-slate-50/10 space-y-3">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-bold text-slate-700 flex items-center gap-1.5">
@@ -3751,10 +3751,10 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── Tab Support: Trợ giảng & Hỏi đáp ─────────────────────────────────── */}
+      {}
       {activeTab === 'support' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Cột trái: Quản lý nhóm trợ giảng (2 cols) */}
+          {}
           <div className="lg:col-span-2 space-y-6">
             <Card className="border border-border shadow-xs rounded-2xl bg-card text-card-foreground">
               <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between flex-wrap gap-2">
@@ -3869,7 +3869,7 @@ export function ClassOverviewPage() {
             </Card>
           </div>
 
-          {/* Cột phải: Hỏi đáp leo thang (1 col) */}
+          {}
           <div className="space-y-6">
             <Card className="border border-border shadow-xs rounded-2xl bg-card text-card-foreground h-full flex flex-col justify-between">
               <div>
@@ -3935,7 +3935,7 @@ export function ClassOverviewPage() {
         </div>
       )}
 
-      {/* Modal: Gán học sinh kèm cặp */}
+      {}
       <Dialog open={isAssignStudentModalOpen} onOpenChange={setIsAssignStudentModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="pb-3 border-b border-slate-100">
@@ -4019,7 +4019,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Giảng viên trả lời câu hỏi leo thang */}
+      {}
       <Dialog open={isRespondModalOpen} onOpenChange={setIsRespondModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader className="pb-3 border-b border-slate-100">
@@ -4081,7 +4081,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Exercise Submissions Split Dialog */}
+      {}
       {selectedExerciseId && (
         <Dialog open={!!selectedExerciseId} onOpenChange={() => {
           setSelectedExerciseId(null);
@@ -4096,7 +4096,7 @@ export function ClassOverviewPage() {
             </DialogHeader>
 
             <div className="flex-1 overflow-hidden grid grid-cols-12 min-h-[50vh]">
-              {/* Left Column: Submissions List */}
+              {}
               <div className="col-span-5 border-r border-slate-100 overflow-y-auto p-4 bg-slate-50/50">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Danh sách bài nộp</h4>
                 {loadingSubmissions ? (
@@ -4146,7 +4146,7 @@ export function ClassOverviewPage() {
                 )}
               </div>
 
-              {/* Right Column: Submission Details & Form */}
+              {}
               <div className="col-span-7 overflow-y-auto p-6 bg-white flex flex-col">
                 {gradingSubmission ? (
                   <form onSubmit={handleSaveGrade} className="space-y-4 text-xs flex-1 flex flex-col justify-between">
@@ -4316,7 +4316,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Xếp lịch học cho node trên lớp */}
+      {}
       <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
         <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl text-xs">
           <DialogHeader className="pb-3 border-b border-border">
@@ -4374,7 +4374,7 @@ export function ClassOverviewPage() {
                 value={scheduleDate}
                 onChange={(e) => {
                   setScheduleDate(e.target.value);
-                  setScheduleConflict(null); // Clear previous conflicts on change
+                  setScheduleConflict(null); 
                 }}
               />
             </div>
@@ -4385,7 +4385,7 @@ export function ClassOverviewPage() {
                 value={scheduleSlotId ? String(scheduleSlotId) : "none"}
                 onValueChange={(value) => {
                   setScheduleSlotId(value === "none" ? "" : value);
-                  setScheduleConflict(null); // Clear conflicts
+                  setScheduleConflict(null); 
                 }}
               >
                 <SelectTrigger className="w-full bg-background border-border rounded-xl h-9 text-foreground text-xs outline-none focus-visible:ring-0 shadow-none">
@@ -4435,7 +4435,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog theo dõi bài làm test của node ON_CLASS: đang làm + cảnh báo gian lận (rời tab) */}
+      {}
       <Dialog open={!!monitorTest} onOpenChange={(open) => { if (!open) setMonitorTest(null); }}>
         <DialogContent className="sm:max-w-2xl bg-background border-border shadow-2xl text-xs">
           <DialogHeader>
@@ -4561,7 +4561,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog chấm tay câu tự luận: chấm đủ mọi câu → BE chốt điểm + xếp mức/mở bài */}
+      {}
       <Dialog open={!!gradingAttempt} onOpenChange={(open) => { if (!open) setGradingAttempt(null); }}>
         <DialogContent className="sm:max-w-2xl bg-background border-border shadow-2xl text-xs">
           <DialogHeader>

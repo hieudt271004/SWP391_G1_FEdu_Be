@@ -31,8 +31,8 @@ import {
 import { uploadService } from '../../../services/upload.service';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 
-// Màn hình dạy học (buổi live node ON_CLASS): polling state 5s — up tài liệu, phát đề,
-// theo dõi đang-làm/gian-lận. Đồng hồ đếm ngược đồng bộ theo releaseEndsAt + serverTime.
+
+
 const POLL_MS = 5000;
 
 const fmtTime = (iso?: string | null) =>
@@ -57,18 +57,18 @@ export function TeacherLiveSessionPage() {
   const [acting, setActing] = useState(false);
   const [monitorTab, setMonitorTab] = useState<'doing' | 'cheat'>('doing');
 
-  // Lệch đồng hồ client so với server (ms) — để đếm ngược không phụ thuộc giờ máy học sinh/GV
+  
   const clockOffsetRef = useRef(0);
   const [nowTick, setNowTick] = useState(Date.now());
 
-  // Form thêm tài liệu nhanh
+  
   const [mTitle, setMTitle] = useState('');
   const [mType, setMType] = useState<'VIDEO' | 'FILE'>('FILE');
   const [mVideoUrl, setMVideoUrl] = useState('');
   const [mFile, setMFile] = useState<File | null>(null);
   const [addingMaterial, setAddingMaterial] = useState(false);
 
-  // Dialog soạn đề nhanh (chờ phát)
+  
   const [showCreateTest, setShowCreateTest] = useState(false);
   const [tTitle, setTTitle] = useState('');
   const [tDuration, setTDuration] = useState('15');
@@ -87,7 +87,7 @@ export function TeacherLiveSessionPage() {
           const atts = await learningPathService.getTestAttempts(s.activeTest.testId);
           setAttempts(atts ?? []);
         } catch {
-          /* theo dõi lỗi lặt vặt thì giữ dữ liệu cũ */
+          
         }
       }
     } catch (err: any) {
@@ -206,7 +206,7 @@ export function TeacherLiveSessionPage() {
         title: tTitle.trim(),
         durationMinutes: duration,
         passingPercentage: Number(tPass) || 0,
-        holdRelease: true, // soạn xong CHƯA phát — chờ bấm "Phát đề"
+        holdRelease: true, 
       });
       toast.success('Đã tạo đề (chưa phát). Thêm câu hỏi rồi bấm "Phát đề".');
       setShowCreateTest(false);
@@ -239,7 +239,7 @@ export function TeacherLiveSessionPage() {
 
   return (
     <div className="space-y-5 text-foreground">
-      {/* Header buổi học */}
+      {}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" size="icon" onClick={() => navigate(`/teacher/classroom-subjects/${csId}`)}>
           <ArrowLeft className="w-4 h-4" />
@@ -286,9 +286,9 @@ export function TeacherLiveSessionPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-        {/* Cột trái: tài liệu + đề */}
+        {}
         <div className="space-y-5">
-          {/* Tài liệu */}
+          {}
           <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
             <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <FileText className="size-3.5" /> Tài liệu buổi học ({materials.length})
@@ -306,7 +306,7 @@ export function TeacherLiveSessionPage() {
               )}
             </div>
 
-            {/* Thêm nhanh */}
+            {}
             <div className="border-t border-border pt-3 space-y-2">
               <div className="flex gap-2">
                 <input
@@ -346,7 +346,7 @@ export function TeacherLiveSessionPage() {
             </div>
           </div>
 
-          {/* Đề kiểm tra */}
+          {}
           <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -401,7 +401,7 @@ export function TeacherLiveSessionPage() {
           </div>
         </div>
 
-        {/* Cột phải: theo dõi bài làm */}
+        {}
         <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
           <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
             <Activity className="size-3.5" /> Theo dõi bài làm
@@ -472,7 +472,7 @@ export function TeacherLiveSessionPage() {
         </div>
       </div>
 
-      {/* Dialog soạn đề nhanh */}
+      {}
       <Dialog open={showCreateTest} onOpenChange={setShowCreateTest}>
         <DialogContent className="sm:max-w-md bg-background border-border text-xs">
           <DialogHeader>

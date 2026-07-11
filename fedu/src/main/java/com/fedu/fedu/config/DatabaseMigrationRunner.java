@@ -23,7 +23,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
         try (Connection connection = dataSource.getConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             
-            // Check if status column exists in subjects table
+            
             boolean hasStatusColumn = false;
             try (ResultSet resultSet = metaData.getColumns(null, null, "subjects", "status")) {
                 if (resultSet.next()) {
@@ -41,7 +41,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Column 'status' already exists in 'subjects' table.");
             }
 
-            // Check if status column exists in classrooms table
+            
             boolean hasClassroomStatusColumn = false;
             try (ResultSet resultSet = metaData.getColumns(null, null, "classrooms", "status")) {
                 if (resultSet.next()) {
@@ -53,7 +53,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Column 'status' does not exist in 'classrooms' table. Running migration...");
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("ALTER TABLE classrooms ADD COLUMN status VARCHAR(50) DEFAULT 'inactive'");
-                    // Migrate legacy data
+                    
                     statement.execute("UPDATE classrooms SET status = 'active' WHERE classroom_id IN (SELECT DISTINCT cs.classroom_id FROM classroom_subjects cs JOIN classroom_subject_students css ON cs.id = css.classroom_subject_id)");
                     log.info("Migration successful: added 'status' column to 'classrooms' table and migrated legacy data.");
                 }
@@ -65,7 +65,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Check if published_at column exists in learning_paths table
+            
             boolean hasPublishedAt = false;
             try (ResultSet resultSet = metaData.getColumns(null, null, "learning_paths", "published_at")) {
                 if (resultSet.next()) {
@@ -81,7 +81,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Check if display_order column exists in learning_nodes table
+            
             boolean hasDisplayOrder = false;
             try (ResultSet resultSet = metaData.getColumns(null, null, "learning_nodes", "display_order")) {
                 if (resultSet.next()) {
@@ -97,7 +97,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Check if order_index column exists in tests table
+            
             boolean hasOrderIndexInTests = false;
             try (ResultSet resultSet = metaData.getColumns(null, null, "tests", "order_index")) {
                 if (resultSet.next()) {
@@ -114,7 +114,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Column 'order_index' already exists in 'tests' table.");
             }
 
-            // Check if node_edges table exists
+            
             boolean hasNodeEdgesTable = false;
             try (ResultSet resultSet = metaData.getTables(null, null, "node_edges", null)) {
                 if (resultSet.next()) {
@@ -137,7 +137,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Check if student_learning_routes table exists
+            
             boolean hasStudentRoutesTable = false;
             try (ResultSet resultSet = metaData.getTables(null, null, "student_learning_routes", null)) {
                 if (resultSet.next()) {
@@ -160,7 +160,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Create indexes if not exists
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id)");
                 statement.execute("CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id)");
@@ -180,26 +180,26 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.warn("Could not create uniq_active_classroom_subject_path: {}", e.getMessage());
             }
 
-            // Drop old status check constraint if it exists, to allow 'OPEN' and 'IN_PROGRESS'
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE student_node_progress DROP CONSTRAINT IF EXISTS student_node_progress_status_check");
                 log.info("Status check constraint dropped/verified successfully.");
             }
 
-            // test_locked đã bỏ (di sản cơ chế "nhánh phụ") — drop khỏi DB live nếu còn.
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE student_node_progress DROP COLUMN IF EXISTS test_locked");
                 log.info("Column 'test_locked' dropped/verified from 'student_node_progress'.");
             }
 
-            // node_edges.min_score/max_score đã bỏ (di sản "nhánh phụ") — drop khỏi DB live nếu còn.
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE node_edges DROP COLUMN IF EXISTS min_score");
                 statement.execute("ALTER TABLE node_edges DROP COLUMN IF EXISTS max_score");
                 log.info("Columns 'min_score'/'max_score' dropped/verified from 'node_edges'.");
             }
 
-            // Update old 'UNLOCKED' student progress status to 'OPEN'
+            
             try (Statement statement = connection.createStatement()) {
                 int rows = statement.executeUpdate("UPDATE student_node_progress SET status = 'OPEN' WHERE status = 'UNLOCKED'");
                 if (rows > 0) {
@@ -207,7 +207,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Drop branch_name column from learning_nodes and node_edges
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE learning_nodes DROP COLUMN IF EXISTS branch_name");
                 statement.execute("ALTER TABLE node_edges DROP COLUMN IF EXISTS branch_name");
@@ -215,9 +215,9 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             }
 
             try (Statement statement = connection.createStatement()) {
-                // subjects.learningpath_length
+                
                 statement.execute("ALTER TABLE subjects ADD COLUMN IF NOT EXISTS learningpath_length INT");
-                // learning_nodes.stage_order, learning_nodes.level
+                
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS stage_order INT");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS level INT");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS test_kind VARCHAR(20) DEFAULT 'NONE'");
@@ -226,20 +226,20 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS gate_down_max DECIMAL(5,2)");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS placement_yeu_max DECIMAL(5,2)");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS placement_tb_max DECIMAL(5,2)");
-                // classroom_subjects.id_quiz_start -> tests
+                
                 statement.execute("ALTER TABLE classroom_subjects ADD COLUMN IF NOT EXISTS id_quiz_start BIGINT REFERENCES tests(test_id) ON DELETE SET NULL");
-                // classroom_subject_students.current_level (null = chưa làm placement)
+                
                 statement.execute("ALTER TABLE classroom_subject_students ADD COLUMN IF NOT EXISTS current_level INT");
-                // tests.node_id nullable (placement quiz không gắn node)
+                
                 statement.execute("ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL");
-                // Placement cancel/retake: trạng thái lượt làm bài
+                
                 statement.execute("ALTER TABLE student_test_attempts ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'SUBMITTED'");
-                // Số lần học sinh rời tab khi đang làm bài (chống gian lận)
+                
                 statement.execute("ALTER TABLE student_test_attempts ADD COLUMN IF NOT EXISTS tab_out_count INT DEFAULT 0");
                 log.info("Adaptive placement: columns added/verified.");
             }
 
-            // quiz_score_bands table
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute(
                     "CREATE TABLE IF NOT EXISTS quiz_score_bands (" +
@@ -256,7 +256,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Table 'quiz_score_bands' verified/created.");
             }
 
-            // student_level_history table
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute(
                     "CREATE TABLE IF NOT EXISTS student_level_history (" +
@@ -281,7 +281,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Migrating student_node_progress.student_id -> classroom_subject_student_id ...");
                 try (Statement st = connection.createStatement()) {
                     st.execute("ALTER TABLE student_node_progress ADD COLUMN classroom_subject_student_id BIGINT");
-                    // Backfill theo (path -> classroom_subject) + student_id
+                    
                     st.executeUpdate(
                         "UPDATE student_node_progress snp SET classroom_subject_student_id = css.id " +
                         "FROM classroom_subject_students css " +
@@ -294,14 +294,14 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                     st.execute("ALTER TABLE student_node_progress ALTER COLUMN classroom_subject_student_id SET NOT NULL");
                     st.execute("ALTER TABLE student_node_progress ADD CONSTRAINT fk_snp_css " +
                         "FOREIGN KEY (classroom_subject_student_id) REFERENCES classroom_subject_students(id) ON DELETE CASCADE");
-                    st.execute("ALTER TABLE student_node_progress DROP COLUMN student_id"); // kéo theo unique cũ
+                    st.execute("ALTER TABLE student_node_progress DROP COLUMN student_id"); 
                     st.execute("ALTER TABLE student_node_progress ADD CONSTRAINT uq_snp_css_node_path " +
                         "UNIQUE (classroom_subject_student_id, node_id, path_id)");
                     log.info("Migration successful: student_node_progress now links classroom_subject_student.");
                 }
             }
 
-            // Check if slots table exists
+            
             boolean hasSlotsTable = false;
             try (ResultSet resultSet = metaData.getTables(null, null, "slots", null)) {
                 if (resultSet.next()) {
@@ -323,7 +323,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                     );
                     log.info("Migration successful: created 'slots' table.");
                 }
-                // Insert default slots
+                
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("INSERT INTO slots(slot_name, start_time, end_time) VALUES ('Slot 1', '07:30:00', '09:50:00') ON CONFLICT (slot_name) DO NOTHING");
                     statement.execute("INSERT INTO slots(slot_name, start_time, end_time) VALUES ('Slot 2', '10:00:00', '12:20:00') ON CONFLICT (slot_name) DO NOTHING");
@@ -335,7 +335,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Check if study_date column exists in learning_nodes
+            
             boolean hasStudyDate = false;
             try (ResultSet resultSet = metaData.getColumns(null, null, "learning_nodes", "study_date")) {
                 if (resultSet.next()) {
@@ -351,7 +351,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            // Deadline hoàn thành node + cờ hoàn thành trễ hạn của học sinh
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS deadline_at TIMESTAMP NULL");
                 statement.execute("ALTER TABLE student_node_progress ADD COLUMN IF NOT EXISTS completed_late BOOLEAN DEFAULT FALSE");
@@ -359,12 +359,12 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 log.info("Node deadline: columns 'deadline_at' (learning_nodes), 'completed_late' (student_node_progress) added/verified.");
             }
 
-            // Buổi học live (node ON_CLASS): teacher bấm bắt đầu/kết thúc trong khung giờ slot
-            // + phát đề giữa buổi (released_at null = đề đã soạn nhưng CHƯA phát cho học sinh)
+            
+            
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS session_started_at TIMESTAMP NULL");
                 statement.execute("ALTER TABLE learning_nodes ADD COLUMN IF NOT EXISTS session_ended_at TIMESTAMP NULL");
-                // Hạn nộp CHUNG cả lớp của đề phát trong buổi (null = không giới hạn chung — đề thường)
+                
                 statement.execute("ALTER TABLE tests ADD COLUMN IF NOT EXISTS release_ends_at TIMESTAMP NULL");
             }
             boolean hasReleasedAt = false;
@@ -376,14 +376,14 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
             if (!hasReleasedAt) {
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("ALTER TABLE tests ADD COLUMN released_at TIMESTAMP NULL");
-                    // Backfill MỘT LẦN duy nhất lúc tạo cột: test có sẵn trước tính năng này coi như
-                    // đã phát từ lúc tạo (giữ hành vi cũ). Không chạy lại để khỏi "phát" nhầm đề đang chờ.
+                    
+                    
                     statement.execute("UPDATE tests SET released_at = created_at WHERE released_at IS NULL");
                     log.info("Live session: added 'released_at' (tests) with one-time backfill.");
                 }
             }
 
-            // Check if student_material_progress table exists
+            
             boolean hasStudentMaterialProgressTable = false;
             try (ResultSet resultSet = metaData.getTables(null, null, "student_material_progress", null)) {
                 if (resultSet.next()) {

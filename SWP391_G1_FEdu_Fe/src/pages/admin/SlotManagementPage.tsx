@@ -19,7 +19,7 @@ export function SlotManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Form states
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [selectedSlot, setSelectedSlot] = useState<SlotResponse | null>(null);
@@ -30,7 +30,7 @@ export function SlotManagementPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Delete states
+  
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [slotToDelete, setSlotToDelete] = useState<SlotResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -131,7 +131,7 @@ export function SlotManagementPage() {
 
   return (
     <div className="space-y-6 text-foreground bg-background">
-      {/* Header Breadcrumbs */}
+      {}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý ca học</h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -141,7 +141,7 @@ export function SlotManagementPage() {
         </div>
       </div>
 
-      {/* Top Bar Actions */}
+      {}
       <div className="flex items-center justify-end">
         <Button onClick={openCreateModal} className="gap-2 h-9 text-xs font-semibold">
           <Plus className="w-4 h-4" /> Thêm ca học
@@ -181,7 +181,7 @@ export function SlotManagementPage() {
           </CardContent>
         </Card>
       ) : (
-        /* List View: Bảng */
+        
         <div className="overflow-hidden bg-card text-card-foreground border border-border rounded-xl">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -239,7 +239,7 @@ export function SlotManagementPage() {
         </div>
       )}
 
-      {/* Create / Edit Dialog */}
+      {}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
@@ -318,7 +318,7 @@ export function SlotManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent className="max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>

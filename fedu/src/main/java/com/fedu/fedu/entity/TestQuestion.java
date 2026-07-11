@@ -27,14 +27,14 @@ public class TestQuestion extends AbstractEntity<Long> {
     @Column(name = "question_content", nullable = false, columnDefinition = "TEXT")
     private String questionContent;
 
-    /**
-     * Loại câu hỏi:
-     * - MULTIPLE_CHOICE: trắc nghiệm 1 đáp án đúng
-     * - MULTIPLE_SELECT: trắc nghiệm nhiều đáp án đúng
-     * - TRUE_FALSE: đúng/sai
-     * - SHORT_ANSWER: trả lời ngắn
-     * - ESSAY: tự luận
-     */
+    
+
+
+
+
+
+
+
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "question_type", nullable = false)

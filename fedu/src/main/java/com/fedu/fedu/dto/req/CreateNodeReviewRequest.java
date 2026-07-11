@@ -22,6 +22,6 @@ public class CreateNodeReviewRequest {
     @Size(max = 2000, message = "Nội dung đánh giá tối đa 2000 ký tự")
     private String content;
 
-    /** ID của review cha (null nếu là review gốc, có giá trị nếu là reply). */
+    
     private Long parentReviewId;
 }

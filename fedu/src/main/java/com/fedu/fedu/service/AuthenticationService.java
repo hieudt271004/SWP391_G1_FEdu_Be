@@ -93,10 +93,10 @@ public class AuthenticationService {
             throw new InvalidDataException(" Refresh token must be not blank");
         }
 
-        //get username from token
+        
         final String userName = jwtService.extractUsername(token, REFRESH_TOKEN);
 
-        //delete token by username
+        
         tokenService.delete(userName);
 
         return "Removed!";
@@ -135,7 +135,7 @@ public class AuthenticationService {
             throw new InvalidDataException("Passwords do not match");
         }
 
-        //get user from token reset password dto
+        
         UserAccount user = validateToken(request.getSecretKey());
 
         Token tokenEntity = tokenService.getByEmail(user.getEmail());
@@ -144,7 +144,7 @@ public class AuthenticationService {
                 || !tokenEntity.getResetToken().equals(request.getSecretKey())){
             throw new InvalidDataException("Reset token không hợp lệ đã được sử dụng");
         }
-        // update password
+        
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userService.save(user);
 
@@ -153,7 +153,7 @@ public class AuthenticationService {
         return "Changed";
     }
 
-    //check user status
+    
     private UserAccount validateToken(String token) {
         final String userName;
         try{
@@ -220,7 +220,7 @@ public class AuthenticationService {
         String email = (String) googleUser.get("email");
         log.info("Creating new Google user for email: {}", email);
 
-        // Lấy thông tin thật từ Google, fallback nếu thiếu
+        
         String givenName  = (String) googleUser.get("given_name");
         String familyName = (String) googleUser.get("family_name");
         String picture    = (String) googleUser.get("picture");

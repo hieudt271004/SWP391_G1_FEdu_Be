@@ -42,35 +42,35 @@ export function ClassroomSubjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Node đang chọn trên cây → hiện nội dung read-only bên panel phải
+  
   const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
 
-  // Nội dung node (tài liệu + bài test) — admin xem read-only, fetch khi mở node
+  
   const [expandedNodeId, setExpandedNodeId] = useState<number | null>(null);
   const [nodeContent, setNodeContent] = useState<Record<number, NodeContentResponse>>({});
   const [nodeContentLoading, setNodeContentLoading] = useState<Record<number, boolean>>({});
 
-  // Danh mục dùng cho modal/đổi GV
+  
   const [teachers, setTeachers] = useState<AdminUserResponse[]>([]);
   const [systemStudents, setSystemStudents] = useState<AdminUserResponse[]>([]);
 
-  // Đổi giảng viên
+  
   const [editingLecturer, setEditingLecturer] = useState(false);
 
-  // Modal thêm sinh viên
+  
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [addEmail, setAddEmail] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
 
-  // Modal import sinh viên bằng Excel
+  
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportStudentsResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  // Quản lý tab hiển thị: 'roadmap' (Lộ trình học) hoặc 'students' (Danh sách sinh viên)
+  
   const [activeTab, setActiveTab] = useState<'roadmap' | 'students'>('roadmap');
 
   const fetchData = useCallback(async () => {
@@ -100,7 +100,7 @@ export function ClassroomSubjectDetailPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Danh mục teacher/student cho đổi GV + gợi ý thêm SV
+  
   useEffect(() => {
     const load = async () => {
       try {
@@ -114,7 +114,7 @@ export function ClassroomSubjectDetailPage() {
     load();
   }, []);
 
-  // Coursera-style: nạp sẵn nội dung tất cả node → hiện thống kê + mở tức thì, mở sẵn node đầu
+  
   useEffect(() => {
     if (!graph || graph.nodes.length === 0) return;
     let cancelled = false;
@@ -208,7 +208,7 @@ export function ClassroomSubjectDetailPage() {
       const result = await classroomService.importStudents(cs.classroomSubjectId, importFile);
       setImportResult(result);
       toast.success(`Đã import thành công danh sách học sinh.`);
-      await fetchData(); // refresh roster + studentCount
+      await fetchData(); 
     } catch (e: unknown) {
       const errMsg = e instanceof Error ? e.message : "Import thất bại";
       setImportError(errMsg);
@@ -291,7 +291,7 @@ export function ClassroomSubjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -304,7 +304,7 @@ export function ClassroomSubjectDetailPage() {
         </div>
       </div>
 
-      {/* Thông tin giảng viên */}
+      {}
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4">
@@ -351,7 +351,7 @@ export function ClassroomSubjectDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Tab Navigation */}
+      {}
       <div className="flex border-b border-border">
         <button
           onClick={() => setActiveTab('roadmap')}
@@ -375,7 +375,7 @@ export function ClassroomSubjectDetailPage() {
         </button>
       </div>
 
-      {/* Lộ trình học — giao diện kiểu Coursera, read-only cho admin */}
+      {}
       {activeTab === 'roadmap' && (
       <Card>
         <CardContent className="p-6">
@@ -448,7 +448,7 @@ export function ClassroomSubjectDetailPage() {
       </Card>
       )}
 
-      {/* Danh sách sinh viên */}
+      {}
       {activeTab === 'students' && (
       <Card>
         <CardContent className="p-6">
@@ -507,7 +507,7 @@ export function ClassroomSubjectDetailPage() {
       </Card>
       )}
 
-      {/* Modal thêm sinh viên */}
+      {}
       {showAddStudent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddStudent(false)}>
           <div className="rounded-xl w-full max-w-md overflow-hidden border bg-background text-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -559,7 +559,7 @@ export function ClassroomSubjectDetailPage() {
         </div>
       )}
 
-      {/* Modal import sinh viên bằng Excel */}
+      {}
       {showImport && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !importing && setShowImport(false)}>
           <div className="rounded-xl w-full max-w-lg overflow-hidden border bg-background text-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>

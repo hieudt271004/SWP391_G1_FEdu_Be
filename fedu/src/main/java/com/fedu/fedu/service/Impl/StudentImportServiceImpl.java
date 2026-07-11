@@ -54,7 +54,7 @@ public class StudentImportServiceImpl implements StudentImportService {
         try (Workbook wb = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
             int lastRow = sheet.getLastRowNum();
-            for (int i = 1; i <= lastRow; i++) { // bỏ hàng 0 (tiêu đề)
+            for (int i = 1; i <= lastRow; i++) { 
                 Row r = sheet.getRow(i);
                 if (r == null) continue;
 
@@ -62,10 +62,10 @@ public class StudentImportServiceImpl implements StudentImportService {
                 String lastName = str(r, 1, fmt);
                 String firstName = str(r, 2, fmt);
 
-                // Bỏ qua hàng trống hoàn toàn
+                
                 if (isBlank(email) && isBlank(lastName) && isBlank(firstName)) continue;
 
-                int rowNo = i + 1; // số dòng theo Excel (1-based)
+                int rowNo = i + 1; 
                 result.setTotalRows(result.getTotalRows() + 1);
 
                 if (isBlank(email) || !EMAIL.matcher(email).matches()) {
@@ -97,7 +97,7 @@ public class StudentImportServiceImpl implements StudentImportService {
                         if (outcome.newAccount()) {
                             result.setCreated(result.getCreated() + 1);
                         }
-                        // Gửi mail nền (không chặn import)
+                        
                         String fullName = (lastName + " " + firstName).trim();
                         mailService.sendClassEnrollmentEmailAsync(
                                 row.getEmail(), fullName, classLabel,
@@ -145,7 +145,7 @@ public class StudentImportServiceImpl implements StudentImportService {
         }
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
+    
 
     private String buildClassLabel(ClassroomSubject cs) {
         try {
@@ -184,9 +184,9 @@ public class StudentImportServiceImpl implements StudentImportService {
             }
             String s = fmt.formatCellValue(cell).trim();
             if (s.isEmpty()) return null;
-            return LocalDate.parse(s); // yyyy-MM-dd
+            return LocalDate.parse(s); 
         } catch (Exception e) {
-            return null; // ngày sinh lỗi định dạng (cột tùy chọn) → bỏ qua
+            return null; 
         }
     }
 

@@ -9,7 +9,7 @@ import { Badge } from "../../components/ui/badge";
 import { useConfirm } from "../../context/ConfirmContext";
 import { toast } from "sonner";
 
-// Map ClassroomResponse (BE) → ClassRecord (display)
+
 interface ClassRecord {
   id: number;
   className: string;
@@ -205,7 +205,7 @@ export function ClassListPage() {
         </Button>
       </div>
 
-      {/* Filters */}
+      {}
       <div className="bg-card text-card-foreground border border-border rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -261,7 +261,7 @@ export function ClassListPage() {
         </div>
       </div>
 
-      {/* List View */}
+      {}
       {viewMode === "list" && (
         <div className="overflow-hidden bg-card text-card-foreground border border-border rounded-xl">
           <div className="overflow-x-auto">
@@ -401,7 +401,7 @@ export function ClassListPage() {
         </div>
       )}
 
-      {/* Grid View */}
+      {}
       {viewMode === "grid" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -476,7 +476,7 @@ export function ClassListPage() {
             })}
           </div>
           
-          {/* Pagination */}
+          {}
           <div className="bg-card text-card-foreground border border-border rounded-xl mt-6">
             <div className="flex items-center justify-between px-6 py-5">
               <div className="text-sm text-muted-foreground">

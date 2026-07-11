@@ -89,11 +89,11 @@ public class QuestionManagementServiceImpl implements QuestionManagementService 
         }
         testQuestionRepository.save(question);
 
-        // Delete old answers
+        
         List<TestAnswer> oldAnswers = testAnswerRepository.findByQuestionQuestionId(questionId);
         testAnswerRepository.deleteAll(oldAnswers);
 
-        // Save new answers
+        
         List<TestAnswer> answers = new ArrayList<>();
         if (request.getAnswers() != null) {
             for (AnswerRequest answerReq : request.getAnswers()) {

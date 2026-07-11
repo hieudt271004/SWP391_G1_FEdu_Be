@@ -1,4 +1,4 @@
-// Khớp chính xác với BE StudentInClassResponse
+
 export interface StudentInClass {
   userId: number;
   email: string;
@@ -16,7 +16,7 @@ export interface AddStudentRequest {
   email: string;
 }
 
-// Khớp BE ImportRowError / ImportStudentsResult
+
 export interface ImportRowError {
   rowNumber: number;
   email: string;

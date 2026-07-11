@@ -27,23 +27,23 @@ public class NodeMaterial extends AbstractEntity<Long> {
     @Column(name = "title", nullable = false)
     private String title;
 
-    /**
-     * Danh sách các video thuộc tài liệu học tập này.
-     */
+    
+
+
     @OneToMany(mappedBy = "nodeMaterial", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Video> videos = new ArrayList<>();
 
-    /**
-     * Danh sách các file tài liệu thuộc bài học này.
-     */
+    
+
+
     @OneToMany(mappedBy = "nodeMaterial", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<FileEntity> files = new ArrayList<>();
 
-    /**
-     * Đánh dấu tài liệu này có bắt buộc học không.
-     */
+    
+
+
     @Builder.Default
     @Column(name = "required")
     private Boolean required = true;

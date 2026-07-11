@@ -39,18 +39,18 @@ export function ClassDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  // Danh mục dùng cho modal
+  
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<AdminUserResponse[]>([]);
 
-  // Thêm môn vào lớp
+  
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [newSubjectId, setNewSubjectId] = useState(0);
   const [newLecturerId, setNewLecturerId] = useState(0);
   const [addSubjectLoading, setAddSubjectLoading] = useState(false);
   const [addSubjectError, setAddSubjectError] = useState<string | null>(null);
 
-  // Đổi giảng viên inline
+  
   const [editingLecturerCsId, setEditingLecturerCsId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -73,7 +73,7 @@ export function ClassDetailPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Tải danh mục subject + teacher cho các modal
+  
   useEffect(() => {
     const load = async () => {
       try {
@@ -90,7 +90,7 @@ export function ClassDetailPage() {
     load();
   }, []);
 
-  // Mở modal thêm môn nếu vừa tạo lớp xong (?addSubject=true)
+  
   useEffect(() => {
     if (searchParams.get("addSubject") === "true") {
       setShowAddSubject(true);
@@ -202,7 +202,7 @@ export function ClassDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
@@ -234,7 +234,7 @@ export function ClassDetailPage() {
         </div>
       </div>
 
-      {/* Danh sách lớp-môn */}
+      {}
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-5">
@@ -309,7 +309,7 @@ export function ClassDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Modal thêm môn */}
+      {}
       {showAddSubject && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddSubject(false)}>
           <div className="rounded-xl w-full max-w-md overflow-hidden border bg-background text-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>

@@ -51,7 +51,7 @@ public class TeacherNodeContentController {
 
     private void validateTeacherOwnershipOfNode(Long nodeId) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return; // for tests/seeds
+        if (auth == null) return; 
         UserAccount actor = userAccountRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new AccessDeniedException("Unauthorized"));
 
@@ -69,10 +69,10 @@ public class TeacherNodeContentController {
         }
     }
 
-    /**
-     * Cho phép XEM (read-only) nội dung node: node của TEMPLATE (dùng chung, chưa clone về lớp)
-     * hoặc node clone thuộc lớp-môn teacher phụ trách. Dùng cho endpoint GET (preview lộ trình mẫu).
-     */
+    
+
+
+
     private void assertTeacherCanViewNode(Long nodeId) {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
@@ -80,13 +80,13 @@ public class TeacherNodeContentController {
         if (path == null) {
             throw new AccessDeniedException("Node không hợp lệ");
         }
-        // Node template (chưa clone) → catalog dùng chung, cho xem để preview.
+        
         if (path.getClassroomSubject() == null) {
             return;
         }
-        // Node clone → phải là lớp-môn teacher phụ trách.
+        
         var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return; // test/seed
+        if (auth == null) return; 
         UserAccount actor = userAccountRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new AccessDeniedException("Unauthorized"));
         if (path.getClassroomSubject().getLecturer() == null ||

@@ -7,7 +7,7 @@ import lombok.*;
 
 import java.util.List;
 
-/** Giáo viên chấm đúng/sai các câu TỰ LUẬN của một lượt làm bài (attempt PENDING_REVIEW). */
+
 @Data
 @Builder
 @NoArgsConstructor

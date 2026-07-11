@@ -39,7 +39,7 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
         UserAccount student = userAccountRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
 
-        // chỉ nhận đúng role STUDENT
+        
         boolean isStudent = student.getUserRoles().stream()
                 .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.STUDENT);
         if (!isStudent) {
@@ -60,7 +60,7 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
     @Override
     @Transactional
     public void removeStudentFromClassroomSubject(Long classroomSubjectId, long studentId) {
-        // Lớp đã bắt đầu (lộ trình đã PUBLISHED) thì không cho xóa SV — giữ dữ liệu, SV chỉ là không qua môn.
+        
         boolean published = learningPathRepository
                 .findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId)
                 .stream()
@@ -83,7 +83,7 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
         return classroomSubjectStudentRepository.findAllByClassroomSubjectId(classroomSubjectId)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
-    // ─── Mapper ──────────────────────────────────────────────────────────────
+    
 
     private StudentInClassResponse toResponse(ClassroomSubjectStudent enrollment) {
         UserAccount s = enrollment.getStudent();

@@ -48,7 +48,7 @@ export function TeacherDashboardPage() {
       setClassCount(classroomsData?.length ?? 0);
       setClassrooms(classroomsData ?? []);
 
-      // Fetch student lists in parallel to calculate total unique students
+      
       if (classroomsData && classroomsData.length > 0) {
         const studentLists = await Promise.all(
           classroomsData.map(c => 
@@ -117,9 +117,9 @@ export function TeacherDashboardPage() {
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Welcome Hero Banner */}
+      {}
       <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-dashboard-hero-from via-dashboard-hero-via to-dashboard-hero-to p-4 sm:p-6 text-white border border-white/10 shadow-lg">
-        {/* Glow Dots & Decorative Background elements for visual depth */}
+        {}
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
@@ -153,9 +153,9 @@ export function TeacherDashboardPage() {
         </div>
       </div>
 
-      {/* Metrics Grid */}
+      {}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Subjects Card */}
+        {}
         <Card className="bg-card border border-border rounded-xl shadow-xs flex flex-col justify-between transition-all duration-300 hover:scale-[1.01] hover:-translate-y-1 hover:shadow-md hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6">
             <CardTitle className="text-sm font-semibold text-muted-foreground">Môn học đang dạy</CardTitle>
@@ -176,7 +176,7 @@ export function TeacherDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Classes Card */}
+        {}
         <Card className="bg-card border border-border rounded-xl shadow-xs flex flex-col justify-between transition-all duration-300 hover:scale-[1.01] hover:-translate-y-1 hover:shadow-md hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6">
             <CardTitle className="text-sm font-semibold text-muted-foreground">Lớp học phụ trách</CardTitle>
@@ -197,7 +197,7 @@ export function TeacherDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Students Card */}
+        {}
         <Card className="bg-card border border-border rounded-xl shadow-xs flex flex-col justify-between sm:col-span-2 lg:col-span-1 transition-all duration-300 hover:scale-[1.01] hover:-translate-y-1 hover:shadow-md hover:border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 px-6 pt-6">
             <CardTitle className="text-sm font-semibold text-muted-foreground">Tổng số học viên</CardTitle>
@@ -217,7 +217,7 @@ export function TeacherDashboardPage() {
         </Card>
       </div>
 
-      {/* Classroom Quick-Access Section */}
+      {}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg md:text-xl font-bold text-primary tracking-tight">Lớp học hoạt động gần đây</h2>
@@ -272,7 +272,7 @@ export function TeacherDashboardPage() {
         )}
       </div>
 
-      {/* Shortcuts and Help center */}
+      {}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <h2 className="text-lg md:text-xl font-bold text-primary tracking-tight">Công cụ giảng dạy nhanh</h2>

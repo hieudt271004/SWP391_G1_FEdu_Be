@@ -63,7 +63,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                             .map(a -> AnswerResponse.builder()
                                     .answerId(a.getAnswerId())
                                     .answerContent(a.getAnswerContent())
-                                    .isCorrect(null) // Omit correctness flags for students
+                                    .isCorrect(null) 
                                     .build())
                             .collect(Collectors.toList());
 
@@ -91,8 +91,8 @@ public class StudentTestServiceImpl implements StudentTestService {
     @Override
     @Transactional(readOnly = true)
     public StudentTestDetailsResponse getTestDetailsForPlacement(Long testId) {
-        // Dành riêng cho placement quiz: KHÔNG kiểm tra StudentNodeProgress.
-        // PlacementService đã kiểm soát quyền truy cập (requireNotPlacedYet + requirePlacementQuiz).
+        
+        
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
@@ -104,7 +104,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                             .map(a -> AnswerResponse.builder()
                                     .answerId(a.getAnswerId())
                                     .answerContent(a.getAnswerContent())
-                                    .isCorrect(null) // Omit correctness flags for students
+                                    .isCorrect(null) 
                                     .build())
                             .collect(Collectors.toList());
 
@@ -156,8 +156,8 @@ public class StudentTestServiceImpl implements StudentTestService {
     @Override
     @Transactional
     public StudentTestAttempt startTestAttemptForPlacement(Long testId, Long studentId) {
-        // Dành riêng cho placement quiz: KHÔNG kiểm tra StudentNodeProgress.
-        // PlacementService đã kiểm soát quyền truy cập (requireNotPlacedYet + requirePlacementQuiz).
+        
+        
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
@@ -191,20 +191,20 @@ public class StudentTestServiceImpl implements StudentTestService {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài test phân loại: hãy dùng endpoint nộp bài phân loại (placement).");
         }
-        // Test năng lực gắn trên node PLACEMENT cũng phải nộp qua luồng phân loại —
-        // nộp qua endpoint node thường sẽ KHÔNG gán mức cho học sinh.
+        
+        
         if (test.getLearningNode().getTestKind() == NodeTestKind.PLACEMENT) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài test năng lực đầu vào: hãy nộp qua luồng phân loại (placement).");
         }
 
-        // Đề phát trong buổi live có hạn nộp CHUNG cả lớp — quá hạn (grace 30s cho trễ mạng) thì từ chối
+        
         assertWithinReleaseWindow(test, 30);
 
         BigDecimal finalPercentage = gradeAttempt(test, attempt, request);
 
         if (finalPercentage == null) {
-            // Đề có câu tự luận — chờ giáo viên chấm; chưa tính đậu/trượt, chưa định tuyến.
+            
             return AttemptSubmissionResultResponse.builder()
                     .attemptId(attempt.getAttemptId())
                     .pendingManualGrading(true)
@@ -218,7 +218,7 @@ public class StudentTestServiceImpl implements StudentTestService {
 
         LearningNode node = test.getLearningNode();
         ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
-        // Đo mức trước/sau routing để báo cho học sinh biết bài này có làm đổi nhánh không
+        
         Integer levelBefore = currentLevelOf(cs, studentId);
         routeByTestKind(studentId, node, finalPercentage, passed);
         Integer levelAfter = currentLevelOf(cs, studentId);
@@ -234,22 +234,22 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .build();
     }
 
-    /** Định tuyến sau khi CÓ điểm cuối (nộp bài không tự luận, hoặc giáo viên chấm xong tự luận). */
+    
     private void routeByTestKind(Long studentId, LearningNode node, BigDecimal percentage, boolean passed) {
         Long pathId = node.getLearningPath().getPathId();
         if (node.getTestKind() == NodeTestKind.GATE) {
-            // Cổng phân luồng: định tuyến theo điểm (đổi mức + mở nhánh đúng mức), không pass/fail.
+            
             routeGateNode(studentId, node, pathId, percentage);
         } else if (node.getTestKind() == NodeTestKind.FREE_CHOICE) {
-            // Test tự do chọn: đạt (hoặc chủ động xuống mức) → học theo nhánh của node (node.level).
+            
             routeFreeChoiceNode(studentId, node, pathId, passed);
         } else {
-            // Node học thường: đậu đi tiếp / trượt rẽ nhánh phụ + khóa test node hiện tại.
+            
             routeAfterAttempt(studentId, node, pathId, passed);
         }
     }
 
-    /** Mức hiện tại của học sinh trong lớp-môn (null nếu chưa phân mức / không tìm thấy). */
+    
     private Integer currentLevelOf(ClassroomSubject cs, Long studentId) {
         if (cs == null) return null;
         return classroomSubjectStudentRepository
@@ -271,7 +271,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         return gradeAttempt(test, attempt, request);
     }
 
-    /** Đề trên node phải ĐÃ PHÁT (releasedAt != null) thì học sinh mới xem/làm được. */
+    
     private void assertTestReleased(com.fedu.fedu.entity.Test test) {
         if (test.getLearningNode() != null && test.getReleasedAt() == null) {
             throw new com.fedu.fedu.exception.InvalidDataException(
@@ -279,7 +279,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    /** Đề phát trong buổi live có hạn nộp CHUNG cả lớp (releaseEndsAt); quá hạn (+grace) thì chặn. */
+    
     private void assertWithinReleaseWindow(com.fedu.fedu.entity.Test test, long graceSeconds) {
         if (test.getReleaseEndsAt() != null
                 && LocalDateTime.now().isAfter(test.getReleaseEndsAt().plusSeconds(graceSeconds))) {
@@ -287,7 +287,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    /** Còn lượt PENDING_REVIEW (chờ giáo viên chấm tự luận) thì không cho làm lại. */
+    
     private void assertNoPendingReview(Long testId, Long studentId) {
         boolean pending = studentTestAttemptRepository
                 .findByStudentUserIdAndTestTestId(studentId, testId)
@@ -299,7 +299,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    // ==== Giáo viên chấm câu tự luận (attempt PENDING_REVIEW) ====
+    
 
     @Override
     @Transactional(readOnly = true)
@@ -348,7 +348,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         return buildGradingDetail(attempt, responses);
     }
 
-    /** Chấm đủ mọi câu tự luận: chốt điểm cuối + chạy phần định tuyến đã hoãn lúc nộp bài. */
+    
     private void finalizeGradedAttempt(StudentTestAttempt attempt, List<StudentTestResponse> responses) {
         BigDecimal totalScore = BigDecimal.ZERO;
         BigDecimal maxScore = BigDecimal.ZERO;
@@ -372,8 +372,8 @@ public class StudentTestServiceImpl implements StudentTestService {
         Long studentId = attempt.getStudent().getUserId();
         LearningNode node = test.getLearningNode();
 
-        // Test phân loại (quizStart không gắn node, hoặc test trên node PLACEMENT):
-        // gán mức + seed tiến độ — phần submitPlacement đã hoãn khi treo chờ chấm.
+        
+        
         if (node == null || node.getTestKind() == NodeTestKind.PLACEMENT) {
             finalizePlacementAfterGrading(test, studentId, pct);
             return;
@@ -383,7 +383,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         routeByTestKind(studentId, node, pct, passed);
     }
 
-    /** Gán mức placement sau khi chấm xong tự luận. Chỉ gán khi học sinh CHƯA có mức. */
+    
     private void finalizePlacementAfterGrading(com.fedu.fedu.entity.Test test, Long studentId, BigDecimal pct) {
         ClassroomSubject cs = classroomSubjectRepository.findByQuizStartTestId(test.getTestId())
                 .orElse(null);
@@ -402,7 +402,7 @@ public class StudentTestServiceImpl implements StudentTestService {
             return;
         }
         if (css.getCurrentLevel() != null) {
-            return; // đã có mức (gán tay / thi lại xong trước đó) — không đè
+            return; 
         }
 
         Integer level = levelRoutingService.resolveLevel(test.getTestId(), pct);
@@ -420,7 +420,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         learningPathService.backfillProgressForStudent(cs.getId(), studentId);
     }
 
-    /** Map attempt + câu trả lời sang DTO cho màn chấm bài của giáo viên. */
+    
     private AttemptGradingDetailResponse buildGradingDetail(StudentTestAttempt attempt,
                                                             List<StudentTestResponse> responses) {
         String studentName = "";
@@ -466,11 +466,11 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .build();
     }
 
-    /**
-     * Chấm bài và lưu câu trả lời. Trả về điểm % cuối, hoặc NULL nếu đề có câu TỰ LUẬN:
-     * khi đó lượt thi treo ở PENDING_REVIEW (isCorrect câu tự luận = null), giáo viên chấm
-     * qua gradeEssayAttempt xong mới có điểm cuối + chạy định tuyến (xếp mức / mở node).
-     */
+    
+
+
+
+
     BigDecimal gradeAttempt(com.fedu.fedu.entity.Test test, StudentTestAttempt attempt, AttemptSubmissionRequest request) {
         List<TestQuestion> questions = testQuestionRepository.findByTestTestId(test.getTestId());
         BigDecimal totalScore = BigDecimal.ZERO;
@@ -540,7 +540,7 @@ public class StudentTestServiceImpl implements StudentTestService {
             }
 
             if (question.getQuestionType() == QuestionType.ESSAY) {
-                // Tự luận: hệ thống KHÔNG tự chấm — isCorrect = null chờ giáo viên chấm.
+                
                 isCorrect = null;
                 hasEssay = true;
             }
@@ -568,7 +568,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         attempt.setSubmittedAt(LocalDateTime.now());
 
         if (hasEssay) {
-            // Đề có câu tự luận: chưa có điểm cuối — treo chờ giáo viên chấm.
+            
             attempt.setScore(null);
             attempt.setStatus(com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW);
             studentTestAttemptRepository.save(attempt);
@@ -587,12 +587,12 @@ public class StudentTestServiceImpl implements StudentTestService {
         return finalPercentage;
     }
 
-    /**
-     * Test POP_QUIZ chỉ được truy cập qua flow pop-quiz (PopQuizService), có kiểm soát
-     * targeting theo TestAssignmentStudent. verifyStudentAccess không đủ vì nó return sớm
-     * khi node == null (nghĩa dành cho placement) — không có discriminator này thì pop-quiz
-     * test sẽ lộ qua endpoint generic cho bất kỳ học sinh nào.
-     */
+    
+
+
+
+
+
     private void rejectPopQuiz(com.fedu.fedu.entity.Test test) {
         if (test.getTestKind() == com.fedu.fedu.utils.enums.TestKind.POP_QUIZ) {
             throw new AccessDeniedException("Bài kiểm tra này chỉ truy cập được qua tính năng giao bài pop-quiz");
@@ -600,7 +600,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     private void verifyStudentAccess(LearningNode node, Long studentId) {
-        // Bài test phân loại (placement) không gắn node — kiểm soát truy cập ở PlacementService.
+        
         if (node == null) {
             return;
         }
@@ -623,7 +623,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    // Định tuyến tiến độ sau mỗi lần nộp test.
+    
 
     private StudentNodeProgress getProgress(Long studentId, Long pathId, Long nodeId) {
         return studentNodeProgressRepository
@@ -634,7 +634,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElse(null);
     }
 
-    // Mọi test bắt buộc của node đã có ít nhất 1 lượt đạt
+    
     private boolean allNodeTestsPassed(Long studentId, LearningNode node) {
         List<com.fedu.fedu.entity.Test> nodeTests =
                 testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(node.getNodeId());
@@ -649,8 +649,8 @@ public class StudentTestServiceImpl implements StudentTestService {
         return true;
     }
 
-    // Đánh dấu hoàn thành node; quá deadline (node.deadlineAt) thì gắn cờ hoàn thành trễ.
-    // Chính sách mềm: quá hạn vẫn hoàn thành được, chỉ ghi nhận để báo cáo.
+    
+    
     private void markCompleted(StudentNodeProgress progress, LearningNode node) {
         LocalDateTime now = LocalDateTime.now();
         progress.setStatus(StudentProgressStatus.COMPLETED);
@@ -660,7 +660,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    // Mở 1 node nếu đang LOCKED (không xét điều kiện tiên quyết).
+    
     private void openNode(Long studentId, LearningNode target, Long pathId) {
         StudentNodeProgress tp = getProgress(studentId, pathId, target.getNodeId());
         if (tp != null && tp.getStatus() == StudentProgressStatus.LOCKED) {
@@ -670,12 +670,12 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    // Mở node kế nhánh chính nếu đủ điều kiện tiên quyết; node ON_CLASS chờ giáo viên mở
+    
     private void openMainTargetIfEligible(Long studentId, LearningNode target, Long pathId) {
-        // TODO: tự mở node ON_CLASS khi tới giờ buổi học (chưa có thuộc tính thời gian) — hiện chỉ giáo viên mở.
+        
         if (target.getNodeType() == NodeType.ON_CLASS && target.getStatus() != NodeStatus.OPEN) return;
-        // Node TEST TỰ DO mở cho MỌI mức (level của nó là mức ĐÍCH, không phải điều kiện làm bài);
-        // các node khác chỉ mở khi khớp mức hiện tại của học sinh.
+        
+        
         if (target.getLevel() != null
                 && target.getTestKind() != NodeTestKind.FREE_CHOICE
                 && !matchesStudentLevel(studentId, target)) return;
@@ -696,7 +696,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     private void routeAfterAttempt(Long studentId, LearningNode node, Long pathId, boolean passed) {
         routeMainNode(studentId, node, pathId, passed);
     }
-    // package-private để unit-test trực tiếp lõi định tuyến cổng.
+    
     void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage) {
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
         if (gp != null) {
@@ -720,7 +720,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (!passed && !isDowngradeChoice(studentId, fcNode)) {
             return;
         }
-        // Hoàn thành node free-choice đã chọn.
+        
         StudentNodeProgress gp = getProgress(studentId, pathId, fcNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
@@ -728,7 +728,7 @@ public class StudentTestServiceImpl implements StudentTestService {
             }
             studentNodeProgressRepository.save(gp);
         }
-        // Khóa 2 node free-choice còn lại cùng chặng — học sinh đã chọn nhánh.
+        
         List<StudentNodeProgress> all = studentNodeProgressRepository
                 .findByStudentUserIdAndLearningPathPathId(studentId, pathId);
         for (StudentNodeProgress p : all) {
@@ -741,18 +741,18 @@ public class StudentTestServiceImpl implements StudentTestService {
             }
         }
         studentNodeProgressRepository.saveAll(all);
-        // Đặt mức = nhánh đã chọn (đổi mức → mở nhánh đích, khóa nhánh mức cũ).
+        
         ClassroomSubject cs = fcNode.getLearningPath().getClassroomSubject();
         if (cs != null) {
             levelRoutingService.applyFreeChoiceRouting(cs.getId(), fcNode, studentId);
         }
-        // Mở node chặng sau khớp mức (xử lý cả khi mức không đổi).
+        
         for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(fcNode.getNodeId())) {
             openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
         }
     }
 
-    /** Học sinh đang chọn nhánh free-choice THẤP HƠN mức hiện tại (fcNode.level < currentLevel)? */
+    
     private boolean isDowngradeChoice(Long studentId, LearningNode fcNode) {
         Integer target = fcNode.getLevel();
         ClassroomSubject cs = fcNode.getLearningPath() != null
@@ -774,17 +774,17 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
         verifyStudentAccess(node, studentId);
 
-        // Node test (năng lực / phân luồng / tự chọn) hoàn thành qua việc nộp bài test — không qua nút này.
+        
         if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Node kiểm tra được hoàn thành thông qua việc nộp bài test.");
         }
-        // Node có bài test: phải đạt hết các bài test mới hoàn thành được.
+        
         if (!allNodeTestsPassed(studentId, node)) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài học này có bài kiểm tra — bạn cần đạt bài kiểm tra để hoàn thành.");
         }
-        // Node không có test (hoặc đã đạt hết test): hoàn thành + mở các node kế đủ điều kiện.
+        
         routeMainNode(studentId, node, node.getLearningPath().getPathId(), true);
     }
 
@@ -802,7 +802,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 openMainTargetIfEligible(studentId, edge.getToNode(), pathId);
             }
         }
-        // Trượt → được thi lại, giữ nguyên trạng thái.
+        
     }
 
     private boolean checkIncomingPrerequisites(Long studentId, LearningNode targetNode, Long pathId) {
@@ -877,7 +877,7 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (attempt.getStudent().getUserId() != studentId) {
             throw new AccessDeniedException("Lượt thi này không thuộc về bạn");
         }
-        // Chỉ đếm khi đang làm bài; sau khi đã nộp thì giữ nguyên số đếm
+        
         if (attempt.getStatus() != com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS) {
             return attempt.getTabOutCount() == null ? 0 : attempt.getTabOutCount();
         }

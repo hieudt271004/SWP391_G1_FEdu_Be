@@ -37,7 +37,7 @@ export function CourseClassroomsPage() {
         setSubject(subjectData);
 
         if (view === 'template') {
-          // Editor tự tải danh sách template + graph (LearningPathManager)
+          
         } else {
           const rawClassrooms = await teacherService.getClassroomsByTeacher(user.userId);
           const filtered = (rawClassrooms ?? []).filter((c) => c.subjectId === Number(subjectId));
@@ -89,14 +89,14 @@ export function CourseClassroomsPage() {
     );
   }
 
-  // Filter classrooms taught by this teacher only
+  
   const myClassrooms = classrooms.filter(
     (c) => c.teacherId === user?.userId
   );
 
   return (
     <div className="space-y-8 text-foreground bg-background">
-      {/* Header */}
+      {}
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" onClick={() => navigate('/teacher/courses')}>
           <ArrowLeft className="w-4 h-4" />
@@ -109,7 +109,7 @@ export function CourseClassroomsPage() {
         </div>
       </div>
 
-      {/* Description */}
+      {}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Mô tả môn học</CardTitle>
@@ -122,8 +122,8 @@ export function CourseClassroomsPage() {
       </Card>
 
       {view === 'template' ? (
-        /* Editor template CÁ NHÂN — dùng chung LearningPathManager với admin,
-           teacherMode: BE chỉ trả template do chính GV tạo, không hiện/không sửa template của khoa */
+        
+
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-border">
             <Map className="w-5 h-5 text-foreground" />
@@ -137,7 +137,7 @@ export function CourseClassroomsPage() {
           />
         </div>
       ) : (
-        /* Classrooms Section */
+        
         <div className="space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <div className="flex items-center gap-2">

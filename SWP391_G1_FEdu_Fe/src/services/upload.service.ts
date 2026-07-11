@@ -1,6 +1,6 @@
 import { http } from './http';
 
-// Chữ ký do BE cấp để upload trực tiếp lên Cloudinary (api_secret không lộ ra FE)
+
 export interface CloudinarySignature {
   cloudName: string;
   apiKey: string;
@@ -10,7 +10,7 @@ export interface CloudinarySignature {
 }
 
 export interface UploadedFile {
-  url: string; // secure_url
+  url: string; 
   publicId: string;
   format?: string;
   bytes?: number;
@@ -24,8 +24,8 @@ export const uploadService = {
       `/upload/cloudinary-signature${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
     ),
 
-  //  Upload 1 file thẳng lên Cloudinary (không qua server BE).
-  // Trả về URL công khai để lưu vào DB.
+  
+  
 
   uploadToCloudinary: async (file: File, folder?: string): Promise<UploadedFile> => {
     const sig = await uploadService.getCloudinarySignature(folder);
@@ -37,7 +37,7 @@ export const uploadService = {
     form.append('signature', sig.signature);
     form.append('folder', sig.folder);
 
-    // resource_type "auto" để Cloudinary tự nhận diện ảnh/pdf/raw…
+    
     const res = await fetch(
       `https://api.cloudinary.com/v1_1/${sig.cloudName}/auto/upload`,
       { method: 'POST', body: form }
@@ -49,7 +49,7 @@ export const uploadService = {
         const err = await res.json();
         msg = err?.error?.message || msg;
       } catch {
-        // giữ message mặc định
+        
       }
       throw new Error(msg);
     }

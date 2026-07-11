@@ -19,11 +19,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Teacher endpoints cho peer sub-mentor management và support ticket leo thang.
- * Tất cả nằm dưới /teacher-manage/** nên Spring Security đã kiểm role=TEACHER.
- * Phân quyền chi tiết (lecturer sở hữu lớp-môn) được kiểm trong service layer.
- */
+
+
+
+
+
 @Slf4j
 @RestController
 @RequestMapping("/teacher-manage/classroom-subjects/{classroomSubjectId}")
@@ -34,7 +34,7 @@ public class TeacherSubMentorController {
     private final SubMentorService subMentorService;
     private final SupportTicketService supportTicketService;
 
-    // ─── Sub-mentor flag ──────────────────────────────────────────────────────
+    
 
     @Operation(summary = "Bật cờ sub-mentor cho một học sinh trong lớp-môn")
     @PostMapping("/sub-mentors/{cssId}/enable")
@@ -58,7 +58,7 @@ public class TeacherSubMentorController {
         return new ResponseData<>(HttpStatus.OK.value(), "Đã tắt cờ sub-mentor thành công");
     }
 
-    // ─── Assignments ──────────────────────────────────────────────────────────
+    
 
     @Operation(summary = "Danh sách tất cả assignment sub-mentor trong lớp-môn")
     @GetMapping("/assignments")
@@ -91,7 +91,7 @@ public class TeacherSubMentorController {
         return new ResponseData<>(HttpStatus.OK.value(), "Đã xóa assignment thành công");
     }
 
-    // ─── Escalated tickets ─────────────────────────────────────────────────────
+    
 
     @Operation(summary = "Danh sách ticket SEND (leo thang) của lớp-môn")
     @GetMapping("/tickets/escalated")

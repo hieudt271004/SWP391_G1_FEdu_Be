@@ -74,10 +74,10 @@ public class MailService {
         log.info("Email sent successfully to {}", emailTo);
     }
 
-    /**
-     * Gửi nền email báo sinh viên đã được thêm vào lớp-môn (dùng khi import Excel).
-     * Lỗi gửi mail KHÔNG làm hỏng import — chỉ log lại.
-     */
+    
+
+
+
     @org.springframework.scheduling.annotation.Async
     public void sendClassEnrollmentEmailAsync(String emailTo, String fullName, String classLabel,
                                               boolean newAccount, String defaultPassword) {

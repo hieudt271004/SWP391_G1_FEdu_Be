@@ -84,10 +84,10 @@ export function ClassManagementPage() {
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
 
-  // Classroom Publish Flow State
+  
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
 
-  // Derive active path details for the selected level
+  
   const activePath = graphData?.paths?.find((p) => p.level === selectedLevel);
   const activePathId = activePath?.pathId || graphData?.pathId || null;
   const nodes = activePath ? activePath.nodes || [] : graphData?.nodes || [];
@@ -95,23 +95,23 @@ export function ClassManagementPage() {
 
   const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
 
-  // Student Assignment States
+  
   const [assignedStudentIds, setAssignedStudentIds] = useState<number[]>([]);
   const [siblingAssignments, setSiblingAssignments] = useState<Record<number, { nodeId: number; nodeTitle: string }>>({});
   const [loadingNodeStudents, setLoadingNodeStudents] = useState(false);
   const [savingNodeStudents, setSavingNodeStudents] = useState(false);
 
-  // Modals state
+  
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isAddContentOpen, setIsAddContentOpen] = useState(false);
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
 
-  // Custom delete confirm dialog state
+  
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ nodeId: number, title: string } | null>(null);
   const [understandDelete, setUnderstandDelete] = useState(false);
 
-  // Publish / Unpublish states
+  
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [understandPublish, setUnderstandPublish] = useState(false);
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
@@ -126,12 +126,12 @@ export function ClassManagementPage() {
   const [nLevel, setNLevel] = useState<'' | 1 | 2 | 3>('');
   const [nStage, setNStage] = useState(1);
   const [nApplies, setNApplies] = useState<number[]>([]);
-  // Ngưỡng phân luồng/năng lực KHÔNG nhập lúc tạo node — chỉnh ở dialog "Sửa node"
+  
   const [tDuration, setTDuration] = useState('15');
   const [numQuestions, setNumQuestions] = useState('0');
   const [addingNode, setAddingNode] = useState(false);
 
-  // Edit Node Modal & Form State
+  
   const [isEditNodeOpen, setIsEditNodeOpen] = useState(false);
   const [nodeToEdit, setNodeToEdit] = useState<LearningNodeResponse | null>(null);
   const [editNodeTitle, setEditNodeTitle] = useState('');
@@ -142,13 +142,13 @@ export function ClassManagementPage() {
   const [editNodeRequired, setEditNodeRequired] = useState(true);
   const [editingNode, setEditingNode] = useState(false);
 
-  // Edit Node Thresholds
+  
   const [editPlacementYeuMax, setEditPlacementYeuMax] = useState<string>('');
   const [editPlacementTbMax, setEditPlacementTbMax] = useState<string>('');
   const [editGateUpMin, setEditGateUpMin] = useState<string>('');
   const [editGateDownMax, setEditGateDownMax] = useState<string>('');
 
-  // Sidebar Question Builder States
+  
   const [editingTTitle, setEditingTTitle] = useState("");
   const [editingTDuration, setEditingTDuration] = useState("15");
   const [editingTPass, setEditingTPass] = useState("0");
@@ -158,37 +158,37 @@ export function ClassManagementPage() {
   const [editingNodeTest, setEditingNodeTest] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Node content state
+  
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [nodeContentsLoading, setNodeContentsLoading] = useState<Record<number, boolean>>({});
 
-  // New Content Form State
+  
   const [contentType, setContentType] = useState<'MATERIAL' | 'TEST'>('MATERIAL');
   const [materialType, setMaterialType] = useState<'FILE' | 'VIDEO' | 'EXTERNAL'>('FILE');
   const [contentTitle, setContentTitle] = useState('');
   const [isMaterialRequired, setIsMaterialRequired] = useState(true);
 
-  // File Upload State
+  
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileDescription, setFileDescription] = useState('');
 
-  // Video URL State
+  
   const [contentVideoUrl, setContentVideoUrl] = useState('');
   const [videoDuration, setVideoDuration] = useState<number | ''>('');
   const [videoDescription, setVideoDescription] = useState('');
 
-  // External URL State
+  
   const [contentFileUrl, setContentFileUrl] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState('');
 
-  // Test State
+  
   const [testTitle, setTestTitle] = useState('');
   const [testDescription, setTestDescription] = useState('');
   const [testDuration, setTestDuration] = useState<number | ''>('');
   const [testPassingPercentage, setTestPassingPercentage] = useState<number | ''>(80);
 
-  // Submitting state
+  
   const [submittingContent, setSubmittingContent] = useState(false);
 
   const handleNumQuestionsChange = (val: string) => {
@@ -320,7 +320,7 @@ export function ClassManagementPage() {
     }
     const numQ = Math.max(0, parseInt(editingNumQuestions, 10) || 0);
     
-    // Validate questions
+    
     for (let i = 0; i < numQ; i++) {
       const q = builderQuestions[i];
       if (!q) continue;
@@ -350,7 +350,7 @@ export function ClassManagementPage() {
 
     setSaving(true);
     try {
-      // 1. Delete old test first
+      
       const nodeContent = nodeContents[selectedNode.nodeId];
       const testIdToDelete = isTestNode 
         ? (nodeContent?.tests && nodeContent.tests.length > 0 ? nodeContent.tests[0].testId : null)
@@ -360,7 +360,7 @@ export function ClassManagementPage() {
         await learningPathService.deleteTeacherNodeTest(testIdToDelete);
       }
 
-      // 2. Create new test
+      
       const testRes = await learningPathService.addTeacherNodeTest(selectedNode.nodeId, {
         title: testTitleToUse,
         durationMinutes: Number(editingTDuration) || 15,
@@ -369,7 +369,7 @@ export function ClassManagementPage() {
 
       const createdTestId = testRes.testId;
 
-      // 3. Create questions sequentially
+      
       for (let i = 0; i < numQ; i++) {
         const q = builderQuestions[i];
         if (!q) continue;
@@ -573,7 +573,7 @@ export function ClassManagementPage() {
     fetchClassroomData();
   }, [classroomSubjectId]);
 
-  // Cross-tab consistency
+  
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && classroomSubjectId) {
@@ -688,7 +688,7 @@ export function ClassManagementPage() {
         await learningPathService.addTeacherNodeMaterial(selectedNodeForContent.nodeId, formData);
         toast.success('Thêm tài liệu học tập thành công!');
       } else {
-        // Create Test
+        
         if (!testTitle.trim()) {
           toast.error('Vui lòng nhập tiêu đề bài kiểm tra');
           setSubmittingContent(false);
@@ -753,8 +753,8 @@ export function ClassManagementPage() {
         setSelectedNode(null);
       }
       setNodeToDelete(null);
-      // Cạnh được tính lại tất định từ tập node còn lại (nối liền chặng trước ↔ chặng sau
-      // qua chỗ vừa xóa); rewireAll tự nạp lại graph sau khi đồng bộ.
+      
+      
       await rewireAll();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete node');
@@ -794,7 +794,7 @@ export function ClassManagementPage() {
       kind: nKind,
       stage: nStage,
       applies: nApplies,
-      // Node Trên lớp = buổi học CHUNG cả lớp, không phân mức riêng (BE cũng chặn)
+      
       level: nKind === 'ON_CLASS' ? '' : nLevel,
       existingNodes: nodes,
     });
@@ -808,7 +808,7 @@ export function ClassManagementPage() {
     setAddingNode(true);
     try {
       if (nKind === 'FREE_CHOICE') {
-        // Test tự do = 3 node test (Yếu/TB/Khá) cùng chặng; mỗi node route về nhánh của nó.
+        
         const variants: { lv: 1 | 2 | 3; name: string }[] = [
           { lv: 1, name: 'Yếu' },
           { lv: 2, name: 'TB' },
@@ -836,14 +836,14 @@ export function ClassManagementPage() {
           nodeType: nKind === 'ON_CLASS' ? 'ON_CLASS' : 'AT_HOME',
           testKind: nKind === 'GATE' ? 'GATE' : nKind === 'PLACEMENT' ? 'PLACEMENT' : 'NONE',
           appliesLevels: placement.appliesLevels,
-          // Ngưỡng phân luồng/năng lực nhập sau ở dialog "Sửa node"
+          
           displayOrder: 0,
           isRequired: true,
           stageOrder: nStage,
           level: placement.level,
         });
 
-        // Node Test năng lực: tạo luôn bài test + N câu hỏi mẫu (giống admin).
+        
         if (nKind === 'PLACEMENT') {
           const testRes = await learningPathService.addTeacherNodeTest(created.nodeId, {
             title: newNodeTitle.trim(),
@@ -1199,7 +1199,7 @@ export function ClassManagementPage() {
 
   return (
     <div className="space-y-6 relative font-sans text-slate-800">
-      {/* Sticky Published Banner */}
+      {}
       {isPublished && (
         <div
           className="sticky top-0 z-40 w-full bg-emerald-600 text-white py-2.5 px-4 rounded-[6px] shadow-sm flex items-center gap-2 mb-4 font-semibold text-sm animate-in slide-in-from-top duration-300"
@@ -1249,7 +1249,7 @@ export function ClassManagementPage() {
           </CardHeader>
           <CardContent className="p-5">
             <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
-              {/* Column 1: Roadmap Flow Graph — giới hạn ~3 node ngang, panel chi tiết phủ phần còn lại */}
+              {}
               <div className="space-y-3 lg:w-[560px] lg:shrink-0">
                 {nodes.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-[10px] bg-slate-50/40">
@@ -1278,7 +1278,7 @@ export function ClassManagementPage() {
                 )}
               </div>
 
-              {/* Column 2: Selected Node Sidebar Details Panel */}
+              {}
               <div className="flex-1 min-w-0 border border-slate-200 rounded-xl bg-slate-50/40 p-4 space-y-4 h-[580px] overflow-y-auto">
                 {!selectedNode ? (
                   <div className="h-full flex flex-col items-center justify-center text-center py-16 text-slate-400">
@@ -1288,7 +1288,7 @@ export function ClassManagementPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Node Header Info */}
+                    {}
                     <div className="space-y-2 border-b border-slate-200/80 pb-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
@@ -1448,9 +1448,9 @@ export function ClassManagementPage() {
                       </div>
                     ) : (
                       <>
-                        {/* Node Content lists (materials, tests, exercises) */}
+                        {}
                         <div className="space-y-4">
-                          {/* Materials & Videos */}
+                          {}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
                               <span className="flex items-center gap-1.5">
@@ -1516,7 +1516,7 @@ export function ClassManagementPage() {
                             )}
                           </div>
 
-                          {/* Quizzes & Tests */}
+                          {}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
                               <span className="flex items-center gap-1.5">
@@ -1571,7 +1571,7 @@ export function ClassManagementPage() {
                       </>
                     )}
 
-                    {/* Node actions (edit, delete) */}
+                    {}
                     <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60 w-full font-sans">
                       <Button
                         size="sm"
@@ -1599,14 +1599,14 @@ export function ClassManagementPage() {
         </Card>
       </div>
 
-      {/* Hidden helper element for aria accessibility */}
+      {}
       {isPublished && (
         <span id="lock-reason" className="sr-only">
           {lockTooltip}
         </span>
       )}
 
-      {/* CUSTOM CONFIRM DIALOG FOR NODE DELETION */}
+      {}
       <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!open) { setShowDeleteConfirm(false); setUnderstandDelete(false); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1655,7 +1655,7 @@ export function ClassManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ADD NODE MODAL */}
+      {}
       {isAddNodeOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -1846,7 +1846,7 @@ export function ClassManagementPage() {
         </div>
       )}
 
-      {/* ADD CONTENT MODAL */}
+      {}
       {isAddContentOpen && selectedNodeForContent && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -2127,7 +2127,7 @@ export function ClassManagementPage() {
         </div>
       )}
 
-      {/* EDIT NODE MODAL */}
+      {}
       {isEditNodeOpen && nodeToEdit && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[10px] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -2237,7 +2237,7 @@ export function ClassManagementPage() {
               )}
 
               {nodeToEdit.testKind === 'GATE' && (
-                // Ngưỡng vô tác dụng khi test chỉ phủ ĐÚNG 1 mức (bị kẹp, không đổi mức); trống = mọi mức
+                
                 (nodeToEdit.appliesLevels ?? '').split(',').map((s) => s.trim()).filter(Boolean).length === 1 ? (
                   <p className="text-xs text-slate-500">
                     Test này chỉ áp dụng 1 mức — là bài chặn đường (làm để mở bài kế tiếp),
@@ -2305,7 +2305,7 @@ export function ClassManagementPage() {
           </div>
         </div>
       )}
-      {/* Confirmation Modal for Publish */}
+      {}
       <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
         <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
@@ -2361,7 +2361,7 @@ export function ClassManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Modal for Unpublish */}
+      {}
       <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
         <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
@@ -2411,7 +2411,7 @@ export function ClassManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Unpublish Error Modal (already completed nodes) */}
+      {}
       <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
         <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>

@@ -53,7 +53,7 @@ public class NodeContentServiceImpl implements NodeContentService {
         List<Test> tests = testRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
         List<NodeExercise> exercises = nodeExerciseRepository.findByLearningNodeNodeIdAndIsDeletedFalse(nodeId);
 
-        // Khởi tạo order_index tuần tự nếu có item chưa có (thang dùng chung material/test/exercise)
+        
         boolean hasNullIndex = materials.stream().anyMatch(m -> m.getOrderIndex() == null)
                 || tests.stream().anyMatch(t -> t.getOrderIndex() == null)
                 || exercises.stream().anyMatch(e -> e.getOrderIndex() == null);
@@ -100,7 +100,7 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
         templateEditGuard.assertNodeEditable(node);
 
-        // Create NodeMaterial
+        
         NodeMaterial material = NodeMaterial.builder()
                 .learningNode(node)
                 .title(request.getTitle())
@@ -111,7 +111,7 @@ public class NodeContentServiceImpl implements NodeContentService {
 
         nodeMaterialRepository.save(material);
 
-        // Handle physical file upload if provided
+        
         if (file != null && !file.isEmpty()) {
             try {
                 Path uploadPath = Paths.get(UPLOAD_DIR);
@@ -142,7 +142,7 @@ public class NodeContentServiceImpl implements NodeContentService {
                 throw new InvalidDataException("Could not store file. Error: " + e.getMessage());
             }
         } else if (request.getFileUrl() != null && !request.getFileUrl().trim().isEmpty()) {
-            // Support external file URL links
+            
             FileEntity fileEntity = FileEntity.builder()
                     .nodeMaterial(material)
                     .fileUrl(request.getFileUrl())
@@ -158,7 +158,7 @@ public class NodeContentServiceImpl implements NodeContentService {
             material.getFiles().add(fileEntity);
         }
 
-        // Handle video link if provided
+        
         if (request.getVideoUrl() != null && !request.getVideoUrl().trim().isEmpty()) {
             Video video = Video.builder()
                     .nodeMaterial(material)
@@ -186,18 +186,18 @@ public class NodeContentServiceImpl implements NodeContentService {
         material.setIsDeleted(true);
         nodeMaterialRepository.save(material);
 
-        // Soft-delete associated video components
+        
         List<Video> videos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(materialId);
         for (Video v : videos) {
             v.setIsDeleted(true);
             videoRepository.save(v);
         }
 
-        // Soft-delete associated file components + xóa asset thật trên Cloudinary
+        
         List<FileEntity> files = fileEntityRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(materialId);
         for (FileEntity f : files) {
-            // Chỉ xóa Cloudinary nếu file SỞ HỮU asset (publicId != null).
-            // File clone dùng chung URL nhưng publicId null → không xóa nhầm asset gốc.
+            
+            
             if (f.getPublicId() != null && !f.getPublicId().isBlank()) {
                 cloudinaryService.delete(f.getPublicId(), f.getResourceType());
             }
@@ -220,7 +220,7 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .durationMinutes(request.getDurationMinutes())
                 .passingPercentage(request.getPassingPercentage())
                 .orderIndex(getNextOrderIndex(nodeId))
-                // holdRelease = soạn ở buổi live, chờ bấm "Phát đề"; mặc định phát ngay (hành vi cũ)
+                
                 .releasedAt(Boolean.TRUE.equals(request.getHoldRelease()) ? null : java.time.LocalDateTime.now())
                 .isDeleted(false)
                 .build();
@@ -287,7 +287,7 @@ public class NodeContentServiceImpl implements NodeContentService {
         nodeExerciseRepository.save(exercise);
     }
 
-    // Mapping Helpers
+    
     private NodeMaterialResponse mapToMaterialResponse(NodeMaterial m) {
         VideoResponse videoRes = null;
         List<Video> videos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(m.getMaterialId());

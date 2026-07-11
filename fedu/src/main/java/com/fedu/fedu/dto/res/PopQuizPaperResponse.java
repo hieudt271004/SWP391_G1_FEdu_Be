@@ -4,7 +4,7 @@ import lombok.*;
 
 import java.util.List;
 
-/** Đề pop-quiz đã tráo thứ tự (seed = attemptId), không lộ cờ đáp án đúng. */
+
 @Data
 @Builder
 @NoArgsConstructor

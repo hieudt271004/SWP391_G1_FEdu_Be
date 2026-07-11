@@ -89,7 +89,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassroomResponse> getAllClassrooms() {
-        // Đếm số môn + số học sinh của mọi lớp trong 1 query, tránh 2 query cho mỗi lớp (N+1)
+        
         Map<Long, ClassroomRepository.ClassroomCounts> countsById = classroomRepository
                 .countSubjectsAndStudentsPerClassroom().stream()
                 .collect(Collectors.toMap(ClassroomRepository.ClassroomCounts::getClassroomId, c -> c));
@@ -158,10 +158,10 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .collect(Collectors.toList());
     }
 
-    // ─── Mapper ──────────────────────────────────────────────────────────────
+    
 
     private ClassroomResponse toResponse(Classroom classroom) {
-        // COUNT trong DB thay vì kéo nguyên list entity về chỉ để .size()
+        
         int subjectCount = (int) classroomSubjectRepository
                 .countByClassroomClassroomId(classroom.getClassroomId());
         int studentCount = (int) classroomSubjectStudentRepository
@@ -220,7 +220,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     private void assertTeacherOwnsClassroom(Long classroomId) {
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
-        if (auth == null) return; // test/seed
+        if (auth == null) return; 
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         if (isAdmin) return;

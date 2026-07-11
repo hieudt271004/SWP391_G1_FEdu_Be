@@ -33,7 +33,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
     private final ClassroomSubjectRepository classroomSubjectRepository;
     private final SubMentorStudentAssignmentRepository assignmentRepository;
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+    
 
     private SupportTicket requireTicket(Long ticketId) {
         return ticketRepository.findById(ticketId)
@@ -46,14 +46,14 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                         "Học sinh chưa ghi danh lớp-môn id=" + classroomSubjectId));
     }
 
-    // ─── Student ──────────────────────────────────────────────────────────────
+    
 
     @Override
     @Transactional
     public SupportTicketResponse createTicket(CreateSupportTicketRequest request, Long studentUserId) {
         ClassroomSubjectStudent css = requireStudentEnrolled(request.getClassroomSubjectId(), studentUserId);
 
-        // Nếu học sinh chưa được gán cho bất kỳ sub-mentor nào trong lớp-môn, gửi thẳng lên giảng viên (SEND)
+        
         boolean hasSubmentor = !assignmentRepository.findByStudentCss_Id(css.getId()).isEmpty();
         SupportTicketStatus initialStatus = hasSubmentor ? SupportTicketStatus.NONE : SupportTicketStatus.SEND;
 
@@ -76,12 +76,12 @@ public class SupportTicketServiceImpl implements SupportTicketService {
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    // ─── Sub-mentor ───────────────────────────────────────────────────────────
+    
 
     @Override
     @Transactional(readOnly = true)
     public List<SupportTicketResponse> listAssignedTickets(Long subMentorUserId, Long classroomSubjectId) {
-        // Xác nhận sub-mentor ghi danh lớp-môn và có cờ isSubmentor=true
+        
         ClassroomSubjectStudent subMentorCss = requireStudentEnrolled(classroomSubjectId, subMentorUserId);
         if (!Boolean.TRUE.equals(subMentorCss.getIsSubmentor())) {
             throw new AccessDeniedException("Bạn không phải sub-mentor trong lớp-môn này");
@@ -101,13 +101,13 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         SupportTicket ticket = requireTicket(ticketId);
         Long classroomSubjectId = ticket.getClassroomSubjectStudent().getClassroomSubject().getId();
 
-        // Xác nhận sub-mentor có cờ isSubmentor=true trong lớp-môn này
+        
         ClassroomSubjectStudent subMentorCss = requireStudentEnrolled(classroomSubjectId, subMentorUserId);
         if (!Boolean.TRUE.equals(subMentorCss.getIsSubmentor())) {
             throw new AccessDeniedException("Bạn không phải sub-mentor trong lớp-môn này");
         }
 
-        // Kiểm ticket thuộc nhóm kèm của sub-mentor này
+        
         Long studentCssId = ticket.getClassroomSubjectStudent().getId();
         boolean isAssigned = assignmentRepository.existsBySubMentorCss_IdAndStudentCss_Id(
                 subMentorCss.getId(), studentCssId);
@@ -133,13 +133,13 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         ClassroomSubject cs = ticket.getClassroomSubjectStudent().getClassroomSubject();
         Long classroomSubjectId = cs.getId();
 
-        // Xác nhận sub-mentor có cờ isSubmentor=true
+        
         ClassroomSubjectStudent subMentorCss = requireStudentEnrolled(classroomSubjectId, subMentorUserId);
         if (!Boolean.TRUE.equals(subMentorCss.getIsSubmentor())) {
             throw new AccessDeniedException("Bạn không phải sub-mentor trong lớp-môn này");
         }
 
-        // Kiểm ticket thuộc nhóm kèm
+        
         Long studentCssId = ticket.getClassroomSubjectStudent().getId();
         boolean isAssigned = assignmentRepository.existsBySubMentorCss_IdAndStudentCss_Id(
                 subMentorCss.getId(), studentCssId);
@@ -147,7 +147,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
             throw new AccessDeniedException("Ticket này không thuộc nhóm kèm của bạn");
         }
 
-        // Kiểm lớp-môn có lecturer (lecturer là NOT NULL trên ClassroomSubject nhưng phòng trường hợp null)
+        
         if (cs.getLecturer() == null) {
             throw new InvalidDataException("Lớp-môn chưa có giảng viên phụ trách, không thể leo thang ticket");
         }
@@ -162,7 +162,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         return toResponse(ticket);
     }
 
-    // ─── Teacher ──────────────────────────────────────────────────────────────
+    
 
     @Override
     @Transactional(readOnly = true)
@@ -199,7 +199,7 @@ public class SupportTicketServiceImpl implements SupportTicketService {
         return toResponse(ticket);
     }
 
-    // ─── Mapper ───────────────────────────────────────────────────────────────
+    
 
     private SupportTicketResponse toResponse(SupportTicket t) {
         var css = t.getClassroomSubjectStudent();

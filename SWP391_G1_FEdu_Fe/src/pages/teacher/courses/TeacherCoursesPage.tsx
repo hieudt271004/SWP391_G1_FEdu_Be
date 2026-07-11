@@ -52,18 +52,18 @@ export function TeacherCoursesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Primary states
+  
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [roadmapsBySubject, setRoadmapsBySubject] = useState<Record<number, LearningPathResponse[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters state
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | 'all'>('all');
 
-  // Debounce search input to prevent expensive list re-renders on every keystroke
+  
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       setSearchQuery(searchInput);
@@ -71,12 +71,12 @@ export function TeacherCoursesPage() {
     return () => clearTimeout(delayDebounce);
   }, [searchInput]);
 
-  // Modal control states
+  
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedTemplateForDetail, setSelectedTemplateForDetail] = useState<LearningPathResponse | null>(null);
 
-  // Initial Fetch logic
+  
   useEffect(() => {
     const fetchPageData = async () => {
       if(!user?.userId){
@@ -87,12 +87,12 @@ export function TeacherCoursesPage() {
         setLoading(true);
         setError(null);
 
-        // 1. Môn đã/đang dạy + môn có template cá nhân — template khoa/cá nhân trong phạm vi này
+        
         const subjectsData = await learningPathService.getLibrarySubjects();
         const subjectsList = subjectsData ?? [];
         setSubjects(subjectsList);
 
-        // 2. Fetch templates for each subject in parallel (BE chỉ trả template của khoa + của chính GV)
+        
         const roadmapPromises = subjectsList.map(async (subject) => {
           try {
             const paths = await learningPathService.getSubjectLearningPaths(subject.subjectId);
@@ -120,13 +120,13 @@ export function TeacherCoursesPage() {
     fetchPageData();
   }, [user?.userId]);
 
-  // Handle template detail opening
+  
   const handleOpenDetail = useCallback((template: LearningPathResponse) => {
     setSelectedTemplateForDetail(template);
     setIsDetailOpen(true);
   }, []);
 
-  // Handle created templates updating roadmapsBySubject
+  
   const handleCreated = (newPath: LearningPathResponse) => {
     setRoadmapsBySubject((prev) => ({
       ...prev,
@@ -134,7 +134,7 @@ export function TeacherCoursesPage() {
     }));
   };
 
-  // Xóa template cá nhân (BE chặn xóa template của khoa / của GV khác)
+  
   const handleDeleteTemplate = useCallback(async (template: LearningPathResponse) => {
     if (!confirm(`Xóa template "${template.pathName}"? Hành động này không thể hoàn tác.`)) return;
     try {
@@ -149,8 +149,8 @@ export function TeacherCoursesPage() {
     }
   }, []);
 
-  // Memoize templates/subjects grid to prevent re-rendering when typing in search input,
-  // or opening/closing modals.
+  
+  
   const renderedSubjectsList = useMemo(() => {
     return subjects
       .filter((sub) => selectedSubjectId === 'all' || sub.subjectId === selectedSubjectId)
@@ -159,7 +159,7 @@ export function TeacherCoursesPage() {
           tpl.pathName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (tpl.description && tpl.description.toLowerCase().includes(searchQuery.toLowerCase()))
         );
-        // Template cá nhân = do chính GV này tạo; còn lại là template của khoa (admin / dữ liệu cũ)
+        
         const isMine = (tpl: LearningPathResponse) =>
           tpl.creatorRole === 'TEACHER' && tpl.createdById === user?.userId;
         const myTemplates = templates.filter(isMine);
@@ -248,7 +248,7 @@ export function TeacherCoursesPage() {
 
         return (
           <div key={subject.subjectId} className="space-y-4 text-foreground">
-            {/* Subject Header */}
+            {}
             <div className="flex items-center gap-2 pb-2 border-b border-border">
               <span className="text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded-[6px]">
                 {subject.subjectCode}
@@ -256,7 +256,7 @@ export function TeacherCoursesPage() {
               <h2 className="text-lg font-bold text-foreground">{subject.subjectName}</h2>
             </div>
 
-            {/* 2 nhóm: template của khoa (chỉ xem) + template cá nhân (sửa/xóa được) */}
+            {}
             {templates.length === 0 ? (
               <div className="py-8 px-4 bg-card rounded-[10px] border border-dashed border-border text-center text-muted-foreground text-sm">
                 Môn học này chưa có template nào — bấm "Tạo lộ trình mới" để tạo template cá nhân đầu tiên.
@@ -314,7 +314,7 @@ export function TeacherCoursesPage() {
 
   return (
     <div className="space-y-6 font-sans text-foreground">
-      {/* Header section */}
+      {}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-[6px] flex items-center justify-center bg-muted text-foreground border border-border">
@@ -335,9 +335,9 @@ export function TeacherCoursesPage() {
         </Button>
       </div>
 
-      {/* Filter and search bar */}
+      {}
       <div className="bg-card text-card-foreground border border-border rounded-[10px] p-4 shadow-none flex flex-col md:flex-row gap-4 items-center justify-between">
-        {/* Search */}
+        {}
         <div className="relative w-full md:max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -349,7 +349,7 @@ export function TeacherCoursesPage() {
           />
         </div>
 
-        {/* Filter Dropdown */}
+        {}
         <div className="flex items-center gap-3 w-full md:w-auto">
           <span className="text-sm text-muted-foreground font-medium whitespace-nowrap">Môn học:</span>
           <Select
@@ -373,7 +373,7 @@ export function TeacherCoursesPage() {
         </div>
       </div>
 
-      {/* Roadmap List Grouped by Subject */}
+      {}
       {subjects.length === 0 ? (
         <div className="text-center py-16 bg-card text-card-foreground border border-border rounded-[10px] shadow-none">
           <p className="text-muted-foreground font-normal text-sm">
@@ -386,7 +386,7 @@ export function TeacherCoursesPage() {
         </div>
       )}
 
-      {/* Dialog Modals */}
+      {}
       <CreateTemplateDialog
         isOpen={isCreateOpen}
         onOpenChange={setIsCreateOpen}
@@ -403,9 +403,9 @@ export function TeacherCoursesPage() {
   );
 }
 
-// ==========================================
-// Subcomponents to prevent parent re-renders
-// ==========================================
+
+
+
 
 interface CreateTemplateDialogProps {
   isOpen: boolean;
@@ -425,7 +425,7 @@ function CreateTemplateDialog({
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Initialize form state when opened
+  
   useEffect(() => {
     if (isOpen) {
       setSubjectId(subjects[0]?.subjectId || '');

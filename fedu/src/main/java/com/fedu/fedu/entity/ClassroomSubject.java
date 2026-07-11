@@ -3,10 +3,10 @@ package com.fedu.fedu.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-/**
- * Bảng phụ lưu mối quan hệ giữa Classroom và Subject,
- * đồng thời lưu giảng viên phụ trách môn học đó trong lớp.
- */
+
+
+
+
 @Getter
 @Setter
 @Entity
@@ -35,7 +35,7 @@ public class ClassroomSubject extends AbstractEntity<Long> {
     @JoinColumn(name = "lecturer_id", nullable = false)
     private UserAccount lecturer;
 
-    /** Bài test phân loại đầu vào (placement quiz). null = chưa cấu hình. */
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_quiz_start")
     private Test quizStart;

@@ -72,7 +72,7 @@ export function ProfileEditPage() {
     avatarUrl: '',
   });
 
-  // Sync profile data when user context is loaded
+  
   useEffect(() => {
     if (user) {
       setProfileData({
@@ -95,7 +95,7 @@ export function ProfileEditPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate type
+    
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       toast.error('Định dạng tệp không hợp lệ. Chỉ chấp nhận PNG, JPEG, JPG, WebP.');
@@ -103,7 +103,7 @@ export function ProfileEditPage() {
       return;
     }
 
-    // Validate size (5MB)
+    
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       toast.error('Kích thước tệp quá lớn. Vui lòng chọn tệp nhỏ hơn 5MB.');
@@ -182,7 +182,7 @@ export function ProfileEditPage() {
     <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in transition-all duration-500">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
         
-        {/* Left Column - Profile Overview */}
+        {}
         <div className="md:col-span-1 rounded-2xl border border-border bg-card p-6 shadow-sm flex flex-col items-center text-center relative overflow-hidden transition-all duration-300 hover:shadow-md">
           <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-primary/5 to-secondary -z-10" />
           
@@ -233,7 +233,7 @@ export function ProfileEditPage() {
             disabled={isUploading || loading}
           />
           
-          {/* Preset Avatars Selection */}
+          {}
           <div className="mt-6 w-full pt-4 border-t border-border">
             <p className="text-[10px] uppercase font-bold text-muted-foreground text-left mb-3">Hoặc chọn ảnh đại diện mẫu</p>
             <div className="grid grid-cols-3 gap-2">
@@ -260,7 +260,7 @@ export function ProfileEditPage() {
           </div>
         </div>
 
-        {/* Right Column - Profile Details Form */}
+        {}
         <Card className="md:col-span-2 rounded-2xl border border-border bg-card shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
           <CardHeader className="border-b border-border pb-4">
             <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">

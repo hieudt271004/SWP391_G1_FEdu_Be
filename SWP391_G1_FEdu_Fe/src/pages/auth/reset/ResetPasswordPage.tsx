@@ -96,7 +96,7 @@ export function ResetPasswordPage() {
           )}
 
           <div className="mt-8 space-y-5">
-            {/* Mật khẩu mới */}
+            {}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Mật khẩu mới</label>
               <div className="relative mt-1.5">
@@ -121,7 +121,7 @@ export function ResetPasswordPage() {
               )}
             </div>
 
-            {/* Xác nhận mật khẩu */}
+            {}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Xác nhận mật khẩu mới</label>
               <div className="relative mt-1.5">
@@ -146,7 +146,7 @@ export function ResetPasswordPage() {
               )}
             </div>
 
-            {/* Gợi ý độ mạnh */}
+            {}
             <div className="space-y-1.5">
               {hints.map(({ text, pass }) => (
                 <div key={text} className="flex items-center gap-2">

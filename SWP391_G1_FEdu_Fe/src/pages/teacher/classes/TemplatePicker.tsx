@@ -14,14 +14,14 @@ interface TemplatePickerProps {
   classroomSubjectId: number;
   availableTemplates: AvailableTemplateResponse[];
   onCloned: () => void;
-  /** Nếu có (đang ở DRAFT): đổi template = xóa draft cũ + clone mới, kèm cảnh báo mất thay đổi. */
+  
   existingDraftPathId?: number;
 }
 
-/**
- * Chọn một lộ trình mẫu (template) → xem trước READ-ONLY (cây + nội dung node) → clone về lớp.
- * Dùng ở trạng thái lớp chưa có lộ trình. Chỉnh sửa chỉ diễn ra sau khi clone, ở trang /manage.
- */
+
+
+
+
 export function TemplatePicker({ classroomSubjectId, availableTemplates, onCloned, existingDraftPathId }: TemplatePickerProps) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
     availableTemplates.length === 1 ? availableTemplates[0].pathId : null
@@ -31,12 +31,12 @@ export function TemplatePicker({ classroomSubjectId, availableTemplates, onClone
   const [previewNode, setPreviewNode] = useState<LearningNodeResponse | null>(null);
   const [cloning, setCloning] = useState(false);
 
-  // Auto-chọn khi chỉ có 1 template
+  
   useEffect(() => {
     if (availableTemplates.length === 1) setSelectedTemplateId(availableTemplates[0].pathId);
   }, [availableTemplates]);
 
-  // Nạp graph của template đang chọn để preview
+  
   useEffect(() => {
     if (selectedTemplateId == null) {
       setGraph(null);
@@ -79,7 +79,7 @@ export function TemplatePicker({ classroomSubjectId, availableTemplates, onClone
     try {
       setCloning(true);
       if (existingDraftPathId != null) {
-        // Đổi template = BE thay nháp bằng clone mới trong 1 transaction (lỗi thì nháp cũ còn nguyên)
+        
         await learningPathService.replaceDraftWithTemplate(classroomSubjectId, selectedTemplateId);
       } else {
         await learningPathService.cloneFromTemplate(classroomSubjectId, selectedTemplateId);
@@ -103,7 +103,7 @@ export function TemplatePicker({ classroomSubjectId, availableTemplates, onClone
 
   return (
     <div className="space-y-4">
-      {/* Dropdown chọn template + nút clone */}
+      {}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label className="mb-1 block text-xs font-semibold text-slate-500">Chọn lộ trình mẫu</label>
@@ -130,7 +130,7 @@ export function TemplatePicker({ classroomSubjectId, availableTemplates, onClone
         </button>
       </div>
 
-      {/* Preview read-only của template đang chọn */}
+      {}
       {selectedTemplateId != null &&
         (loadingGraph ? (
           <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-400">

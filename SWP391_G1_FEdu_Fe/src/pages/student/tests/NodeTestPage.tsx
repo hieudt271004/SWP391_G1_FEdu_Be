@@ -19,7 +19,7 @@ export function NodeTestPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // csId (tuỳ chọn) để quay lại đồ thị lớp-môn; khi quay lại view đó sẽ tự fetch lại.
+  
   const csId = searchParams.get('csId');
   const id = Number(testId);
 
@@ -40,8 +40,8 @@ export function NodeTestPage() {
       .getTestDetails(id)
       .then((data) => {
         if (!active) return;
-        // Đề phát trong buổi live có hạn nộp CHUNG cả lớp: vào trễ thì đồng hồ chỉ còn
-        // phần thời gian tới hạn chung (BE vẫn là nguồn chân lý khi nộp).
+        
+        
         if (data.releaseEndsAt && data.durationMinutes) {
           const remainMin = Math.floor((new Date(data.releaseEndsAt).getTime() - Date.now()) / 60000);
           data = { ...data, durationMinutes: Math.max(1, Math.min(data.durationMinutes, remainMin)) };
@@ -77,7 +77,7 @@ export function NodeTestPage() {
     try {
       const res = await studentService.submitAttempt(id, attemptId, body);
       setResult(res);
-      // Đồ thị tiến độ sẽ được refetch khi học sinh quay lại view lớp-môn (mount lại).
+      
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Nộp bài thất bại');
     } finally {
@@ -85,7 +85,7 @@ export function NodeTestPage() {
     }
   };
 
-  // Rời tab khi đang làm bài → ghi nhận về BE (chống gian lận) + cảnh báo khi quay lại.
+  
   const handleTabOut = useCallback(async () => {
     if (attemptId == null) return;
     try {
@@ -94,7 +94,7 @@ export function NodeTestPage() {
         duration: 8000,
       });
     } catch {
-      // Không chặn việc làm bài nếu ghi nhận thất bại
+      
     }
   }, [id, attemptId]);
 
@@ -129,7 +129,7 @@ export function NodeTestPage() {
   if (!details) return null;
 
   if (result) {
-    // Đề có câu tự luận: chưa có điểm — giáo viên chấm xong hệ thống mới tính đậu/trượt + mở bài.
+    
     if (result.pendingManualGrading) {
       return (
         <div className="mx-auto max-w-2xl">

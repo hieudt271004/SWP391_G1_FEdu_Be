@@ -22,9 +22,9 @@ const COL_X: Record<number, number> = { 0: 80, 1: 260, 2: 440 };
 const WIDTH = 520;
 const TOP = 28;
 const ROW_GAP = 104;
-const CIRCLE = 72; // Circular node size
-const SQUARE_W = 104; // Rectangular node width
-const SQUARE_H = 58; // Rectangular node height
+const CIRCLE = 72; 
+const SQUARE_W = 104; 
+const SQUARE_H = 58; 
 
 function levelToCol(level?: number | null): number {
   if (level === 1) return 0;
@@ -52,7 +52,7 @@ const LEVEL_STYLE: Record<
     strokeActive: string;
   }
 > = {
-  // Node chung: trung tính theo design token (muted) — hòa với các node học, không nổi trắng.
+  
   chung: { 
     border: "border-border bg-muted/60 dark:bg-muted/40", 
     bg: "bg-muted/60 dark:bg-muted/40", 
@@ -60,8 +60,8 @@ const LEVEL_STYLE: Record<
     chip: "bg-background text-muted-foreground border border-border/80", 
     label: "Chung", 
     glow: "0 0 16px rgba(148, 163, 184, 0.2)",
-    stroke: "#64748b", // slate-505
-    strokeActive: "#3b82f6", // blue-500
+    stroke: "#64748b", 
+    strokeActive: "#3b82f6", 
   },
   l1: { 
     border: "border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/20", 
@@ -70,8 +70,8 @@ const LEVEL_STYLE: Record<
     chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20", 
     label: "Yêu", 
     glow: "0 0 16px rgba(245, 158, 11, 0.3)",
-    stroke: "#fcd34d", // amber-300
-    strokeActive: "#d97706", // amber-600
+    stroke: "#fcd34d", 
+    strokeActive: "#d97706", 
   },
   l2: { 
     border: "border-indigo-500/50 bg-indigo-500/10 dark:bg-indigo-500/20", 
@@ -80,8 +80,8 @@ const LEVEL_STYLE: Record<
     chip: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20", 
     label: "TB", 
     glow: "0 0 16px rgba(99, 102, 241, 0.3)",
-    stroke: "#c7d2fe", // indigo-300
-    strokeActive: "#4f46e5", // indigo-600
+    stroke: "#c7d2fe", 
+    strokeActive: "#4f46e5", 
   },
   l3: { 
     border: "border-emerald-500/50 bg-emerald-500/10 dark:bg-emerald-500/20", 
@@ -90,8 +90,8 @@ const LEVEL_STYLE: Record<
     chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20", 
     label: "Khá", 
     glow: "0 0 16px rgba(16, 185, 129, 0.3)",
-    stroke: "#a7f3d0", // emerald-300
-    strokeActive: "#059669", // emerald-600
+    stroke: "#a7f3d0", 
+    strokeActive: "#059669", 
   },
 };
 
@@ -129,7 +129,7 @@ export function LearningPathFlow({
           .map((n) => n.nodeId)
       );
 
-    // Row layout determined by stageOrder
+    
     const stageHasLearn = new Set<number>();
     visible.forEach((n) => {
       if (!derivedGates.has(n.nodeId)) stageHasLearn.add(n.stageOrder ?? 0);
@@ -196,10 +196,10 @@ export function LearningPathFlow({
           viewBox={`0 0 ${WIDTH} ${height}`}
         >
           <defs>
-            {/* Dynamic arrow markers for each level path and state */}
+            {}
             {Object.entries(LEVEL_STYLE).map(([key, style]) => (
               <g key={key}>
-                {/* Default path marker */}
+                {}
                 <marker
                   id={`lpf-arrow-${key}-default`}
                   markerWidth="8"
@@ -210,7 +210,7 @@ export function LearningPathFlow({
                 >
                   <path d="M0 0 L6 3 L0 6 z" fill={style.stroke} />
                 </marker>
-                {/* Hovered/Selected path marker */}
+                {}
                 <marker
                   id={`lpf-arrow-${key}-active`}
                   markerWidth="8"
@@ -224,7 +224,7 @@ export function LearningPathFlow({
               </g>
             ))}
           </defs>
-          {/* Flat background (no grid dots pattern) */}
+          {}
           {visibleEdges.map((e) => {
             const s = posById.get(e.fromNodeId)!;
             const t = posById.get(e.toNodeId)!;
@@ -243,12 +243,12 @@ export function LearningPathFlow({
             const trackColor = sStyle.stroke;
 
             const dy = Math.max(32, (y2 - y1) / 2);
-            // End slightly short of the node to avoid overlapping the borders with arrow heads
+            
             const pathD = `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy - 6}, ${x2} ${y2 - 6}`;
 
             return (
               <g key={e.edgeId} opacity={faded ? 0.15 : (hoveredNodeId !== null && !isEdgeHighlighted ? 0.35 : 1)} className="transition-opacity duration-300">
-                {/* Thick glow underlay */}
+                {}
                 <path
                   d={pathD}
                   stroke={isEdgeSelected || isEdgeHighlighted ? `${activeColor}20` : `${trackColor}40`}
@@ -257,7 +257,7 @@ export function LearningPathFlow({
                   className="transition-colors duration-300"
                 />
 
-                {/* Streaming dash flow line */}
+                {}
                 <motion.path
                   d={pathD}
                   stroke={isEdgeSelected || isEdgeHighlighted ? activeColor : trackColor}
@@ -282,12 +282,12 @@ export function LearningPathFlow({
           })}
         </svg>
 
-        {/* Nodes */}
+        {}
         {placed.map((p) => {
           const style = LEVEL_STYLE[levelKey(p.node.level)];
           const selected = selectedNodeId === p.node.nodeId;
 
-          // Determine the node icon
+          
           const IconComponent = () => {
             const iconSize = p.isGate ? 13 : 15;
             if (p.node.testKind === "PLACEMENT") {
@@ -341,7 +341,7 @@ export function LearningPathFlow({
               style={{ left: p.x - p.w / 2, top: p.y - p.h / 2, width: p.w, height: p.h }}
             >
               {p.isGate ? (
-                // Test node layout
+                
                 <div className="flex flex-col items-center justify-center h-full w-full p-2 gap-0.5">
                   <span className="text-[8px] font-bold uppercase tracking-wider opacity-60 leading-none">
                     {p.node.testKind === "PLACEMENT"
@@ -361,7 +361,7 @@ export function LearningPathFlow({
                   </span>
                 </div>
               ) : (
-                // Lesson node layout
+                
                 <div className="flex flex-col items-center justify-center h-full w-full p-1.5 gap-0.5">
                   <IconComponent />
                   <span className="line-clamp-2 text-[10px] font-bold leading-tight max-w-[62px]">

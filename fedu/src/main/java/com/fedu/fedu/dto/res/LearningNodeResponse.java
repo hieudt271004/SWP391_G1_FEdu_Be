@@ -35,9 +35,9 @@ public class LearningNodeResponse {
     private String slotName;
     private java.time.LocalTime startTime;
     private java.time.LocalTime endTime;
-    /** Hạn hoàn thành node (null = không có deadline). */
+    
     private LocalDateTime deadlineAt;
-    /** Chỉ có ở graph student: học sinh hoàn thành node SAU deadline. */
+    
     private Boolean completedLate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -24,7 +24,7 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     List<UserAccount> findAll();
 
-    // Fetch-join roles để tránh N+1 (userRoles là EAGER nên findAll() bắn 1 query/user)
+    
     @Query("select distinct u from UserAccount u left join fetch u.userRoles ur left join fetch ur.role")
     List<UserAccount> findAllWithRoles();
 

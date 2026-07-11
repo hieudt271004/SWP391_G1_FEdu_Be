@@ -1,5 +1,5 @@
-// Lớp-môn (ClassroomSubject): mỗi (lớp, môn) là một lớp học độc lập
-// — giảng viên, sinh viên, lộ trình riêng. Khớp BE ClassroomSubjectResponse.
+
+
 export interface ClassroomSubjectResponse {
   classroomSubjectId: number;
   classroomId: number;
@@ -9,7 +9,7 @@ export interface ClassroomSubjectResponse {
   subjectName: string;
   lecturerId: number;
   lecturerName: string;
-  displayName: string; // "Tên lớp - Mã môn", vd "SE1801 - PRJ301"
+  displayName: string; 
   studentCount: number;
   isSubmentor?: boolean;
 }

@@ -23,7 +23,7 @@ export interface LearningPathItem {
   data: any;
 }
 
-// Deadline node (BE trả LocalDateTime không timezone → new Date() parse theo giờ local là đúng)
+
 const formatDeadline = (iso: string) => {
   const d = new Date(iso);
   return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ${d.toLocaleDateString('vi-VN')}`;
@@ -62,7 +62,7 @@ export function StudentSyllabusView({
   const navigate = useNavigate();
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
 
-  // Initialize selectedNodeId to first incomplete node or first node
+  
   useEffect(() => {
     if (nodes.length > 0 && selectedNodeId === null) {
       const firstIncompleteNode = nodes.find(n => n.studentStatus !== 'COMPLETED');
@@ -72,7 +72,7 @@ export function StudentSyllabusView({
     }
   }, [nodes, selectedNodeId, ensureNodeContent]);
 
-  // Load content when selected node changes
+  
   const handleSelectNode = (nodeId: number) => {
     setSelectedNodeId(nodeId);
     ensureNodeContent(nodeId);
@@ -80,7 +80,7 @@ export function StudentSyllabusView({
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-16">
-      {/* Top Banner / Breadcrumb */}
+      {}
       <div className="bg-card border-b border-border py-4 px-6 mb-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
@@ -95,7 +95,7 @@ export function StudentSyllabusView({
           </div>
           <Button
             onClick={() => {
-              // Find first incomplete item
+              
               const firstIncomplete = allItems.find(item => {
                 const node = nodes.find(n => n.nodeId === item.nodeId);
                 return node && node.studentStatus !== 'COMPLETED';
@@ -113,7 +113,7 @@ export function StudentSyllabusView({
       </div>
 
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Left Column: Course details & Module Navigation list */}
+        {}
         <div className="space-y-6">
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-muted border border-border">
@@ -127,7 +127,7 @@ export function StudentSyllabusView({
                 Lớp: {subject?.className} • Mã: {subject?.subjectCode}
               </p>
             </div>
-            {/* Progress */}
+            {}
             <div className="pt-2 border-t border-border space-y-1.5">
               <div className="flex justify-between items-center text-xs font-bold text-foreground">
                 <span>Tiến độ học tập</span>
@@ -140,7 +140,7 @@ export function StudentSyllabusView({
             </div>
           </div>
 
-          {/* Module List Menu */}
+          {}
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <div className="p-4 border-b border-border bg-muted/30">
               <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
@@ -191,7 +191,7 @@ export function StudentSyllabusView({
           </div>
         </div>
 
-        {/* Right Column: Node Details & Syllabus items list */}
+        {}
         <div className="md:col-span-3 space-y-6">
           {(() => {
             const activeNode = nodes.find(n => n.nodeId === selectedNodeId);
@@ -199,7 +199,7 @@ export function StudentSyllabusView({
             const content = nodeContents[activeNode.nodeId];
             const isCompleted = activeNode.studentStatus === 'COMPLETED';
             
-            // Gather items inside the selected node
+            
             const nodeItems: LearningPathItem[] = [];
             if (content) {
               if (content.materials) {
@@ -263,7 +263,7 @@ export function StudentSyllabusView({
                   </div>
                 </div>
 
-                {/* List of items */}
+                {}
                 <div className="space-y-4">
                   <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
                     Danh sách bài học & học liệu

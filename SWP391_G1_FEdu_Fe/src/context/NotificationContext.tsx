@@ -27,7 +27,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const addNotificationRef = useRef<(title: string, message?: string, type?: 'success' | 'info' | 'error') => void>(null);
 
-  // Load from localStorage on mount
+  
   useEffect(() => {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -54,7 +54,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     setNotifications((prev) => {
-      const updated = [newItem, ...prev].slice(0, 50); // Limit to 50 notifications
+      const updated = [newItem, ...prev].slice(0, 50); 
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
       } catch (e) {
@@ -64,12 +64,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     });
   }, []);
 
-  // Update ref to avoid stale closure in useEffect monkeypatch
+  
   useEffect(() => {
     addNotificationRef.current = addNotification;
   }, [addNotification]);
 
-  // Intercept sonner toast calls
+  
   useEffect(() => {
     const originalSuccess = toast.success;
     const originalError = toast.error;

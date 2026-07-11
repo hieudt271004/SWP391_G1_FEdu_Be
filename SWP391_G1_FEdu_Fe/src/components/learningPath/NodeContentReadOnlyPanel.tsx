@@ -9,9 +9,9 @@ import { NodeDiscussion } from "./NodeDiscussion";
 
 interface NodeContentReadOnlyPanelProps {
   nodeId: number;
-  /** Hàm lấy nội dung node — mặc định endpoint admin; teacher truyền getTeacherNodeContent. */
+  
   fetchContent?: (nodeId: number) => Promise<NodeContentResponse>;
-  /** Hàm lấy câu hỏi của test — mặc định endpoint admin; teacher truyền getTeacherTestQuestions. */
+  
   fetchQuestions?: (testId: number) => Promise<TeacherQuestionResponse[]>;
   showDiscussion?: boolean;
 }
@@ -32,10 +32,10 @@ const qTypeLabel = (type: TeacherQuestionResponse["questionType"]): string => {
 const isEssay = (type: TeacherQuestionResponse["questionType"]) =>
   type === "ESSAY" || type === "SHORT_ANSWER";
 
-/**
- * Panel xem nội dung node ở chế độ READ-ONLY (admin xem lớp học gì).
- * Mỗi tài liệu/bài test/bài tập là một thanh dropdown (accordion) với header = tên của item.
- */
+
+
+
+
 export function NodeContentReadOnlyPanel({
   nodeId,
   fetchContent = learningPathService.getAdminNodeContent,
@@ -130,7 +130,7 @@ export function NodeContentReadOnlyPanel({
 
     return (
       <div className="space-y-4 p-1">
-        {/* Tài liệu */}
+        {}
         {materials.length > 0 && (
           <section className="space-y-1.5">
             <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -164,7 +164,7 @@ export function NodeContentReadOnlyPanel({
           </section>
         )}
 
-        {/* Bài test */}
+        {}
         {tests.length > 0 && (
           <section className="space-y-1.5">
             <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -248,7 +248,7 @@ export function NodeContentReadOnlyPanel({
           </section>
         )}
 
-        {/* Bài tập thực hành */}
+        {}
         {exercises.length > 0 && (
           <section className="space-y-1.5">
             <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">

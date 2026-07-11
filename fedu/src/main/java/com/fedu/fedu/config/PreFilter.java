@@ -58,10 +58,10 @@ public class PreFilter extends OncePerRequestFilter {
             }
         } catch (Exception e) {
             log.warn("Invalid/expired access token: {}", e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); 
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"status\":401,\"message\":\"Token không hợp lệ hoặc đã hết hạn\"}");
-            return; // dừng, KHÔNG gọi doFilter
+            return; 
         }
 
         filterChain.doFilter(request, response);

@@ -37,10 +37,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/**
- * Unit test cho phần KEO NỐI của Phần 2 — routeGateNode (định tuyến node GATE).
- * Lõi đổi mức (applyGateRouting) được mock vì đã test riêng ở LevelRoutingServiceImplTest.
- */
+
+
+
+
 @ExtendWith(MockitoExtension.class)
 class StudentTestServiceImplGateRoutingTest {
 
@@ -101,8 +101,8 @@ class StudentTestServiceImplGateRoutingTest {
         ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
         LearningPath path = path(cs);
         LearningNode gate = gate(path);
-        LearningNode target = branch(path, 2); // nhánh TB
-        NodeEdge edge = NodeEdge.builder().fromNode(gate).toNode(target).build(); // cạnh chính (maxScore null)
+        LearningNode target = branch(path, 2); 
+        NodeEdge edge = NodeEdge.builder().fromNode(gate).toNode(target).build(); 
 
         StudentNodeProgress gateProg = progress(gate, path, StudentProgressStatus.IN_PROGRESS);
         StudentNodeProgress targetProg = progress(target, path, StudentProgressStatus.LOCKED);
@@ -117,11 +117,11 @@ class StudentTestServiceImplGateRoutingTest {
 
         service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(85));
 
-        // 1) node cổng hoàn thành
+        
         assertEquals(StudentProgressStatus.COMPLETED, gateProg.getStatus());
-        // 2) gọi lõi đổi mức đúng tham số
+        
         verify(levelRoutingService).applyGateRouting(eq(CS_ID), eq(gate), eq(STUDENT_ID), eq(bd(85)));
-        // 3) nhánh đích khớp mức được mở
+        
         assertEquals(StudentProgressStatus.OPEN, targetProg.getStatus());
     }
 
@@ -130,7 +130,7 @@ class StudentTestServiceImplGateRoutingTest {
         ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
         LearningPath path = path(cs);
         LearningNode gate = gate(path);
-        LearningNode target = branch(path, 3); // nhánh Khá, KHÔNG khớp mức HS (1)
+        LearningNode target = branch(path, 3); 
         NodeEdge edge = NodeEdge.builder().fromNode(gate).toNode(target).build();
 
         StudentNodeProgress gateProg = progress(gate, path, StudentProgressStatus.IN_PROGRESS);
@@ -147,10 +147,10 @@ class StudentTestServiceImplGateRoutingTest {
 
         assertEquals(StudentProgressStatus.COMPLETED, gateProg.getStatus());
         verify(levelRoutingService).applyGateRouting(eq(CS_ID), eq(gate), eq(STUDENT_ID), eq(bd(85)));
-        assertEquals(StudentProgressStatus.LOCKED, targetProg.getStatus()); // không mở vì khác mức
+        assertEquals(StudentProgressStatus.LOCKED, targetProg.getStatus()); 
     }
 
-    // ── P2c: routeFreeChoiceNode ──────────────────────────────────────────────
+    
 
     private LearningNode freeChoice(LearningPath path, long nodeId, int level) {
         return LearningNode.builder()
@@ -167,9 +167,9 @@ class StudentTestServiceImplGateRoutingTest {
     void freeChoice_passed_completesNode_locksSibling_callsRouting_opensBranch() {
         ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
         LearningPath path = path(cs);
-        LearningNode fcKha = freeChoice(path, 300L, 3); // node tự do mức Khá đang chọn
-        LearningNode fcYeu = freeChoice(path, 301L, 1); // node tự do mức Yếu cùng nhóm
-        LearningNode branchKha = branch(path, 3);       // nhánh Khá (nodeId TARGET_ID)
+        LearningNode fcKha = freeChoice(path, 300L, 3); 
+        LearningNode fcYeu = freeChoice(path, 301L, 1); 
+        LearningNode branchKha = branch(path, 3);       
         NodeEdge edge = NodeEdge.builder().fromNode(fcKha).toNode(branchKha).build();
 
         StudentNodeProgress pKha = progress(fcKha, path, StudentProgressStatus.IN_PROGRESS);
@@ -186,17 +186,17 @@ class StudentTestServiceImplGateRoutingTest {
 
         service.routeFreeChoiceNode(STUDENT_ID, fcKha, PATH_ID, true);
 
-        assertEquals(StudentProgressStatus.COMPLETED, pKha.getStatus());  // node đã chọn hoàn thành
-        assertEquals(StudentProgressStatus.LOCKED, pYeu.getStatus());     // node tự do còn lại bị khóa
+        assertEquals(StudentProgressStatus.COMPLETED, pKha.getStatus());  
+        assertEquals(StudentProgressStatus.LOCKED, pYeu.getStatus());     
         verify(levelRoutingService).applyFreeChoiceRouting(eq(CS_ID), eq(fcKha), eq(STUDENT_ID));
-        assertEquals(StudentProgressStatus.OPEN, pBranch.getStatus());    // nhánh Khá mở
+        assertEquals(StudentProgressStatus.OPEN, pBranch.getStatus());    
     }
 
     @Test
     void freeChoice_notPassed_doesNothing() {
         LearningPath path = path(ClassroomSubject.builder().id(CS_ID).build());
         LearningNode fcKha = freeChoice(path, 300L, 3);
-        // Học sinh mức 1 chọn đề mức 3 (chiều LÊN) và trượt → không có gì xảy ra
+        
         when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
                 .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(1).build()));
 
@@ -227,7 +227,7 @@ class StudentTestServiceImplGateRoutingTest {
 
         service.routeFreeChoiceNode(STUDENT_ID, fcYeu, PATH_ID, false);
 
-        assertEquals(StudentProgressStatus.COMPLETED, pYeu.getStatus()); // node đã chọn vẫn hoàn thành
-        verify(levelRoutingService).applyFreeChoiceRouting(eq(CS_ID), eq(fcYeu), eq(STUDENT_ID)); // đổi mức được gọi
+        assertEquals(StudentProgressStatus.COMPLETED, pYeu.getStatus()); 
+        verify(levelRoutingService).applyFreeChoiceRouting(eq(CS_ID), eq(fcYeu), eq(STUDENT_ID)); 
     }
 }

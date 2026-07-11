@@ -74,7 +74,7 @@ export function PlacementPage() {
     }
   };
 
-  // Rời tab khi đang làm bài phân loại → ghi nhận về BE (chống gian lận) + cảnh báo khi quay lại.
+  
   const testId = details?.testId;
   const handleTabOut = useCallback(async () => {
     if (attemptId == null || testId == null) return;
@@ -84,7 +84,7 @@ export function PlacementPage() {
         duration: 8000,
       });
     } catch {
-      // Không chặn việc làm bài nếu ghi nhận thất bại
+      
     }
   }, [testId, attemptId]);
 
@@ -119,7 +119,7 @@ export function PlacementPage() {
   if (!details) return null;
 
   if (result) {
-    // Bài có câu tự luận: chưa có điểm/mức — chờ giáo viên chấm xong mới xếp mức.
+    
     if (result.pendingManualGrading) {
       return (
         <div className="mx-auto max-w-2xl">

@@ -13,11 +13,11 @@ import java.time.LocalDate;
 @Repository
 public interface LearningNodeRepository extends JpaRepository<LearningNode, Long> {
 
-    // Lấy tất cả nodes của một learning path (template hoặc classroom path)
+    
     @Query("SELECT n FROM LearningNode n WHERE n.learningPath.pathId = :pathId AND n.isDeleted = false ORDER BY n.displayOrder ASC")
     List<LearningNode> findByLearningPathPathIdAndIsDeletedFalse(@Param("pathId") Long pathId);
 
-    // Lấy tất cả nodes của các learning paths thuộc một môn học (template paths)
+    
     @Query("""
             SELECT n
             FROM LearningNode n
@@ -30,7 +30,7 @@ public interface LearningNodeRepository extends JpaRepository<LearningNode, Long
             """)
     List<LearningNode> findAllTemplateNodesBySubjectId(@Param("subjectId") Long subjectId);
 
-    // Lấy tất cả nodes của các learning paths thuộc một lớp học
+    
     @Query("""
             SELECT n
             FROM LearningNode n

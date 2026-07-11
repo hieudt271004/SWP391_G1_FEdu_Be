@@ -11,7 +11,7 @@ interface Course {
   status: "Đang học" | "Đã hoàn thành" | "Đang dạy";
   progress?: number;
   students?: number;
-  // Điều hướng tới chi tiết lớp-môn (chỉ có ở nhánh học viên)
+  
   classroomId?: number;
   classroomSubjectId?: number;
 }
@@ -30,7 +30,7 @@ interface AdminUserDetail {
 }
 
 interface UserDetailPageProps {
-  onBack?: () => void; // Made optional since we can use navigate(-1) by default
+  onBack?: () => void; 
 }
 
 function mapBeUserToAdminDetail(u: AdminUserResponse): AdminUserDetail {
@@ -57,7 +57,7 @@ function mapBeUserToAdminDetail(u: AdminUserResponse): AdminUserDetail {
   };
 }
 
-// Removed mock courses since we fetch real data
+
 
 export function UserDetailPage({ onBack }: UserDetailPageProps) {
   const navigate = useNavigate();
@@ -77,9 +77,9 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
         const userDetail = mapBeUserToAdminDetail(data);
         setUser(userDetail);
 
-        // Fetch courses based on role
+        
         if (userDetail.role === "Học viên") {
-          // Sinh viên enroll vào lớp-môn (không phải lớp container) → lấy theo lớp-môn
+          
           const studentClassSubjects = await classroomService.getClassroomSubjectsByStudent(userDetail.id);
           setCourses(studentClassSubjects.map(cs => ({
             id: String(cs.classroomSubjectId),
@@ -91,7 +91,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
             classroomSubjectId: cs.classroomSubjectId,
           })));
         } else {
-          // Giảng viên phụ trách các lớp-môn → lấy theo lớp-môn
+          
           const teacherClassSubjects = await classroomService.getClassroomSubjectsByLecturer(userDetail.id);
           setCourses(teacherClassSubjects.map(cs => ({
             id: String(cs.classroomSubjectId),
@@ -143,7 +143,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
 
   return (
     <div className="space-y-6 text-foreground">
-      {/* Header */}
+      {}
       <div className="flex items-center gap-4">
         <button onClick={handleBack} className="p-2 rounded-lg hover:bg-muted transition-colors border-none bg-transparent cursor-pointer">
           <ArrowLeft className="w-5 h-5 text-muted-foreground" />
@@ -154,7 +154,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
       </div>
 
       <div className={isAdmin ? "max-w-md mx-auto" : "grid grid-cols-1 lg:grid-cols-3 gap-6"}>
-        {/* Left Column */}
+        {}
         <div className={isAdmin ? "space-y-6 w-full" : "lg:col-span-1 space-y-6"}>
           <div className="p-6 text-center bg-card border border-border rounded-xl">
             <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden bg-muted border-2 border-border shadow-sm">
@@ -222,7 +222,7 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
           </div>
         </div>
 
-        {/* Right Column */}
+        {}
         {!isAdmin && (
           <div className="lg:col-span-2">
             <div className="p-6 bg-card border border-border rounded-xl">

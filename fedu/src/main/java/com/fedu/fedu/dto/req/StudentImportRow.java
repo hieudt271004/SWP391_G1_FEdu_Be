@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
-/** Một dòng sinh viên đọc từ file Excel import. */
+
 @Data
 @Builder
 @NoArgsConstructor

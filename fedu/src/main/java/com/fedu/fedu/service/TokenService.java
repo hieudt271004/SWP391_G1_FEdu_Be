@@ -16,7 +16,7 @@ public class TokenService {
 
     private final TokenRepository tokenRepository;
 
-    // lấy token bằng email ở user account
+    
     public Token getByEmail(String email) {
         return tokenRepository.findByUserAccount_Email(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Not found token"));
@@ -36,7 +36,7 @@ public class TokenService {
         tokenRepository.save(t);
     }
 
-    // xóa cứng token bằng email
+    
     public void delete(String email) {
         Token token = getByEmail(email);
         tokenRepository.delete(token);
@@ -51,7 +51,7 @@ public class TokenService {
         }
     }
 
-    // kiểm tra tồn tại token bằng id
+    
     public boolean isExists(long id) {
         if (!tokenRepository.existsById(id)) {
             throw new InvalidDataException("Token not exists");

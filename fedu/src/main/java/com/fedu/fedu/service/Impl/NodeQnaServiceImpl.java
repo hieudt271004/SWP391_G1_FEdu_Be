@@ -35,7 +35,7 @@ public class NodeQnaServiceImpl implements NodeQnaService {
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final UserAccountRepository userAccountRepository;
 
-    // ===================== Học sinh =====================
+    
 
     @Override
     @Transactional(readOnly = true)
@@ -86,7 +86,7 @@ public class NodeQnaServiceImpl implements NodeQnaService {
         nodeQuestionRepository.save(question);
     }
 
-    // ===================== Giảng viên =====================
+    
 
     @Override
     @Transactional(readOnly = true)
@@ -137,7 +137,7 @@ public class NodeQnaServiceImpl implements NodeQnaService {
         questionAnswerRepository.save(answer);
     }
 
-    // ===================== Helpers =====================
+    
 
     private LearningNode getNode(Long nodeId) {
         return learningNodeRepository.findById(nodeId)
@@ -159,7 +159,7 @@ public class NodeQnaServiceImpl implements NodeQnaService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
     }
 
-    /** Node phải thuộc một lộ trình đã clone vào lớp-môn (Q&A là phạm vi lớp-môn). */
+    
     private ClassroomSubject resolveClassroomSubject(LearningNode node) {
         LearningPath path = node.getLearningPath();
         if (path == null || path.getClassroomSubject() == null) {

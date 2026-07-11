@@ -6,11 +6,11 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-/**
- * Lượt giao bài kiểm tra ad-hoc (pop quiz) của giáo viên cho một nhóm học sinh
- * trong một buổi ON_CLASS. Không thuộc lộ trình học (learning path) — chỉ tham
- * chiếu node để scope polling và classroom-subject để scope quyền giáo viên.
- */
+
+
+
+
+
 @Getter
 @Setter
 @Entity
@@ -46,7 +46,7 @@ public class TestAssignment extends AbstractEntity<Long> {
     @Column(name = "status", nullable = false)
     private PopQuizAssignmentStatus status = PopQuizAssignmentStatus.OPEN;
 
-    /** Tự đóng khi quá giờ này (lazy, không scheduler); null = chỉ đóng thủ công. */
+    
     @Column(name = "close_at")
     private LocalDateTime closeAt;
 

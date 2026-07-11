@@ -10,7 +10,7 @@ export function UserMenu() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Đóng menu khi click ra ngoài
+  
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -66,7 +66,7 @@ export function UserMenu() {
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-64 bg-popover text-popover-foreground rounded-xl shadow-xl border border-border overflow-hidden z-50">
-          {/* User info */}
+          {}
           <div className="px-4 py-3 border-b border-border bg-accent/25">
             <div className="font-semibold text-xs text-foreground truncate">{fullName}</div>
             <div className="text-[10px] text-muted-foreground truncate mt-0.5">{user.email}</div>

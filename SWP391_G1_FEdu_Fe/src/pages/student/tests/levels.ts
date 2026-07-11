@@ -1,4 +1,4 @@
-// Nhãn mức năng lực: 1=yếu, 2=trung bình, 3=khá.
+
 export const LEVEL_LABELS: Record<number, string> = {
   1: 'Yếu',
   2: 'Trung bình',

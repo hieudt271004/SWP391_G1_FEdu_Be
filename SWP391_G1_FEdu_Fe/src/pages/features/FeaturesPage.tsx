@@ -25,7 +25,7 @@ export function FeaturesPage() {
 
   return (
     <div className="pt-20 pb-12 bg-background text-foreground min-h-screen font-sans relative overflow-hidden">
-      {/* Glow effect */}
+      {}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-primary/5 blur-[130px] pointer-events-none" />
       
       <div className="relative max-w-6xl mx-auto px-6 text-center mb-12">

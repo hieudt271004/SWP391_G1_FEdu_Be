@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback((): void => {
     const refreshToken = tokenStorage.getRefreshToken();
     if (refreshToken) {
-      // Fire-and-forget, không đợi BE
+      
       authService.logout(refreshToken).catch(() => {});
     }
     tokenStorage.clear();

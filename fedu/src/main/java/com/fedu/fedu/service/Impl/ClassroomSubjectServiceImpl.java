@@ -45,7 +45,7 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
                 .orElseThrow(() -> new ResourceNotFoundException("Lecturer not found with id: " + req.getLecturerId()));
         assertIsTeacher(lecturer);
 
-        // Chặn trùng môn trong lớp
+        
         classroomSubjectRepository
                 .findByClassroomClassroomIdAndSubjectSubjectId(classroomId, req.getSubjectId())
                 .ifPresent(cs -> { throw new InvalidDataException("Lớp đã có môn này"); });
@@ -120,7 +120,7 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
         log.info("Removed classroom-subject id: {}", classroomSubjectId);
     }
 
-    // helpers
+    
     private void assertIsTeacher(UserAccount user) {
         boolean isTeacher = user.getUserRoles().stream()
                 .anyMatch(ur -> ur.getRole().getRoleName() == UserRole.TEACHER);

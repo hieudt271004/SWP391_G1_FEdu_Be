@@ -25,10 +25,10 @@ CREATE SCHEMA public;
 GRANT ALL ON SCHEMA public TO sa;
 GRANT ALL ON SCHEMA public TO public;
 
---------------------------------------------------------------------------------------------
 
--- Enum lưu dạng VARCHAR (entity map @Enumerated(EnumType.STRING)); KHÔNG dùng Postgres named enum
--- (named enum cần CREATE TYPE thủ công, vỡ trên DB mới). Giá trị hợp lệ ghi ở comment từng cột.
+
+
+
 
 CREATE TABLE IF NOT EXISTS user_account (
                                             user_id    BIGSERIAL PRIMARY KEY,
@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS user_account (
                                             first_name VARCHAR(255) NOT NULL,
                                             avatar_url TEXT,
                                             is_deleted BOOLEAN DEFAULT FALSE,
-                                            status     VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE/INACTIVE/NONE
-                                            gender     VARCHAR(10), -- MALE/FEMALE/OTHER
+                                            status     VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', 
+                                            gender     VARCHAR(10), 
                                             bod        DATE,
                                             phone      VARCHAR(50),
                                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS user_account (
 
 CREATE TABLE IF NOT EXISTS roles (
                                      role_id    BIGSERIAL PRIMARY KEY,
-                                     role_name  VARCHAR(20) NOT NULL UNIQUE, -- ADMIN/TEACHER/STUDENT/SUB_MENTOR/USER
+                                     role_name  VARCHAR(20) NOT NULL UNIQUE, 
                                      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS classroom_subjects (
                                                   classroom_id BIGINT NOT NULL REFERENCES classrooms(classroom_id) ON DELETE CASCADE,
                                                   subject_id   BIGINT NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
                                                   lecturer_id  BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-                                                  id_quiz_start BIGINT, -- FK -> tests(test_id) added after tests table
+                                                  id_quiz_start BIGINT, 
                                                   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                   updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                   UNIQUE(classroom_id, subject_id)
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS classroom_subject_students (
                                                           UNIQUE(classroom_subject_id, student_id)
 );
 
--- Bảng ánh xạ sub-mentor (CSS) → học sinh (CSS) trong cùng lớp-môn (peer mentoring)
+
 CREATE TABLE IF NOT EXISTS sub_mentor_student_assignment (
     id                   BIGSERIAL PRIMARY KEY,
     sub_mentor_css_id    BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
@@ -175,18 +175,18 @@ CREATE TABLE IF NOT EXISTS learning_nodes (
                                               path_id       BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
                                               title         VARCHAR(255) NOT NULL,
                                               description   TEXT,
-                                              node_type     VARCHAR(20) NOT NULL, -- AT_HOME/ON_CLASS
-                                              node_status   VARCHAR(20) NOT NULL DEFAULT 'LOCKED', -- LOCKED/OPEN/HIDDEN
+                                              node_type     VARCHAR(20) NOT NULL, 
+                                              node_status   VARCHAR(20) NOT NULL DEFAULT 'LOCKED', 
                                               display_order INT NOT NULL DEFAULT 0,
                                               is_required   BOOLEAN NOT NULL DEFAULT TRUE,
-                                              stage_order   INT, -- chặng thứ mấy (1..subjects.learningpath_length)
-                                              level         INT, -- null = node chung; 1=yếu,2=tb,3=khá
-                                              test_kind     VARCHAR(20) DEFAULT 'NONE', -- NONE/GATE/PLACEMENT/FREE_CHOICE
-                                              applies_levels    VARCHAR(20),    -- mức làm test phân luồng (vd "1,2")
-                                              gate_up_min       DECIMAL(5,2),   -- GATE: >= -> lên nhánh
-                                              gate_down_max     DECIMAL(5,2),   -- GATE: <= -> xuống nhánh
-                                              placement_yeu_max DECIMAL(5,2),   -- PLACEMENT: <= -> Yếu
-                                              placement_tb_max  DECIMAL(5,2),   -- PLACEMENT: <= -> TB, còn lại Khá
+                                              stage_order   INT, 
+                                              level         INT, 
+                                              test_kind     VARCHAR(20) DEFAULT 'NONE', 
+                                              applies_levels    VARCHAR(20),    
+                                              gate_up_min       DECIMAL(5,2),   
+                                              gate_down_max     DECIMAL(5,2),   
+                                              placement_yeu_max DECIMAL(5,2),   
+                                              placement_tb_max  DECIMAL(5,2),   
                                               is_deleted    BOOLEAN DEFAULT FALSE,
                                               study_date    DATE NULL,
                                               slot_id       BIGINT REFERENCES slots(slot_id) ON DELETE SET NULL,
@@ -239,16 +239,16 @@ CREATE TABLE IF NOT EXISTS files (
                                      file_url    TEXT NOT NULL,
                                      file_name   VARCHAR(255),
                                      file_type   VARCHAR(100),
-                                     public_id     VARCHAR(255), -- id asset trên Cloudinary (để xóa khi xóa material)
-                                     resource_type VARCHAR(20),  -- image/raw/video (Cloudinary resource_type)
+                                     public_id     VARCHAR(255), 
+                                     resource_type VARCHAR(20),  
                                      description TEXT,
                                      is_deleted  BOOLEAN DEFAULT FALSE,
                                      created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bài tập thực hành: một THÀNH PHẦN của node (song song material/test).
--- Học sinh làm tự luận (text) và/hoặc nộp file. order_index xếp xen material/test.
+
+
 CREATE TABLE IF NOT EXISTS node_exercises (
                                               exercise_id  BIGSERIAL PRIMARY KEY,
                                               node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
@@ -264,13 +264,13 @@ CREATE TABLE IF NOT EXISTS node_exercises (
 
 CREATE TABLE IF NOT EXISTS tests (
                                      test_id            BIGSERIAL PRIMARY KEY,
-                                     node_id            BIGINT REFERENCES learning_nodes(node_id) ON DELETE CASCADE, -- NULL: quiz phân loại (placement) không gắn node
+                                     node_id            BIGINT REFERENCES learning_nodes(node_id) ON DELETE CASCADE, 
                                      title              VARCHAR(255) NOT NULL,
                                      description        TEXT,
                                      duration_minutes   INT,
                                      passing_percentage DECIMAL(5,2),
                                      order_index        INT,
-                                     test_kind          VARCHAR(20) NOT NULL DEFAULT 'NORMAL', -- NORMAL | POP_QUIZ (bài giao ad-hoc trong buổi ON_CLASS; chặn truy cập qua endpoint generic)
+                                     test_kind          VARCHAR(20) NOT NULL DEFAULT 'NORMAL', 
                                      is_deleted         BOOLEAN DEFAULT FALSE,
                                      created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                      updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -300,10 +300,10 @@ CREATE TABLE IF NOT EXISTS student_test_attempts (
                                                      test_id      BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
                                                      student_id   BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
                                                      score        DECIMAL(5,2),
-                                                     status       VARCHAR(20) DEFAULT 'SUBMITTED', -- IN_PROGRESS | SUBMITTED | CANCELLED (placement cancel/retake)
+                                                     status       VARCHAR(20) DEFAULT 'SUBMITTED', 
                                                      started_at   TIMESTAMP,
                                                      submitted_at TIMESTAMP,
-                                                     tab_out_count INT DEFAULT 0, -- số lần học sinh rời tab khi làm bài (chống gian lận)
+                                                     tab_out_count INT DEFAULT 0, 
                                                      created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -328,7 +328,7 @@ CREATE TABLE IF NOT EXISTS student_selected_answers (
 
 CREATE TABLE IF NOT EXISTS student_node_progress (
                                                      progress_id  BIGSERIAL PRIMARY KEY,
-                                                     classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE, -- ghi danh (student + lớp-môn + current_level)
+                                                     classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE, 
                                                      node_id      BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
                                                      path_id      BIGINT NOT NULL REFERENCES learning_paths(path_id) ON DELETE CASCADE,
                                                      order_index  INT NOT NULL DEFAULT 0,
@@ -358,7 +358,7 @@ CREATE TABLE IF NOT EXISTS submissions (
                                            title             VARCHAR(255),
                                            content           TEXT,
                                            file_url          TEXT,
-                                           submission_status VARCHAR(20) DEFAULT 'PENDING', -- PENDING/SUBMITTED/LATE/GRADED
+                                           submission_status VARCHAR(20) DEFAULT 'PENDING', 
                                            grade             DECIMAL(5,2),
                                            feedback          TEXT,
                                            is_deleted        BOOLEAN DEFAULT FALSE,
@@ -400,24 +400,24 @@ CREATE TABLE IF NOT EXISTS node_reviews (
                                             updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Mỗi học sinh chỉ được tạo 1 review gốc CÓ rating (không phải comment hay reply) trên mỗi node
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_node_reviews_root
     ON node_reviews (student_id, node_id)
     WHERE parent_review_id IS NULL AND rating IS NOT NULL;
 
--- MIGRATION SNIPPET FOR SHAPED/NEON DB:
--- DROP INDEX IF EXISTS uq_node_reviews_root;
--- ALTER TABLE node_reviews DROP CONSTRAINT IF EXISTS node_reviews_student_id_node_id_key;
--- ALTER TABLE node_reviews ADD COLUMN IF NOT EXISTS parent_review_id BIGINT REFERENCES node_reviews(review_id) ON DELETE CASCADE;
--- CREATE UNIQUE INDEX IF NOT EXISTS uq_node_reviews_root ON node_reviews (student_id, node_id) WHERE parent_review_id IS NULL AND rating IS NOT NULL;
 
--- Support ticket theo mô hình peer-mentoring: student → sub-mentor → (leo thang) → lecturer
+
+
+
+
+
+
 CREATE TABLE IF NOT EXISTS support_tickets (
     ticket_id                      BIGSERIAL PRIMARY KEY,
     classroom_subject_student_id   BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
     message_student                TEXT NOT NULL,
     message_response               TEXT,
-    status                         VARCHAR(20) NOT NULL DEFAULT 'NONE', -- NONE / DONE / SEND
+    status                         VARCHAR(20) NOT NULL DEFAULT 'NONE', 
     is_deleted                     BOOLEAN NOT NULL DEFAULT FALSE,
     created_at                     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -428,56 +428,56 @@ INSERT INTO roles(role_name) VALUES ('TEACHER') ON CONFLICT (role_name) DO NOTHI
 INSERT INTO roles(role_name) VALUES ('STUDENT') ON CONFLICT (role_name) DO NOTHING;
 INSERT INTO roles(role_name) VALUES ('USER') ON CONFLICT (role_name) DO NOTHING;
 
--- Adaptive placement learning path: tests.node_id nullable (placement quiz không gắn node)
+
 ALTER TABLE tests ALTER COLUMN node_id DROP NOT NULL;
 
--- FK classroom_subjects.id_quiz_start -> tests (added after tests table exists)
+
 ALTER TABLE classroom_subjects
     ADD CONSTRAINT fk_classroom_subjects_quiz_start
     FOREIGN KEY (id_quiz_start) REFERENCES tests(test_id) ON DELETE SET NULL;
 
--- Khoảng điểm quiz (placement + cổng test) do giảng viên cấu hình
+
 CREATE TABLE IF NOT EXISTS quiz_score_bands (
     band_id      BIGSERIAL PRIMARY KEY,
     test_id      BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
     min_score    DECIMAL(5,2) NOT NULL,
     max_score    DECIMAL(5,2) NOT NULL,
-    target_level INT NOT NULL, -- 1=yếu, 2=tb, 3=khá
+    target_level INT NOT NULL, 
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Lịch sử thay đổi mức năng lực của học sinh
+
 CREATE TABLE IF NOT EXISTS student_level_history (
     id                   BIGSERIAL PRIMARY KEY,
     student_id           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
     classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
     old_level            INT,
     new_level            INT NOT NULL,
-    reason               VARCHAR(50) NOT NULL, -- PLACEMENT | GATE | RETAKE | FREE_CHOICE
+    reason               VARCHAR(50) NOT NULL, 
     changed_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bài kiểm tra ad-hoc (pop quiz) giáo viên giao bất chợt trong buổi ON_CLASS cho một nhóm học sinh.
+
 CREATE TABLE IF NOT EXISTS test_assignments (
     assignment_id        BIGSERIAL PRIMARY KEY,
     test_id              BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE,
     node_id               BIGINT NOT NULL REFERENCES learning_nodes(node_id) ON DELETE CASCADE,
     classroom_subject_id  BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE,
     assigned_by           BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE,
-    status                VARCHAR(20) NOT NULL DEFAULT 'OPEN', -- OPEN | CLOSED
-    close_at              TIMESTAMP, -- tự đóng khi quá giờ này (lazy, không scheduler); NULL = chỉ đóng thủ công
+    status                VARCHAR(20) NOT NULL DEFAULT 'OPEN', 
+    close_at              TIMESTAMP, 
     is_deleted            BOOLEAN NOT NULL DEFAULT FALSE,
     created_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Trạng thái làm bài pop-quiz của từng học sinh được giao.
+
 CREATE TABLE IF NOT EXISTS test_assignment_students (
     id                            BIGSERIAL PRIMARY KEY,
     assignment_id                 BIGINT NOT NULL REFERENCES test_assignments(assignment_id) ON DELETE CASCADE,
     classroom_subject_student_id BIGINT NOT NULL REFERENCES classroom_subject_students(id) ON DELETE CASCADE,
-    status                        VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- PENDING | IN_PROGRESS | SUBMITTED | EXPIRED
+    status                        VARCHAR(20) NOT NULL DEFAULT 'PENDING', 
     attempt_id                    BIGINT REFERENCES student_test_attempts(attempt_id) ON DELETE SET NULL,
     is_deleted                    BOOLEAN NOT NULL DEFAULT FALSE,
     created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -485,8 +485,8 @@ CREATE TABLE IF NOT EXISTS test_assignment_students (
     UNIQUE(assignment_id, classroom_subject_student_id)
 );
 
--- Indexes for performance and uniqueness
--- Mỗi lớp-môn chỉ có TỐI ĐA 1 lộ trình clone đang hoạt động (mô hình 1-path; cột level đã bỏ).
+
+
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_classroom_subject_path ON learning_paths(classroom_subject_id) WHERE classroom_subject_id IS NOT NULL AND is_deleted = FALSE;
 CREATE INDEX IF NOT EXISTS idx_node_edges_from ON node_edges(from_node_id);
 CREATE INDEX IF NOT EXISTS idx_node_edges_to ON node_edges(to_node_id);
