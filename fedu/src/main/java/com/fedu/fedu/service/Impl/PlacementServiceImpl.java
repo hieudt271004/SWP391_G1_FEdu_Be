@@ -147,6 +147,8 @@ public class PlacementServiceImpl implements PlacementService {
         css.setCurrentLevel(null);
         classroomSubjectStudentRepository.save(css);
 
+        studentLevelHistoryRepository.deleteByStudentUserIdAndClassroomSubjectId(studentId, classroomSubjectId);
+
         
         Test quiz = requirePlacementQuiz(classroomSubjectId);
         List<StudentTestAttempt> attempts = studentTestAttemptRepository

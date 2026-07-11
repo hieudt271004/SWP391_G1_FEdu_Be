@@ -903,7 +903,7 @@ export function StudentCoursesPage() {
           </div>
 
           <DialogFooter className="p-4 border-t border-border shrink-0 sm:justify-end">
-            <Button type="button" onClick={() => setIsRoadmapOpen(false)} className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl text-xs py-2 px-4 shadow-sm">
+            <Button type="button" onClick={() => setIsRoadmapOpen(false)} className="font-semibold bg-primary text-primary-foreground">
               Đóng
             </Button>
           </DialogFooter>
