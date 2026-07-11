@@ -80,9 +80,12 @@ public class StudentProgressServiceImpl implements StudentProgressService {
         }
 
         Integer level = enrollment.getCurrentLevel();
+        // Node TEST TỰ DO hiện với MỌI mức (học sinh được chọn bài của mức khác để đổi nhánh);
+        // các node khác vẫn lọc theo mức hiện tại.
         List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId())
                 .stream()
-                .filter(n -> n.getLevel() == null || n.getLevel().equals(level))
+                .filter(n -> n.getLevel() == null || n.getLevel().equals(level)
+                        || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE)
                 .collect(Collectors.toList());
         Set<Long> visibleNodeIds = nodes.stream().map(LearningNode::getNodeId).collect(Collectors.toSet());
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId())
@@ -117,7 +120,8 @@ public class StudentProgressServiceImpl implements StudentProgressService {
             for (StudentNodeProgress p : progressList) {
                 if (p.getStatus() == StudentProgressStatus.LOCKED) {
                     LearningNode node = p.getLearningNode();
-                    boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
+                    boolean levelOk = node.getLevel() == null || node.getLevel().equals(level)
+                            || node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE;
 
                     List<Long> incomingNodeIds = pathEdges.stream()
                             .filter(e -> e.getToNode().getNodeId().equals(node.getNodeId()))

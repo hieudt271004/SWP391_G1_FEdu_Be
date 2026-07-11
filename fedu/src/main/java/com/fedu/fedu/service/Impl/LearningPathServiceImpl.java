@@ -634,6 +634,11 @@ public class LearningPathServiceImpl implements LearningPathService {
         assertCanModifyPath(node.getLearningPath());
         node.setIsDeleted(true);
         learningNodeRepository.save(node);
+        // Cạnh dính tới node đã xóa phải gỡ theo: cạnh "ma" vẫn được đọc thẳng từ DB
+        // ở điều kiện mở khóa (checkIncomingPrerequisites/unlockOnClassNode) làm node sau
+        // kẹt vĩnh viễn, còn node mất hết cạnh vào sẽ bị seed coi là entry và mở từ đầu.
+        nodeEdgeRepository.deleteAll(nodeEdgeRepository.findByFromNodeNodeId(nodeId));
+        nodeEdgeRepository.deleteAll(nodeEdgeRepository.findByToNodeNodeId(nodeId));
     }
 
     @Override
@@ -915,6 +920,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
         validateAndGetEntryNodes(nodes, edges);
         validateLevelTraversability(nodes, edges);
+        validateNoOrphanNodes(nodes, edges);
 
         String email = "";
         try {
@@ -939,6 +945,41 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
 
         return PublishResultResponse.builder().seededStudents(seededCount).build();
+    }
+
+    /**
+     * Chặn publish khi có node NGOÀI CHẶNG ĐẦU không có cạnh vào ("mồ côi").
+     * Node mồ côi bị seed coi là entry và MỞ NGAY từ đầu → học sinh nhảy cóc
+     * (vd node test đứng riêng chặng mà wiring cũ không nối cạnh vào, hoặc cạnh
+     * bị mất sau khi xóa node). Đây là lỗi cấu hình — bắt tại publish thay vì
+     * để lộ trình chạy sai. (Kiểm tra cấu trúc thuần in-degree, tách biệt với
+     * validateLevelTraversability.)
+     */
+    private void validateNoOrphanNodes(List<LearningNode> nodes, List<NodeEdge> edges) {
+        if (nodes.isEmpty()) {
+            return;
+        }
+        Set<Long> ids = nodes.stream().map(LearningNode::getNodeId).collect(Collectors.toSet());
+        Set<Long> withIncoming = edges.stream()
+                .filter(e -> ids.contains(e.getFromNode().getNodeId()) && ids.contains(e.getToNode().getNodeId()))
+                .map(e -> e.getToNode().getNodeId())
+                .collect(Collectors.toSet());
+        int minStage = nodes.stream()
+                .map(n -> n.getStageOrder() != null ? n.getStageOrder() : 0)
+                .min(Integer::compareTo)
+                .orElse(0);
+        List<String> orphans = nodes.stream()
+                .filter(n -> !withIncoming.contains(n.getNodeId()))
+                .filter(n -> (n.getStageOrder() != null ? n.getStageOrder() : 0) != minStage)
+                .map(n -> "'" + n.getTitle() + "' (chặng " + n.getStageOrder() + ")")
+                .collect(Collectors.toList());
+        if (!orphans.isEmpty()) {
+            throw new InvalidDataException(
+                    "Không thể xuất bản: các bài học sau không có liên kết vào nên sẽ bị mở ngay từ đầu: "
+                            + String.join(", ", orphans)
+                            + ". Hãy kiểm tra lại chặng/mức của bài học trong trình chỉnh sửa"
+                            + " (thao tác thêm/xóa bài học sẽ tự nối lại toàn bộ liên kết).");
+        }
     }
 
     private void validateLevelTraversability(List<LearningNode> nodes, List<NodeEdge> edges) {
@@ -1128,7 +1169,9 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
-            boolean levelOk = node.getLevel() == null || node.getLevel().equals(level);
+            // Test tự do mở cho MỌI mức (level của nó là mức đích, học sinh được chọn chéo mức).
+            boolean levelOk = node.getLevel() == null || node.getLevel().equals(level)
+                    || node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE;
             // Một node được mở khóa ban đầu nếu nó là entry node HOẶC nằm ngay sau node PLACEMENT,
             // thỏa mãn level; node ON_CLASS chỉ mở khi teacher đã mở khóa (status OPEN).
             boolean isAfterPlacement = nodesAfterPlacement.contains(node.getNodeId());

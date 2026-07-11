@@ -76,10 +76,11 @@ export function computeDesiredEdges(
     if (pl) return pl;
     const learn = learnAt(s, x) ?? chungLearnAt(s);
     if (learn) return learn;
-    // Chặng CHỈ CÓ test (không có node học đứng cùng): phải nối cạnh vào thẳng node test,
-    // nếu không test sẽ "mồ côi" cạnh vào → BE seed coi node không có cạnh vào là entry
+    // Chặng CHỈ CÓ test phân luồng (không có node học đứng cùng): nối cạnh vào thẳng gate,
+    // nếu không gate sẽ "mồ côi" cạnh vào → BE seed coi node không có cạnh vào là entry
     // và MỞ NGAY từ đầu → học sinh nhảy cóc làm test rồi mở luôn các chặng sau.
-    return freeChoiceForLevel(s, x) ?? gateCovering(s, x);
+    // (Chặng chỉ-có-test-tự-do được nối riêng ở vòng lặp giữa 2 stage: mọi nhánh → cả 3 bài.)
+    return gateCovering(s, x);
   };
 
   const result = new Set<string>();
@@ -107,6 +108,18 @@ export function computeDesiredEdges(
   for (let i = 0; i < stages.length - 1; i++) {
     const s = stages[i];
     const t = stages[i + 1];
+    // Chặng đích là TEST TỰ DO đứng riêng (không có node học/placement cùng chặng):
+    // học sinh mức nào cũng được CHỌN 1 trong 3 bài → nối lối ra của MỌI nhánh
+    // vào CẢ 3 node test, không nối 1-1 theo mức.
+    const tFcs = freeChoiceAt(t);
+    const tHasLearnable = placementAt(t) != null || (byStage.get(t) ?? []).some(isLearningNode);
+    if (tFcs.length > 0 && !tHasLearnable) {
+      for (const x of ALL_LEVELS) {
+        const e = exitForLevel(s, x);
+        if (e) for (const fc of tFcs) add(e.nodeId, fc.nodeId);
+      }
+      continue;
+    }
     for (const x of ALL_LEVELS) {
       const e = exitForLevel(s, x);
       const n = entryForLevel(t, x);

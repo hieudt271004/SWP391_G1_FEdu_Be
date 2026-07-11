@@ -674,7 +674,11 @@ public class StudentTestServiceImpl implements StudentTestService {
     private void openMainTargetIfEligible(Long studentId, LearningNode target, Long pathId) {
         // TODO: tự mở node ON_CLASS khi tới giờ buổi học (chưa có thuộc tính thời gian) — hiện chỉ giáo viên mở.
         if (target.getNodeType() == NodeType.ON_CLASS && target.getStatus() != NodeStatus.OPEN) return;
-        if (target.getLevel() != null && !matchesStudentLevel(studentId, target)) return;
+        // Node TEST TỰ DO mở cho MỌI mức (level của nó là mức ĐÍCH, không phải điều kiện làm bài);
+        // các node khác chỉ mở khi khớp mức hiện tại của học sinh.
+        if (target.getLevel() != null
+                && target.getTestKind() != NodeTestKind.FREE_CHOICE
+                && !matchesStudentLevel(studentId, target)) return;
         if (!checkIncomingPrerequisites(studentId, target, pathId)) return;
         openNode(studentId, target, pathId);
     }

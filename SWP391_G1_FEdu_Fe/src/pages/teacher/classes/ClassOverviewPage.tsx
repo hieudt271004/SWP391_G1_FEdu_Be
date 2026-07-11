@@ -50,9 +50,7 @@ import {
   Lock,
   AlertCircle,
   Activity,
-  Radio,
-  RotateCcw,
-  GitBranch
+  Radio
 } from 'lucide-react';
 import {
   teacherService,
@@ -76,7 +74,6 @@ import {
   AttemptGradingDetail
 } from '../../../services/learningPath.service';
 import { slotService, SlotResponse } from '../../../services/slot.service';
-import { computeDesiredEdges, syncEdges } from '../../../components/learningPath/learningPathWiring';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -745,51 +742,6 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Hủy phân mức: xóa mức + toàn bộ tiến độ + hủy lượt placement → học sinh làm lại từ đầu.
-  const [cancellingPlacementId, setCancellingPlacementId] = useState<number | null>(null);
-  const handleCancelPlacement = async (student: Student) => {
-    if (!classroomSubjectId) return;
-    if (!confirm(
-      `Hủy kết quả phân mức của "${student.fullName}"?\n\n` +
-      `Toàn bộ tiến độ lộ trình của học sinh này sẽ bị XÓA và học sinh phải làm lại bài phân loại từ đầu.`
-    )) return;
-    setCancellingPlacementId(student.rawUserId);
-    try {
-      await teacherService.cancelStudentPlacement(Number(classroomSubjectId), student.rawUserId);
-      toast.success(`Đã hủy phân mức của ${student.fullName} — học sinh sẽ làm lại bài phân loại.`);
-      await fetchClassroomData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Hủy phân mức thất bại');
-    } finally {
-      setCancellingPlacementId(null);
-    }
-  };
-
-  // Đồng bộ lại toàn bộ liên kết (cạnh) của lộ trình lớp theo quy tắc chặng hiện hành —
-  // dùng để VÁ path đã publish khi wiring cũ sinh cạnh sai/thiếu (vd node test mồ côi
-  // cạnh vào nên mở từ đầu). TemplateEditGuard không chặn path của lớp nên vá được tại chỗ.
-  const [rewiring, setRewiring] = useState(false);
-  const handleRewireEdges = async () => {
-    if (!classroomSubjectId) return;
-    if (!confirm(
-      'Đồng bộ lại toàn bộ liên kết giữa các bài học theo chặng?\n\n' +
-      'Cạnh thừa sẽ bị xóa, cạnh thiếu sẽ được thêm. Nên "Hủy phân mức" các học sinh đã học lệch sau khi đồng bộ.'
-    )) return;
-    setRewiring(true);
-    try {
-      const g = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
-      await syncEdges(g.edges ?? [], computeDesiredEdges(g.nodes ?? []), {
-        createEdge: (r) => learningPathService.createNodeEdge(r),
-        deleteEdge: (id) => learningPathService.deleteNodeEdge(id),
-      });
-      toast.success('Đã đồng bộ lại liên kết giữa các bài học.');
-      await fetchClassroomData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Đồng bộ liên kết thất bại');
-    } finally {
-      setRewiring(false);
-    }
-  };
 
   const fetchNodeContent = useCallback(async (nodeId: number) => {
     try {
@@ -2352,18 +2304,6 @@ export function ClassOverviewPage() {
               Publish lộ trình
             </Button>
           )}
-          {(graphData?.state === 'PUBLISHED' || graphData?.state === 'DRAFT') && (
-            <Button
-              variant="outline"
-              className="text-primary hover:bg-primary/5 border-primary/20 font-semibold rounded-xl flex items-center gap-1.5"
-              onClick={handleRewireEdges}
-              disabled={isNonIdle || rewiring}
-              title="Tính lại toàn bộ liên kết giữa các bài học theo chặng (vá lộ trình bị sai cạnh)"
-            >
-              {rewiring ? <Loader className="size-4 animate-spin" /> : <GitBranch className="size-4" />}
-              Đồng bộ lại cạnh
-            </Button>
-          )}
           {graphData?.state === 'PUBLISHED' && (
             <Button
               variant="outline"
@@ -3226,19 +3166,6 @@ export function ClassOverviewPage() {
                                 </>
                               )}
                             </Button>
-                            {student.currentLevel != null && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleCancelPlacement(student)}
-                                disabled={cancellingPlacementId === student.rawUserId}
-                                title="Xóa mức + toàn bộ tiến độ; học sinh làm lại bài phân loại từ đầu"
-                                className="h-7 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg font-semibold flex items-center gap-1"
-                              >
-                                <RotateCcw className="size-3.5" />
-                                {cancellingPlacementId === student.rawUserId ? 'Đang hủy…' : 'Hủy phân mức'}
-                              </Button>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>

@@ -753,9 +753,9 @@ export function ClassManagementPage() {
         setSelectedNode(null);
       }
       setNodeToDelete(null);
-      if (classroomSubjectId) {
-        await fetchGraphData(Number(classroomSubjectId));
-      }
+      // Cạnh được tính lại tất định từ tập node còn lại (nối liền chặng trước ↔ chặng sau
+      // qua chỗ vừa xóa); rewireAll tự nạp lại graph sau khi đồng bộ.
+      await rewireAll();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete node');
     }
