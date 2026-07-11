@@ -62,9 +62,7 @@ public class SubMentorServiceImpl implements SubMentorService {
         ClassroomSubjectStudent css = requireCssInClassroomSubject(classroomSubjectStudentId, classroomSubjectId);
         css.setIsSubmentor(true);
         classroomSubjectStudentRepository.save(css);
-        
-        
-        assignmentRepository.deleteByStudentCss_Id(classroomSubjectStudentId);
+        // Sub-mentor can still be assigned to another sub-mentor, so we don't delete their assignment.
         
         log.info("Đã bật cờ sub-mentor cho CSS id={} trong lớp-môn id={}", classroomSubjectStudentId, classroomSubjectId);
     }
@@ -104,9 +102,7 @@ public class SubMentorServiceImpl implements SubMentorService {
         }
 
         
-        if (Boolean.TRUE.equals(studentCss.getIsSubmentor())) {
-            throw new InvalidDataException("Sub-mentor không thể kèm cặp một sub-mentor khác cùng lớp");
-        }
+        // A submentor can be assigned as a student to another submentor, so we remove the restriction check here.
 
         
         if (request.getSubMentorCssId().equals(request.getStudentCssId())) {

@@ -446,14 +446,6 @@ export function ClassOverviewPage() {
     try {
       setLoadingSupport(true);
       for (const id of assignSubMentorIds) {
-        const existingAssignment = assignments.find(a => a.studentCssId === id);
-        if (existingAssignment) {
-          try {
-            await teacherService.deleteAssignment(Number(classroomSubjectId), existingAssignment.assignmentId);
-          } catch (e) {
-            console.error("Lỗi khi gỡ nhóm kèm cặp của học sinh được chỉ định làm trợ giảng:", e);
-          }
-        }
         await teacherService.enableSubMentor(Number(classroomSubjectId), id);
       }
       toast.success(`Đã chỉ định ${assignSubMentorIds.length} trợ giảng thành công`);
@@ -618,14 +610,6 @@ export function ClassOverviewPage() {
       if (isCurrentlySub) {
         await teacherService.disableSubMentor(Number(classroomSubjectId), student.classroomSubjectStudentId);
       } else {
-        const existingAssignment = assignments.find(a => a.studentCssId === student.classroomSubjectStudentId);
-        if (existingAssignment) {
-          try {
-            await teacherService.deleteAssignment(Number(classroomSubjectId), existingAssignment.assignmentId);
-          } catch (e) {
-            console.error("Lỗi khi gỡ nhóm kèm cặp của học sinh được chỉ định làm trợ giảng:", e);
-          }
-        }
         await teacherService.enableSubMentor(Number(classroomSubjectId), student.classroomSubjectStudentId);
       }
       toast.success(`Đã ${actionText} cờ trợ giảng thành công cho ${student.fullName}`);
@@ -3376,7 +3360,6 @@ export function ClassOverviewPage() {
                 <label className="text-xs font-bold text-foreground block">Chọn học sinh trong lớp:</label>
                 <div className="max-h-[250px] overflow-y-auto pr-2 space-y-2 py-2 border border-border rounded-xl bg-muted/20 p-2">
                   {students.filter(s => {
-                    if (s.isSubmentor) return false;
                     if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
                     const isAssignedToAny = assignments.some(
                       a => a.studentCssId === s.classroomSubjectStudentId
@@ -3386,7 +3369,6 @@ export function ClassOverviewPage() {
                     <p className="text-xs text-muted-foreground text-center py-4">Tất cả học sinh khả dụng đã được gán.</p>
                   ) : (
                     students.filter(s => {
-                      if (s.isSubmentor) return false;
                       if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
                       const isAssignedToAny = assignments.some(
                         a => a.studentCssId === s.classroomSubjectStudentId
