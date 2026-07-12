@@ -19,9 +19,6 @@ import {
   Cloud,
   Download,
   ChevronLeft,
-  ThumbsUp,
-  ThumbsDown,
-  Flag,
   Clock,
   Radio
 } from 'lucide-react';
@@ -582,20 +579,7 @@ export function StudentLearningPathPage() {
           {}
         </div>
 
-        <div className="flex items-center gap-6 text-muted-foreground text-xs font-semibold pt-2">
-          <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-            <ThumbsUp className="size-4" />
-            <span>Like</span>
-          </button>
-          <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-            <ThumbsDown className="size-4" />
-            <span>Dislike</span>
-          </button>
-          <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-            <Flag className="size-4" />
-            <span>Report an issue</span>
-          </button>
-        </div>
+
       </div>
     );
   };

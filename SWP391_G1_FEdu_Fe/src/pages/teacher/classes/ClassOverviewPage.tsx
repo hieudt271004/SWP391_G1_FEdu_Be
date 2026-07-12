@@ -185,7 +185,8 @@ export function ClassOverviewPage() {
     
     try {
       const res = await slotService.getAllSlots();
-      setSlotsList(res || []);
+      const sortedSlots = (res || []).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      setSlotsList(sortedSlots);
     } catch (err) {
       console.error("Failed to load slots list:", err);
       toast.error("Không thể tải danh sách ca học");

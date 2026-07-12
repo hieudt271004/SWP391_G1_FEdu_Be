@@ -25,7 +25,8 @@ export function StudentSchedulePage() {
         slotService.getAllSlots(),
         studentService.getStudentSchedule(),
       ]);
-      setSlots(slotsRes || []);
+      const sortedSlots = (slotsRes || []).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      setSlots(sortedSlots);
       setSchedule(scheduleRes || []);
     } catch (e: any) {
       setError(e.response?.data?.message || "Không thể tải thời khóa biểu");
