@@ -88,6 +88,25 @@ public class StudentProgressServiceImpl implements StudentProgressService {
         List<StudentNodeProgress> progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
 
         boolean healed = false;
+        boolean onClassHealed = false;
+        for (StudentNodeProgress p : progressList) {
+            LearningNode n = p.getLearningNode();
+            if (n.getNodeType() == NodeType.ON_CLASS && p.getStatus() != StudentProgressStatus.COMPLETED) {
+                boolean passed = n.getSessionEndedAt() != null || 
+                        (n.getStudyDate() != null && n.getSlot() != null && 
+                         java.time.LocalDateTime.of(n.getStudyDate(), n.getSlot().getEndTime()).isBefore(java.time.LocalDateTime.now()));
+                if (passed) {
+                    p.setStatus(StudentProgressStatus.COMPLETED);
+                    p.setCompletedAt(java.time.LocalDateTime.now());
+                    studentNodeProgressRepository.save(p);
+                    onClassHealed = true;
+                }
+            }
+        }
+        if (onClassHealed) {
+            progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+        }
+
         List<StudentNodeProgress> incompletePlacements = progressList.stream()
                 .filter(p -> p.getLearningNode().getNodeId().equals(entryPlacementId)
                         && p.getStatus() != StudentProgressStatus.COMPLETED)
