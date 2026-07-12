@@ -12,7 +12,6 @@ import {
   UserCircle,
   LogOut,
   Clock,
-  Search,
   Sun,
   Moon,
 } from "lucide-react";
@@ -159,14 +158,7 @@ export function AdminLayout() {
                 <Menu className="w-5 h-5" />
               </Button>
 
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-muted text-muted-foreground focus-within:ring-2 focus-within:ring-ring focus-within:bg-background border border-input max-w-md flex-1 rounded-md">
-                <Search className="w-4 h-4 shrink-0 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm..."
-                  className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
+
             </div>
 
             {}
