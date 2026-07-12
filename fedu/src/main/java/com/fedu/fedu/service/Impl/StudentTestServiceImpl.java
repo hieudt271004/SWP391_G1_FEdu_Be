@@ -680,10 +680,20 @@ public class StudentTestServiceImpl implements StudentTestService {
 
     
     private void openMainTargetIfEligible(Long studentId, LearningNode target, Long pathId) {
-        
-        if (target.getNodeType() == NodeType.ON_CLASS && target.getStatus() != NodeStatus.OPEN) return;
-        
-        
+
+
+        if (target.getNodeType() == NodeType.ON_CLASS) {
+            if (target.getStatus() == NodeStatus.OPEN
+                    && (target.getLevel() == null || matchesStudentLevel(studentId, target))
+                    && checkIncomingPrerequisites(studentId, target, pathId)) {
+                openNode(studentId, target, pathId);
+            }
+            for (NodeEdge next : nodeEdgeRepository.findByFromNodeNodeId(target.getNodeId())) {
+                openMainTargetIfEligible(studentId, next.getToNode(), pathId);
+            }
+            return;
+        }
+
         if (target.getLevel() != null
                 && target.getTestKind() != NodeTestKind.FREE_CHOICE
                 && !matchesStudentLevel(studentId, target)) return;
@@ -838,11 +848,6 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     private boolean checkIncomingPrerequisites(Long studentId, LearningNode targetNode, Long pathId) {
-        List<NodeEdge> incomingEdges = nodeEdgeRepository.findByToNodeNodeId(targetNode.getNodeId());
-        if (incomingEdges.isEmpty()) {
-            return true;
-        }
-
         Integer studentLevel = null;
         if (targetNode.getLearningPath() != null && targetNode.getLearningPath().getClassroomSubject() != null) {
             Long csId = targetNode.getLearningPath().getClassroomSubject().getId();
@@ -860,7 +865,9 @@ public class StudentTestServiceImpl implements StudentTestService {
                         (a, b) -> a
                 ));
 
-        return NodeRoutingUtils.incomingPrereqMet(incomingEdges, progressMap, studentLevel);
+
+        return NodeRoutingUtils.prereqMetThroughOnClass(
+                targetNode.getNodeId(), nodeEdgeRepository::findByToNodeNodeId, progressMap, studentLevel);
     }
 
     @Override

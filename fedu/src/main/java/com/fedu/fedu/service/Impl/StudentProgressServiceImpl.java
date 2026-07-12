@@ -143,6 +143,9 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 ));
 
 
+        healOnClassBlockedNodes(path, level, progressList);
+
+
         Set<Integer> stagesDoneAtOtherLevel = allNodes.stream()
                 .filter(n -> {
                     StudentNodeProgress p = progressMap.get(n.getNodeId());
@@ -258,6 +261,42 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .totalMaterials(totalMaterials)
                 .completedMaterials(completedMaterials)
                 .build();
+    }
+
+
+    private void healOnClassBlockedNodes(LearningPath path, Integer level, List<StudentNodeProgress> progressList) {
+        List<NodeEdge> allEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
+        Map<Long, List<NodeEdge>> incomingByNode = new HashMap<>();
+        for (NodeEdge e : allEdges) {
+            incomingByNode.computeIfAbsent(e.getToNode().getNodeId(), k -> new ArrayList<>()).add(e);
+        }
+        Map<Long, StudentProgressStatus> statusByNode = progressList.stream()
+                .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(),
+                        StudentNodeProgress::getStatus, (a, b) -> a));
+
+        for (StudentNodeProgress p : progressList) {
+            LearningNode n = p.getLearningNode();
+            if (p.getStatus() != StudentProgressStatus.LOCKED) continue;
+            if (n.getNodeType() == NodeType.ON_CLASS) continue;
+            boolean levelOk = n.getLevel() == null || n.getLevel().equals(level)
+                    || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE;
+            if (!levelOk) continue;
+
+
+            boolean hasOnClassParent = incomingByNode.getOrDefault(n.getNodeId(), Collections.emptyList())
+                    .stream().anyMatch(e -> e.getFromNode().getNodeType() == NodeType.ON_CLASS);
+            if (!hasOnClassParent) continue;
+
+            boolean prereqMet = com.fedu.fedu.utils.NodeRoutingUtils.prereqMetThroughOnClass(
+                    n.getNodeId(),
+                    id -> incomingByNode.getOrDefault(id, Collections.emptyList()),
+                    statusByNode, level);
+            if (prereqMet) {
+                p.setStatus(StudentProgressStatus.OPEN);
+                p.setUnlockedAt(java.time.LocalDateTime.now());
+                studentNodeProgressRepository.save(p);
+            }
+        }
     }
 
     @Override

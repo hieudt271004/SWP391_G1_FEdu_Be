@@ -3,12 +3,16 @@ package com.fedu.fedu.utils;
 import com.fedu.fedu.entity.LearningNode;
 import com.fedu.fedu.entity.NodeEdge;
 import com.fedu.fedu.utils.enums.NodeTestKind;
+import com.fedu.fedu.utils.enums.NodeType;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 
 
 public final class NodeRoutingUtils {
@@ -45,5 +49,41 @@ public final class NodeRoutingUtils {
                 })
                 .allMatch(e -> statusByNode.get(e.getFromNode().getNodeId())
                         == StudentProgressStatus.COMPLETED);
+    }
+
+
+    public static boolean prereqMetThroughOnClass(Long nodeId,
+                                                  Function<Long, List<NodeEdge>> incomingByNode,
+                                                  Map<Long, StudentProgressStatus> statusByNode,
+                                                  Integer studentLevel) {
+        return prereqRec(nodeId, incomingByNode, statusByNode, studentLevel, new HashSet<>());
+    }
+
+    private static boolean prereqRec(Long nodeId,
+                                     Function<Long, List<NodeEdge>> incomingByNode,
+                                     Map<Long, StudentProgressStatus> statusByNode,
+                                     Integer studentLevel,
+                                     Set<Long> visited) {
+        if (!visited.add(nodeId)) {
+            return true;
+        }
+        for (NodeEdge e : incomingByNode.apply(nodeId)) {
+            LearningNode from = e.getFromNode();
+            Integer fromLevel = from.getLevel();
+            boolean otherLevelBranch =
+                    fromLevel != null && studentLevel != null && !fromLevel.equals(studentLevel);
+            if (otherLevelBranch) {
+                continue;
+            }
+            if (from.getNodeType() == NodeType.ON_CLASS) {
+
+                if (!prereqRec(from.getNodeId(), incomingByNode, statusByNode, studentLevel, visited)) {
+                    return false;
+                }
+            } else if (statusByNode.get(from.getNodeId()) != StudentProgressStatus.COMPLETED) {
+                return false;
+            }
+        }
+        return true;
     }
 }

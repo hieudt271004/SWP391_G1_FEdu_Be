@@ -1219,34 +1219,27 @@ public class LearningPathServiceImpl implements LearningPathService {
         node.setStatus(NodeStatus.OPEN);
         learningNodeRepository.save(node);
 
-        
-        List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(nodeId);
+
+
         List<UserAccount> students =
                 classroomSubjectStudentRepository.findDistinctStudentsByClassroomSubjectId(classroomSubjectId);
 
         int opened = 0;
         for (UserAccount student : students) {
-            List<StudentNodeProgress> list = studentNodeProgressRepository
-                    .findByStudentUserIdAndLearningPathPathId(student.getUserId(), path.getPathId());
-            Map<Long, StudentProgressStatus> statusMap = list.stream()
-                    .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(),
-                            StudentNodeProgress::getStatus, (a, b) -> a));
-
-            StudentNodeProgress target = list.stream()
+            StudentNodeProgress target = studentNodeProgressRepository
+                    .findByStudentUserIdAndLearningPathPathId(student.getUserId(), path.getPathId())
+                    .stream()
                     .filter(p -> p.getLearningNode().getNodeId().equals(nodeId))
                     .findFirst().orElse(null);
             if (target == null || target.getStatus() != StudentProgressStatus.LOCKED) continue;
 
-            
-            ClassroomSubjectStudent css = classroomSubjectStudentRepository
-                    .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, student.getUserId())
-                    .orElse(null);
-            if (css == null || css.getCurrentLevel() == null) continue;
-            Integer studentLevel = css.getCurrentLevel();
 
-            
-            boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusMap, studentLevel);
-            if (!prereqMet) continue;
+            if (node.getLevel() != null) {
+                ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                        .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, student.getUserId())
+                        .orElse(null);
+                if (css == null || !node.getLevel().equals(css.getCurrentLevel())) continue;
+            }
 
             target.setStatus(StudentProgressStatus.OPEN);
             target.setUnlockedAt(java.time.LocalDateTime.now());

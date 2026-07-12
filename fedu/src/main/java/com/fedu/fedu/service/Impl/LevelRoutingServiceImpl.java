@@ -249,8 +249,8 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
                 if (stagesDoneAtOtherLevel.contains(node.getStageOrder())) {
                     continue;
                 }
-                List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(node.getNodeId());
-                boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusByNode, newLevel);
+                boolean prereqMet = NodeRoutingUtils.prereqMetThroughOnClass(
+                        node.getNodeId(), nodeEdgeRepository::findByToNodeNodeId, statusByNode, newLevel);
                 if (p.getStatus() == StudentProgressStatus.LOCKED && prereqMet) {
                     p.setStatus(StudentProgressStatus.OPEN);
                     p.setUnlockedAt(LocalDateTime.now());
