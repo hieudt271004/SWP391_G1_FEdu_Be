@@ -48,7 +48,9 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         String text = request != null ? request.getContent() : null;
         boolean hasText = text != null && !text.trim().isEmpty();
-        boolean hasFile = file != null && !file.isEmpty();
+        boolean hasMultipart = file != null && !file.isEmpty();
+        boolean hasCloudinary = request != null && request.getFileUrl() != null && !request.getFileUrl().trim().isEmpty();
+        boolean hasFile = hasMultipart || hasCloudinary;
 
         if (!hasText && !hasFile) {
             throw new InvalidDataException("Bài nộp phải có nội dung tự luận hoặc file đính kèm.");
@@ -72,7 +74,15 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         submission.setTitle(exercise.getTitle());
         submission.setContent(hasText ? text : null);
-        submission.setFileUrl(hasFile ? storeFile(file) : null);
+        
+        if (hasMultipart) {
+            submission.setFileUrl(storeFile(file));
+        } else if (hasCloudinary) {
+            submission.setFileUrl(request.getFileUrl().trim());
+        } else {
+            submission.setFileUrl(null);
+        }
+        
         submission.setStatus(SubmissionStatus.SUBMITTED);
         submission.setSubmittedAt(LocalDateTime.now());
         

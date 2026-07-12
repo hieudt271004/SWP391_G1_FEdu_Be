@@ -196,6 +196,9 @@ export function TeacherLiveSessionPage() {
         formData.append('fileName', mFile.name);
         formData.append('fileType', mFile.type || uploaded.format || '');
         formData.append('publicId', uploaded.publicId);
+        if (uploaded.resourceType) {
+          formData.append('resourceType', uploaded.resourceType);
+        }
       }
       await learningPathService.addTeacherNodeMaterial(nid, formData);
       toast.success('Đã thêm tài liệu — học sinh sẽ thấy trong vài giây');

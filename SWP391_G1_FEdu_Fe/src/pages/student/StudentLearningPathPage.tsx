@@ -722,7 +722,7 @@ export function StudentLearningPathPage() {
                         </p>
                       )}
 
-                      {node.nodeType === 'ON_CLASS' && !isLocked && (
+                      {node.nodeType === 'ON_CLASS' && !isLocked && node.studentStatus !== 'COMPLETED' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
