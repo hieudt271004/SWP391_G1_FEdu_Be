@@ -98,6 +98,16 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<SubmissionResponse> getMySubmissionsForClassroomSubject(Long classroomSubjectId, Long studentId) {
+        return submissionRepository
+                .findByStudentAndClassroomSubject(studentId, classroomSubjectId)
+                .stream()
+                .map(this::mapSubmission)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<SubmissionResponse> listForExercise(Long exerciseId, Long teacherId) {
         NodeExercise exercise = getExercise(exerciseId);
         assertTeacherOwnsNode(exercise.getLearningNode(), teacherId);

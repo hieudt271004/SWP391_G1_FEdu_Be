@@ -14,8 +14,11 @@ public interface SubmissionService {
 
     SubmissionResponse submit(Long exerciseId, Long studentId, CreateSubmissionRequest request, MultipartFile file);
 
-    
+
     SubmissionResponse getMySubmission(Long exerciseId, Long studentId);
+
+
+    List<SubmissionResponse> getMySubmissionsForClassroomSubject(Long classroomSubjectId, Long studentId);
 
     
     List<SubmissionResponse> listForExercise(Long exerciseId, Long teacherId);

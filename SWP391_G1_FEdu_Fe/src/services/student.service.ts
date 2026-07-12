@@ -254,6 +254,10 @@ export const studentService = {
   getMyExerciseSubmission: (exerciseId: number) =>
     http.get<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions/me`),
 
+
+  getMySubmissionsForClassroomSubject: (classroomSubjectId: number) =>
+    http.get<SubmissionResponse[]>(`/student/classroom-subjects/${classroomSubjectId}/my-submissions`),
+
   
   getPendingPopQuiz: (nodeId: number) =>
     http.get<PopQuizPendingResponse>(`/student/on-class/${nodeId}/pop-quiz/pending`),

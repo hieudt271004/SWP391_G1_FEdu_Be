@@ -50,4 +50,14 @@ public class StudentSubmissionController {
         return new ResponseData<>(HttpStatus.OK.value(), "Lấy bài nộp thành công",
                 submissionService.getMySubmission(exerciseId, currentUser.getUserId()));
     }
+
+    @Operation(summary = "Lấy toàn bộ bài nộp của chính mình trong một lớp-môn (để hydrate lộ trình)")
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/classroom-subjects/{csId}/my-submissions")
+    public ResponseData<java.util.List<SubmissionResponse>> getMySubmissionsForClassroomSubject(
+            @PathVariable Long csId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        return new ResponseData<>(HttpStatus.OK.value(), "Lấy danh sách bài nộp thành công",
+                submissionService.getMySubmissionsForClassroomSubject(csId, currentUser.getUserId()));
+    }
 }

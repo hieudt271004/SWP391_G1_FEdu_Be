@@ -140,6 +140,19 @@ export function StudentLearningPathPage() {
       console.error("Failed to load completed materials:", mErr);
       toast.warning("Không thể tải tiến độ học liệu.");
     }
+
+
+    try {
+      const submissions = await studentService.getMySubmissionsForClassroomSubject(classroomSubjectId);
+      const submissionMap: Record<number, SubmissionResponse | null> = {};
+      (submissions || []).forEach(s => {
+        if (s.exerciseId != null) submissionMap[s.exerciseId] = s;
+      });
+      setExerciseSubmissions(submissionMap);
+    } catch (sErr) {
+      console.error("Failed to load exercise submissions:", sErr);
+    }
+
     return sortedNodes;
   };
 
@@ -327,6 +340,46 @@ export function StudentLearningPathPage() {
   };
 
   
+
+
+
+  const maybeCompleteNode = async (
+    nodeId: number,
+    materialsMap: Record<string, boolean>,
+    submissionsMap: Record<number, SubmissionResponse | null>
+  ): Promise<boolean> => {
+    if (!user?.userId) return false;
+    const content = nodeContents[nodeId];
+    if (!content) return false;
+    const node = nodes.find(n => n.nodeId === nodeId);
+    if (node?.studentStatus === 'COMPLETED') return false;
+
+    if (node?.testKind && node.testKind !== 'NONE') return false;
+
+    const materials = content.materials || [];
+    const tests = content.tests || [];
+    const exercises = content.exercises || [];
+
+    if (materials.length + tests.length + exercises.length === 0) return false;
+
+    const allMaterialsDone = materials.every(m => !!materialsMap[`${user.userId}-${m.materialId}`]);
+    const allTestsDone = tests.every(t => {
+      const history = testHistory.filter(h => h.testId === t.testId);
+      return history.some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0));
+    });
+    const allExercisesDone = exercises.every(e => {
+      const sub = submissionsMap[e.exerciseId];
+      return sub?.status === 'SUBMITTED' || sub?.status === 'GRADED';
+    });
+
+    if (allMaterialsDone && allTestsDone && allExercisesDone) {
+      await studentService.completeNode(nodeId);
+      await refreshProgressData();
+      return true;
+    }
+    return false;
+  };
+
   const handleExerciseSubmit = async () => {
     if (!activeItem || activeItem.type !== 'exercise') return;
     const exerciseId = activeItem.id;
@@ -351,13 +404,23 @@ export function StudentLearningPathPage() {
         formData.append('file', submissionFile);
       }
 
-      await studentService.submitExercise(exerciseId, formData);
+      const submitted = await studentService.submitExercise(exerciseId, formData);
       toast.success("Nộp bài tập thực hành thành công!");
-      await fetchExerciseSubmission(exerciseId);
-      await refreshProgressData();
       setIsResubmitting(false);
       setSubmissionText('');
       setSubmissionFile(null);
+
+
+      const updatedSubmissions = { ...exerciseSubmissions, [exerciseId]: submitted };
+      setExerciseSubmissions(updatedSubmissions);
+
+
+      const completed = await maybeCompleteNode(activeItem.nodeId, completedMaterials, updatedSubmissions);
+      if (completed) {
+        toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
+      } else {
+        await refreshProgressData();
+      }
     } catch (err: any) {
       console.error("Submit exercise failed:", err);
       toast.error(err.message || "Nộp bài tập thất bại. Vui lòng thử lại.");
@@ -455,39 +518,16 @@ export function StudentLearningPathPage() {
       setCompletedMaterials(updatedMaterials);
       
       toast.success("Đã đánh dấu hoàn thành bài học!");
-      await refreshProgressData();
 
-      
-      const content = nodeContents[activeNode.nodeId];
-      if (content) {
-        const materials = content.materials || [];
-        const tests = content.tests || [];
-        const exercises = content.exercises || [];
 
-        const allMaterialsDone = materials.every(m => {
-          if (m.materialId === activeItem.id) return true;
-          return !!updatedMaterials[`${user.userId}-${m.materialId}`];
-        });
-
-        const allTestsDone = tests.every(t => {
-          const history = testHistory.filter(h => h.testId === t.testId);
-          return history.some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0));
-        });
-
-        const allExercisesDone = exercises.every(e => {
-          const sub = exerciseSubmissions[e.exerciseId];
-          return sub?.status === 'SUBMITTED' || sub?.status === 'GRADED';
-        });
-
-        if (allMaterialsDone && allTestsDone && allExercisesDone) {
-          
-          await studentService.completeNode(activeNode.nodeId);
-          toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
-          await refreshProgressData();
-        }
+      const completed = await maybeCompleteNode(activeNode.nodeId, updatedMaterials, exerciseSubmissions);
+      if (completed) {
+        toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
+      } else {
+        await refreshProgressData();
       }
 
-      
+
       if (currentItemIndex < allItems.length - 1) {
         setActiveItem(allItems[currentItemIndex + 1]);
       }
