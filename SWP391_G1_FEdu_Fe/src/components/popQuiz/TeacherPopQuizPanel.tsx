@@ -108,28 +108,70 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
     };
 
     if (pqSource === 'inline') {
+      const durationVal = Number(pqDuration);
+      if (isNaN(durationVal) || durationVal <= 0) {
+        toast.error("Thời gian làm bài phải là số phút lớn hơn 0");
+        return;
+      }
+      if (!Number.isInteger(durationVal)) {
+        toast.error("Thời gian làm bài phải là số nguyên");
+        return;
+      }
+
       if (pqQuestions.length === 0) {
         toast.error("Vui lòng thêm ít nhất 1 câu hỏi");
         return;
       }
+
+      let totalScore = 0;
       for (let i = 0; i < pqQuestions.length; i++) {
         const q = pqQuestions[i];
         if (!q.questionContent.trim()) {
           toast.error(`Vui lòng nhập nội dung cho câu hỏi ${i + 1}`);
           return;
         }
+
+        const scoreVal = Number(q.score);
+        if (isNaN(scoreVal) || scoreVal <= 0) {
+          toast.error(`Điểm số của câu hỏi ${i + 1} phải lớn hơn 0`);
+          return;
+        }
+        totalScore += scoreVal;
+
         if (q.answers.length < 2) {
           toast.error(`Câu hỏi ${i + 1} phải có ít nhất 2 đáp án`);
           return;
         }
-        const hasCorrect = q.answers.some((a: any) => a.isCorrect);
-        if (!hasCorrect) {
+
+        for (let j = 0; j < q.answers.length; j++) {
+          if (!q.answers[j].answerContent.trim()) {
+            toast.error(`Vui lòng nhập nội dung cho đáp án thứ ${j + 1} của câu hỏi ${i + 1}`);
+            return;
+          }
+        }
+
+        const correctCount = q.answers.filter((a: any) => a.isCorrect).length;
+        if (correctCount === 0) {
           toast.error(`Câu hỏi ${i + 1} chưa có đáp án đúng`);
           return;
         }
+        
+        if ((q.questionType === 'MULTIPLE_CHOICE' || q.questionType === 'TRUE_FALSE') && correctCount > 1) {
+          toast.error(`Câu hỏi ${i + 1} là trắc nghiệm 1 đáp án, chỉ được chọn duy nhất 1 đáp án đúng`);
+          return;
+        }
       }
-      payload.durationMinutes = pqDuration;
-      payload.questions = pqQuestions;
+
+      if (Math.abs(totalScore - 10) > 0.001) {
+        toast.error(`Tổng điểm của các câu hỏi phải bằng chính xác 10. Hiện tại đang là ${totalScore}.`);
+        return;
+      }
+
+      payload.durationMinutes = durationVal;
+      payload.questions = pqQuestions.map(q => ({
+        ...q,
+        score: Number(q.score)
+      }));
     } else {
       if (!pqExistingTestId) {
         toast.error("Vui lòng chọn một bài test có sẵn");
@@ -341,8 +383,8 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
               <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Thời gian làm (phút)</label>
               <input
                 type="number"
-                value={pqDuration}
-                onChange={(e) => setPqDuration(Math.max(1, Number(e.target.value)))}
+                value={pqDuration || ''}
+                onChange={(e) => setPqDuration(e.target.value ? Number(e.target.value) : 0)}
                 className="w-full bg-background border border-border rounded-lg px-3 py-1 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
                 min={1}
                 max={180}
@@ -442,10 +484,10 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
                         <span className="text-[9px] font-bold text-muted-foreground uppercase">Điểm số</span>
                         <input
                           type="number"
-                          value={q.score}
+                          value={q.score || ''}
                           onChange={(e) => setPqQuestions(prev => {
                             const list = [...prev];
-                            list[qIdx] = { ...list[qIdx], score: Math.max(1, Number(e.target.value)) };
+                            list[qIdx] = { ...list[qIdx], score: e.target.value ? Number(e.target.value) : 0 };
                             return list;
                           })}
                           className="w-full bg-background border border-border rounded px-2 py-0.5 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"

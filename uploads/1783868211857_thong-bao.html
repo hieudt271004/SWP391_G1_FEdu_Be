@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Thông báo &amp; chiến dịch — PickleVN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PickleVN — CSS dùng chung (chuyển từ React/JSX sang HTML thuần)
+   Palette: nền #f5f7f2 · xanh đậm #1b4332 · xanh #2d6a4f · lime #d4f24b
+   Type: Archivo (display) + Be Vietnam Pro (body)
+   ============================================================ */
+
+:root {
+  --bg: #f5f7f2;
+  --ink: #13281d;
+  --deep: #1b4332;
+  --green: #2d6a4f;
+  --lime: #d4f24b;
+  --lime-dark: #b8d930;
+  --paper: #ffffff;
+  --line: #e1e7dd;
+  --mute: #5f7468;
+  --navy: #0f291e;
+  --display: 'Archivo', sans-serif;
+  --body: 'Be Vietnam Pro', sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  font-family: var(--body);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+img, svg { display: block; }
+a { color: inherit; }
+h1, h2, h3, h4, p { margin: 0; }
+
+/* ---- Icon ---- */
+.ic { flex-shrink: 0; }
+
+/* ---- Logo ---- */
+.logo { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.logo-mark {
+  width: 28px; height: 28px; border-radius: 8px; background: var(--lime);
+  display: flex; align-items: center; justify-content: center;
+}
+.logo-ball {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2.5px solid var(--deep); position: relative;
+}
+.logo-ball::after {
+  content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--deep);
+}
+.logo-text {
+  font-family: var(--display); font-weight: 800; font-size: 20px;
+  color: var(--deep); letter-spacing: -0.02em;
+}
+.logo-text em { font-style: normal; color: var(--green); }
+.logo.dark .logo-text { color: #fff; }
+.logo.dark .logo-text em { color: var(--lime); }
+.logo.sm .logo-mark { width: 23px; height: 23px; border-radius: 7px; }
+.logo.sm .logo-ball { width: 11px; height: 11px; border-width: 2px; }
+.logo.sm .logo-text { font-size: 15px; }
+
+/* ---- Thanh điều hướng (nền xanh đậm) ---- */
+.nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 48px; background: var(--navy);
+}
+.nav-links { display: flex; gap: 28px; font-size: 14px; }
+.nav-links a {
+  color: rgba(255,255,255,.6); font-weight: 500; text-decoration: none;
+  padding-bottom: 3px; border-bottom: 2px solid transparent;
+}
+.nav-links a.active { color: var(--lime); font-weight: 700; border-bottom-color: var(--lime); }
+.nav-actions { display: flex; gap: 10px; align-items: center; }
+
+/* ---- Nút ---- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 20px; border-radius: 10px; font-family: var(--body);
+  font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap;
+  text-decoration: none; border: none; background: none;
+}
+.btn-primary { background: var(--lime); color: var(--deep); }
+.btn-dark { background: var(--deep); color: #fff; }
+.btn-ghost { background: transparent; color: var(--deep); border: 1.5px solid var(--line); }
+.btn-ghost-dark { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.25); }
+.btn-sm { padding: 7px 14px; font-size: 13px; }
+.btn-lg { padding: 14px 28px; font-size: 15px; }
+
+/* ---- Chip ---- */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px;
+  border-radius: 99px; font-size: 12.5px; font-weight: 500;
+  background: #fff; color: var(--ink); border: 1.5px solid var(--line);
+  white-space: nowrap; text-decoration: none; cursor: pointer;
+}
+.chip.active { background: var(--deep); color: #fff; border-color: var(--deep); }
+
+/* ---- Ảnh placeholder (sọc chéo + nhãn monospace) ---- */
+.ph {
+  position: relative; overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: repeating-linear-gradient(45deg, #e8eee4, #e8eee4 10px, #dde5d8 10px, #dde5d8 20px);
+}
+.ph-label {
+  font-family: ui-monospace, monospace; font-size: 11px; color: #7d927f;
+  background: rgba(255,255,255,.7); padding: 3px 8px; border-radius: 4px;
+}
+.ph.dark { background: repeating-linear-gradient(45deg, #22332a, #22332a 10px, #2b4034 10px, #2b4034 20px); }
+.ph.dark .ph-label { color: #9eb5a7; background: rgba(0,0,0,.25); }
+
+/* ---- Sao đánh giá ---- */
+.stars { color: #f0b429; font-size: 13px; letter-spacing: 1.5px; line-height: 1; }
+.stars .off { color: #dde3d9; }
+
+/* ---- Logo ví thanh toán (placeholder chữ) ---- */
+.pay {
+  width: 40px; height: 26px; border-radius: 6px; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 7.5px; font-weight: 700; letter-spacing: 0.02em;
+}
+.pay.momo { background: #ae2070; }
+.pay.zalopay { background: #0068ff; }
+.pay.vietqr { background: #0f1e46; }
+.pay.bank { background: #2d6a4f; }
+
+/* ---- Thanh tìm kiếm ---- */
+.searchbar {
+  display: flex; align-items: center; background: #fff; border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(19,40,29,.12); padding: 6px;
+}
+.searchbar.flat { border: 1.5px solid var(--line); box-shadow: none; }
+.sb-cell {
+  display: flex; align-items: center; gap: 10px; padding: 10px 18px;
+  flex: 1; border-right: 1px solid var(--line);
+}
+.sb-cell.last { border-right: none; }
+.sb-cell .ic { color: var(--green); }
+.sb-cell small {
+  display: block; font-size: 10.5px; font-weight: 700; color: var(--mute);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.sb-cell b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
+
+/* ---- Card sân ---- */
+.court-card {
+  background: #fff; border-radius: 16px; border: 1px solid var(--line);
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.court-media { position: relative; }
+.badge-zones {
+  position: absolute; top: 10px; left: 10px; background: var(--lime); color: var(--deep);
+  font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 99px;
+}
+.court-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; }
+.court-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.court-top h3 {
+  font-family: var(--display); font-weight: 700; font-size: 16px;
+  color: var(--ink); letter-spacing: -0.01em;
+}
+.rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.court-meta { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--mute); }
+.court-tags { display: flex; gap: 6px; }
+.court-tags span { font-size: 11px; color: var(--green); background: #eef4ea; padding: 3px 8px; border-radius: 6px; }
+.court-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line);
+}
+.price { font-size: 12px; color: var(--mute); }
+.price b { font-family: var(--display); font-size: 17px; font-weight: 800; color: var(--deep); }
+
+/* ---- Huy hiệu nhỏ trên nền tối ---- */
+.pill-lime {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(212,242,75,.13); border: 1px solid rgba(212,242,75,.38);
+  color: var(--lime); border-radius: 99px; padding: 6px 14px;
+  font-size: 12.5px; font-weight: 600;
+}
+
+/* ---- Form ---- */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field small { font-size: 12.5px; font-weight: 600; color: var(--mute); }
+.field .input {
+  padding: 13px 16px; border-radius: 11px; border: 1.5px solid var(--line);
+  font-size: 14px; color: #a8b5aa; background: #fff; font-family: var(--body);
+}
+.field .input.filled { color: var(--ink); font-weight: 600; }
+
+/* ---- Footer gọn ---- */
+.footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 24px; border-top: 1px solid var(--line);
+}
+.footer-links { display: flex; gap: 22px; font-size: 12.5px; color: var(--mute); }
+.footer-links a { text-decoration: none; }
+.footer .pays { display: flex; gap: 8px; }
+
+/* ---- Tiện ích chung ---- */
+.section-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
+.h-display { font-family: var(--display); font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.card {
+  background: #fff; border-radius: 16px; border: 1px solid var(--line);
+}
+
+/* ---- Bảng (trang quản trị) ---- */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th {
+  text-align: left; font-size: 11px; font-weight: 700; color: var(--mute);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+}
+.tbl td { padding: 12px 14px; border-bottom: 1px solid #edf1ea; vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; }
+
+/* ---- Sidebar quản trị ---- */
+.admin { display: flex; min-height: 900px; background: var(--bg); }
+.side {
+  width: 232px; background: var(--navy); padding: 22px 16px;
+  display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;
+}
+.side .logo { margin: 0 8px 22px; }
+.side a {
+  display: flex; align-items: center; gap: 11px; padding: 10px 14px;
+  border-radius: 10px; font-size: 13.5px; font-weight: 500;
+  color: rgba(255,255,255,.65); text-decoration: none;
+}
+.side a.active { background: rgba(212,242,75,.13); color: var(--lime); font-weight: 700; }
+.side .side-foot { margin-top: auto; padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.1); }
+.main { flex: 1; padding: 26px 32px; min-width: 0; }
+.main-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+.main-head h1 { font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: -0.01em; }
+.main-head p { font-size: 13px; color: var(--mute); margin-top: 4px; }
+
+/* ---- Trạng thái ---- */
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 99px; }
+.tag.green { background: #e3f2e6; color: #1e7a3d; }
+.tag.amber { background: #fdf3dd; color: #9a6b08; }
+.tag.red { background: #fbe9e4; color: #c2452d; }
+.tag.blue { background: #e3edfb; color: #2c5fad; }
+.tag.gray { background: #eef1ec; color: var(--mute); }
+.tag.lime { background: var(--lime); color: var(--deep); }
+
+/* ---- Nav người dùng đã đăng nhập ---- */
+.nav.user { padding: 14px 48px; }
+.bell-btn {
+  width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,.22);
+  display: flex; align-items: center; justify-content: center; position: relative; color: #fff;
+  text-decoration: none;
+}
+.bell-dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: #ff7a5c; }
+.user-pill {
+  display: flex; align-items: center; gap: 9px; padding: 5px 12px 5px 5px;
+  border-radius: 99px; border: 1.5px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.06); text-decoration: none;
+}
+.user-avt {
+  width: 30px; height: 30px; border-radius: 50%; background: var(--lime);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-weight: 800; font-size: 13px; color: var(--deep);
+}
+.user-pill > span:not(.user-avt) { font-size: 13.5px; font-weight: 600; color: #fff; }
+
+/* ---- Avatar chữ cái ---- */
+.avt {
+  width: 32px; height: 32px; border-radius: 50%; background: #eef4ea; color: var(--green);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-weight: 800; font-size: 13px; flex-shrink: 0;
+}
+
+/* ============================================================
+   Khu quản trị — chủ sân (manager/) & nhân viên (staff/)
+   ============================================================ */
+
+/* ---- Sidebar: nhãn nhóm, ghi chú, hồ sơ ---- */
+.side-label {
+  font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,.4);
+  text-transform: uppercase; letter-spacing: 0.08em; padding: 0 10px 8px;
+}
+.side-note {
+  margin: 14px 6px 0; padding: 12px 13px; background: rgba(212,242,75,.08);
+  border: 1px solid rgba(212,242,75,.2); border-radius: 12px;
+  font-size: 11.5px; color: rgba(255,255,255,.6); line-height: 1.55;
+}
+.side-note b { color: var(--lime); }
+.side-user {
+  margin-top: auto; display: flex; align-items: center; gap: 10px;
+  padding: 10px 8px; border-top: 1px solid rgba(255,255,255,.1);
+}
+.avt-lime {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--lime); color: var(--deep);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-weight: 800; font-size: 13px; flex-shrink: 0;
+}
+.side-user b { display: block; font-size: 12.5px; font-weight: 700; color: #fff; }
+.side-user span { display: block; font-size: 10.5px; color: rgba(255,255,255,.45); }
+
+/* ---- Tiêu đề trang quản trị ---- */
+.page-title { margin-bottom: 20px; }
+.page-title h1 { font-family: var(--display); font-weight: 800; font-size: 23px; color: var(--ink); letter-spacing: -0.02em; }
+.page-title p { font-size: 13px; color: var(--mute); margin-top: 4px; }
+.page-title p b { color: var(--deep); }
+
+/* ---- Bố cục 2 cột: nội dung + form bên phải ---- */
+.split { display: grid; grid-template-columns: 1fr 350px; gap: 20px; align-items: start; }
+
+/* ---- Form thêm mới (viền đứt) ---- */
+.add-form { background: #fff; border-radius: 18px; border: 2px dashed #b9c8b6; padding: 22px; }
+.add-form-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.add-form-ic {
+  width: 34px; height: 34px; border-radius: 10px; background: var(--lime); color: var(--deep);
+  display: flex; align-items: center; justify-content: center;
+}
+.add-form-head h3 { font-family: var(--display); font-weight: 800; font-size: 16.5px; color: var(--ink); }
+.add-form > p { font-size: 12px; color: var(--mute); margin-bottom: 16px; line-height: 1.55; }
+.add-form .field .input { padding: 11px 14px; font-size: 13.5px; border-radius: 10px; }
+.add-form .field small { font-size: 12px; }
+.input.focus { border: 2px solid var(--deep); color: var(--ink); }
+.upload-slot {
+  height: 56px; border-radius: 9px; border: 1.5px dashed #b9c8b6;
+  display: flex; align-items: center; justify-content: center; color: var(--mute);
+}
+
+/* ---- Thẻ sân (chủ sân) ---- */
+.venue-card {
+  background: #fff; border-radius: 18px; border: 1px solid var(--line); padding: 18px 22px;
+  display: grid; grid-template-columns: 90px 1.7fr 1.1fr auto; gap: 18px; align-items: center;
+}
+.venue-card h3 { font-family: var(--display); font-weight: 800; font-size: 15.5px; color: var(--ink); }
+.venue-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.venue-addr { font-size: 12.5px; color: var(--mute); margin-top: 4px; display: flex; align-items: center; gap: 5px; }
+.venue-zones { font-size: 12.5px; color: var(--green); font-weight: 700; margin-top: 3px; }
+.venue-stats { display: grid; gap: 6px; font-size: 12.5px; }
+.venue-stats .k { color: var(--mute); }
+.venue-stats b { color: var(--deep); }
+
+/* ---- Nhóm nhân viên theo sân ---- */
+.staff-group { background: #fff; border-radius: 18px; border: 1px solid var(--line); overflow: hidden; }
+.staff-group-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 13px 22px; background: #fafbf8; border-bottom: 1px solid var(--line);
+}
+.staff-group-head .venue-name { display: flex; align-items: center; gap: 9px; }
+.staff-group-head .venue-name b { font-family: var(--display); font-weight: 800; font-size: 14.5px; color: var(--ink); }
+.staff-group-head .venue-name span { font-size: 12px; color: var(--mute); }
+.staff-group-head > a { font-size: 12.5px; color: var(--green); font-weight: 700; text-decoration: none; }
+.staff-row {
+  display: grid; grid-template-columns: 44px 1.3fr 1fr 1.4fr 1fr auto;
+  gap: 12px; align-items: center; padding: 11px 22px;
+  border-bottom: 1px solid var(--line); font-size: 13px;
+}
+.staff-row:last-child { border-bottom: none; }
+.staff-row b { color: var(--ink); }
+.staff-row .muted { color: var(--mute); }
+.staff-row .edit { font-size: 12.5px; color: var(--mute); text-decoration: none; }
+.see-more { display: block; padding: 10px 22px; font-size: 12.5px; color: var(--green); font-weight: 700; text-decoration: none; }
+
+/* ---- Pill trạng thái ---- */
+.st-pill { display: inline-flex; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 3px 10px; white-space: nowrap; }
+.st-pill.green { background: #e7f3d9; color: var(--green); }
+.st-pill.greenfill { background: var(--green); color: #fff; }
+.st-pill.gray { background: #eef0ec; color: var(--mute); }
+.st-pill.amber { background: #faf3d7; color: #a07c11; }
+.st-pill.red { background: #fbe9e4; color: #c2452d; }
+.st-pill.lime { background: var(--lime); color: var(--deep); }
+
+/* ---- Hàng chọn radio (phân công sân) ---- */
+.pick-row {
+  display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-radius: 10px;
+  border: 1.5px solid var(--line); background: #fff; font-size: 13px; font-weight: 500; color: var(--mute);
+}
+.pick-row.sel { border: 2px solid var(--deep); background: #f4f8f1; font-weight: 700; color: var(--deep); }
+.radio-sm { width: 15px; height: 15px; border-radius: 50%; border: 2px solid #c6d0c4; background: #fff; flex-shrink: 0; }
+.pick-row.sel .radio-sm { border: 5px solid var(--deep); }
+
+/* ---- Thẻ KPI ---- */
+.kpi { background: #fff; border-radius: 16px; border: 1px solid var(--line); padding: 16px 20px; }
+.kpi small { font-size: 12px; font-weight: 600; color: var(--mute); display: block; }
+.kpi b { display: block; font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--deep); margin: 5px 0 3px; }
+.kpi span { font-size: 11.5px; color: var(--mute); display: block; }
+.kpi.dark { background: var(--navy); border-color: var(--navy); }
+.kpi.dark small { color: rgba(255,255,255,.6); }
+.kpi.dark b { color: var(--lime); }
+.kpi.dark span { color: rgba(255,255,255,.5); }
+
+/* ---- Biểu đồ cột ---- */
+.chart-card { background: #fff; border-radius: 18px; border: 1px solid var(--line); padding: 24px; }
+.chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.chart-head h3 { font-family: var(--display); font-weight: 800; font-size: 16px; color: var(--ink); }
+.chart-legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--mute); align-items: center; }
+.chart-legend span { display: flex; align-items: center; gap: 6px; }
+.dot-sq { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.bars { display: flex; align-items: flex-end; gap: 14px; height: 190px; border-bottom: 1.5px solid var(--line); padding: 0 6px; }
+.bar-group { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 4px; height: 100%; }
+.bar { width: 38%; border-radius: 5px 5px 0 0; }
+.bar.dark { background: var(--navy); }
+.bar.lime { background: var(--lime); }
+.bar-labels { display: flex; gap: 14px; padding: 8px 6px 0; }
+.bar-labels span { flex: 1; text-align: center; font-size: 11px; color: var(--mute); font-weight: 600; }
+
+/* ---- Bảng doanh thu theo sân ---- */
+.rev-table { background: #fff; border-radius: 18px; border: 1px solid var(--line); overflow: hidden; }
+.rev-row {
+  display: grid; grid-template-columns: 1.6fr 1.2fr 1.1fr 1.1fr 0.8fr 0.8fr;
+  padding: 15px 24px; align-items: center; border-bottom: 1px solid var(--line); font-size: 13.5px;
+}
+.rev-row:last-child { border-bottom: none; }
+.rev-row.head {
+  padding: 12px 24px; font-size: 11px; font-weight: 700; color: var(--mute);
+  text-transform: uppercase; letter-spacing: 0.05em; background: #fafbf8;
+}
+.rev-row .total { color: var(--deep); font-family: var(--display); font-weight: 800; font-size: 14.5px; }
+.rev-row .muted { color: var(--mute); }
+.rev-row .up { color: var(--green); font-weight: 700; }
+
+/* ---- Tóm tắt điểm đánh giá ---- */
+.score-card { background: #fff; border-radius: 16px; border: 1px solid var(--line); padding: 18px 22px; display: flex; gap: 22px; align-items: center; }
+.score-num { text-align: center; flex-shrink: 0; }
+.score-num b { display: block; font-family: var(--display); font-weight: 800; font-size: 34px; color: var(--deep); line-height: 1; }
+.score-num .cnt { display: block; font-size: 11.5px; color: var(--mute); margin-top: 4px; }
+.dist-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.dist-row small { font-size: 10.5px; color: var(--mute); width: 22px; }
+.dist-row small.r { text-align: right; }
+.dist-track { flex: 1; height: 6px; border-radius: 99px; background: #f0f2ee; }
+.dist-fill { height: 100%; border-radius: 99px; }
+
+/* ---- Thẻ review (chủ sân) ---- */
+.owner-review { background: #fff; border-radius: 16px; border: 1px solid var(--line); padding: 18px 22px; }
+.owner-review-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.owner-review-meta { font-size: 11.5px; color: var(--mute); margin-top: 2px; }
+.owner-review-meta b { color: var(--green); }
+.owner-review .txt { font-size: 13.5px; color: var(--ink); line-height: 1.6; }
+.owner-reply { margin-top: 10px; padding: 10px 14px; background: #f4f8f1; border-radius: 10px; font-size: 12.5px; color: var(--green); line-height: 1.55; }
+.owner-reply b { font-weight: 700; }
+
+/* ---- Sidebar nhân viên: hộp ca trực ---- */
+.side-shift {
+  margin: 0 6px 14px; background: rgba(212,242,75,.1); border: 1px solid rgba(212,242,75,.25);
+  border-radius: 12px; padding: 11px 13px;
+}
+.side-shift small { display: block; font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: 0.07em; }
+.side-shift b { display: block; font-size: 13px; font-weight: 700; color: #fff; margin-top: 3px; }
+.side-shift span { display: block; font-size: 11px; color: var(--lime); margin-top: 2px; }
+
+/* ---- Lưới lịch nhân viên ---- */
+.sched-legend { display: flex; gap: 16px; font-size: 12px; color: var(--mute); align-items: center; margin-bottom: 14px; }
+.sched-legend span { display: flex; align-items: center; gap: 6px; }
+.sched-legend .now { margin-left: auto; color: var(--green); font-weight: 700; }
+.sched { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; }
+.sched-hours, .sched-cells { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.sched-hours span { font-size: 11px; color: var(--mute); font-weight: 600; text-align: center; }
+.sched-hours span.now { color: var(--green); font-weight: 800; }
+.sched-zone b { font-size: 13.5px; font-weight: 800; color: var(--ink); font-family: var(--display); display: block; }
+.sched-zone span { font-size: 11px; color: var(--mute); }
+.scell {
+  height: 44px; border-radius: 8px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; font-size: 10px; font-weight: 700; gap: 1px;
+}
+.scell small { font-size: 8.5px; font-weight: 600; opacity: 0.75; }
+.scell.web { background: #cdeaa8; color: var(--deep); }
+.scell.walkin { background: #fce4c4; color: #8a5a14; }
+.scell.free { background: #fff; color: #b3bfb5; border: 1.5px dashed #d8ded4; }
+
+/* ---- Hàng chờ check-in ---- */
+.queue-row {
+  display: grid; grid-template-columns: 1.6fr 1fr 1.4fr 1fr 1fr;
+  align-items: center; gap: 12px; padding: 13px 22px;
+  border-bottom: 1px solid var(--line); font-size: 13.5px;
+}
+.queue-row:last-child { border-bottom: none; }
+.queue-row .code { font-family: var(--display); font-weight: 700; color: var(--deep); }
+
+/* ---- Ô khung giờ (đặt tại quầy) ---- */
+.pslot {
+  padding: 9px 0; border-radius: 9px; font-size: 12.5px; font-weight: 600; text-align: center;
+  background: #fff; border: 1.5px solid var(--line); color: var(--ink);
+}
+.pslot.busy { background: #f0f2ee; border-color: transparent; color: #b3bfb5; text-decoration: line-through; }
+.pslot.sel { background: var(--deep); border-color: var(--deep); color: var(--lime); font-weight: 700; }
+
+/* ---- Chọn khu (đặt tại quầy) ---- */
+.zone-pick { flex: 1; padding: 13px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; }
+.zone-pick.sel { border: 2px solid var(--deep); background: #f4f8f1; }
+.zone-pick b { font-weight: 700; font-size: 13.5px; color: var(--ink); display: block; }
+.zone-pick span { font-size: 12px; color: var(--mute); font-weight: 700; margin-top: 3px; display: block; }
+.zone-pick.sel span { color: var(--green); }
+
+/* ---- Nút hình thức thanh toán ---- */
+.paybtn {
+  padding: 10px 12px; border-radius: 10px; text-align: center; font-size: 13px; font-weight: 700;
+  border: 1.5px solid var(--line); background: #fff; color: var(--mute);
+}
+.paybtn.sel { border: 2px solid var(--deep); background: #f4f8f1; color: var(--deep); }
+
+</style>
+<style>
+  .admin-badge {
+    background: var(--lime); color: var(--deep);
+    font-size: 9px; font-weight: 800; border-radius: 5px;
+    padding: 2px 6px; letter-spacing: 0.05em;
+  }
+  .camp-card { background: #fff; border-radius: 16px; border: 1px solid var(--line); padding: 16px 20px; }
+  .camp-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+  .camp-top h3 { font-family: var(--display); font-weight: 800; font-size: 15px; color: var(--ink); margin: 0; }
+  .camp-card > p { font-size: 12.5px; color: var(--mute); margin: 0 0 12px; line-height: 1.55; }
+  .camp-stats { display: flex; gap: 22px; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .camp-stats div small { display: block; font-size: 10.5px; font-weight: 700; color: var(--mute); text-transform: uppercase; letter-spacing: 0.05em; }
+  .camp-stats div b { display: block; font-family: var(--display); font-weight: 800; font-size: 16px; color: var(--deep); margin-top: 2px; }
+</style>
+</head>
+<body data-screen-label="Admin — Thông báo &amp; chiến dịch">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-grid" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></g>
+<g id="i-user" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"></path><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"></path></g>
+<g id="i-bell" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></g>
+<g id="i-wallet" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 3H5a2 2 0 0 0-2 2v2"></path><circle cx="16" cy="14" r="1.2" fill="currentColor" stroke="none"></circle></g>
+<g id="i-megaphone" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a4 4 0 0 1 0 8"></path><path d="M10.07 7.34 5 10H4a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h1l5.07 2.66A2 2 0 0 0 13 16V8a2 2 0 0 0-2.93-1.66Z"></path></g>
+<g id="i-plus" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></g>
+<g id="i-arrow" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></g>
+</defs></svg>
+
+<div class="admin">
+
+  <!-- ===== Sidebar ===== -->
+  <aside class="side">
+    <a class="logo dark sm" href="../trang-chu-a.html" style="margin-bottom:6px">
+      <span class="logo-mark"><span class="logo-ball"></span></span>
+      <span class="logo-text">Pickle<em>VN</em></span>
+    </a>
+    <div style="padding:0 8px 18px">
+      <span class="admin-badge">ADMIN</span>
+    </div>
+    <p class="side-label">Quản trị nền tảng</p>
+    <a href="tong-quan.html">
+      <svg class="ic" viewBox="0 0 24 24" width="16" height="16"><use href="#i-grid"></use></svg>Tổng quan
+    </a>
+    <a href="doi-tac.html">
+      <svg class="ic" viewBox="0 0 24 24" width="16" height="16"><use href="#i-user"></use></svg>Đối tác &amp; người dùng
+    </a>
+    <a href="ho-tro.html">
+      <svg class="ic" viewBox="0 0 24 24" width="16" height="16"><use href="#i-bell"></use></svg>Hỗ trợ &amp; báo cáo
+      <span style="margin-left:auto;background:rgba(212,242,75,.18);color:var(--lime);font-size:10.5px;font-weight:800;border-radius:99px;padding:2px 8px">5</span>
+    </a>
+    <a href="tai-chinh.html">
+      <svg class="ic" viewBox="0 0 24 24" width="16" height="16"><use href="#i-wallet"></use></svg>Tài chính &amp; thanh toán
+    </a>
+    <a class="active" href="thong-bao.html">
+      <svg class="ic" viewBox="0 0 24 24" width="16" height="16"><use href="#i-megaphone"></use></svg>Thông báo &amp; chiến dịch
+    </a>
+    <div class="side-note">SLA hôm nay: phản hồi hỗ trợ <b>&lt; 4h</b> · hoàn tiền <b>&lt; 24h</b></div>
+    <div class="side-user">
+      <span class="avt-lime">P</span>
+      <div><b>Thanh Phương</b><span>Quản trị viên · Vận hành</span></div>
+    </div>
+  </aside>
+
+  <!-- ===== Nội dung ===== -->
+  <main class="main">
+    <div class="main-head">
+      <div class="page-title" style="margin:0">
+        <h1>Thông báo &amp; chiến dịch</h1>
+        <p>Gửi push notification &amp; banner đến 48.500 người chơi và 320 chủ sân trên nền tảng</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <span class="chip active">Đang chạy</span>
+        <span class="chip">Đã lên lịch</span>
+        <span class="chip">Đã kết thúc</span>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="grid-4" style="gap:14px;margin-bottom:20px">
+      <div class="kpi dark">
+        <small>Chiến dịch đang chạy</small>
+        <b>3</b>
+        <span>2 push · 1 banner trang chủ</span>
+      </div>
+      <div class="kpi">
+        <small>Thông báo gửi tháng 6</small>
+        <b>142.800</b>
+        <span>push + Zalo OA, không tính OTP</span>
+      </div>
+      <div class="kpi">
+        <small>Tỷ lệ mở trung bình</small>
+        <b>38%</b>
+        <span>cao nhất: nhắc giờ chơi — 71%</span>
+      </div>
+      <div class="kpi">
+        <small>Đặt sân từ chiến dịch</small>
+        <b>4.620 lượt</b>
+        <span>5,3% tổng lượt đặt tháng này</span>
+      </div>
+    </div>
+
+    <div class="split" style="grid-template-columns:1fr 350px">
+
+      <!-- Danh sách chiến dịch -->
+      <div style="display:grid;gap:14px">
+
+        <article class="camp-card">
+          <div class="camp-top">
+            <h3>Giảm 20% khung giờ trưa các sân TP.HCM</h3>
+            <span class="st-pill lime">Đang chạy · còn 6 ngày</span>
+          </div>
+          <p>Push + banner trang chủ · gửi đến người chơi TP.HCM từng đặt khung 11:00–15:00 · mã <b style="color:var(--deep)">TRUA20</b></p>
+          <div class="camp-stats">
+            <div><small>Đã gửi</small><b>21.400</b></div>
+            <div><small>Tỷ lệ mở</small><b>42%</b></div>
+            <div><small>Lượt đặt</small><b>1.860</b></div>
+            <div><small>GMV mang về</small><b>168 triệu đ</b></div>
+          </div>
+        </article>
+
+        <article class="camp-card">
+          <div class="camp-top">
+            <h3>Chào sân mới — 12 sân vừa lên nền tảng tháng 6</h3>
+            <span class="st-pill lime">Đang chạy · còn 12 ngày</span>
+          </div>
+          <p>Push theo khu vực · bán kính 5km quanh sân mới · ưu đãi giờ đầu 49k cho lần đặt đầu tiên</p>
+          <div class="camp-stats">
+            <div><small>Đã gửi</small><b>8.900</b></div>
+            <div><small>Tỷ lệ mở</small><b>35%</b></div>
+            <div><small>Lượt đặt</small><b>740</b></div>
+            <div><small>GMV mang về</small><b>52 triệu đ</b></div>
+          </div>
+        </article>
+
+        <article class="camp-card">
+          <div class="camp-top">
+            <h3>Giải PickleVN Open 2026 — mở đăng ký</h3>
+            <span class="st-pill amber">Lên lịch · gửi 15/06, 09:00</span>
+          </div>
+          <p>Push toàn quốc + banner · người chơi hạng Bạc trở lên · link đăng ký giải đấu tại 8 cụm sân</p>
+          <div class="camp-stats">
+            <div><small>Dự kiến gửi</small><b>31.200</b></div>
+            <div><small>Đối tượng</small><b>Bạc trở lên</b></div>
+            <div><small>Kênh</small><b>Push + Zalo</b></div>
+            <div><small>Chỉ tiêu</small><b>1.200 đơn</b></div>
+          </div>
+        </article>
+
+        <article class="camp-card" style="opacity:.7">
+          <div class="camp-top">
+            <h3>Nhắc bảo trì hệ thống 05/06, 02:00–04:00</h3>
+            <span class="st-pill gray">Đã kết thúc</span>
+          </div>
+          <p>Thông báo hệ thống · gửi toàn bộ người dùng &amp; đối tác · không ghi nhận sự cố trong thời gian bảo trì</p>
+          <div class="camp-stats">
+            <div><small>Đã gửi</small><b>49.800</b></div>
+            <div><small>Tỷ lệ mở</small><b>29%</b></div>
+            <div><small>Khiếu nại</small><b>0</b></div>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- Form tạo thông báo mới -->
+      <aside class="add-form">
+        <div class="add-form-head">
+          <span class="add-form-ic"><svg class="ic" viewBox="0 0 24 24" width="17" height="17"><use href="#i-plus"></use></svg></span>
+          <h3>Tạo thông báo mới</h3>
+        </div>
+        <p>Thông báo khuyến mãi cần đội nội dung duyệt trước khi gửi (trong 4 giờ làm việc).</p>
+        <div style="display:grid;gap:12px">
+          <div class="field"><small>Tiêu đề</small><div class="input focus">Cuối tuần này chơi gì? Sân mới gần bạn ⤵</div></div>
+          <div class="field"><small>Nội dung</small><div class="input" style="min-height:64px">Nội dung hiển thị trên push notification...</div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="field"><small>Đối tượng</small><div class="input filled">Người chơi TP.HCM</div></div>
+            <div class="field"><small>Kênh gửi</small><div class="input filled">Push + Zalo OA</div></div>
+          </div>
+          <div class="field"><small>Thời gian gửi</small><div class="input filled">Thứ 6 · 13/06 · 18:00</div></div>
+          <a class="btn btn-primary btn-lg" style="width:100%;margin-top:4px" href="#">Gửi duyệt nội dung
+            <svg class="ic" viewBox="0 0 24 24" width="15" height="15"><use href="#i-arrow"></use></svg>
+          </a>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>
