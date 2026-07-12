@@ -1,5 +1,6 @@
 import { http } from './http';
 import type { ClassroomGraphResponse, NodeContentResponse, LiveSessionState } from './learningPath.service';
+import { uploadService } from './upload.service';
 
 
 
@@ -236,9 +237,15 @@ export const studentService = {
   
   
   
-  submitExercise: (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
+  submitExercise: async (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
     const multipartHeaders = { 'Content-Type': 'multipart/form-data' };
     if (contentOrFormData instanceof FormData) {
+      const fileInForm = contentOrFormData.get('file');
+      if (fileInForm instanceof File) {
+        const uploaded = await uploadService.uploadToCloudinary(fileInForm, 'submissions');
+        contentOrFormData.delete('file');
+        contentOrFormData.append('fileUrl', uploaded.url);
+      }
       return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, contentOrFormData, multipartHeaders);
     }
     const formData = new FormData();
@@ -246,7 +253,8 @@ export const studentService = {
       formData.append('content', contentOrFormData);
     }
     if (file) {
-      formData.append('file', file);
+      const uploaded = await uploadService.uploadToCloudinary(file, 'submissions');
+      formData.append('fileUrl', uploaded.url);
     }
     return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData, multipartHeaders);
   },

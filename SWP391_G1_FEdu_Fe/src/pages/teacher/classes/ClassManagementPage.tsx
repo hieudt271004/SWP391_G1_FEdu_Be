@@ -649,6 +649,9 @@ export function ClassManagementPage() {
           formData.append('fileName', selectedFile.name);
           formData.append('fileType', selectedFile.type || uploaded.format || '');
           formData.append('publicId', uploaded.publicId);
+          if (uploaded.resourceType) {
+            formData.append('resourceType', uploaded.resourceType);
+          }
           if (fileDescription.trim()) {
             formData.append('fileDescription', fileDescription.trim());
           }
