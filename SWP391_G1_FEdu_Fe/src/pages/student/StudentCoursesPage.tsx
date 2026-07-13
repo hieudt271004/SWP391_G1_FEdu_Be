@@ -654,13 +654,29 @@ export function StudentCoursesPage() {
                         >
                           <div className="flex-1 space-y-1 pr-4">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
-                                node.nodeType === 'AT_HOME' 
-                                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' 
-                                  : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
-                              }`}>
-                                {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
-                              </Badge>
+                              {node.testKind && node.testKind !== 'NONE' ? (
+                                <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
+                                  node.testKind === 'PLACEMENT'
+                                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                                    : node.testKind === 'GATE'
+                                    ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                                    : 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400'
+                                }`}>
+                                  {node.testKind === 'PLACEMENT'
+                                    ? 'Test năng lực'
+                                    : node.testKind === 'GATE'
+                                    ? 'Test phân luồng'
+                                    : 'Test tự chọn'}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
+                                  node.nodeType === 'AT_HOME' 
+                                    ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' 
+                                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                                }`}>
+                                  {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
+                                </Badge>
+                              )}
                               {node.isRequired && (
                                 <Badge variant="outline" className="text-[9px] font-bold px-1.5 rounded-[4px] bg-muted border-border text-muted-foreground">
                                   Bắt buộc

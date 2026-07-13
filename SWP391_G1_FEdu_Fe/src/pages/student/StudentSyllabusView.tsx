@@ -224,13 +224,29 @@ export function StudentSyllabusView({
                 <div className="flex justify-between items-start flex-wrap gap-4 border-b border-border pb-5">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-[4px] border uppercase ${
-                        activeNode.nodeType === 'AT_HOME' 
-                          ? 'bg-muted border-border text-muted-foreground' 
-                          : 'bg-primary border-primary text-primary-foreground'
-                      }`}>
-                        {activeNode.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
-                      </span>
+                      {activeNode.testKind && activeNode.testKind !== 'NONE' ? (
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-[4px] border uppercase ${
+                          activeNode.testKind === 'PLACEMENT'
+                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                            : activeNode.testKind === 'GATE'
+                            ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                            : 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400'
+                        }`}>
+                          {activeNode.testKind === 'PLACEMENT'
+                            ? 'Test năng lực'
+                            : activeNode.testKind === 'GATE'
+                            ? 'Test phân luồng'
+                            : 'Test tự chọn'}
+                        </span>
+                      ) : (
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-[4px] border uppercase ${
+                          activeNode.nodeType === 'AT_HOME' 
+                            ? 'bg-muted border-border text-muted-foreground' 
+                            : 'bg-primary border-primary text-primary-foreground'
+                        }`}>
+                          {activeNode.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
+                        </span>
+                      )}
                       {isCompleted && (
                         <Badge className="bg-emerald-500/10 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[9px] font-extrabold px-2 py-0.5 rounded-md">
                           Hoàn thành
