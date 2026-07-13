@@ -6,7 +6,9 @@ import {
   GraduationCap, 
   Award, 
   Zap, 
-  ArrowUpRight 
+  ArrowUpRight,
+  Lock,
+  CheckCircle2
 } from "lucide-react";
 
 interface LearningPathFlowProps {
@@ -143,6 +145,15 @@ export function LearningPathFlow({
     const rowIndex = new Map<number, number>();
     rowVals.forEach((v, i) => rowIndex.set(v, i));
 
+    const activeLevelByStage = new Map<number, number>();
+    visible.forEach((n) => {
+      const stage = n.stageOrder ?? 0;
+      const isStudyCompletedOrActive = n.studentStatus === 'COMPLETED' || n.studentStatus === 'IN_PROGRESS' || n.studentStatus === 'OPEN';
+      if (isStudyCompletedOrActive && n.level != null) {
+        activeLevelByStage.set(stage, n.level);
+      }
+    });
+
     const colCount = new Map<string, number>();
     const placedArr: Placed[] = visible.map((n) => {
       const r = rowIndex.get(rowOf(n)) ?? 0;
@@ -153,7 +164,13 @@ export function LearningPathFlow({
       const isGate = derivedGates.has(n.nodeId);
       const w = isGate ? SQUARE_W : CIRCLE;
       const h = isGate ? SQUARE_H : CIRCLE;
-      const dim = highlightLevel != null && n.level != null && n.level !== highlightLevel;
+      
+      const stage = n.stageOrder ?? 0;
+      const activeLevelForThisStage = activeLevelByStage.has(stage)
+        ? activeLevelByStage.get(stage)
+        : highlightLevel;
+      const dim = activeLevelForThisStage != null && n.level != null && n.level !== activeLevelForThisStage && n.studentStatus !== 'COMPLETED';
+      
       return {
         node: n,
         x: COL_X[col] + offset * (CIRCLE + 16),
@@ -340,6 +357,18 @@ export function LearningPathFlow({
               ].join(" ")}
               style={{ left: p.x - p.w / 2, top: p.y - p.h / 2, width: p.w, height: p.h }}
             >
+              {p.node.studentStatus !== undefined && p.node.studentStatus === 'COMPLETED' && (
+                <div className="absolute -top-1 -right-1 bg-emerald-600 text-white rounded-full p-0.5 border border-white dark:border-zinc-800 shadow-xs z-20">
+                  <CheckCircle2 size={10} className="fill-none stroke-[3]" />
+                </div>
+              )}
+              {p.node.studentStatus !== undefined && (p.node.studentStatus === 'LOCKED' || p.dim) && (
+                <div className={`absolute -top-1 -right-1 rounded-full p-0.5 border border-white dark:border-zinc-800 shadow-xs z-20 ${
+                  p.dim ? 'bg-muted text-muted-foreground' : 'bg-amber-600 text-white'
+                }`}>
+                  <Lock size={10} className="stroke-[2.5]" />
+                </div>
+              )}
               {p.isGate ? (
                 
                 <div className="flex flex-col items-center justify-center h-full w-full p-2 gap-0.5">

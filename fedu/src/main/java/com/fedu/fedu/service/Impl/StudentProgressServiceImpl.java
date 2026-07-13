@@ -165,36 +165,7 @@ public class StudentProgressServiceImpl implements StudentProgressService {
         healOnClassBlockedNodes(path, level, progressList);
 
 
-        Set<Integer> stagesDoneAtOtherLevel = allNodes.stream()
-                .filter(n -> {
-                    StudentNodeProgress p = progressMap.get(n.getNodeId());
-                    return p != null && p.getStatus() == StudentProgressStatus.COMPLETED;
-                })
-                .filter(n -> (n.getTestKind() == null || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.NONE)
-                        && n.getLevel() != null && !n.getLevel().equals(level)
-                        && n.getStageOrder() != null)
-                .map(LearningNode::getStageOrder)
-                .collect(Collectors.toSet());
-
-
-        List<LearningNode> nodes = allNodes.stream()
-                .filter(n -> {
-                    StudentNodeProgress p = progressMap.get(n.getNodeId());
-                    if (p != null && p.getStatus() == StudentProgressStatus.COMPLETED) {
-                        return true;
-                    }
-                    if (n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE) {
-                        return true;
-                    }
-                    if (n.getLevel() == null) {
-
-
-
-                        return appliesToStudentLevel(n, level);
-                    }
-                    return n.getLevel().equals(level) && !stagesDoneAtOtherLevel.contains(n.getStageOrder());
-                })
-                .collect(Collectors.toList());
+        List<LearningNode> nodes = allNodes;
         Set<Long> visibleNodeIds = nodes.stream().map(LearningNode::getNodeId).collect(Collectors.toSet());
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId())
                 .stream()

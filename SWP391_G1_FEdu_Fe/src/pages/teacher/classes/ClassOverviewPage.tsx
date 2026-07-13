@@ -529,7 +529,9 @@ export function ClassOverviewPage() {
   
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [detailTab, setDetailTab] = useState<'info' | 'history'>('info');
+  const [detailTab, setDetailTab] = useState<'info' | 'history' | 'roadmap'>('info');
+  const [studentGraph, setStudentGraph] = useState<ClassroomGraphResponse | null>(null);
+  const [studentGraphLoading, setStudentGraphLoading] = useState(false);
   const [resettingPlacement, setResettingPlacement] = useState(false);
 
   const isMounted = useRef(true);
@@ -707,11 +709,26 @@ export function ClassOverviewPage() {
     }
   };
 
+  const fetchStudentGraph = async (studentId: number) => {
+    if (!classroomSubjectId) return;
+    try {
+      setStudentGraphLoading(true);
+      const res = await learningPathService.getStudentClassroomGraph(Number(classroomSubjectId), studentId);
+      setStudentGraph(res);
+    } catch (err) {
+      console.error("Failed to load student graph:", err);
+      toast.error("Không thể tải lộ trình chi tiết của học sinh.");
+    } finally {
+      setStudentGraphLoading(false);
+    }
+  };
+
   const handleViewDetail = async (student: Student) => {
     setSelectedStudent(student);
     setDetailTab('info');
     setIsDetailOpen(true);
     setHistoryLoading(true);
+    setStudentGraph(null);
     try {
       const res = await learningPathService.getStudentLevelHistory(Number(classroomSubjectId), student.rawUserId);
       setLevelHistory(res);
@@ -2977,7 +2994,7 @@ export function ClassOverviewPage() {
 
       {}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="sm:max-w-xl bg-background border-border shadow-2xl">
+        <DialogContent className={`${detailTab === 'roadmap' ? 'sm:max-w-3xl' : 'sm:max-w-xl'} bg-background border-border shadow-2xl transition-all duration-300`}>
           <DialogHeader className="pb-3 border-b border-border">
             <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <User className="size-5 text-primary" /> Thông tin chi tiết học sinh
@@ -3028,6 +3045,20 @@ export function ClassOverviewPage() {
                   }`}
                 >
                   Lịch sử xếp lớp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailTab('roadmap');
+                    if (!studentGraph && selectedStudent) {
+                      fetchStudentGraph(selectedStudent.rawUserId);
+                    }
+                  }}
+                  className={`pb-2 px-1 relative transition-colors ${
+                    detailTab === 'roadmap' ? 'text-primary border-b-2 border-primary' : 'hover:text-foreground'
+                  }`}
+                >
+                  Bản đồ lộ trình
                 </button>
               </div>
 
@@ -3143,6 +3174,47 @@ export function ClassOverviewPage() {
                             </div>
                           );
                         })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {detailTab === 'roadmap' && (
+                  <div className="space-y-4 pt-1 max-h-[500px] overflow-y-auto pr-1">
+                    {studentGraphLoading ? (
+                      <div className="flex flex-col items-center justify-center py-16 gap-2">
+                        <Loader className="w-8 h-8 animate-spin text-primary" />
+                        <span className="text-xs text-muted-foreground">Đang tải sơ đồ lộ trình học sinh...</span>
+                      </div>
+                    ) : !studentGraph || !studentGraph.nodes?.length ? (
+                      <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                        <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-xs font-semibold">Học sinh này chưa bắt đầu lộ trình.</p>
+                      </div>
+                    ) : (
+                      <div className="border border-border rounded-2xl p-4 bg-muted/10 overflow-x-auto relative">
+                        <div className="flex items-center justify-between text-[11px] mb-4 bg-card border border-border p-3 rounded-xl gap-4">
+                          <span className="font-bold text-foreground">Chú giải ký hiệu:</span>
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="flex items-center gap-1 font-medium text-foreground">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border border-white" /> Đã học
+                            </span>
+                            <span className="flex items-center gap-1 font-medium text-foreground">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-600 border border-white" /> Khóa (Sẽ học)
+                            </span>
+                            <span className="flex items-center gap-1 font-medium text-muted-foreground/60">
+                              <span className="w-2.5 h-2.5 rounded-full bg-muted border border-white opacity-60" /> Mức khác (Không học)
+                            </span>
+                          </div>
+                        </div>
+                        <LearningPathFlow
+                          nodes={studentGraph.nodes}
+                          edges={studentGraph.edges || []}
+                          highlightLevel={selectedStudent?.currentLevel}
+                          onNodeClick={(node) => {
+                            toast.info(`Bài học: ${node.title} (${node.studentStatus === 'COMPLETED' ? 'Đã hoàn thành' : node.studentStatus === 'LOCKED' ? 'Đang khóa' : 'Đang học'})`);
+                          }}
+                        />
                       </div>
                     )}
                   </div>

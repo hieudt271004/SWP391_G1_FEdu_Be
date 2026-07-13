@@ -17,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fedu.fedu.service.StudentProgressService;
 import java.util.List;
 
 @Slf4j
@@ -31,6 +32,7 @@ public class LearningPathManagementController {
         private final NodeContentService nodeContentService;
         private final NodeEdgeService nodeEdgeService;
         private final com.fedu.fedu.service.StudentTestService studentTestService;
+        private final StudentProgressService studentProgressService;
 
         @Operation(summary = "Create learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
@@ -179,6 +181,17 @@ public class LearningPathManagementController {
         public ResponseData<ClassroomGraphResponse> getClassroomGraph(@PathVariable Long classroomSubjectId) {
             return new ResponseData<>(HttpStatus.OK.value(), "Classroom graph retrieved successfully",
                     learningPathService.getClassroomGraph(classroomSubjectId));
+        }
+
+        @Operation(summary = "Get specific student's classroom graph with their progress")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/classroom-subjects/{classroomSubjectId}/students/{studentId}/graph")
+        public ResponseData<ClassroomGraphResponse> getStudentClassroomGraphForTeacher(
+                @PathVariable Long classroomSubjectId,
+                @PathVariable Long studentId) {
+            log.info("Teacher requests graph of student {} for classroom-subject id: {}", studentId, classroomSubjectId);
+            ClassroomGraphResponse graph = studentProgressService.getStudentClassroomGraph(classroomSubjectId, studentId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved roadmap graph for student successfully", graph);
         }
 
         @Operation(summary = "Publish classroom learning path")

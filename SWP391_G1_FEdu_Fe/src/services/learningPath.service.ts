@@ -388,6 +388,8 @@ export const learningPathService = {
     http.get<LearningPathGraphResponse>(`/teacher-manage/learning-paths/${pathId}/graph`),
   getClassroomGraph: (classroomSubjectId: number) =>
     http.get<ClassroomGraphResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/graph`),
+  getStudentClassroomGraph: (classroomSubjectId: number, studentId: number) =>
+    http.get<ClassroomGraphResponse>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/students/${studentId}/graph`),
   
   getAdminClassroomGraph: (classroomSubjectId: number) =>
     http.get<ClassroomGraphResponse>(`/classrooms/subjects/${classroomSubjectId}/graph`),
