@@ -23,6 +23,20 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
         try (Connection connection = dataSource.getConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE user_account DROP CONSTRAINT IF EXISTS user_account_email_key");
+                statement.execute("DROP INDEX IF EXISTS uk_user_account_email");
+            } catch (Exception e) {
+                log.warn("Could not drop email unique constraint: {}", e.getMessage());
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_account_active_email ON user_account (email) WHERE is_deleted = false");
+                log.info("Partial unique index idx_user_account_active_email verified/created successfully.");
+            } catch (Exception e) {
+                log.warn("Could not create partial unique index idx_user_account_active_email: {}", e.getMessage());
+            }
+            
             
             boolean hasStatusColumn = false;
             try (ResultSet resultSet = metaData.getColumns(null, null, "subjects", "status")) {

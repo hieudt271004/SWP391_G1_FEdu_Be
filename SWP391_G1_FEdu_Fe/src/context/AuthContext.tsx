@@ -45,6 +45,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
       })
       .finally(() => setIsLoading(false));
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'accessToken') {
+        if (!e.newValue) {
+          setUser(null);
+          window.location.href = '/';
+        } else {
+          window.location.reload();
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const login = useCallback(async (

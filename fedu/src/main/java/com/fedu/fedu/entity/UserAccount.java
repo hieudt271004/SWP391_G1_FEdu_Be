@@ -28,7 +28,7 @@ public class UserAccount extends AbstractEntity<Long> implements UserDetails {
     @Column(name = "user_id")
     private long userId;
 
-    @Column(name = "email", nullable = false, unique = true)
+    @Column(name = "email", nullable = false)
     private String email;
 
     @Column(name = "password", nullable = false)

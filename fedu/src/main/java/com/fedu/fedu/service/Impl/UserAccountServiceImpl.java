@@ -15,6 +15,10 @@ import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.RoleRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.repository.UserRoleRepository;
+import com.fedu.fedu.repository.ClassroomSubjectRepository;
+import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
+import com.fedu.fedu.entity.ClassroomSubject;
+import com.fedu.fedu.entity.ClassroomSubjectStudent;
 import com.fedu.fedu.service.UserAccountService;
 import com.fedu.fedu.utils.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +41,8 @@ public class UserAccountServiceImpl implements UserAccountService {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final ClassroomSubjectRepository classroomSubjectRepository;
+    private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
 
     @Override
     public UserAccount getByEmail(String email) {
@@ -53,10 +59,43 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
+    @Transactional
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        userAccountRepository.delete(userAccount);
+
+        
+        boolean isTeacher = userAccount.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.TEACHER);
+        if (isTeacher) {
+            List<ClassroomSubject> taughtClasses = classroomSubjectRepository.findByLecturerId(userAccount.getUserId());
+            boolean hasActiveTaughtClass = taughtClasses.stream()
+                    .anyMatch(cs -> cs.getClassroom() != null 
+                            && "active".equalsIgnoreCase(cs.getClassroom().getStatus()) 
+                            && !Boolean.TRUE.equals(cs.getClassroom().getIsDeleted()));
+            if (hasActiveTaughtClass) {
+                throw new InvalidDataException("Không thể xóa giảng viên đang giảng dạy lớp học đang hoạt động.");
+            }
+        }
+
+        
+        boolean isStudent = userAccount.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.STUDENT);
+        if (isStudent) {
+            List<ClassroomSubjectStudent> enrollments = classroomSubjectStudentRepository.findAllByStudentId(userAccount.getUserId());
+            boolean hasActiveEnrollment = enrollments.stream()
+                    .anyMatch(css -> css.getClassroomSubject() != null 
+                            && css.getClassroomSubject().getClassroom() != null 
+                            && "active".equalsIgnoreCase(css.getClassroomSubject().getClassroom().getStatus())
+                            && !Boolean.TRUE.equals(css.getClassroomSubject().getClassroom().getIsDeleted()));
+            if (hasActiveEnrollment) {
+                throw new InvalidDataException("Không thể xóa học viên đang tham gia lớp học đang hoạt động.");
+            }
+        }
+
+        userAccount.setIsDeleted(true);
+        userAccount.setStatus(UserStatus.INACTIVE);
+        userAccountRepository.save(userAccount);
     }
 
     @Override
