@@ -187,7 +187,10 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                         return true;
                     }
                     if (n.getLevel() == null) {
-                        return true;
+
+
+
+                        return appliesToStudentLevel(n, level);
                     }
                     return n.getLevel().equals(level) && !stagesDoneAtOtherLevel.contains(n.getStageOrder());
                 })
@@ -282,6 +285,26 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .build();
     }
 
+
+
+
+
+    private static boolean appliesToStudentLevel(LearningNode node, Integer studentLevel) {
+        String csv = node.getAppliesLevels();
+        if (csv == null || csv.isBlank()) {
+            return true;
+        }
+        for (String part : csv.split(",")) {
+            try {
+                if (studentLevel != null && Integer.parseInt(part.trim()) == studentLevel) {
+                    return true;
+                }
+            } catch (NumberFormatException ignored) {
+
+            }
+        }
+        return false;
+    }
 
     private void healOnClassBlockedNodes(LearningPath path, Integer level, List<StudentNodeProgress> progressList) {
         List<NodeEdge> allEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());

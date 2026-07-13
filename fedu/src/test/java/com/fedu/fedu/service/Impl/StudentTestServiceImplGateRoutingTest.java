@@ -115,13 +115,13 @@ class StudentTestServiceImplGateRoutingTest {
         when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
                 .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(2).build()));
 
-        service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(85));
+        service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(85), true);
 
-        
+
         assertEquals(StudentProgressStatus.COMPLETED, gateProg.getStatus());
-        
+
         verify(levelRoutingService).applyGateRouting(eq(CS_ID), eq(gate), eq(STUDENT_ID), eq(bd(85)));
-        
+
         assertEquals(StudentProgressStatus.OPEN, targetProg.getStatus());
     }
 
@@ -143,11 +143,32 @@ class StudentTestServiceImplGateRoutingTest {
         when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
                 .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(1).build()));
 
-        service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(85));
+        service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(85), true);
 
         assertEquals(StudentProgressStatus.COMPLETED, gateProg.getStatus());
         verify(levelRoutingService).applyGateRouting(eq(CS_ID), eq(gate), eq(STUDENT_ID), eq(bd(85)));
-        assertEquals(StudentProgressStatus.LOCKED, targetProg.getStatus()); 
+        assertEquals(StudentProgressStatus.LOCKED, targetProg.getStatus());
+    }
+
+    @Test
+    void gate_notPassed_sameLevel_doesNotComplete_norOpenBranch() {
+        ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
+        LearningPath path = path(cs);
+        LearningNode gate = gate(path);
+        LearningNode target = branch(path, 2);
+
+        StudentNodeProgress gateProg = progress(gate, path, StudentProgressStatus.IN_PROGRESS);
+        StudentNodeProgress targetProg = progress(target, path, StudentProgressStatus.LOCKED);
+
+
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
+                .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(2).build()));
+
+        service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(20), false);
+
+
+        assertEquals(StudentProgressStatus.IN_PROGRESS, gateProg.getStatus());
+        assertEquals(StudentProgressStatus.LOCKED, targetProg.getStatus());
     }
 
     

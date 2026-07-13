@@ -243,7 +243,7 @@ public class StudentTestServiceImpl implements StudentTestService {
             routePlacementRetakeNode(studentId, node, pathId, percentage);
         } else if (node.getTestKind() == NodeTestKind.GATE) {
 
-            routeGateNode(studentId, node, pathId, percentage);
+            routeGateNode(studentId, node, pathId, percentage, passed);
         } else if (node.getTestKind() == NodeTestKind.FREE_CHOICE) {
 
             routeFreeChoiceNode(studentId, node, pathId, passed);
@@ -739,18 +739,30 @@ public class StudentTestServiceImpl implements StudentTestService {
         }
     }
 
-    void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage) {
+    void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage, boolean passed) {
+        ClassroomSubject cs = gateNode.getLearningPath().getClassroomSubject();
+
+
+        Integer levelBefore = currentLevelOf(cs, studentId);
+        if (cs != null) {
+            levelRoutingService.applyGateRouting(cs.getId(), gateNode, studentId, percentage);
+        }
+        Integer levelAfter = currentLevelOf(cs, studentId);
+        boolean levelChanged = levelBefore != null && !levelBefore.equals(levelAfter);
+
+
+
+
+        if (!passed && !levelChanged) {
+            return;
+        }
+
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
                 markCompleted(gp, gateNode);
             }
             studentNodeProgressRepository.save(gp);
-        }
-
-        ClassroomSubject cs = gateNode.getLearningPath().getClassroomSubject();
-        if (cs != null) {
-            levelRoutingService.applyGateRouting(cs.getId(), gateNode, studentId, percentage);
         }
 
         for (NodeEdge edge : nodeEdgeRepository.findByFromNodeNodeId(gateNode.getNodeId())) {
