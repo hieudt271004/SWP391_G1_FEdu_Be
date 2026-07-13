@@ -3,6 +3,7 @@ import { X, Loader2, Upload, Trash2, Calendar, Phone, Mail, User, Shield, Info }
 import { adminService } from "../../services/admin.service";
 import { uploadService } from "../../services/upload.service";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 interface AdminUser {
   id?: number;
@@ -377,15 +378,19 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
                   <User className="w-3.5 h-3.5 text-muted-foreground" />
                   Giới tính
                 </label>
-                <select 
-                  value={formData.gender} 
-                  onChange={(e) => handleChange("gender", e.target.value as any)}
-                  className="w-full px-4 py-2.5 bg-input-background text-foreground border border-border/80 rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary/50 outline-none cursor-pointer"
+                <Select
+                  value={formData.gender}
+                  onValueChange={(val) => handleChange("gender", val)}
                 >
-                  <option value="MALE">Nam</option>
-                  <option value="FEMALE">Nữ</option>
-                  <option value="OTHER">Khác</option>
-                </select>
+                  <SelectTrigger className="w-full h-10 bg-input-background border-border text-foreground">
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="MALE">Nam</SelectItem>
+                    <SelectItem value="FEMALE">Nữ</SelectItem>
+                    <SelectItem value="OTHER">Khác</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -425,28 +430,36 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider">Role (Vai trò)</label>
-                <select 
-                  value={formData.role} 
-                  onChange={(e) => handleChange("role", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-input-background text-foreground border border-border/80 rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary/50 outline-none cursor-pointer"
+                <Select
+                  value={formData.role}
+                  onValueChange={(val) => handleChange("role", val)}
                 >
-                  <option value="STUDENT">Học viên</option>
-                  <option value="TEACHER">Giảng viên</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
+                  <SelectTrigger className="w-full h-10 bg-input-background border-border text-foreground">
+                    <SelectValue placeholder="Chọn vai trò" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="STUDENT">Học viên</SelectItem>
+                    <SelectItem value="TEACHER">Giảng viên</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider">Status (Trạng thái)</label>
-                <select 
-                  value={formData.status} 
-                  onChange={(e) => handleChange("status", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-input-background text-foreground border border-border/80 rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary/50 outline-none cursor-pointer"
+                <Select
+                  value={formData.status}
+                  onValueChange={(val) => handleChange("status", val)}
                 >
-                  <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-                  <option value="INACTIVE">Ngưng (INACTIVE)</option>
-                  <option value="NONE">Khác (NONE)</option>
-                </select>
+                  <SelectTrigger className="w-full h-10 bg-input-background border-border text-foreground">
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="ACTIVE">Hoạt động (ACTIVE)</SelectItem>
+                    <SelectItem value="INACTIVE">Ngưng (INACTIVE)</SelectItem>
+                    <SelectItem value="NONE">Khác (NONE)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
