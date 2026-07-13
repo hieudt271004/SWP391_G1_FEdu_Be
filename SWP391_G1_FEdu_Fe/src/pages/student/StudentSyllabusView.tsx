@@ -358,6 +358,31 @@ export function StudentSyllabusView({
                                             : 'Bài tập tự luận'
                                       }
                                     </span>
+                                    {isTest && (
+                                       <>
+                                         {activeNode.testKind === 'PLACEMENT' && (activeNode.placementYeuMax != null || activeNode.placementTbMax != null) ? (
+                                            <>
+                                              <span>•</span>
+                                              <span className="normal-case">
+                                                Phân mức: Yếu ≤ {activeNode.placementYeuMax}% · TB ≤ {activeNode.placementTbMax}% · Khá &gt; {activeNode.placementTbMax}%
+                                              </span>
+                                            </>
+                                          ) : activeNode.testKind === 'GATE' ? null : (
+                                            <>
+                                              <span>•</span>
+                                              <span className="normal-case">Yêu cầu đạt: {item.data.passingPercentage}%</span>
+                                            </>
+                                          )}
+                                        {activeNode.testKind === 'GATE' && (activeNode.gateUpMin != null || activeNode.gateDownMax != null) && (
+                                          <>
+                                            <span>•</span>
+                                            <span className="text-emerald-600 dark:text-emerald-455 normal-case font-bold">Lên Level khi ≥ {activeNode.gateUpMin ?? '—'}%</span>
+                                            <span>•</span>
+                                            <span className="text-rose-600 dark:text-rose-455 normal-case font-bold">Hạ Level khi &lt; {activeNode.gateDownMax ?? '—'}%</span>
+                                          </>
+                                        )}
+                                      </>
+                                    )}
                                   </p>
                                 </div>
                               </div>

@@ -951,21 +951,67 @@ export function StudentLearningPathPage() {
                     </div>
 
                     <div className="border border-border rounded-lg p-5 bg-card flex flex-col gap-5 shadow-sm">
-                      <div className="grid grid-cols-3 gap-6 divide-x divide-border">
+                      <div className={`grid gap-6 divide-x divide-border ${
+                        (activeNode?.testKind === 'GATE' && (activeNode.gateUpMin != null || activeNode.gateDownMax != null)) ||
+                        (activeNode?.testKind === 'PLACEMENT' && (activeNode.placementYeuMax != null || activeNode.placementTbMax != null))
+                          ? 'grid-cols-5' 
+                          : 'grid-cols-3'
+                      }`}>
                         <div className="space-y-1 pl-0">
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Thời lượng</span>
                           <p className="text-sm font-bold text-foreground">{activeItem.data.durationMinutes || 0} phút</p>
                         </div>
-                        <div className="space-y-1 pl-6">
-                          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Yêu cầu đạt</span>
-                          <p className="text-sm font-bold text-foreground">{activeItem.data.passingPercentage || 0}%</p>
-                        </div>
+                        {activeNode?.testKind === 'PLACEMENT' && (activeNode.placementYeuMax != null || activeNode.placementTbMax != null) ? (
+                          <>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Mức Yếu khi ≤</span>
+                              <p className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                                {activeNode.placementYeuMax != null ? `${activeNode.placementYeuMax}%` : '—'}
+                              </p>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Mức TB khi ≤</span>
+                              <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                                {activeNode.placementTbMax != null ? `${activeNode.placementTbMax}%` : '—'}
+                              </p>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Mức Khá khi &gt;</span>
+                              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                {activeNode.placementTbMax != null ? `${activeNode.placementTbMax}%` : '—'}
+                              </p>
+                            </div>
+                          </>
+                        ) : activeNode?.testKind === 'GATE' ? null : (
+                          <div className="space-y-1 pl-6">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Yêu cầu đạt</span>
+                            <p className="text-sm font-bold text-foreground">{activeItem.data.passingPercentage || 0}%</p>
+                          </div>
+                        )}
+                        {activeNode?.testKind === 'GATE' && (activeNode.gateUpMin != null || activeNode.gateDownMax != null) && (
+                          <>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Lên Level khi ≥</span>
+                              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                {activeNode.gateUpMin != null ? `${activeNode.gateUpMin}%` : '—'}
+                              </p>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Hạ Level khi &lt;</span>
+                              <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                                {activeNode.gateDownMax != null ? `${activeNode.gateDownMax}%` : '—'}
+                              </p>
+                            </div>
+                          </>
+                        )}
                         <div className="space-y-1 pl-6">
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái</span>
                           <p className="text-sm font-bold">
                             {highestAttempt ? (
                               highestAttempt.score == null ? (
                                 <span className="text-sky-600 dark:text-sky-400 font-bold">Chờ giáo viên chấm</span>
+                              ) : (activeNode?.testKind === 'PLACEMENT' || activeNode?.testKind === 'GATE') ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">Đã làm ({highestAttempt.score}%)</span>
                               ) : highestAttempt.score >= (activeItem.data.passingPercentage || 0) ? (
                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">Đạt ({highestAttempt.score}%)</span>
                               ) : (
@@ -992,7 +1038,7 @@ export function StudentLearningPathPage() {
                           <div className="space-y-2">
                             {attemptsForTest.map((att, idx) => {
                               const isPending = att.score == null;
-                              const isPassed = !isPending && (att.score ?? 0) >= (activeItem.data.passingPercentage || 0);
+                              const isPassed = !isPending && (activeNode?.testKind === 'PLACEMENT' || activeNode?.testKind === 'GATE' || (att.score ?? 0) >= (activeItem.data.passingPercentage || 0));
                               return (
                                 <div key={att.attemptId} className="flex justify-between items-center p-3 border border-border bg-muted/20 rounded-md text-xs">
                                   <span className="font-bold text-foreground">Lần nộp {attemptsForTest.length - idx}</span>

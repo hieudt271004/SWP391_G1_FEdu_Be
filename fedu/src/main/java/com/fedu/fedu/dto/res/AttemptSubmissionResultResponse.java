@@ -18,6 +18,7 @@ public class AttemptSubmissionResultResponse {
     private BigDecimal passingPercentage;
     
     private Integer newLevel;
+    private String testKind;
     
     private Boolean pendingManualGrading;
 }

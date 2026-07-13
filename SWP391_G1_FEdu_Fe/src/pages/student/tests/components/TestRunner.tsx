@@ -87,7 +87,7 @@ export function TestRunner({
                 <Clock className="size-4" /> {details.durationMinutes} phút
               </span>
             )}
-            {details.passingPercentage != null && (
+            {details.passingPercentage != null && details.passingPercentage > 0 && (
               <span className="flex items-center gap-1.5">
                 <Target className="size-4" /> Đạt từ {details.passingPercentage}%
               </span>

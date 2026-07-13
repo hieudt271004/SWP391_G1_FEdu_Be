@@ -15,6 +15,7 @@ public class StudentTestDetailsResponse {
     private String description;
     private Integer durationMinutes;
     private BigDecimal passingPercentage;
+    private String testKind;
     
     private java.time.LocalDateTime releaseEndsAt;
     private List<QuestionResponse> questions;

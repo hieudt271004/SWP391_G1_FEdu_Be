@@ -149,6 +149,11 @@ export function ClassManagementPage() {
   const [editGateUpMin, setEditGateUpMin] = useState<string>('');
   const [editGateDownMax, setEditGateDownMax] = useState<string>('');
 
+  const [sidebarPlacementYeuMax, setSidebarPlacementYeuMax] = useState<string>('');
+  const [sidebarPlacementTbMax, setSidebarPlacementTbMax] = useState<string>('');
+  const [sidebarGateUpMin, setSidebarGateUpMin] = useState<string>('');
+  const [sidebarGateDownMax, setSidebarGateDownMax] = useState<string>('');
+
   
   const [editingTTitle, setEditingTTitle] = useState("");
   const [editingTDuration, setEditingTDuration] = useState("15");
@@ -365,7 +370,7 @@ export function ClassManagementPage() {
       const testRes = await learningPathService.addTeacherNodeTest(selectedNode.nodeId, {
         title: testTitleToUse,
         durationMinutes: Number(editingTDuration) || 15,
-        passingPercentage: selectedNode.testKind === 'PLACEMENT' ? 0 : (Number(editingTPass) || 0),
+        passingPercentage: (selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE') ? 0 : (Number(editingTPass) || 0),
       });
 
       const createdTestId = testRes.testId;
@@ -383,6 +388,26 @@ export function ClassManagementPage() {
             isCorrect: a.isCorrect
           }))
         });
+      }
+
+      // Update node details (gateUpMin/gateDownMax or placement thresholds)
+      const updatedNode = await learningPathService.updateLearningNode(selectedNode.nodeId, {
+        title: selectedNode.title,
+        description: selectedNode.description,
+        nodeType: selectedNode.nodeType,
+        status: selectedNode.status,
+        displayOrder: selectedNode.displayOrder,
+        isRequired: selectedNode.isRequired,
+        placementYeuMax: selectedNode.testKind === 'PLACEMENT' ? (sidebarPlacementYeuMax === '' ? null : Number(sidebarPlacementYeuMax)) : undefined,
+        placementTbMax: selectedNode.testKind === 'PLACEMENT' ? (sidebarPlacementTbMax === '' ? null : Number(sidebarPlacementTbMax)) : undefined,
+        gateUpMin: selectedNode.testKind === 'GATE' ? (sidebarGateUpMin === '' ? null : Number(sidebarGateUpMin)) : undefined,
+        gateDownMax: selectedNode.testKind === 'GATE' ? (sidebarGateDownMax === '' ? null : Number(sidebarGateDownMax)) : undefined,
+      });
+
+      setSelectedNode(updatedNode);
+
+      if (classroomSubjectId) {
+        await fetchGraphData(Number(classroomSubjectId));
       }
 
       toast.success("Đã cập nhật bài test thành công");
@@ -403,6 +428,12 @@ export function ClassManagementPage() {
       setNodeContents((prev) => ({ ...prev, [nodeId]: content }));
 
       const node = nodes.find(n => n.nodeId === nodeId);
+      if (node) {
+        setSidebarGateUpMin(node.gateUpMin != null ? String(node.gateUpMin) : '');
+        setSidebarGateDownMax(node.gateDownMax != null ? String(node.gateDownMax) : '');
+        setSidebarPlacementYeuMax(node.placementYeuMax != null ? String(node.placementYeuMax) : '');
+        setSidebarPlacementTbMax(node.placementTbMax != null ? String(node.placementTbMax) : '');
+      }
       const isTestNode = node?.testKind === "PLACEMENT" || node?.testKind === "GATE" || node?.testKind === "FREE_CHOICE";
       
       if (isTestNode && content.tests && content.tests.length > 0) {
@@ -698,7 +729,9 @@ export function ClassManagementPage() {
           title: testTitle.trim(),
           description: testDescription.trim() || undefined,
           durationMinutes: testDuration ? Number(testDuration) : undefined,
-          passingPercentage: testPassingPercentage ? Number(testPassingPercentage) : undefined,
+          passingPercentage: (selectedNodeForContent?.testKind === 'PLACEMENT' || selectedNodeForContent?.testKind === 'GATE')
+            ? 0
+            : (testPassingPercentage ? Number(testPassingPercentage) : undefined),
         });
         toast.success('Thêm bài kiểm tra thành công!');
       }
@@ -1349,7 +1382,7 @@ export function ClassManagementPage() {
                                 onChange={(e) => setEditingTDuration(e.target.value)} 
                               />
                             </div>
-                            {selectedNode.testKind !== 'PLACEMENT' && (
+                            {selectedNode.testKind !== 'PLACEMENT' && selectedNode.testKind !== 'GATE' && (
                               <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
                                 <input 
@@ -1373,6 +1406,56 @@ export function ClassManagementPage() {
                               />
                             </div>
                           </div>
+
+                          {selectedNode.testKind === 'GATE' && (
+                            <div className="grid grid-cols-2 gap-3 border-t border-slate-200/60 pt-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Ngưỡng lên (≥ %)</label>
+                                <input
+                                  type="number"
+                                  placeholder="vd 80"
+                                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input font-medium"
+                                  value={sidebarGateUpMin}
+                                  onChange={(e) => setSidebarGateUpMin(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Ngưỡng xuống (≤ %)</label>
+                                <input
+                                  type="number"
+                                  placeholder="vd 40"
+                                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input font-medium"
+                                  value={sidebarGateDownMax}
+                                  onChange={(e) => setSidebarGateDownMax(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedNode.testKind === 'PLACEMENT' && (
+                            <div className="grid grid-cols-2 gap-3 border-t border-slate-200/60 pt-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Điểm Yếu tối đa (%)</label>
+                                <input
+                                  type="number"
+                                  placeholder="vd 40"
+                                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input font-medium"
+                                  value={sidebarPlacementYeuMax}
+                                  onChange={(e) => setSidebarPlacementYeuMax(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Điểm TB tối đa (%)</label>
+                                <input
+                                  type="number"
+                                  placeholder="vd 70"
+                                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input font-medium"
+                                  value={sidebarPlacementTbMax}
+                                  onChange={(e) => setSidebarPlacementTbMax(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          )}
 
                           {renderQuestionBuilder()}
 
@@ -1413,17 +1496,19 @@ export function ClassManagementPage() {
                                 onChange={(e) => setEditingTDuration(e.target.value)} 
                               />
                             </div>
-                            <div className="space-y-1 col-span-1">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
-                              <input 
-                                type="number" 
-                                min={0} 
-                                max={100}
-                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
-                                value={editingTPass} 
-                                onChange={(e) => setEditingTPass(e.target.value)} 
-                              />
-                            </div>
+                            {selectedNode.testKind !== 'PLACEMENT' && selectedNode.testKind !== 'GATE' && (
+                              <div className="space-y-1 col-span-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
+                                <input 
+                                  type="number" 
+                                  min={0} 
+                                  max={100}
+                                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                  value={editingTPass} 
+                                  onChange={(e) => setEditingTPass(e.target.value)} 
+                                />
+                              </div>
+                            )}
                             <div className="space-y-1 col-span-1">
                               <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
                               <input 

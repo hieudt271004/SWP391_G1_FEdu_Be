@@ -223,6 +223,10 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                             .level(n.getLevel())
                             .testKind(n.getTestKind())
                             .appliesLevels(n.getAppliesLevels())
+                            .gateUpMin(n.getGateUpMin())
+                            .gateDownMax(n.getGateDownMax())
+                            .placementYeuMax(n.getPlacementYeuMax())
+                            .placementTbMax(n.getPlacementTbMax())
                             .studyDate(n.getStudyDate())
                             .slotId(n.getSlot() != null ? n.getSlot().getSlotId() : null)
                             .slotName(n.getSlot() != null ? n.getSlot().getSlotName() : null)
@@ -332,7 +336,7 @@ public class StudentProgressServiceImpl implements StudentProgressService {
             boolean prereqMet = com.fedu.fedu.utils.NodeRoutingUtils.prereqMetThroughOnClass(
                     n.getNodeId(),
                     id -> incomingByNode.getOrDefault(id, Collections.emptyList()),
-                    statusByNode, level);
+                    statusByNode, level, progressList);
             if (prereqMet) {
                 p.setStatus(StudentProgressStatus.OPEN);
                 p.setUnlockedAt(java.time.LocalDateTime.now());

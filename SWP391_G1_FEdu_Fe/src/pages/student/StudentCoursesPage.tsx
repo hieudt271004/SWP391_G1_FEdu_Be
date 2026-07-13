@@ -796,10 +796,29 @@ export function StudentCoursesPage() {
                                           <div key={t.testId} className="flex items-center justify-between p-2.5 border border-border bg-background rounded-xl gap-4">
                                             <div className="flex-1 space-y-0.5">
                                               <span className="font-bold text-foreground block">{t.title}</span>
-                                              <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
+                                              <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium flex-wrap">
                                                 <span>Thời gian: {t.durationMinutes} phút</span>
-                                                <span>•</span>
-                                                <span>Yêu cầu đạt: {t.passingPercentage}%</span>
+                                                 {node.testKind === 'PLACEMENT' && (node.placementYeuMax != null || node.placementTbMax != null) ? (
+                                                    <>
+                                                      <span>•</span>
+                                                      <span className="normal-case">
+                                                        Phân mức: Yếu ≤ {node.placementYeuMax}% · TB ≤ {node.placementTbMax}% · Khá &gt; {node.placementTbMax}%
+                                                      </span>
+                                                    </>
+                                                  ) : node.testKind === 'GATE' ? null : (
+                                                    <>
+                                                      <span>•</span>
+                                                      <span>Yêu cầu đạt: {t.passingPercentage}%</span>
+                                                    </>
+                                                  )}
+                                                {node.testKind === 'GATE' && (node.gateUpMin != null || node.gateDownMax != null) && (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Lên Level khi ≥ {node.gateUpMin ?? '—'}%</span>
+                                                    <span>•</span>
+                                                    <span className="text-rose-600 dark:text-rose-450 font-bold">Hạ Level khi &lt; {node.gateDownMax ?? '—'}%</span>
+                                                  </>
+                                                )}
                                               </div>
                                             </div>
                                             {node.studentStatus === 'COMPLETED' ? (
