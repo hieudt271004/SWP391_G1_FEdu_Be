@@ -99,8 +99,27 @@ export function NodeTestPage() {
   }, [id, attemptId]);
 
   const goBack = () => {
-    if (csId) navigate(`/student/classroom-subjects/${csId}/learning-path`);
-    else navigate('/student/courses');
+    const from = searchParams.get('from');
+    const nodeId = searchParams.get('nodeId');
+    const mode = searchParams.get('mode');
+    const itemId = searchParams.get('itemId');
+
+    if (from === 'live' && csId && nodeId) {
+      const params = new URLSearchParams(searchParams);
+      params.delete('from');
+      params.delete('nodeId');
+      params.delete('csId');
+      const suffix = params.toString() ? `?${params.toString()}` : '';
+      navigate(`/student/classroom-subjects/${csId}/live/${nodeId}${suffix}`);
+    } else if (csId) {
+      if (mode === 'learn' && itemId) {
+        navigate(`/student/classroom-subjects/${csId}/learning-path?mode=learn&itemId=${itemId}&itemType=test`);
+      } else {
+        navigate(`/student/classroom-subjects/${csId}/learning-path`);
+      }
+    } else {
+      navigate('/student/courses');
+    }
   };
 
   if (loading) {

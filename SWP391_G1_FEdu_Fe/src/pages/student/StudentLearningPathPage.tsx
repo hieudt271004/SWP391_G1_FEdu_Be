@@ -726,7 +726,9 @@ export function StudentLearningPathPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/student/classroom-subjects/${classroomSubjectId}/live/${node.nodeId}`);
+                            const currentParams = searchParams.toString();
+                            const suffix = currentParams ? `?${currentParams}` : '';
+                            navigate(`/student/classroom-subjects/${classroomSubjectId}/live/${node.nodeId}${suffix}`);
                           }}
                           className="flex items-center gap-1 text-[9px] font-bold text-rose-600 dark:text-rose-400 hover:underline pt-0.5"
                         >
@@ -1003,7 +1005,11 @@ export function StudentLearningPathPage() {
 
                       <div className="border-t border-border pt-5 flex justify-end">
                         <Button
-                          onClick={() => navigate(`/student/tests/${activeItem.id}?csId=${classroomSubjectId}`)}
+                          onClick={() => {
+                            const params = new URLSearchParams(searchParams);
+                            params.set('csId', String(classroomSubjectId));
+                            navigate(`/student/tests/${activeItem.id}?${params.toString()}`);
+                          }}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
                         >
                           <span>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { AlarmClock, ArrowLeft, Award, FileText, Loader2, Radio } from 'lucide-react';
@@ -27,6 +27,7 @@ export function StudentLiveSessionPage() {
   const cs = Number(csId);
   const nid = Number(nodeId);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [state, setState] = useState<LiveSessionState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +89,11 @@ export function StudentLiveSessionPage() {
     <div className="max-w-3xl mx-auto space-y-5 text-foreground">
       {}
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={() => navigate(`/student/classroom-subjects/${cs}/learning-path`)}>
+        <Button variant="outline" size="icon" onClick={() => {
+          const currentParams = searchParams.toString();
+          const suffix = currentParams ? `?${currentParams}` : '';
+          navigate(`/student/classroom-subjects/${cs}/learning-path${suffix}`);
+        }}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
@@ -137,7 +142,13 @@ export function StudentLiveSessionPage() {
                 <span className="flex items-center gap-1 text-base font-bold text-rose-600 dark:text-rose-400">
                   <AlarmClock className="size-4" /> {fmtCountdown(activeRemainMs)}
                 </span>
-                <Button onClick={() => navigate(`/student/tests/${active.testId}`)}
+                <Button onClick={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.set('csId', String(cs));
+                  params.set('from', 'live');
+                  params.set('nodeId', String(nid));
+                  navigate(`/student/tests/${active.testId}?${params.toString()}`);
+                }}
                   className="h-9 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white">
                   Vào làm bài
                 </Button>
@@ -186,7 +197,13 @@ export function StudentLiveSessionPage() {
                           <p className="text-[10px] text-muted-foreground">Đã hết giờ làm bài</p>
                         ) : null}
                       </div>
-                      <Button onClick={() => navigate(`/student/tests/${t.testId}`)} disabled={timedOut && !isActive}
+                      <Button onClick={() => {
+                        const params = new URLSearchParams(searchParams);
+                        params.set('csId', String(cs));
+                        params.set('from', 'live');
+                        params.set('nodeId', String(nid));
+                        navigate(`/student/tests/${t.testId}?${params.toString()}`);
+                      }} disabled={timedOut && !isActive}
                         variant={isActive ? 'default' : 'outline'}
                         className="h-7 px-3 rounded-lg text-[11px] font-bold shrink-0">
                         {isActive ? 'Vào làm bài' : timedOut ? 'Hết giờ' : 'Làm bài'}
