@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
@@ -534,6 +534,43 @@ export function ClassOverviewPage() {
   const [studentGraphLoading, setStudentGraphLoading] = useState(false);
   const [resettingPlacement, setResettingPlacement] = useState(false);
 
+  const studentProgressPercent = useMemo(() => {
+    if (!studentGraph || !studentGraph.nodes || studentGraph.nodes.length === 0) return 0;
+    
+    const visible = studentGraph.nodes.filter((n) => !n.isDeleted);
+    if (visible.length === 0) return 0;
+
+    const activeLevelByStage: Record<number, number> = {};
+    visible.forEach((n) => {
+      const stage = n.stageOrder ?? 0;
+      const isStudyCompletedOrActive = n.studentStatus === 'COMPLETED' || n.studentStatus === 'IN_PROGRESS' || n.studentStatus === 'OPEN';
+      if (isStudyCompletedOrActive && n.level != null) {
+        activeLevelByStage[stage] = n.level;
+      }
+    });
+
+    let totalNodes = 0;
+    let completedNodes = 0;
+
+    visible.forEach((n) => {
+      const stage = n.stageOrder ?? 0;
+      const isCommon = n.level == null;
+      const isActiveLevel = n.level != null && n.level === activeLevelByStage[stage];
+      const isCompleted = n.studentStatus === 'COMPLETED';
+      const isFutureActiveLevel = n.level != null && activeLevelByStage[stage] === undefined && n.level === selectedStudent?.currentLevel;
+
+      if (isCommon || isActiveLevel || isCompleted || isFutureActiveLevel) {
+        totalNodes++;
+        if (isCompleted) {
+          completedNodes++;
+        }
+      }
+    });
+
+    if (totalNodes === 0) return 0;
+    return Math.round((completedNodes / totalNodes) * 100);
+  }, [studentGraph, selectedStudent?.currentLevel]);
+
   const isMounted = useRef(true);
   useEffect(() => {
     isMounted.current = true;
@@ -729,6 +766,10 @@ export function ClassOverviewPage() {
     setIsDetailOpen(true);
     setHistoryLoading(true);
     setStudentGraph(null);
+    
+    // Fetch student graph in parallel
+    fetchStudentGraph(student.rawUserId);
+    
     try {
       const res = await learningPathService.getStudentLevelHistory(Number(classroomSubjectId), student.rawUserId);
       setLevelHistory(res);
@@ -2484,17 +2525,16 @@ export function ClassOverviewPage() {
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50 border-border">
                   <TableHead className="font-bold text-muted-foreground w-[12%]">Mã học sinh</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[18%]">Họ và tên</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[16%]">Phân loại năng lực</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[20%]">Lộ trình học tập</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[12%] text-center">Hoàn thành trễ</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[22%] text-center">Hành động</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[28%]">Họ và tên</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[18%]">Phân loại năng lực</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[15%] text-center">Hoàn thành trễ</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[27%] text-center">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {students.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">
                       Chưa có học sinh nào tham gia lớp học này.
                     </TableCell>
                   </TableRow>
@@ -2521,14 +2561,9 @@ export function ClassOverviewPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-[10px] font-bold border rounded-[6px] px-2 py-0.5 ${levelColor}`}>
+                          <Badge variant="outline" className={`text-[10px] font-bold border rounded-[6px] px-2 py-0.5 w-28 justify-center ${levelColor}`}>
                             {levelLabel}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-foreground font-medium text-xs">
-                          {student.assignedPathName || (
-                            <span className="text-muted-foreground italic text-[11px]">Chưa gán lộ trình</span>
-                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           {(() => {
@@ -2963,7 +2998,7 @@ export function ClassOverviewPage() {
 
                   return (
                     <div key={hist.id || idx} className="flex gap-4 items-start p-3 border border-border bg-card rounded-xl">
-                      <div className="flex flex-col items-center justify-center bg-muted text-foreground p-2 rounded-lg font-bold shrink-0 min-w-10 text-center border border-border">
+                      <div className="flex flex-col items-center justify-center bg-muted text-foreground p-2 rounded-lg font-bold shrink-0 w-24 text-center border border-border">
                         <span className="text-[10px] text-muted-foreground block uppercase font-medium">Mức mới</span>
                         <span className="text-sm font-extrabold text-foreground">{getLvlLabel(hist.newLevel)}</span>
                       </div>
@@ -3026,90 +3061,70 @@ export function ClassOverviewPage() {
                 </div>
               </div>
 
-              {}
-              <div className="flex border-b border-border gap-4 text-xs font-semibold text-muted-foreground">
-                <button
-                  type="button"
-                  onClick={() => setDetailTab('info')}
-                  className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'info' ? 'text-primary border-b-2 border-primary' : 'hover:text-foreground'
-                  }`}
-                >
-                  Học lực & Lộ trình
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDetailTab('history')}
-                  className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'history' ? 'text-primary border-b-2 border-primary' : 'hover:text-foreground'
-                  }`}
-                >
-                  Lịch sử xếp lớp
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDetailTab('roadmap');
-                    if (!studentGraph && selectedStudent) {
+              <div className="py-4 space-y-4 max-h-[65vh] overflow-y-auto pr-2">
+                <Tabs
+                  value={detailTab}
+                  onValueChange={(val) => {
+                    setDetailTab(val as any);
+                    if (val === 'roadmap' && !studentGraph && selectedStudent) {
                       fetchStudentGraph(selectedStudent.rawUserId);
                     }
                   }}
-                  className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'roadmap' ? 'text-primary border-b-2 border-primary' : 'hover:text-foreground'
-                  }`}
+                  className="w-full"
                 >
-                  Bản đồ lộ trình
-                </button>
-              </div>
+                  <TabsList className="grid w-full grid-cols-3 bg-muted p-1 rounded-xl h-10 mb-5">
+                    <TabsTrigger value="info" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Học lực & Lộ trình
+                    </TabsTrigger>
+                    <TabsTrigger value="history" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Lịch sử xếp lớp
+                    </TabsTrigger>
+                    <TabsTrigger value="roadmap" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Bản đồ lộ trình
+                    </TabsTrigger>
+                  </TabsList>
 
-              {}
-              <div className="min-h-[220px]">
-                {detailTab === 'info' && (
-                  <div className="space-y-4 pt-1">
-                    <div className="grid grid-cols-2 gap-4">
-                      {}
-                      <div className="p-3 border border-border rounded-xl bg-muted/10 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Phân loại học lực</span>
-                        <div className="pt-1">
-                          {(() => {
-                            const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                            const badgeColor = selectedStudent.currentLevel === 1
-                              ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
-                              : selectedStudent.currentLevel === 2
-                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                                : selectedStudent.currentLevel === 3
-                                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                                  : 'bg-muted border-border text-muted-foreground';
-                            return (
-                              <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 ${badgeColor}`}>
-                                {label}
-                              </Badge>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      {}
-                      <div className="p-3 border border-border rounded-xl bg-muted/10 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Lộ trình học tập</span>
-                        <div className="pt-1 font-semibold text-foreground text-xs">
-                          {selectedStudent.assignedPathName || (
-                            <span className="text-muted-foreground italic font-normal">Chưa gán lộ trình</span>
-                          )}
-                        </div>
+                  <TabsContent value="info" className="mt-0 space-y-4">
+                    {/* Phân loại học lực */}
+                    <div className="p-4 border border-border rounded-xl bg-muted/10 space-y-1.5">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Phân loại học lực</span>
+                      <div className="pt-0.5">
+                        {(() => {
+                          const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
+                          const badgeColor = selectedStudent.currentLevel === 1
+                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
+                            : selectedStudent.currentLevel === 2
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                              : selectedStudent.currentLevel === 3
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-muted border-border text-muted-foreground';
+                          return (
+                            <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 w-28 justify-center ${badgeColor}`}>
+                              {label}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                     </div>
 
-                    {}
+                    {/* TODO: Tính năng chuyển nhánh lộ trình */}
+                    <div className="p-4 border border-dashed border-amber-500/30 rounded-xl bg-amber-500/5 space-y-1.5">
+                      <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                        <AlertTriangle className="size-3.5 animate-pulse" /> TODO: Tính năng tự chọn nhánh lộ trình
+                      </span>
+                      <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                        Giảng viên xem mức học hiện tại của học sinh và có thể chủ động chuyển học sinh sang nhánh lộ trình khác theo ý muốn (chuyển đổi giữa Yếu, Trung bình, Khá) thay vì dựa hoàn toàn vào bài thi phân lớp tự động.
+                      </p>
+                    </div>
                     <div className="p-4 border border-border rounded-xl bg-muted/5 space-y-3">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-bold text-foreground flex items-center gap-1.5">
                           <TrendingUp className="size-4 text-primary" /> Tiến độ lộ trình
                         </span>
-                        <span className="font-semibold text-foreground">0%</span>
+                        <span className="font-semibold text-foreground">{studentProgressPercent}%</span>
                       </div>
                       <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                        <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: '0%' }} />
+                        <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: `${studentProgressPercent}%` }} />
                       </div>
                       <p className="text-[10.5px] text-muted-foreground leading-relaxed">
                         Học sinh đang học theo nhánh riêng biệt của mức năng lực <span className="font-semibold text-foreground">{selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại'}</span>. Tiến độ sẽ tự động tăng khi học sinh làm bài test cổng phụ hoặc hoàn thành bài học.
@@ -3129,11 +3144,9 @@ export function ClassOverviewPage() {
                         </Button>
                       </div>
                     )}
-                  </div>
-                )}
+                  </TabsContent>
 
-                {detailTab === 'history' && (
-                  <div className="space-y-4 pt-1 text-xs">
+                  <TabsContent value="history" className="mt-0 space-y-4">
                     {historyLoading ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader className="w-8 h-8 animate-spin text-primary" />
@@ -3144,7 +3157,7 @@ export function ClassOverviewPage() {
                         <p className="text-xs">Chưa có lịch sử thay đổi mức năng lực.</p>
                       </div>
                     ) : (
-                      <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+                      <div className="space-y-3">
                         {levelHistory.map((hist, idx) => {
                           const getLvlLabel = (l: number) => l === 1 ? 'Yếu' : l === 2 ? 'Trung bình' : l === 3 ? 'Khá' : 'N/A';
                           const getReasonLabel = (r: string) => {
@@ -3156,7 +3169,7 @@ export function ClassOverviewPage() {
 
                           return (
                             <div key={hist.id || idx} className="flex gap-3 items-start p-2.5 border border-border bg-card rounded-xl">
-                              <div className="flex flex-col items-center justify-center bg-muted text-foreground border border-border p-1.5 rounded-lg font-bold shrink-0 min-w-10 text-center">
+                              <div className="flex flex-col items-center justify-center bg-muted text-foreground border border-border p-1.5 rounded-lg font-bold shrink-0 w-24 text-center">
                                 <span className="text-[9px] text-muted-foreground block uppercase font-medium">Mức mới</span>
                                 <span className="text-xs font-extrabold text-foreground">{getLvlLabel(hist.newLevel)}</span>
                               </div>
@@ -3176,11 +3189,9 @@ export function ClassOverviewPage() {
                         })}
                       </div>
                     )}
-                  </div>
-                )}
+                  </TabsContent>
 
-                {detailTab === 'roadmap' && (
-                  <div className="space-y-4 pt-1 max-h-[500px] overflow-y-auto pr-1">
+                  <TabsContent value="roadmap" className="mt-0 space-y-4">
                     {studentGraphLoading ? (
                       <div className="flex flex-col items-center justify-center py-16 gap-2">
                         <Loader className="w-8 h-8 animate-spin text-primary" />
@@ -3192,18 +3203,18 @@ export function ClassOverviewPage() {
                         <p className="text-xs font-semibold">Học sinh này chưa bắt đầu lộ trình.</p>
                       </div>
                     ) : (
-                      <div className="border border-border rounded-2xl p-4 bg-muted/10 overflow-x-auto relative">
+                      <div className="border border-border rounded-2xl p-4 bg-muted/5 overflow-x-auto relative">
                         <div className="flex items-center justify-between text-[11px] mb-4 bg-card border border-border p-3 rounded-xl gap-4">
                           <span className="font-bold text-foreground">Chú giải ký hiệu:</span>
                           <div className="flex items-center gap-4 flex-wrap">
-                            <span className="flex items-center gap-1 font-medium text-foreground">
-                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border border-white" /> Đã học
+                            <span className="flex items-center gap-1.5 font-medium text-foreground">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border border-background shadow-xs shrink-0" /> Đã học
                             </span>
-                            <span className="flex items-center gap-1 font-medium text-foreground">
-                              <span className="w-2.5 h-2.5 rounded-full bg-amber-600 border border-white" /> Khóa (Sẽ học)
+                            <span className="flex items-center gap-1.5 font-medium text-foreground">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-600 border border-background shadow-xs shrink-0" /> Khóa (Sẽ học)
                             </span>
-                            <span className="flex items-center gap-1 font-medium text-muted-foreground/60">
-                              <span className="w-2.5 h-2.5 rounded-full bg-muted border border-white opacity-60" /> Mức khác (Không học)
+                            <span className="flex items-center gap-1.5 font-medium text-muted-foreground/60">
+                              <span className="w-2.5 h-2.5 rounded-full bg-muted border border-background shadow-xs opacity-60 shrink-0" /> Mức khác (Không học)
                             </span>
                           </div>
                         </div>
@@ -3217,8 +3228,8 @@ export function ClassOverviewPage() {
                         />
                       </div>
                     )}
-                  </div>
-                )}
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
           )}
