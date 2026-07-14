@@ -3576,26 +3576,26 @@ export function ClassOverviewPage() {
           setSelectedExerciseId(null);
           setGradingSubmission(null);
         }}>
-          <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-            <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-white shrink-0">
-              <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
+          <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background border-border shadow-2xl">
+            <DialogHeader className="p-6 pb-4 border-b border-border bg-card shrink-0">
+              <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
                 Chấm bài thực hành: {selectedExerciseTitle}
               </DialogTitle>
             </DialogHeader>
 
             <div className="flex-1 overflow-hidden grid grid-cols-12 min-h-[50vh]">
               {}
-              <div className="col-span-5 border-r border-slate-100 overflow-y-auto p-4 bg-slate-50/50">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Danh sách bài nộp</h4>
+              <div className="col-span-5 border-r border-border overflow-y-auto p-4 bg-muted/20">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Danh sách bài nộp</h4>
                 {loadingSubmissions ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-2">
-                    <Loader className="w-5 h-5 animate-spin text-indigo-600" />
-                    <span className="text-[10px] text-slate-500 font-medium">Đang tải...</span>
+                    <Loader className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-[10px] text-muted-foreground font-medium">Đang tải...</span>
                   </div>
                 ) : submissionsList.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white p-4">
-                    <p className="text-[11px] font-medium text-slate-500">Chưa có học sinh nào nộp bài.</p>
+                  <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl bg-card p-4">
+                    <p className="text-[11px] font-medium text-muted-foreground">Chưa có học sinh nào nộp bài.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -3607,25 +3607,25 @@ export function ClassOverviewPage() {
                           onClick={() => handleOpenGrading(sub)}
                           className={`p-3 rounded-xl border transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-indigo-50/40 border-indigo-200 shadow-sm'
-                              : 'bg-white border-slate-100 hover:border-slate-200'
+                              ? 'bg-primary/10 border-primary/30 shadow-sm'
+                              : 'bg-card border-border hover:border-border/80'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-slate-800 text-xs">
+                            <span className="font-bold text-foreground text-xs">
                               {sub.studentName} {sub.status === 'GRADED' ? `(${sub.grade}/10)` : ''}
                             </span>
                             {sub.status === 'GRADED' ? (
-                              <Badge className="text-[8px] font-bold text-emerald-700 bg-emerald-50 border-emerald-150 rounded-[4px] px-1 py-0 border">
+                              <Badge className="text-[8px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/20 rounded-[4px] px-1.5 py-0.5 border">
                                 Đã chấm
                               </Badge>
                             ) : (
-                              <Badge className="text-[8px] font-bold text-amber-700 bg-amber-50 border-amber-150 rounded-[4px] px-1 py-0 border">
+                              <Badge className="text-[8px] font-bold text-amber-600 bg-amber-500/10 border-amber-500/20 rounded-[4px] px-1.5 py-0.5 border">
                                 Chờ chấm
                               </Badge>
                             )}
                           </div>
-                          <div className="text-[9px] text-slate-400 mt-1">
+                          <div className="text-[9px] text-muted-foreground mt-1">
                             Nộp: {new Date(sub.submittedAt).toLocaleString('vi-VN')}
                           </div>
                         </div>
@@ -3636,23 +3636,23 @@ export function ClassOverviewPage() {
               </div>
 
               {}
-              <div className="col-span-7 overflow-y-auto p-6 bg-white flex flex-col">
+              <div className="col-span-7 overflow-y-auto p-6 bg-background flex flex-col">
                 {gradingSubmission ? (
                   <form onSubmit={handleSaveGrade} className="space-y-4 text-xs flex-1 flex flex-col justify-between">
                     <div className="space-y-4">
-                      <div className="border-b border-slate-100 pb-3">
-                        <h3 className="font-bold text-slate-800 text-sm">
+                      <div className="border-b border-border pb-3">
+                        <h3 className="font-bold text-foreground text-sm">
                           Bài làm của: {gradingSubmission.studentName}
                         </h3>
-                        <p className="text-[10px] text-slate-400 mt-1">
+                        <p className="text-[10px] text-muted-foreground mt-1">
                           Trạng thái: {gradingSubmission.status === 'GRADED' ? 'Đã chấm điểm (Khóa chỉnh sửa)' : 'Đang chờ chấm điểm'}
                         </p>
                       </div>
 
                       {gradingSubmission.content && (
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nội dung bài làm</label>
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-44 overflow-y-auto whitespace-pre-wrap leading-relaxed text-slate-800">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Nội dung bài làm</label>
+                          <div className="bg-muted/10 p-3 rounded-xl border border-border max-h-44 overflow-y-auto whitespace-pre-wrap leading-relaxed text-foreground">
                             {gradingSubmission.content}
                           </div>
                         </div>
@@ -3660,14 +3660,14 @@ export function ClassOverviewPage() {
 
                       {gradingSubmission.fileUrl && (
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">File đính kèm</label>
-                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-3">
-                            <span className="font-semibold text-slate-650 truncate max-w-xs">{gradingSubmission.fileUrl.split('/').pop()}</span>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">File đính kèm</label>
+                          <div className="p-3 bg-muted/10 rounded-xl border border-border flex items-center justify-between gap-3">
+                            <span className="font-semibold text-foreground truncate max-w-xs">{gradingSubmission.fileUrl.split('/').pop()}</span>
                             <a
                               href={resolveAssetUrl(gradingSubmission.fileUrl)}
                               target="_blank"
                               rel="noreferrer"
-                              className="px-3 py-1 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 transition-colors text-[10px]"
+                              className="px-3 py-1 bg-primary text-primary-foreground rounded font-bold hover:bg-primary/90 transition-colors text-[10px]"
                             >
                               Tải về / Xem tệp
                             </a>
@@ -3677,7 +3677,7 @@ export function ClassOverviewPage() {
 
                       <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1.5 col-span-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Điểm số (0 - 10) *</label>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Điểm số (0 - 10) *</label>
                           <input
                             type="number"
                             step="0.1"
@@ -3686,18 +3686,18 @@ export function ClassOverviewPage() {
                             required
                             disabled={gradingSubmission.status === 'GRADED'}
                             placeholder="VD: 8.5"
-                            className="w-full border border-slate-200 disabled:bg-slate-50 disabled:text-slate-500 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                            className="w-full border border-border disabled:bg-muted/10 disabled:text-muted-foreground rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-primary text-foreground bg-background"
                             value={gradeValue}
                             onChange={(e) => setGradeValue(e.target.value)}
                           />
                         </div>
                         <div className="space-y-1.5 col-span-2">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nhận xét của giảng viên</label>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Nhận xét của giảng viên</label>
                           <input
                             type="text"
                             disabled={gradingSubmission.status === 'GRADED'}
                             placeholder={gradingSubmission.status === 'GRADED' ? "Không có nhận xét nào" : "Nhập nhận xét hoặc feedback..."}
-                            className="w-full border border-slate-200 disabled:bg-slate-50 disabled:text-slate-500 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                            className="w-full border border-border disabled:bg-muted/10 disabled:text-muted-foreground rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary text-foreground bg-background"
                             value={feedbackValue}
                             onChange={(e) => setFeedbackValue(e.target.value)}
                           />
@@ -3705,7 +3705,7 @@ export function ClassOverviewPage() {
                       </div>
                     </div>
 
-                    <div className="border-t border-slate-100 pt-4 mt-6 flex justify-end gap-2">
+                    <div className="border-t border-border pt-4 mt-6 flex justify-end gap-2">
                       {gradingSubmission.status !== 'GRADED' ? (
                         <Button
                           type="submit"
@@ -3716,22 +3716,22 @@ export function ClassOverviewPage() {
                           Lưu điểm & Khóa bài
                         </Button>
                       ) : (
-                        <span className="text-[10px] text-slate-400 italic py-2">
+                        <span className="text-[10px] text-muted-foreground italic py-2">
                           Bài nộp này đã được chấm và khóa chỉnh sửa.
                         </span>
                       )}
                     </div>
                   </form>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center gap-2 py-20">
-                    <Users className="w-8 h-8 text-slate-300" />
+                  <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-center gap-2 py-20">
+                    <Users className="w-8 h-8 text-muted-foreground/60" />
                     <p className="text-xs font-medium">Chọn một học sinh từ danh sách bên trái để chấm điểm.</p>
                   </div>
                 )}
               </div>
             </div>
 
-            <DialogFooter className="p-4 border-t border-slate-100 shrink-0 bg-white">
+            <DialogFooter className="p-4 border-t border-border shrink-0 bg-card">
               <Button type="button" onClick={() => {
                 setSelectedExerciseId(null);
                 setGradingSubmission(null);
