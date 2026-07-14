@@ -169,7 +169,20 @@ export function LearningPathFlow({
       const activeLevelForThisStage = activeLevelByStage.has(stage)
         ? activeLevelByStage.get(stage)
         : highlightLevel;
-      const dim = activeLevelForThisStage != null && n.level != null && n.level !== activeLevelForThisStage && n.studentStatus !== 'COMPLETED';
+
+      let doesNotApply = false;
+      if (activeLevelForThisStage != null) {
+        if (n.level != null) {
+          doesNotApply = n.level !== activeLevelForThisStage;
+        } else if (n.appliesLevels) {
+          const applies = n.appliesLevels.split(',').map(s => Number(s.trim())).filter(Boolean);
+          if (applies.length > 0) {
+            doesNotApply = !applies.includes(activeLevelForThisStage);
+          }
+        }
+      }
+
+      const dim = activeLevelForThisStage != null && doesNotApply && n.studentStatus !== 'COMPLETED';
       
       return {
         node: n,
