@@ -123,7 +123,7 @@ public class PopQuizIntegrationTest {
 
         Classroom classroom = classroomRepository.save(Classroom.builder()
                 .className("PQ101")
-                .status("active")
+                .status(com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE)
                 .isDeleted(false)
                 .build());
 

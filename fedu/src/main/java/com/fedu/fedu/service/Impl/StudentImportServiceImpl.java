@@ -46,6 +46,7 @@ public class StudentImportServiceImpl implements StudentImportService {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Classroom-subject not found with id: " + classroomSubjectId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(cs);
         String classLabel = buildClassLabel(cs);
 
         ImportStudentsResult result = ImportStudentsResult.builder().build();

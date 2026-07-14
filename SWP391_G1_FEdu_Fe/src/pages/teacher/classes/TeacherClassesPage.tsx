@@ -11,19 +11,7 @@ import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Input } from '../../../components/ui/input';
 import { Card, CardContent } from '../../../components/ui/card';
-
-const getStatusDetails = (status?: string) => {
-  switch (status) {
-    case 'active':
-      return { label: 'Đang hoạt động', bg: '#d1fae5', color: '#065f46' };
-    case 'inactive':
-      return { label: 'Chưa bắt đầu', bg: '#fef3c7', color: '#92400e' };
-    case 'completed':
-      return { label: 'Đã hoàn thành', bg: '#e0e7ff', color: '#3730a3' };
-    default:
-      return { label: 'Chưa bắt đầu', bg: '#fef3c7', color: '#92400e' };
-  }
-};
+import { getClassroomStatusMeta, formatSemester } from '../../../utils/classroom';
 
 export function TeacherClassesPage() {
   const navigate = useNavigate();
@@ -64,9 +52,10 @@ export function TeacherClassesPage() {
           classroomName: c.className,
           subjectId: c.subjectId,
           teacherId: c.lecturerId ?? 0,
-          semester: 'Summer 2026',
-          year: new Date().getFullYear(),
-          status: 'active',
+          term: c.term,
+          academicYear: c.academicYear,
+          semesterLabel: c.semesterLabel,
+          status: c.status,
           subjectCode: c.subjectCode,
           subjectName: c.subjectName,
           studentCount: c.studentCount,
@@ -231,7 +220,7 @@ export function TeacherClassesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClassrooms.map((classroom) => {
-            const statusBadge = getStatusDetails(classroom.status);
+            const statusBadge = getClassroomStatusMeta(classroom.status);
             const subjectInitials = (classroom.subjectCode || 'CL').slice(0, 2).toUpperCase();
 
             return (
@@ -252,8 +241,7 @@ export function TeacherClassesPage() {
                     </div>
                     {}
                     <span
-                      className="px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide border border-border bg-background"
-                      style={{ backgroundColor: statusBadge.bg, color: statusBadge.color, borderColor: 'transparent' }}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide border ${statusBadge.badgeClass}`}
                     >
                       {statusBadge.label}
                     </span>
@@ -274,7 +262,7 @@ export function TeacherClassesPage() {
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5" />
                       <span>
-                        Học kỳ: <span className="font-semibold text-foreground">{classroom.semester || '—'}</span>
+                        Học kỳ: <span className="font-semibold text-foreground">{formatSemester(classroom.term, classroom.academicYear, classroom.semesterLabel)}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { classroomService } from '../../services/classroom.service';
+import { getClassroomStatusMeta } from '../../utils/classroom';
 import { studentService, type SubmissionResponse } from '../../services/student.service';
 import { MaterialPreview, resolveAssetUrl } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
@@ -451,8 +452,18 @@ export function StudentCoursesPage() {
                   {}
                   <div>
                     <div className="flex justify-between items-start">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Lớp: {c.className}</span>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                        Lớp: {c.className}{c.semesterLabel ? ` · ${c.semesterLabel}` : ''}
+                      </span>
                       <div className="flex items-center gap-1.5">
+                        {(() => {
+                          const statusMeta = getClassroomStatusMeta(c.status);
+                          return (
+                            <Badge variant="outline" className={`text-[9px] font-extrabold border rounded-[6px] px-2 py-0.5 ${statusMeta.badgeClass}`}>
+                              {statusMeta.label}
+                            </Badge>
+                          );
+                        })()}
                         {c.isSubmentor && (
                           <Badge className="text-[9px] font-extrabold bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 hover:bg-teal-500/20 rounded-[6px] px-2 py-0.5 shadow-none">
                             Trợ giảng

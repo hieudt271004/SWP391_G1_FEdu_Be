@@ -44,6 +44,7 @@ public class SubmissionServiceImpl implements SubmissionService {
     public SubmissionResponse submit(Long exerciseId, Long studentId, CreateSubmissionRequest request, MultipartFile file) {
         NodeExercise exercise = getExercise(exerciseId);
         LearningNode node = exercise.getLearningNode();
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
         assertStudentEnrolledInNode(node, studentId);
 
         String text = request != null ? request.getContent() : null;

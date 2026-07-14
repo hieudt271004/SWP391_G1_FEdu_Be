@@ -13,6 +13,7 @@ import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.service.ClassroomService;
+import com.fedu.fedu.utils.enums.ClassroomStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,9 +40,10 @@ public class ClassroomServiceImpl implements ClassroomService {
 
         Classroom classroom = Classroom.builder()
                 .className(request.getClassName().trim())
-                .semester(request.getSemester())
+                .term(request.getTerm())
+                .academicYear(request.getAcademicYear())
                 .description(request.getDescription())
-                .status(request.getStatus() != null ? request.getStatus() : "inactive")
+                .status(ClassroomStatus.INACTIVE)
                 .isDeleted(false)
                 .build();
 
@@ -59,12 +61,35 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
 
         classroom.setClassName(request.getClassName().trim());
-        classroom.setSemester(request.getSemester());
+        classroom.setTerm(request.getTerm());
+        classroom.setAcademicYear(request.getAcademicYear());
         classroom.setDescription(request.getDescription());
-        if (request.getStatus() != null) {
-            classroom.setStatus(request.getStatus());
-        }
+        // Trạng thái vòng đời chỉ đổi qua updateClassroomStatus (admin), không qua update thông tin.
 
+        return toResponse(classroomRepository.save(classroom));
+    }
+
+    @Override
+    @Transactional
+    public ClassroomResponse updateClassroomStatus(Long classroomId, ClassroomStatus status) {
+        log.info("Updating classroom {} status -> {}", classroomId, status);
+        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
+
+        ClassroomStatus current = classroom.getStatus();
+        if (current == status) {
+            return toResponse(classroom);
+        }
+        // Chuyển hợp lệ: chưa bắt đầu -> hoạt động (bắt đầu), hoạt động -> hoàn thành (kết thúc),
+        // hoàn thành -> hoạt động (mở lại). Không cho quay về "chưa bắt đầu" sau khi đã bắt đầu.
+        boolean allowed = (current == ClassroomStatus.INACTIVE && status == ClassroomStatus.ACTIVE)
+                || (current == ClassroomStatus.ACTIVE && status == ClassroomStatus.COMPLETED)
+                || (current == ClassroomStatus.COMPLETED && status == ClassroomStatus.ACTIVE);
+        if (!allowed) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Không thể chuyển lớp từ trạng thái '" + current.getValue() + "' sang '" + status.getValue() + "'");
+        }
+        classroom.setStatus(status);
         return toResponse(classroomRepository.save(classroom));
     }
 
@@ -72,8 +97,12 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Transactional
     public void deleteClassroom(Long classroomId) {
         log.info("Deleting classroom id: {}", classroomId);
-        Classroom classroom = classroomRepository.findById(classroomId)
+        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
+        if (classroom.getStatus() != ClassroomStatus.INACTIVE) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Chỉ có thể xóa lớp chưa bắt đầu. Lớp đang hoạt động hoặc đã kết thúc không được xóa.");
+        }
         classroom.setIsDeleted(true);
         classroomRepository.save(classroom);
     }
@@ -81,7 +110,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public ClassroomResponse getClassroomById(Long classroomId) {
-        Classroom classroom = classroomRepository.findById(classroomId)
+        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
         return toResponse(classroom);
     }
@@ -173,7 +202,9 @@ public class ClassroomServiceImpl implements ClassroomService {
         return ClassroomResponse.builder()
                 .classroomId(classroom.getClassroomId())
                 .className(classroom.getClassName())
-                .semester(classroom.getSemester())
+                .term(classroom.getTerm())
+                .academicYear(classroom.getAcademicYear())
+                .semesterLabel(classroom.semesterLabel())
                 .description(classroom.getDescription())
                 .status(classroom.getStatus())
                 .subjectCount(subjectCount)
@@ -210,10 +241,14 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .subjectName(subject != null ? subject.getSubjectName() : null)
                 .lecturerId(lecturer != null ? lecturer.getUserId() : null)
                 .lecturerName(lecturerName)
-                .displayName(classroom != null && subject != null 
-                        ? classroom.getClassName() + " - " + subject.getSubjectCode() 
+                .displayName(classroom != null && subject != null
+                        ? classroom.getClassName() + " - " + subject.getSubjectCode()
                         : null)
                 .studentCount(studentCount)
+                .status(classroom != null ? classroom.getStatus() : null)
+                .term(classroom != null ? classroom.getTerm() : null)
+                .academicYear(classroom != null ? classroom.getAcademicYear() : null)
+                .semesterLabel(classroom != null ? classroom.semesterLabel() : null)
                 .build();
     }
 

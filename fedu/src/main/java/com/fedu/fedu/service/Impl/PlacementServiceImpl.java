@@ -69,6 +69,7 @@ public class PlacementServiceImpl implements PlacementService {
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubjectIdAndStudentIdForUpdate(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(css.getClassroomSubject());
 
         if (css.getCurrentLevel() != null) {
             throw new InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");

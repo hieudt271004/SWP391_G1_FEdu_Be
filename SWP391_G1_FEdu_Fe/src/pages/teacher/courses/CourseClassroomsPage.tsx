@@ -9,6 +9,7 @@ import { Subject } from '../../../types/subject';
 import { useAuth } from '../../../context/AuthContext';
 import { LearningPathManager } from '../../../components/learningPath/LearningPathManager';
 import { Badge } from '../../../components/ui/badge';
+import { formatSemester } from '../../../utils/classroom';
 
 export function CourseClassroomsPage() {
   const navigate = useNavigate();
@@ -48,8 +49,10 @@ export function CourseClassroomsPage() {
             classroomName: c.className,
             subjectId: c.subjectId,
             teacherId: c.lecturerId ?? 0,
-            semester: 'Summer 2026',
-            year: new Date().getFullYear(),
+            term: c.term,
+            academicYear: c.academicYear,
+            semesterLabel: c.semesterLabel,
+            status: c.status,
           }));
           setClassrooms(mapped);
         }
@@ -164,8 +167,10 @@ export function CourseClassroomsPage() {
                   </CardHeader>
                   <CardContent className="space-y-3 pb-2">
                     <div className="flex gap-4 text-xs text-muted-foreground">
-                      {classroom.semester && <div>Học kỳ: <span className="font-semibold text-foreground">{classroom.semester}</span></div>}
-                      {classroom.year && <div>Năm học: <span className="font-semibold text-foreground">{classroom.year}</span></div>}
+                      {(classroom.term || classroom.semesterLabel) && (
+                        <div>Học kỳ: <span className="font-semibold text-foreground">{formatSemester(classroom.term, classroom.academicYear, classroom.semesterLabel)}</span></div>
+                      )}
+                      {classroom.academicYear && <div>Năm học: <span className="font-semibold text-foreground">{classroom.academicYear}</span></div>}
                     </div>
                   </CardContent>
                   <CardFooter className="pt-2 border-t border-border">

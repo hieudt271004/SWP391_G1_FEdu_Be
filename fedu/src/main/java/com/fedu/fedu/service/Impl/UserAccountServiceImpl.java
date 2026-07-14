@@ -70,8 +70,8 @@ public class UserAccountServiceImpl implements UserAccountService {
         if (isTeacher) {
             List<ClassroomSubject> taughtClasses = classroomSubjectRepository.findByLecturerId(userAccount.getUserId());
             boolean hasActiveTaughtClass = taughtClasses.stream()
-                    .anyMatch(cs -> cs.getClassroom() != null 
-                            && "active".equalsIgnoreCase(cs.getClassroom().getStatus()) 
+                    .anyMatch(cs -> cs.getClassroom() != null
+                            && com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE == cs.getClassroom().getStatus()
                             && !Boolean.TRUE.equals(cs.getClassroom().getIsDeleted()));
             if (hasActiveTaughtClass) {
                 throw new InvalidDataException("Không thể xóa giảng viên đang giảng dạy lớp học đang hoạt động.");
@@ -84,9 +84,9 @@ public class UserAccountServiceImpl implements UserAccountService {
         if (isStudent) {
             List<ClassroomSubjectStudent> enrollments = classroomSubjectStudentRepository.findAllByStudentId(userAccount.getUserId());
             boolean hasActiveEnrollment = enrollments.stream()
-                    .anyMatch(css -> css.getClassroomSubject() != null 
-                            && css.getClassroomSubject().getClassroom() != null 
-                            && "active".equalsIgnoreCase(css.getClassroomSubject().getClassroom().getStatus())
+                    .anyMatch(css -> css.getClassroomSubject() != null
+                            && css.getClassroomSubject().getClassroom() != null
+                            && com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE == css.getClassroomSubject().getClassroom().getStatus()
                             && !Boolean.TRUE.equals(css.getClassroomSubject().getClassroom().getIsDeleted()));
             if (hasActiveEnrollment) {
                 throw new InvalidDataException("Không thể xóa học viên đang tham gia lớp học đang hoạt động.");

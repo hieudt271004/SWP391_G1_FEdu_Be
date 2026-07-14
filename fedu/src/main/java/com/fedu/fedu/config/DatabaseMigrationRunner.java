@@ -79,7 +79,21 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 }
             }
 
-            
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE classrooms ADD COLUMN IF NOT EXISTS term VARCHAR(20)");
+                statement.execute("ALTER TABLE classrooms ADD COLUMN IF NOT EXISTS academic_year INT");
+
+                statement.execute("UPDATE classrooms SET term = 'SPRING' WHERE term IS NULL AND semester ILIKE '%spring%'");
+                statement.execute("UPDATE classrooms SET term = 'SUMMER' WHERE term IS NULL AND semester ILIKE '%summer%'");
+                statement.execute("UPDATE classrooms SET term = 'FALL' WHERE term IS NULL AND (semester ILIKE '%fall%' OR semester ILIKE '%autumn%')");
+                statement.execute("UPDATE classrooms SET academic_year = CAST(substring(semester from '\\d{4}') AS INT) WHERE academic_year IS NULL AND semester ~ '\\d{4}'");
+                log.info("Classroom 'term'/'academic_year' columns added and back-filled from legacy 'semester'.");
+            } catch (Exception e) {
+                log.warn("Could not migrate classroom term/academic_year: {}", e.getMessage());
+            }
+
+
             boolean hasPublishedAt = false;
             try (ResultSet resultSet = metaData.getColumns(null, null, "learning_paths", "published_at")) {
                 if (resultSet.next()) {

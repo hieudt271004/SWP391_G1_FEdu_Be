@@ -144,6 +144,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         rejectPopQuiz(test);
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(test.getLearningNode());
         verifyStudentAccess(test.getLearningNode(), studentId);
         assertTestReleased(test);
         assertWithinReleaseWindow(test, 0);
@@ -188,6 +189,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     public AttemptSubmissionResultResponse submitTestAttempt(Long testId, Long attemptId, Long studentId, AttemptSubmissionRequest request) {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(test.getLearningNode());
 
         StudentTestAttempt attempt = studentTestAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Attempt not found with id: " + attemptId));
@@ -825,6 +827,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     public void completeNode(Long nodeId, Long studentId) {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
         verifyStudentAccess(node, studentId);
 
         

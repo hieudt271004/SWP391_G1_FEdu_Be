@@ -71,6 +71,7 @@ import {
   AttemptGradingDetail
 } from '../../../services/learningPath.service';
 import { slotService, SlotResponse } from '../../../services/slot.service';
+import { getClassroomStatusMeta } from '../../../utils/classroom';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -111,7 +112,6 @@ export function ClassOverviewPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [classroomStatus, setClassroomStatus] = useState<string>('inactive');
-  const [parentClassroomId, setParentClassroomId] = useState<number | null>(null);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
@@ -1124,11 +1124,10 @@ export function ClassOverviewPage() {
       setClassInfo({
         classCode: classData.className,
         courseCode: classData.subjectCode,
-        semester: fullClassroom.semester || '',
+        semester: fullClassroom.semesterLabel || '',
         description: fullClassroom.description || '',
       });
       setClassroomStatus(fullClassroom.status || 'inactive');
-      setParentClassroomId(fullClassroom.classroomId);
 
       if (!isMounted.current) return;
       const formatted = (studentsData ?? []).map((item) => ({
@@ -1158,27 +1157,7 @@ export function ClassOverviewPage() {
     }
   };
 
-  const handleUpdateStatus = async (newStatus: string) => {
-    if (!parentClassroomId) return;
-    const actionText = newStatus === 'active' ? 'bắt đầu' : 'kết thúc';
-    if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không? (Hành động này ảnh hưởng đến toàn bộ môn học trong lớp)`)) return;
-
-    try {
-      setActionState(newStatus === 'active' ? 'publishing' : 'unpublishing');
-      await classroomService.update(parentClassroomId, {
-        className: classInfo.classCode,
-        semester: classInfo.semester || '',
-        description: classInfo.description || '',
-        status: newStatus,
-      });
-      setClassroomStatus(newStatus);
-      toast.success(newStatus === 'active' ? 'Lớp học đã bắt đầu thành công!' : 'Lớp học đã kết thúc!');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Cập nhật trạng thái thất bại');
-    } finally {
-      setActionState('idle');
-    }
-  };
+  // Mở/đóng lớp là quyền của Admin — teacher chỉ xem trạng thái (badge ở header).
 
   useEffect(() => {
     initializedPathsRef.current.clear();
@@ -1749,27 +1728,12 @@ export function ClassOverviewPage() {
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-3">
             Class {classInfo.classCode} - {classInfo.courseCode}
             {(() => {
-              switch (classroomStatus) {
-                case 'active':
-                  return <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">Đang hoạt động</Badge>;
-                case 'completed':
-                  return <Badge className="bg-primary/10 text-primary border-primary/20">Đã hoàn thành</Badge>;
-                default:
-                  return <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">Chưa bắt đầu</Badge>;
-              }
+              const meta = getClassroomStatusMeta(classroomStatus);
+              return <Badge className={`border ${meta.badgeClass}`}>{meta.label}</Badge>;
             })()}
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          {classroomStatus === 'inactive' && (
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
-              onClick={() => handleUpdateStatus('active')}
-              disabled={isNonIdle}
-            >
-              Bắt đầu lớp học
-            </Button>
-          )}
           {}
           {graphData?.state === 'DRAFT' && (
             <Button

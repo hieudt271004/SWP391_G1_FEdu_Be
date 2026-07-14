@@ -55,6 +55,7 @@ public class PopQuizServiceImpl implements PopQuizService {
         if (cs == null) {
             throw new InvalidDataException("Buổi học này thuộc lộ trình mẫu, không thể giao pop quiz");
         }
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(cs);
         if (cs.getLecturer().getUserId() != teacherId) {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
         }

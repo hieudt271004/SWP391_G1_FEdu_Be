@@ -1,5 +1,7 @@
 package com.fedu.fedu.dto.res;
 
+import com.fedu.fedu.utils.enums.ClassroomStatus;
+import com.fedu.fedu.utils.enums.Term;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,7 +20,13 @@ public class ClassroomSubjectResponse {
     private String subjectName;
     private Long lecturerId;
     private String lecturerName;
-    private String displayName;   
+    private String displayName;
     private int studentCount;
     private Boolean isSubmentor;
+
+    /** Trạng thái + "Kì học" của lớp cha — để list phía giảng viên hiển thị đúng thay vì bịa. */
+    private ClassroomStatus status;
+    private Term term;
+    private Integer academicYear;
+    private String semesterLabel;
 }

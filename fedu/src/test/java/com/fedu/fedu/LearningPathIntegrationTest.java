@@ -166,14 +166,14 @@ public class LearningPathIntegrationTest {
             
             classroomA = classroomRepository.save(Classroom.builder()
                     .className("Class A")
-                    .status("active")
+                    .status(com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE)
                     .isDeleted(false)
                     .build());
 
-            
+
             classroomB = classroomRepository.save(Classroom.builder()
                     .className("Class B")
-                    .status("active")
+                    .status(com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE)
                     .isDeleted(false)
                     .build());
 

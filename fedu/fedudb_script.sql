@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS classrooms (
                                           classroom_id BIGSERIAL PRIMARY KEY,
                                           class_name   VARCHAR(255) NOT NULL UNIQUE,
                                           semester     VARCHAR(50),
+                                          term          VARCHAR(20),
+                                          academic_year INT,
                                           description  TEXT,
                                           status       VARCHAR(50) NOT NULL DEFAULT 'inactive',
                                           is_deleted   BOOLEAN DEFAULT FALSE,

@@ -7,12 +7,14 @@ import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import { toast } from "sonner";
+import { TERM_OPTIONS, type Term } from "../../utils/classroom";
+import type { ClassroomRequest } from "../../types/classroom";
 
 interface ClassForm {
   className: string;
-  semester: string;
+  term: string;
+  academicYear: string;
   description: string;
-  status?: string;
 }
 
 export function AddClassPage() {
@@ -22,9 +24,9 @@ export function AddClassPage() {
 
   const [form, setForm] = useState<ClassForm>({
     className: "",
-    semester: "",
+    term: "",
+    academicYear: "",
     description: "",
-    status: "inactive",
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -38,9 +40,9 @@ export function AddClassPage() {
         const data = await classroomService.getById(Number(id));
         setForm({
           className: data.className || "",
-          semester: data.semester || "",
+          term: data.term || "",
+          academicYear: data.academicYear != null ? String(data.academicYear) : "",
           description: data.description || "",
-          status: data.status || "inactive",
         });
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Tải dữ liệu thất bại");
@@ -63,12 +65,18 @@ export function AddClassPage() {
     try {
       setSubmitting(true);
       setError(null);
+      const payload: ClassroomRequest = {
+        className: form.className.trim(),
+        term: form.term ? (form.term as Term) : null,
+        academicYear: form.academicYear ? Number(form.academicYear) : null,
+        description: form.description,
+      };
       if (isEdit) {
-        await classroomService.update(Number(id), form);
+        await classroomService.update(Number(id), payload);
         toast.success(`Đã cập nhật lớp học "${form.className.trim()}" thành công.`);
         navigate("/admin/classes");
       } else {
-        const newClass = await classroomService.create(form);
+        const newClass = await classroomService.create(payload);
         toast.success(`Đã tạo lớp học "${form.className.trim()}" thành công.`);
         navigate(`/admin/classes/${newClass.classroomId}?addSubject=true`);
       }
@@ -143,32 +151,32 @@ export function AddClassPage() {
                 <label className="block text-sm font-semibold text-foreground">
                   Học kỳ
                 </label>
-                <Input
-                  type="text"
-                  value={form.semester}
-                  onChange={(e) => handleChange("semester", e.target.value)}
-                  placeholder="VD: Fall 2024"
-                />
+                <select
+                  value={form.term}
+                  onChange={(e) => handleChange("term", e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-foreground"
+                >
+                  <option value="">— Chọn học kỳ —</option>
+                  {TERM_OPTIONS.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
               </div>
 
               {}
-              {isEdit && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground">
-                    Trạng thái lớp học
-                  </label>
-                  <select
-                    value={form.status || "inactive"}
-                    onChange={(e) => handleChange("status", e.target.value)}
-                    disabled={form.status === "inactive"}
-                    className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
-                  >
-                    <option value="inactive">Chưa bắt đầu (Giảng viên sẽ kích hoạt)</option>
-                    <option value="active">Đang hoạt động</option>
-                    <option value="completed">Đã hoàn thành</option>
-                  </select>
-                </div>
-              )}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">
+                  Năm học
+                </label>
+                <Input
+                  type="number"
+                  min={2000}
+                  max={2100}
+                  value={form.academicYear}
+                  onChange={(e) => handleChange("academicYear", e.target.value)}
+                  placeholder="VD: 2024"
+                />
+              </div>
 
               {}
               <div className="md:col-span-2 space-y-2">

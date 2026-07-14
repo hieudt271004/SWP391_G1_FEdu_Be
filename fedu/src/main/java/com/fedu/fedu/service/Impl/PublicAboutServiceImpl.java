@@ -123,14 +123,14 @@ public class PublicAboutServiceImpl implements PublicAboutService {
         ).collect(Collectors.toList());
 
         List<Object[]> classroomsRaw = entityManager.createNativeQuery(
-                "SELECT classroom_id, class_name, semester " +
+                "SELECT classroom_id, class_name, term, academic_year " +
                 "FROM classrooms " +
                 "WHERE is_deleted = false OR is_deleted IS NULL").getResultList();
-        List<AboutFeaturesResponse.ClassroomDto> classroomList = classroomsRaw.stream().map(row -> 
+        List<AboutFeaturesResponse.ClassroomDto> classroomList = classroomsRaw.stream().map(row ->
             AboutFeaturesResponse.ClassroomDto.builder()
                 .classroomId(((Number) row[0]).longValue())
                 .className((String) row[1])
-                .semester((String) row[2])
+                .semester(buildSemesterLabel((String) row[2], (Number) row[3]))
                 .build()
         ).collect(Collectors.toList());
 
@@ -171,5 +171,19 @@ public class PublicAboutServiceImpl implements PublicAboutService {
                 .materials(materialList)
                 .questions(questionList)
                 .build();
+    }
+
+    /** Dựng nhãn "Kì học" từ cột term (tên enum) + năm học, ví dụ "Fall 2024". */
+    private static String buildSemesterLabel(String termRaw, Number academicYear) {
+        if (termRaw == null || termRaw.isBlank()) {
+            return null;
+        }
+        String label;
+        try {
+            label = com.fedu.fedu.utils.enums.Term.valueOf(termRaw.trim().toUpperCase()).getLabel();
+        } catch (IllegalArgumentException ex) {
+            label = termRaw;
+        }
+        return academicYear != null ? label + " " + academicYear.intValue() : label;
     }
 }
