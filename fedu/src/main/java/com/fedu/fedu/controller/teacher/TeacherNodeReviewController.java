@@ -28,7 +28,7 @@ public class TeacherNodeReviewController {
     private final NodeReviewService nodeReviewService;
 
     @Operation(summary = "Xem tổng hợp đánh giá của một node mình phụ trách")
-    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_TEACHER', 'ROLE_ADMIN')")
     @GetMapping("/learning-nodes/{nodeId}/reviews")
     public ResponseData<NodeReviewSummaryResponse> getReviews(
             @PathVariable Long nodeId,
@@ -38,7 +38,7 @@ public class TeacherNodeReviewController {
     }
 
     @Operation(summary = "Giảng viên gửi thảo luận (comment) cho một bài học")
-    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_TEACHER', 'ROLE_ADMIN')")
     @PostMapping("/learning-nodes/{nodeId}/comments")
     public ResponseData<NodeReviewResponse> createComment(
             @PathVariable Long nodeId,
@@ -50,7 +50,7 @@ public class TeacherNodeReviewController {
     }
 
     @Operation(summary = "Giảng viên phản hồi (reply) một đánh giá hoặc thảo luận khác")
-    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_TEACHER', 'ROLE_ADMIN')")
     @PostMapping("/learning-nodes/{nodeId}/comments/{commentId}/replies")
     public ResponseData<NodeReviewResponse> reply(
             @PathVariable Long nodeId,
@@ -63,7 +63,7 @@ public class TeacherNodeReviewController {
     }
 
     @Operation(summary = "Giảng viên xóa thảo luận gốc của chính mình")
-    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_TEACHER', 'ROLE_ADMIN')")
     @DeleteMapping("/comments/{commentId}")
     public ResponseData<Void> deleteComment(
             @PathVariable Long commentId,
@@ -73,7 +73,7 @@ public class TeacherNodeReviewController {
     }
 
     @Operation(summary = "Giảng viên xóa reply của chính mình")
-    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @PreAuthorize("hasAnyAuthority('ROLE_TEACHER', 'ROLE_ADMIN')")
     @DeleteMapping("/replies/{replyId}")
     public ResponseData<Void> deleteReply(
             @PathVariable Long replyId,

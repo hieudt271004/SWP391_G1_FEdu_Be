@@ -38,6 +38,13 @@ public class ClassroomServiceImpl implements ClassroomService {
     public ClassroomResponse createClassroom(ClassroomRequest request) {
         log.info("Creating classroom '{}'", request.getClassName());
 
+        if (request.getTerm() != null && request.getAcademicYear() != null) {
+            SemesterRelation relation = getSemesterRelation(request.getTerm(), request.getAcademicYear());
+            if (relation == SemesterRelation.PAST) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Không thể tạo lớp học với học kỳ trong quá khứ.");
+            }
+        }
+
         Classroom classroom = Classroom.builder()
                 .className(request.getClassName().trim())
                 .term(request.getTerm())
@@ -59,6 +66,25 @@ public class ClassroomServiceImpl implements ClassroomService {
         assertTeacherOwnsClassroom(classroomId);
         Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
+
+        if (classroom.getStatus() == ClassroomStatus.COMPLETED) {
+            if (classroom.getTerm() != request.getTerm() || !java.util.Objects.equals(classroom.getAcademicYear(), request.getAcademicYear())) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Không thể chỉnh sửa học kỳ của lớp học đã kết thúc.");
+            }
+        }
+
+        if (request.getTerm() != null && request.getAcademicYear() != null) {
+            SemesterRelation relation = getSemesterRelation(request.getTerm(), request.getAcademicYear());
+            if (classroom.getStatus() == ClassroomStatus.ACTIVE) {
+                if (relation != SemesterRelation.PRESENT) {
+                    throw new com.fedu.fedu.exception.InvalidDataException("Lớp học đang hoạt động chỉ có thể chọn học kỳ hiện tại.");
+                }
+            } else if (classroom.getStatus() == ClassroomStatus.INACTIVE) {
+                if (relation == SemesterRelation.PAST) {
+                    throw new com.fedu.fedu.exception.InvalidDataException("Không thể lưu lớp học với học kỳ trong quá khứ.");
+                }
+            }
+        }
 
         classroom.setClassName(request.getClassName().trim());
         classroom.setTerm(request.getTerm());
@@ -89,6 +115,20 @@ public class ClassroomServiceImpl implements ClassroomService {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Không thể chuyển lớp từ trạng thái '" + current.getValue() + "' sang '" + status.getValue() + "'");
         }
+
+        if (status == ClassroomStatus.ACTIVE) {
+            if (classroom.getTerm() == null || classroom.getAcademicYear() == null) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Vui lòng thiết lập học kỳ trước khi bắt đầu lớp học.");
+            }
+            SemesterRelation relation = getSemesterRelation(classroom.getTerm(), classroom.getAcademicYear());
+            if (relation == SemesterRelation.FUTURE) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Không thể bắt đầu lớp học thuộc học kỳ tương lai.");
+            }
+            if (relation == SemesterRelation.PAST) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Không thể bắt đầu lớp học thuộc học kỳ quá khứ.");
+            }
+        }
+
         classroom.setStatus(status);
         return toResponse(classroomRepository.save(classroom));
     }
@@ -264,6 +304,51 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Unauthorized"));
         if (!classroomSubjectRepository.existsByClassroomClassroomIdAndLecturerUserId(classroomId, actor.getUserId())) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không giảng dạy lớp học này");
+        }
+    }
+
+    private enum SemesterRelation {
+        PAST, PRESENT, FUTURE
+    }
+
+    private int getTermValue(com.fedu.fedu.utils.enums.Term term) {
+        if (term == null) return 0;
+        switch (term) {
+            case SPRING: return 1;
+            case SUMMER: return 2;
+            case FALL: return 3;
+            default: return 0;
+        }
+    }
+
+    private SemesterRelation getSemesterRelation(com.fedu.fedu.utils.enums.Term targetTerm, Integer targetYear) {
+        if (targetTerm == null || targetYear == null) {
+            return SemesterRelation.PRESENT;
+        }
+        java.time.LocalDate now = java.time.LocalDate.now();
+        int currentYear = now.getYear();
+        int currentMonth = now.getMonthValue();
+        int currentTermVal = 1;
+        if (currentMonth >= 5 && currentMonth <= 8) {
+            currentTermVal = 2;
+        } else if (currentMonth >= 9 && currentMonth <= 12) {
+            currentTermVal = 3;
+        }
+
+        int targetTermVal = getTermValue(targetTerm);
+
+        if (targetYear < currentYear) {
+            return SemesterRelation.PAST;
+        } else if (targetYear > currentYear) {
+            return SemesterRelation.FUTURE;
+        } else {
+            if (targetTermVal < currentTermVal) {
+                return SemesterRelation.PAST;
+            } else if (targetTermVal > currentTermVal) {
+                return SemesterRelation.FUTURE;
+            } else {
+                return SemesterRelation.PRESENT;
+            }
         }
     }
 }
