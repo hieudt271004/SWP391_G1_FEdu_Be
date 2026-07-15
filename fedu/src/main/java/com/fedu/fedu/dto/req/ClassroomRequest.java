@@ -17,7 +17,7 @@ public class ClassroomRequest {
     private String className;
 
     /** "Kì học": học kỳ (SPRING/SUMMER/FALL). */
-    private Term term;
+    private String term;
 
     /** "Kì học": năm học, ví dụ 2024. */
     private Integer academicYear;

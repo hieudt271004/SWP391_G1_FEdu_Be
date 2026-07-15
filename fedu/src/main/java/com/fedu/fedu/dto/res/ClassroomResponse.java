@@ -18,7 +18,7 @@ public class ClassroomResponse {
     private String className;
 
     /** "Kì học" tách cấu trúc. */
-    private Term term;
+    private String term;
     private Integer academicYear;
     /** Nhãn hiển thị dựng sẵn cho FE, ví dụ "Fall 2024" (null nếu chưa đặt). */
     private String semesterLabel;

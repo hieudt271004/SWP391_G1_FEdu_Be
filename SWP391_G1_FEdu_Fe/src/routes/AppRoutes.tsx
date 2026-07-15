@@ -32,6 +32,7 @@ import { ClassDetailPage } from '../pages/admin/ClassDetailPage';
 import { ClassroomSubjectDetailPage } from '../pages/admin/ClassroomSubjectDetailPage';
 import { AddClassPage } from '../pages/admin/AddClassPage';
 import { SlotManagementPage } from '../pages/admin/SlotManagementPage';
+import { SemesterManagementPage } from '../pages/admin/SemesterManagementPage';
 
 
 import { TeacherDashboardPage } from '../pages/teacher/TeacherDashboardPage';
@@ -140,6 +141,9 @@ export function AppRoutes() {
 
                 {}
                 <Route path="/admin/slots" element={<SlotManagementPage />} />
+
+                {}
+                <Route path="/admin/semesters" element={<SemesterManagementPage />} />
 
                 {}
                 <Route path="/admin/profile" element={<ProfileEditPage />} />

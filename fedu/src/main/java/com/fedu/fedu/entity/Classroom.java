@@ -22,10 +22,8 @@ public class Classroom extends AbstractEntity<Long> {
     @Column(name = "class_name", nullable = false)
     private String className;
 
-    /** "Kì học" tách cấu trúc: học kỳ (Spring/Summer/Fall). */
-    @Enumerated(EnumType.STRING)
     @Column(name = "term", length = 20)
-    private Term term;
+    private String term;
 
     /** "Kì học" tách cấu trúc: năm học, ví dụ 2024. */
     @Column(name = "academic_year")
@@ -49,6 +47,10 @@ public class Classroom extends AbstractEntity<Long> {
         if (term == null) {
             return null;
         }
-        return academicYear != null ? term.getLabel() + " " + academicYear : term.getLabel();
+        String label = term;
+        if ("SPRING".equalsIgnoreCase(term)) label = "Spring";
+        else if ("SUMMER".equalsIgnoreCase(term)) label = "Summer";
+        else if ("FALL".equalsIgnoreCase(term)) label = "Fall";
+        return academicYear != null ? label + " " + academicYear : label;
     }
 }

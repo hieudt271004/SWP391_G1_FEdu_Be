@@ -26,7 +26,7 @@ public class ClassroomSubjectResponse {
 
     /** Trạng thái + "Kì học" của lớp cha — để list phía giảng viên hiển thị đúng thay vì bịa. */
     private ClassroomStatus status;
-    private Term term;
+    private String term;
     private Integer academicYear;
     private String semesterLabel;
 }
