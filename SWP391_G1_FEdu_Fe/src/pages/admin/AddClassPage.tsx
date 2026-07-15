@@ -7,8 +7,18 @@ import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import { toast } from "sonner";
-import { TERM_OPTIONS, type Term } from "../../utils/classroom";
 import type { ClassroomRequest } from "../../types/classroom";
+import { semesterService } from "../../services/semester.service";
+import type { SemesterResponse } from "../../types/semester";
+import { type Term } from "../../utils/classroom";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
+
 
 interface ClassForm {
   className: string;
@@ -32,29 +42,51 @@ export function AddClassPage() {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
+  const [semesters, setSemesters] = useState<SemesterResponse[]>([]);
 
   useEffect(() => {
-    if (!isEdit) return;
     const fetchData = async () => {
       try {
-        const data = await classroomService.getById(Number(id));
-        setForm({
-          className: data.className || "",
-          term: data.term || "",
-          academicYear: data.academicYear != null ? String(data.academicYear) : "",
-          description: data.description || "",
-        });
+        setLoading(true);
+        setError(null);
+
+        const semData = await semesterService.getAll();
+        setSemesters(semData || []);
+
+        if (isEdit) {
+          const data = await classroomService.getById(Number(id));
+          setForm({
+            className: data.className || "",
+            term: data.term || "",
+            academicYear: data.academicYear != null ? String(data.academicYear) : "",
+            description: data.description || "",
+          });
+        }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Tải dữ liệu thất bại");
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
   }, [id, isEdit]);
 
   const handleChange = (field: keyof ClassForm, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSemesterChange = (selectedValue: string) => {
+    if (!selectedValue) {
+      setForm(prev => ({ ...prev, term: "", academicYear: "" }));
+      return;
+    }
+    const [termVal, yearVal] = selectedValue.split("|");
+    setForm(prev => ({
+      ...prev,
+      term: termVal,
+      academicYear: yearVal,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,32 +181,38 @@ export function AddClassPage() {
               {}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
-                  Học kỳ
+                  Học kỳ <span className="text-destructive">*</span>
                 </label>
-                <select
-                  value={form.term}
-                  onChange={(e) => handleChange("term", e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] text-foreground"
+                <Select
+                  value={form.term && form.academicYear ? `${form.term}|${form.academicYear}` : ""}
+                  onValueChange={(val) => handleSemesterChange(val)}
                 >
-                  <option value="">— Chọn học kỳ —</option>
-                  {TERM_OPTIONS.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-input-background text-foreground border-input">
+                    <SelectValue placeholder="— Chọn học kỳ đã cấu hình —" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover text-popover-foreground border-border">
+                    {semesters.map((sem) => (
+                      <SelectItem
+                        key={sem.semesterId}
+                        value={`${sem.term}|${sem.academicYear}`}
+                      >
+                        {sem.semesterLabel}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
                   Năm học
                 </label>
                 <Input
                   type="number"
-                  min={2000}
-                  max={2100}
                   value={form.academicYear}
-                  onChange={(e) => handleChange("academicYear", e.target.value)}
-                  placeholder="VD: 2024"
+                  readOnly
+                  placeholder="Tự động điền theo học kỳ"
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
                 />
               </div>
 

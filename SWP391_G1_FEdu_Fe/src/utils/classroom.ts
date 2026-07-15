@@ -1,8 +1,5 @@
-// Nguồn chân lý duy nhất cho trạng thái lớp học + "Kì học" (term + năm) ở phía FE.
-// Thay cho các hàm getStatusBadge/getStatusDetails từng bị copy-paste ở nhiều trang.
-
 export type ClassroomStatus = 'inactive' | 'active' | 'completed';
-export type Term = 'SPRING' | 'SUMMER' | 'FALL';
+export type Term = string;
 
 interface StatusMeta {
   label: string;
@@ -30,7 +27,7 @@ export function getClassroomStatusMeta(status?: string | null): StatusMeta {
   return CLASSROOM_STATUS_META[(status as ClassroomStatus)] ?? CLASSROOM_STATUS_META.inactive;
 }
 
-export const TERM_LABELS: Record<Term, string> = {
+export const TERM_LABELS: Record<string, string> = {
   SPRING: 'Spring',
   SUMMER: 'Summer',
   FALL: 'Fall',
