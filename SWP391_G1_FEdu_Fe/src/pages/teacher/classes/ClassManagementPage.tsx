@@ -34,7 +34,8 @@ import {
   Users,
   Undo2,
   Play,
-  Settings
+  Settings,
+  Code2
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -167,6 +168,13 @@ export function ClassManagementPage() {
   
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [nodeContentsLoading, setNodeContentsLoading] = useState<Record<number, boolean>>({});
+
+  // Exercise States
+  const [editingExercise, setEditingExercise] = useState<any | null>(null);
+  const [exTitle, setExTitle] = useState("");
+  const [exInstr, setExInstr] = useState("");
+  const [exAllowText, setExAllowText] = useState(true);
+  const [exAllowFile, setExAllowFile] = useState(true);
 
   
   const [contentType, setContentType] = useState<'MATERIAL' | 'TEST'>('MATERIAL');
@@ -479,6 +487,11 @@ export function ClassManagementPage() {
   const handleSelectNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
     setEditingNodeTest(null);
+    setEditingExercise(null);
+    setExTitle("");
+    setExInstr("");
+    setExAllowText(true);
+    setExAllowFile(true);
     await fetchNodeContent(node.nodeId);
 
     setLoadingNodeStudents(true);
@@ -755,6 +768,73 @@ export function ClassManagementPage() {
     } catch (err: any) {
       console.error('Lỗi khi xóa tài liệu:', err);
       toast.error(err.response?.data?.message || 'Không thể xóa tài liệu');
+    }
+  };
+
+  const startEditingExercise = (ex: any) => {
+    setEditingExercise(ex);
+    setExTitle(ex.title);
+    setExInstr(ex.instructions || "");
+    setExAllowText(ex.allowText);
+    setExAllowFile(ex.allowFile);
+  };
+
+  const cancelEditingExercise = () => {
+    setEditingExercise(null);
+    setExTitle("");
+    setExInstr("");
+    setExAllowText(true);
+    setExAllowFile(true);
+  };
+
+  const addExercise = async () => {
+    if (!selectedNode || !exTitle.trim()) {
+      toast.error("Nhập tiêu đề bài tập");
+      return;
+    }
+    if (!exAllowText && !exAllowFile) {
+      toast.error("Chọn ít nhất một hình thức nộp (tự luận hoặc file)");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingExercise) {
+        await learningPathService.updateTeacherNodeExercise(editingExercise.exerciseId, {
+          title: exTitle.trim(),
+          instructions: exInstr.trim() || undefined,
+          allowText: exAllowText,
+          allowFile: exAllowFile,
+          type: 'EXERCISE'
+        });
+        toast.success("Đã cập nhật bài tập");
+      } else {
+        await learningPathService.addTeacherNodeExercise(selectedNode.nodeId, {
+          title: exTitle.trim(),
+          instructions: exInstr.trim() || undefined,
+          allowText: exAllowText,
+          allowFile: exAllowFile,
+          type: 'EXERCISE'
+        });
+        toast.success("Đã thêm bài tập");
+      }
+      cancelEditingExercise();
+      await fetchNodeContent(selectedNode.nodeId);
+    } catch {
+      toast.error(editingExercise ? "Không cập nhật được bài tập" : "Không thêm được bài tập");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeExercise = async (exerciseId: number) => {
+    if (!selectedNode) return;
+    if (!window.confirm("Bạn có chắc chắn muốn xóa bài tập này không?")) return;
+    try {
+      await learningPathService.deleteTeacherNodeExercise(exerciseId);
+      toast.success("Xóa bài tập thành công!");
+      await fetchNodeContent(selectedNode.nodeId);
+    } catch {
+      toast.error("Không xóa được bài tập");
     }
   };
 
@@ -1653,6 +1733,79 @@ export function ClassManagementPage() {
                               </div>
                             )}
                           </div>
+
+                          {/* Bài tập thực hành (Sao chép y hệt Admin) */}
+                          <section className="lp-exercise-section bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border mt-4">
+                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                              <Code2 className="w-4 h-4 text-primary shrink-0" />
+                              <span>Bài tập thực hành</span>
+                            </div>
+                            {nodeContentsLoading[selectedNode.nodeId] ? (
+                              <p className="text-xs text-muted-foreground">Đang tải…</p>
+                            ) : (
+                              <ul className="space-y-1">
+                                {(nodeContents[selectedNode.nodeId]?.exercises ?? []).map((ex) => (
+                                  <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-muted px-2.5 py-1.5 text-sm border border-border">
+                                    <div className="min-w-0">
+                                      <p className="truncate font-medium text-foreground">{ex.title}</p>
+                                      <div className="mt-0.5 flex flex-wrap gap-1">
+                                        {ex.allowText && (
+                                          <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground border border-border">Tự luận</span>
+                                        )}
+                                        {ex.allowFile && (
+                                          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Nộp file</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <button
+                                        disabled={isPublished}
+                                        onClick={() => startEditingExercise(ex)}
+                                        className="text-xs text-primary hover:underline disabled:opacity-50"
+                                      >
+                                        sửa
+                                      </button>
+                                      <button
+                                        disabled={isPublished}
+                                        onClick={() => removeExercise(ex.exerciseId)}
+                                        className="text-xs text-rose-500 hover:underline disabled:opacity-50"
+                                      >
+                                        xóa
+                                      </button>
+                                    </div>
+                                  </li>
+                                ))}
+                                {(nodeContents[selectedNode.nodeId]?.exercises ?? []).length === 0 && <p className="text-xs text-muted-foreground">Chưa có bài tập.</p>}
+                              </ul>
+                            )}
+                            <div className="mt-2 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                                {editingExercise ? "Sửa bài tập" : "Thêm bài tập"}
+                              </p>
+                              <input className="lp-input" placeholder="Tiêu đề bài tập" disabled={isPublished} value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
+                              <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" disabled={isPublished} value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <label className="flex cursor-pointer items-center gap-1.5">
+                                  <input type="checkbox" disabled={isPublished} checked={exAllowText} onChange={(e) => setExAllowText(e.target.checked)} />
+                                  Tự luận
+                                </label>
+                                <label className="flex cursor-pointer items-center gap-1.5">
+                                  <input type="checkbox" disabled={isPublished} checked={exAllowFile} onChange={(e) => setExAllowFile(e.target.checked)} />
+                                  Nộp file
+                                </label>
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={addExercise} disabled={saving || isPublished} className="flex-1 rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                                  {editingExercise ? "Cập nhật bài tập" : "Thêm bài tập"}
+                                </button>
+                                {editingExercise && (
+                                  <button onClick={cancelEditingExercise} className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold hover:bg-muted bg-transparent text-foreground">
+                                    Hủy
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </section>
                         </div>
                       </>
                     )}
@@ -2519,6 +2672,19 @@ export function ClassManagementPage() {
         .lp-input {
           color: var(--foreground) !important;
           background-color: var(--background) !important;
+        }
+        .lp-exercise-section .lp-input {
+          width: 100%;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 6px 10px;
+          font-size: 14px;
+          outline: none;
+          color: var(--foreground) !important;
+          background-color: var(--muted) !important;
+        }
+        .lp-exercise-section .lp-input:focus {
+          border-color: var(--primary);
         }
       `}</style>
     </div>
