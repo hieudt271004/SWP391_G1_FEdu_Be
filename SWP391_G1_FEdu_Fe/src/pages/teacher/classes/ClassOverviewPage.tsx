@@ -1717,6 +1717,12 @@ export function ClassOverviewPage() {
   }
 
   const isNonIdle = actionState !== 'idle';
+  const classroomActive = classroomStatus === 'active';
+  const publishBlockedReason = classroomStatus === 'inactive'
+    ? 'Lớp chưa bắt đầu — admin cần bắt đầu lớp trước khi publish lộ trình.'
+    : classroomStatus === 'completed'
+      ? 'Lớp đã kết thúc — chỉ có thể xem.'
+      : null;
 
   return (
     <div className={`space-y-6 ${isNonIdle ? 'pointer-events-none opacity-60' : ''}`} aria-busy={isNonIdle}>
@@ -1739,7 +1745,8 @@ export function ClassOverviewPage() {
             <Button
               className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
               onClick={() => setShowPublishConfirm(true)}
-              disabled={isNonIdle}
+              disabled={isNonIdle || !classroomActive}
+              title={publishBlockedReason ?? undefined}
             >
               <Play className="size-4" />
               Publish lộ trình
@@ -1750,7 +1757,8 @@ export function ClassOverviewPage() {
               variant="outline"
               className="text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200 font-semibold rounded-xl flex items-center gap-1.5"
               onClick={() => setShowUnpublishConfirm(true)}
-              disabled={isNonIdle}
+              disabled={isNonIdle || classroomStatus === 'completed'}
+              title={classroomStatus === 'completed' ? 'Lớp đã kết thúc — chỉ có thể xem.' : undefined}
             >
               <Undo2 className="size-4" />
               Unpublish lộ trình
@@ -1758,6 +1766,13 @@ export function ClassOverviewPage() {
           )}
         </div>
       </div>
+
+      {graphData?.state === 'DRAFT' && publishBlockedReason && (
+        <div className="text-sm text-amber-700 bg-amber-50 py-2 px-3 rounded-md border border-amber-200">
+          {publishBlockedReason}
+          {classroomStatus === 'inactive' && ' Bạn vẫn có thể chuẩn bị và chỉnh sửa lộ trình nháp trước.'}
+        </div>
+      )}
 
       {}
       {graphData?.state === 'NO_PATH' && (
@@ -1909,7 +1924,8 @@ export function ClassOverviewPage() {
                 </div>
                 <Button
                   onClick={() => (graphData?.state === 'DRAFT' ? setShowApplyTemplateConfirm(true) : handleApplyTemplate())}
-                  disabled={isNonIdle || !selectedTemplateId}
+                  disabled={isNonIdle || !selectedTemplateId || classroomStatus === 'completed'}
+                  title={classroomStatus === 'completed' ? 'Lớp đã kết thúc — chỉ có thể xem.' : undefined}
                   className="shrink-0 rounded-xl font-semibold"
                 >
                   {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}

@@ -12,6 +12,7 @@ import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ScheduleConflictException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
+import com.fedu.fedu.utils.ClassroomGuards;
 import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.NodeStatus;
 import com.fedu.fedu.utils.enums.NodeType;
@@ -173,6 +174,7 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
+        ClassroomGuards.assertOpen(cs);
 
         List<LearningPath> existingPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (!existingPaths.isEmpty()) {
@@ -198,8 +200,9 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
+        ClassroomGuards.assertOpen(cs);
 
-        
+
         LearningPath template = resolveTemplateForClone(cs, templatePathId);
 
         
@@ -906,6 +909,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         assertTeacherOwnsClassroomSubject(classroomSubjectId);
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lớp-môn học không tồn tại"));
+        ClassroomGuards.assertActive(cs);
         if (cs.getQuizStart() == null) {
             throw new InvalidDataException("Vui lòng khởi tạo và cấu hình bài test phân loại đầu vào trước khi xuất bản lộ trình.");
         }
@@ -1072,6 +1076,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public void unpublishClassroomPath(Long classroomSubjectId, Long pathId) {
         assertTeacherOwnsClassroomSubject(classroomSubjectId);
+        ClassroomGuards.assertOpen(classroomSubjectRepository.findById(classroomSubjectId).orElse(null));
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (paths.isEmpty()) {
             throw new ResourceNotFoundException("No learning paths found for this classroom subject");
@@ -1099,6 +1104,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public void deleteDraftPath(Long classroomSubjectId, Long pathId) {
         assertTeacherOwnsClassroomSubject(classroomSubjectId);
+        ClassroomGuards.assertOpen(classroomSubjectRepository.findById(classroomSubjectId).orElse(null));
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (paths.isEmpty()) {
             throw new ResourceNotFoundException("No learning paths found for this classroom subject");
