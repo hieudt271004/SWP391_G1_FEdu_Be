@@ -287,8 +287,22 @@ public class NodeContentServiceImpl implements NodeContentService {
         exercise.setIsDeleted(true);
         nodeExerciseRepository.save(exercise);
     }
+    @Override
+    @Transactional
+    public NodeExerciseResponse updateExercise(Long exerciseId, CreateNodeExerciseRequest request) {
+        NodeExercise exercise = nodeExerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + exerciseId));
+        templateEditGuard.assertNodeEditable(exercise.getLearningNode());
 
-    
+        exercise.setTitle(request.getTitle());
+        exercise.setInstructions(request.getInstructions());
+        exercise.setAllowText(request.getAllowText() != null ? request.getAllowText() : true);
+        exercise.setAllowFile(request.getAllowFile() != null ? request.getAllowFile() : true);
+
+        nodeExerciseRepository.save(exercise);
+        return mapToExerciseResponse(exercise);
+    }
+
     private NodeMaterialResponse mapToMaterialResponse(NodeMaterial m) {
         VideoResponse videoRes = null;
         List<Video> videos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(m.getMaterialId());
