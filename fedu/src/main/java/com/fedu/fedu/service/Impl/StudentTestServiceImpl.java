@@ -55,6 +55,23 @@ public class StudentTestServiceImpl implements StudentTestService {
         verifyStudentAccess(test.getLearningNode(), studentId);
         assertTestReleased(test);
 
+        if (test.getLearningNode() != null && test.getLearningNode().getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT && isEntryPlacementTest(test)) {
+            Long csId = test.getLearningNode().getLearningPath().getClassroomSubject().getId();
+            com.fedu.fedu.entity.ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                    .findByClassroomSubject_IdAndStudent_UserId(csId, studentId)
+                    .orElse(null);
+            if (css != null && css.getCurrentLevel() != null) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
+            }
+            boolean pending = studentTestAttemptRepository
+                    .findByStudentUserIdAndTestTestId(studentId, test.getTestId())
+                    .stream()
+                    .anyMatch(a -> com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(a.getStatus()));
+            if (pending) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Bài phân loại của bạn có câu tự luận đang chờ giáo viên chấm. Vui lòng quay lại sau.");
+            }
+        }
+
         List<TestQuestion> questions = testQuestionRepository.findByTestTestId(testId);
         List<QuestionResponse> questionResponses = questions.stream()
                 .map(q -> {
@@ -149,6 +166,23 @@ public class StudentTestServiceImpl implements StudentTestService {
         assertTestReleased(test);
         assertWithinReleaseWindow(test, 0);
         assertNoPendingReview(testId, studentId);
+
+        if (test.getLearningNode() != null && test.getLearningNode().getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT && isEntryPlacementTest(test)) {
+            Long csId = test.getLearningNode().getLearningPath().getClassroomSubject().getId();
+            com.fedu.fedu.entity.ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                    .findByClassroomSubject_IdAndStudent_UserId(csId, studentId)
+                    .orElse(null);
+            if (css != null && css.getCurrentLevel() != null) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
+            }
+            boolean pending = studentTestAttemptRepository
+                    .findByStudentUserIdAndTestTestId(studentId, test.getTestId())
+                    .stream()
+                    .anyMatch(a -> com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(a.getStatus()));
+            if (pending) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Bài phân loại của bạn có câu tự luận đang chờ giáo viên chấm. Vui lòng quay lại sau.");
+            }
+        }
 
         UserAccount student = userAccountRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));

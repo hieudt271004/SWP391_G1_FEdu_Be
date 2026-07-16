@@ -153,10 +153,11 @@ export function TeacherGradingPage() {
 
     setSavingGrade(true);
     try {
-      await teacherService.gradeSubmission(gradingSubmission.submissionId, {
-        grade: gradeNum,
-        feedback: feedbackValue.trim() || undefined,
-      });
+      await teacherService.gradeSubmission(
+        gradingSubmission.submissionId,
+        gradeNum,
+        feedbackValue.trim() || undefined
+      );
       toast.success('Chấm điểm thành công!');
       setGradingSubmission(null);
       fetchGradingData();
@@ -246,7 +247,7 @@ export function TeacherGradingPage() {
                           (att.testTitle || '').toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     if (statusFilter === 'PENDING') return att.status === 'PENDING_REVIEW';
-    if (statusFilter === 'GRADED') return att.status === 'COMPLETED';
+    if (statusFilter === 'GRADED') return att.status === 'SUBMITTED';
     return true;
   });
 
@@ -496,13 +497,13 @@ export function TeacherGradingPage() {
                             </td>
                             <td className="p-4">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                att.status === 'COMPLETED'
+                                att.status === 'SUBMITTED'
                                   ? 'bg-emerald-500/10 text-emerald-600'
                                   : att.status === 'PENDING_REVIEW'
                                     ? 'bg-amber-500/10 text-amber-600'
                                     : 'bg-slate-500/10 text-slate-600'
                               }`}>
-                                {att.status === 'COMPLETED' ? 'Hoàn thành' : att.status === 'PENDING_REVIEW' ? 'Chờ chấm tự luận' : 'Đang làm'}
+                                {att.status === 'SUBMITTED' ? 'Hoàn thành' : att.status === 'PENDING_REVIEW' ? 'Chờ chấm tự luận' : 'Đang làm'}
                               </span>
                             </td>
                             <td className="p-4 text-center">
@@ -513,7 +514,7 @@ export function TeacherGradingPage() {
                                 disabled={loadingAttemptDetail || att.status === 'SUBMITTED'}
                                 onClick={() => openEssayGrading(att.attemptId)}
                               >
-                                {att.status === 'COMPLETED' ? 'Xem lại' : 'Chấm tự luận'}
+                                {att.status === 'SUBMITTED' ? 'Xem lại' : 'Chấm tự luận'}
                               </Button>
                             </td>
                           </tr>
