@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Settings, GraduationCap, MessageSquare, Menu, Sun, Moon } from 'lucide-react';
+import { Home, BookOpen, Settings, GraduationCap, MessageSquare, Menu, Sun, Moon, ClipboardCheck } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getFullName, getInitials } from '../../utils/userHelpers';
@@ -127,6 +127,7 @@ export function TeacherLayout() {
     { icon: Home, label: 'Tổng quan', path: '/teacher/dashboard' },
     { icon: BookOpen, label: 'Thư viện Lộ trình', path: '/teacher/courses' },
     { icon: GraduationCap, label: 'Lớp học', path: '/teacher/classes' },
+    { icon: ClipboardCheck, label: 'Chấm bài', path: '/teacher/grading' },
     { icon: MessageSquare, label: 'Ticket hỗ trợ', path: '/teacher/tickets' },
     { icon: Settings, label: 'Cài đặt', path: '/teacher/profile' },
   ];

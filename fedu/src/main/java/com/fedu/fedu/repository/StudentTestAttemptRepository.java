@@ -22,4 +22,10 @@ public interface StudentTestAttemptRepository extends JpaRepository<StudentTestA
     int countCompletedTestsByStudentAndNodeIds(
             @org.springframework.data.repository.query.Param("studentId") Long studentId,
             @org.springframework.data.repository.query.Param("nodeIds") java.util.Collection<Long> nodeIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM StudentTestAttempt a " +
+           "WHERE a.test.learningNode.learningPath.classroomSubject.id = :classroomSubjectId " +
+           "AND a.test.isDeleted = false")
+    List<StudentTestAttempt> findAllByClassroomSubject(
+            @org.springframework.data.repository.query.Param("classroomSubjectId") Long classroomSubjectId);
 }

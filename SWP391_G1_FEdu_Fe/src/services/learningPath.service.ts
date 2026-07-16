@@ -1,6 +1,7 @@
 import { http } from './http';
 import { apiClient } from './api.client';
 import type { Subject } from '../types/subject';
+import type { SubmissionResponse } from './student.service';
 
 export type LearningPathLevel = 1 | 2 | 3;
 export type NodeTestKind = 'NONE' | 'GATE' | 'PLACEMENT' | 'FREE_CHOICE';
@@ -298,9 +299,9 @@ export interface StudentAttemptResponse {
   score?: number | null;
   passed?: boolean | null;
   startedAt?: string | null;
-  submittedAt?: string | null;
-  status?: string | null; 
   tabOutCount?: number;
+  testId?: number;
+  testTitle?: string;
 }
 
 
@@ -549,6 +550,11 @@ export const learningPathService = {
   releaseLiveTest: (csId: number, nodeId: number, testId: number) =>
     http.post<LiveSessionState>(`/teacher-manage/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-session/tests/${testId}/release`),
   
+  getClassroomSubjectSubmissions: (csId: number) =>
+    http.get<SubmissionResponse[]>(`/teacher-manage/classroom-subjects/${csId}/submissions`),
+  
+  getClassroomSubjectAttempts: (csId: number) =>
+    http.get<StudentAttemptResponse[]>(`/teacher-manage/classroom-subjects/${csId}/attempts`),
   
   scheduleNode: async (nodeId: number, request: { studyDate: string | null; slotId: number | null; force: boolean }): Promise<LearningNodeResponse> => {
     const response = await apiClient.put<{ status?: number; message?: string; data?: LearningNodeResponse }>(

@@ -38,6 +38,17 @@ public class TeacherSubmissionController {
                 submissionService.listForExercise(exerciseId, currentUser.getUserId()));
     }
 
+    @Operation(summary = "Xem danh sách bài nộp của cả lớp")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @GetMapping("/classroom-subjects/{csId}/submissions")
+    public ResponseData<List<SubmissionResponse>> getClassroomSubjectSubmissions(
+            @PathVariable Long csId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        log.info("Teacher {} fetching submissions for classroom subject {}", currentUser.getUserId(), csId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Lấy danh sách bài nộp thành công",
+                submissionService.getClassroomSubjectSubmissions(csId));
+    }
+
     @Operation(summary = "Chấm điểm + nhận xét một bài nộp")
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @PutMapping("/submissions/{submissionId}/grade")

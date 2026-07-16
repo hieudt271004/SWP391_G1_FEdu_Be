@@ -24,4 +24,5 @@ public class SubmissionResponse {
     private String gradedByName;
     private LocalDateTime submittedAt;
     private LocalDateTime gradedAt;
+    private String exerciseTitle;
 }

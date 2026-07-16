@@ -239,6 +239,15 @@ public class LearningPathManagementController {
                     nodeContentService.getTestAttempts(testId));
         }
 
+        @Operation(summary = "Get list of student attempts for a classroom subject")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/classroom-subjects/{csId}/attempts")
+        public ResponseData<List<StudentAttemptResponse>> getClassroomSubjectAttempts(@PathVariable Long csId) {
+            log.info("Teacher fetching student attempts for classroom subject ID: {}", csId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved student attempts successfully",
+                    nodeContentService.getClassroomSubjectAttempts(csId));
+        }
+
         @Operation(summary = "Chi tiết bài làm của học sinh để chấm tay câu tự luận")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @GetMapping("/attempts/{attemptId}/grading")

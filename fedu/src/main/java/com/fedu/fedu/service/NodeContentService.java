@@ -35,4 +35,6 @@ public interface NodeContentService {
     NodeTestResponse updateTest(Long testId, UpdateTestRequest request);
 
     List<StudentAttemptResponse> getTestAttempts(Long testId);
+
+    List<StudentAttemptResponse> getClassroomSubjectAttempts(Long csId);
 }

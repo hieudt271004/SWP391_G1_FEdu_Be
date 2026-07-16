@@ -123,6 +123,7 @@ export interface SubmissionResponse {
   gradedByName?: string | null;
   submittedAt: string;
   gradedAt?: string | null;
+  exerciseTitle?: string;
 }
 
 export interface StudentTestAttemptHistoryResponse {
