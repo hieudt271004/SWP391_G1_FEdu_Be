@@ -26,25 +26,25 @@ public class NodeReview extends AbstractEntity<Long> {
     @JoinColumn(name = "node_id", nullable = false)
     private LearningNode learningNode;
 
-    /**
-     * Tác giả của đánh giá/nhận xét/phản hồi.
-     * Tên cột dưới database giữ nguyên là student_id nhưng trường này có thể là Student, Sub-mentor, hoặc Teacher.
-     *
-     * Phân loại bản ghi:
-     * - Đánh giá gốc (Rated Root/Review): parentReview == null && rating != null
-     * - Thảo luận gốc (Comment Root): parentReview == null && rating == null
-     * - Phản hồi (Reply): parentReview != null (rating == null)
-     */
+    
+
+
+
+
+
+
+
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
     private UserAccount author;
 
-    /** Review cha (null nếu đây là review gốc, có giá trị nếu đây là reply). */
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_review_id")
     private NodeReview parentReview;
 
-    /** Danh sách reply trực tiếp của review này. */
+    
     @Builder.Default
     @OneToMany(mappedBy = "parentReview", fetch = FetchType.LAZY)
     private List<NodeReview> replies = new ArrayList<>();

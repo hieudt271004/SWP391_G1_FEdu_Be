@@ -45,8 +45,8 @@ public class PlacementServiceImpl implements PlacementService {
         requireNotPlacedYet(classroomSubjectId, studentId);
         requirePublishedPath(classroomSubjectId);
         Test quiz = requirePlacementQuiz(classroomSubjectId);
-        // Dùng getTestDetailsForPlacement để bỏ qua kiểm tra StudentNodeProgress —
-        // placement quiz chưa có tiến độ học tập trước khi học sinh làm bài lần đầu.
+        
+        
         return studentTestService.getTestDetailsForPlacement(quiz.getTestId());
     }
 
@@ -56,8 +56,8 @@ public class PlacementServiceImpl implements PlacementService {
         requireNotPlacedYet(classroomSubjectId, studentId);
         requirePublishedPath(classroomSubjectId);
         Test quiz = requirePlacementQuiz(classroomSubjectId);
-        // Dùng startTestAttemptForPlacement để bỏ qua kiểm tra StudentNodeProgress —
-        // placement quiz chưa có tiến độ học tập trước khi học sinh làm bài lần đầu.
+        
+        
         return studentTestService.startTestAttemptForPlacement(quiz.getTestId(), studentId);
     }
 
@@ -65,10 +65,11 @@ public class PlacementServiceImpl implements PlacementService {
     @Transactional
     public PlacementResultResponse submitPlacement(Long classroomSubjectId, Long attemptId,
                                                    Long studentId, AttemptSubmissionRequest request) {
-        // 1. Pessimistic lock the ClassroomSubjectStudent row
+        
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubjectIdAndStudentIdForUpdate(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(css.getClassroomSubject());
 
         if (css.getCurrentLevel() != null) {
             throw new InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
@@ -80,16 +81,25 @@ public class PlacementServiceImpl implements PlacementService {
 
         BigDecimal score = studentTestService.submitForGrading(quiz.getTestId(), attemptId, studentId, request);
 
+        if (score == null) {
+            
+            
+            return PlacementResultResponse.builder()
+                    .testId(quiz.getTestId())
+                    .pendingManualGrading(true)
+                    .build();
+        }
+
         Integer level = levelRoutingService.resolveLevel(quiz.getTestId(), score);
         if (level == null) {
-            // Default to weak if outside all bands
+            
             log.warn("Placement score {} ngoài mọi band của test {} (cs {}). Mặc định mức {}.",
                     score, quiz.getTestId(), classroomSubjectId, LearningLevels.WEAK);
             level = LearningLevels.WEAK;
         }
         final Integer resolvedLevel = level;
 
-        // Determine if it is a retake by checking if they have prior history
+        
         boolean isRetake = !studentLevelHistoryRepository
                 .findByStudentUserIdAndClassroomSubjectIdOrderByChangedAtAsc(studentId, classroomSubjectId)
                 .isEmpty();
@@ -138,13 +148,16 @@ public class PlacementServiceImpl implements PlacementService {
         css.setCurrentLevel(null);
         classroomSubjectStudentRepository.save(css);
 
-        // Find the placement test attempts and mark them as CANCELLED
+        studentLevelHistoryRepository.deleteByStudentUserIdAndClassroomSubjectId(studentId, classroomSubjectId);
+
+        
         Test quiz = requirePlacementQuiz(classroomSubjectId);
         List<StudentTestAttempt> attempts = studentTestAttemptRepository
                 .findByStudentUserIdAndTestTestId(studentId, quiz.getTestId());
         for (StudentTestAttempt att : attempts) {
             if (com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED.equals(att.getStatus())
-                    || com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS.equals(att.getStatus())) {
+                    || com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS.equals(att.getStatus())
+                    || com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(att.getStatus())) {
                 att.setStatus(com.fedu.fedu.utils.enums.AttemptStatus.CANCELLED);
                 studentTestAttemptRepository.save(att);
             }
@@ -160,13 +173,25 @@ public class PlacementServiceImpl implements PlacementService {
         cancelPlacementAttempt(classroomSubjectId, studentId);
     }
 
-    /** Học sinh phải thuộc lớp-môn và CHƯA được phân mức (currentLevel == null). */
+    
     private void requireNotPlacedYet(Long classroomSubjectId, Long studentId) {
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
         if (css.getCurrentLevel() != null) {
             throw new InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
+        }
+        
+        ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId).orElse(null);
+        if (cs != null && cs.getQuizStart() != null) {
+            boolean pending = studentTestAttemptRepository
+                    .findByStudentUserIdAndTestTestId(studentId, cs.getQuizStart().getTestId())
+                    .stream()
+                    .anyMatch(a -> com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(a.getStatus()));
+            if (pending) {
+                throw new InvalidDataException(
+                        "Bài phân loại của bạn có câu tự luận đang chờ giáo viên chấm. Vui lòng quay lại sau.");
+            }
         }
     }
 
@@ -179,11 +204,11 @@ public class PlacementServiceImpl implements PlacementService {
         return cs.getQuizStart();
     }
 
-    /**
-     * Lộ trình của lớp-môn phải tồn tại và ĐÃ XUẤT BẢN — quizStart được gán ngay lúc teacher
-     * clone template (để cấu hình đề trước khi publish), nên nếu không gate ở cả bước xem đề /
-     * bắt đầu làm thì học sinh làm được bài phân loại của path còn nháp rồi mất kết quả lúc nộp.
-     */
+    
+
+
+
+
     private void requirePublishedPath(Long classroomSubjectId) {
         LearningPath path = learningPathRepository
                 .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)

@@ -15,6 +15,6 @@ public class CreateNodeTestRequest {
     private String description;
     private Integer durationMinutes;
     private BigDecimal passingPercentage;
-    /** true = soạn xong CHƯA phát cho học sinh (dùng ở buổi học live, chờ bấm "Phát đề"). */
+    
     private Boolean holdRelease;
 }

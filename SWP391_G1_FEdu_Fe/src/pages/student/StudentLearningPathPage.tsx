@@ -19,9 +19,6 @@ import {
   Cloud,
   Download,
   ChevronLeft,
-  ThumbsUp,
-  ThumbsDown,
-  Flag,
   Clock,
   Radio
 } from 'lucide-react';
@@ -33,17 +30,14 @@ import { useAuth } from '../../context/AuthContext';
 import {
   studentService,
   type SubmissionResponse,
-  type StudentTestAttemptHistoryResponse,
-  type PopQuizPendingResponse,
-  type PopQuizPaperResponse,
-  type AttemptSubmission
+  type StudentTestAttemptHistoryResponse
 } from '../../services/student.service';
 import { classroomService } from '../../services/classroom.service';
 import { resolveAssetUrl, MaterialPreview } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
 import { NodeDiscussion } from '../../components/learningPath/NodeDiscussion';
-import { TestRunner } from './tests/components/TestRunner';
+
 import {
   Dialog,
   DialogContent,
@@ -61,7 +55,7 @@ interface LearningPathItem {
   data: any;
 }
 
-// Deadline node (BE trả LocalDateTime không timezone → new Date() parse theo giờ local là đúng)
+
 const formatDeadline = (iso: string) => {
   const d = new Date(iso);
   return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ${d.toLocaleDateString('vi-VN')}`;
@@ -74,28 +68,28 @@ export function StudentLearningPathPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Data states
+  
   const [subject, setSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [totalMaterials, setTotalMaterials] = useState<number>(0);
   const [totalCompleted, setTotalCompleted] = useState<number>(0);
   
-  // Loading & error states
+  
   const [loading, setLoading] = useState(true);
   const [loadingNodeContent, setLoadingNodeContent] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
-  // URL search params
+  
   const [searchParams, setSearchParams] = useSearchParams();
   const isLearnMode = searchParams.get('mode') === 'learn';
   const paramItemId = searchParams.get('itemId');
   const paramItemType = searchParams.get('itemType');
 
-  // UI state
+  
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
 
-  // Exercise Submission states
+  
   const [exerciseSubmissions, setExerciseSubmissions] = useState<Record<number, SubmissionResponse | null>>({});
   const [submissionText, setSubmissionText] = useState('');
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
@@ -103,28 +97,13 @@ export function StudentLearningPathPage() {
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Test attempt history states
+  
   const [testHistory, setTestHistory] = useState<StudentTestAttemptHistoryResponse[]>([]);
 
-  // Load completed materials from Backend
+  
   const [completedMaterials, setCompletedMaterials] = useState<Record<string, boolean>>({});
 
-  // Pop Quiz states
-  const [activePopQuiz, setActivePopQuiz] = useState<{
-    assignmentId: number;
-    title: string;
-    durationMinutes: number;
-    status: 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'EXPIRED';
-    remainingSeconds?: number;
-    score?: number;
-  } | null>(null);
-  const [popQuizPaper, setPopQuizPaper] = useState<PopQuizPaperResponse | null>(null);
-  const [startingPopQuiz, setStartingPopQuiz] = useState(false);
-  const [submittingPopQuiz, setSubmittingPopQuiz] = useState(false);
-  const [showPopQuizAlert, setShowPopQuizAlert] = useState(false);
-  const [showPopQuizRunner, setShowPopQuizRunner] = useState(false);
-  const [showPopQuizResult, setShowPopQuizResult] = useState(false);
-  const [popQuizSecondsLeft, setPopQuizSecondsLeft] = useState<number>(0);
+
 
   const refreshProgressData = async () => {
     if (!user?.userId || !classroomSubjectId) return null;
@@ -133,7 +112,7 @@ export function StudentLearningPathPage() {
       const sA = a.stageOrder ?? 0;
       const sB = b.stageOrder ?? 0;
       if (sA !== sB) return sA - sB;
-      return (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
+      return ((a.displayOrder ?? 0) - (b.displayOrder ?? 0)) || (a.nodeId - b.nodeId);
     });
     setNodes(sortedNodes);
     setTotalMaterials(graph.totalMaterials || 0);
@@ -158,10 +137,23 @@ export function StudentLearningPathPage() {
       console.error("Failed to load completed materials:", mErr);
       toast.warning("Không thể tải tiến độ học liệu.");
     }
+
+
+    try {
+      const submissions = await studentService.getMySubmissionsForClassroomSubject(classroomSubjectId);
+      const submissionMap: Record<number, SubmissionResponse | null> = {};
+      (submissions || []).forEach(s => {
+        if (s.exerciseId != null) submissionMap[s.exerciseId] = s;
+      });
+      setExerciseSubmissions(submissionMap);
+    } catch (sErr) {
+      console.error("Failed to load exercise submissions:", sErr);
+    }
+
     return sortedNodes;
   };
 
-  // Fetch initial graph and subject info
+  
   useEffect(() => {
     if (!user?.userId || !classroomSubjectId) return;
 
@@ -170,18 +162,18 @@ export function StudentLearningPathPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch subject details
+        
         const subjectsList = await classroomService.getClassroomSubjectsByStudent(user.userId);
         const currentSub = subjectsList.find(s => s.classroomSubjectId === classroomSubjectId);
         if (currentSub) {
           setSubject(currentSub);
         }
 
-        // Fetch roadmap graph & test history
+        
         const sortedNodes = await refreshProgressData();
 
         if (sortedNodes) {
-          // Auto-expand non-locked nodes and pre-fetch content
+          
           const initialExpanded: Record<number, boolean> = {};
           const openNodeIds: number[] = [];
 
@@ -193,7 +185,7 @@ export function StudentLearningPathPage() {
           });
           setExpandedNodes(initialExpanded);
 
-          // Fetch contents of open nodes in parallel
+          
           await Promise.all(
             openNodeIds.map(nodeId => ensureNodeContent(nodeId))
           );
@@ -210,136 +202,10 @@ export function StudentLearningPathPage() {
     loadInitialData();
   }, [user?.userId, classroomSubjectId]);
 
-  // Polling for pending pop quiz on active/unlocked ON_CLASS nodes
-  useEffect(() => {
-    if (!user?.userId || !classroomSubjectId || nodes.length === 0) return;
-    
-    // Find ON_CLASS nodes that are not locked
-    const onClassNodes = nodes.filter(n => n.nodeType === 'ON_CLASS' && n.studentStatus !== 'LOCKED');
-    if (onClassNodes.length === 0) return;
-    
-    // Poll the first unlocked ON_CLASS node
-    const targetNodeId = onClassNodes[0].nodeId;
+  
 
-    const poll = async () => {
-      try {
-        const res = await studentService.getPendingPopQuiz(targetNodeId);
-        if (res) {
-          setActivePopQuiz(res);
-          if (res.status === 'PENDING') {
-            setShowPopQuizAlert(true);
-          } else if (res.status === 'IN_PROGRESS') {
-            setShowPopQuizAlert(false);
-            if (!popQuizPaper) {
-              const paper = await studentService.getPopQuizPaper(res.assignmentId);
-              setPopQuizPaper(paper);
-              setPopQuizSecondsLeft(paper.remainingSeconds);
-              setShowPopQuizRunner(true);
-            }
-          } else if (res.status === 'SUBMITTED' || res.status === 'EXPIRED') {
-            if (showPopQuizRunner) {
-              setShowPopQuizRunner(false);
-              setShowPopQuizResult(true);
-            }
-          }
-        } else {
-          setActivePopQuiz(null);
-          setPopQuizPaper(null);
-          setShowPopQuizAlert(false);
-          setShowPopQuizRunner(false);
-        }
-      } catch (err) {
-        console.error("Error polling pop quiz:", err);
-      }
-    };
 
-    poll();
-    const interval = setInterval(poll, 5000);
-    return () => clearInterval(interval);
-  }, [user?.userId, classroomSubjectId, nodes, popQuizPaper, showPopQuizRunner]);
-
-  // Countdown timer for Pop Quiz
-  useEffect(() => {
-    if (!showPopQuizRunner || popQuizSecondsLeft <= 0) return;
-    const interval = setInterval(() => {
-      setPopQuizSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleAutoSubmitPopQuiz();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [showPopQuizRunner, popQuizSecondsLeft]);
-
-  const handleStartPopQuiz = async () => {
-    if (!activePopQuiz) return;
-    setStartingPopQuiz(true);
-    try {
-      const paper = await studentService.startPopQuizAttempt(activePopQuiz.assignmentId);
-      setPopQuizPaper(paper);
-      setPopQuizSecondsLeft(paper.remainingSeconds);
-      setShowPopQuizAlert(false);
-      setShowPopQuizRunner(true);
-      toast.success("Bắt đầu làm bài kiểm tra nhanh!");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Không thể bắt đầu làm bài");
-    } finally {
-      setStartingPopQuiz(false);
-    }
-  };
-
-  const handleSubmitPopQuiz = async (body: AttemptSubmission) => {
-    if (!activePopQuiz) return;
-    setSubmittingPopQuiz(true);
-    try {
-      const res = await studentService.submitPopQuizAttempt(activePopQuiz.assignmentId, body);
-      setActivePopQuiz((prev) => prev ? { ...prev, status: 'SUBMITTED', score: res.score } : null);
-      setShowPopQuizRunner(false);
-      setShowPopQuizResult(true);
-      toast.success("Nộp bài thành công!");
-      await refreshProgressData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Nộp bài thất bại");
-    } finally {
-      setSubmittingPopQuiz(false);
-    }
-  };
-
-  const handleAutoSubmitPopQuiz = async () => {
-    if (!activePopQuiz) return;
-    setSubmittingPopQuiz(true);
-    try {
-      toast.warning("Hết giờ làm bài! Hệ thống đang nộp bài...", { duration: 5000 });
-      const res = await studentService.submitPopQuizAttempt(activePopQuiz.assignmentId, { submissions: [] });
-      setActivePopQuiz((prev) => prev ? { ...prev, status: 'EXPIRED', score: res.score } : null);
-      setShowPopQuizRunner(false);
-      setShowPopQuizResult(true);
-      await refreshProgressData();
-    } catch (err) {
-      setActivePopQuiz((prev) => prev ? { ...prev, status: 'EXPIRED', score: 0 } : null);
-      setShowPopQuizRunner(false);
-      setShowPopQuizResult(true);
-    } finally {
-      setSubmittingPopQuiz(false);
-    }
-  };
-
-  const handlePopQuizTabOut = async () => {
-    if (!popQuizPaper) return;
-    try {
-      const count = await studentService.recordTabOut(0, popQuizPaper.attemptId);
-      toast.warning(`Bạn vừa rời khỏi tab khi đang làm bài (lần ${count}). Hành vi này được ghi nhận.`, {
-        duration: 8000,
-      });
-    } catch {
-      // Ignore record errors
-    }
-  };
-
-  // Helper: Fetch node content if not cached
+  
   const ensureNodeContent = async (nodeId: number): Promise<NodeContentResponse | null> => {
     if (nodeContents[nodeId]) return nodeContents[nodeId];
     setLoadingNodeContent(prev => ({ ...prev, [nodeId]: true }));
@@ -355,7 +221,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Toggle node expand/collapse
+  
   const handleToggleNode = async (node: LearningNodeResponse) => {
     if (node.studentStatus === 'LOCKED') {
       toast.error('Bài học này đang bị khóa. Hãy hoàn thành các bài học trước!');
@@ -369,7 +235,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Flattened accessible items across all nodes for navigation
+  
   const allItems = useMemo(() => {
     const list: LearningPathItem[] = [];
     nodes.forEach(node => {
@@ -377,7 +243,7 @@ export function StudentLearningPathPage() {
       const content = nodeContents[node.nodeId];
       if (!content) return;
 
-      // Materials
+      
       if (content.materials) {
         content.materials.forEach(m => {
           list.push({
@@ -390,7 +256,7 @@ export function StudentLearningPathPage() {
         });
       }
 
-      // Tests
+      
       if (content.tests) {
         content.tests.forEach(t => {
           list.push({
@@ -403,7 +269,7 @@ export function StudentLearningPathPage() {
         });
       }
 
-      // Exercises
+      
       if (content.exercises) {
         content.exercises.forEach(e => {
           list.push({
@@ -419,7 +285,7 @@ export function StudentLearningPathPage() {
     return list;
   }, [nodes, nodeContents]);
 
-  // Derive activeItem from searchParams
+  
   const activeItem = useMemo(() => {
     if (!isLearnMode || !paramItemId || !paramItemType) return null;
     const itemId = Number(paramItemId);
@@ -438,7 +304,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Set default active item on load ONLY if in learn mode but no item is chosen
+  
   useEffect(() => {
     if (isLearnMode && allItems.length > 0 && !activeItem) {
       const firstIncomplete = allItems.find(item => {
@@ -450,7 +316,7 @@ export function StudentLearningPathPage() {
     }
   }, [isLearnMode, allItems, activeItem]);
 
-  // Handle active item changes (fetch submission data if it's an exercise)
+  
   useEffect(() => {
     if (activeItem && activeItem.type === 'exercise') {
       fetchExerciseSubmission(activeItem.id);
@@ -470,7 +336,47 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Exercise submission action
+  
+
+
+
+  const maybeCompleteNode = async (
+    nodeId: number,
+    materialsMap: Record<string, boolean>,
+    submissionsMap: Record<number, SubmissionResponse | null>
+  ): Promise<boolean> => {
+    if (!user?.userId) return false;
+    const content = nodeContents[nodeId];
+    if (!content) return false;
+    const node = nodes.find(n => n.nodeId === nodeId);
+    if (node?.studentStatus === 'COMPLETED') return false;
+
+    if (node?.testKind && node.testKind !== 'NONE') return false;
+
+    const materials = content.materials || [];
+    const tests = content.tests || [];
+    const exercises = content.exercises || [];
+
+    if (materials.length + tests.length + exercises.length === 0) return false;
+
+    const allMaterialsDone = materials.every(m => !!materialsMap[`${user.userId}-${m.materialId}`]);
+    const allTestsDone = tests.every(t => {
+      const history = testHistory.filter(h => h.testId === t.testId);
+      return history.some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0));
+    });
+    const allExercisesDone = exercises.every(e => {
+      const sub = submissionsMap[e.exerciseId];
+      return sub?.status === 'SUBMITTED' || sub?.status === 'GRADED';
+    });
+
+    if (allMaterialsDone && allTestsDone && allExercisesDone) {
+      await studentService.completeNode(nodeId);
+      await refreshProgressData();
+      return true;
+    }
+    return false;
+  };
+
   const handleExerciseSubmit = async () => {
     if (!activeItem || activeItem.type !== 'exercise') return;
     const exerciseId = activeItem.id;
@@ -495,13 +401,23 @@ export function StudentLearningPathPage() {
         formData.append('file', submissionFile);
       }
 
-      await studentService.submitExercise(exerciseId, formData);
+      const submitted = await studentService.submitExercise(exerciseId, formData);
       toast.success("Nộp bài tập thực hành thành công!");
-      await fetchExerciseSubmission(exerciseId);
-      await refreshProgressData();
       setIsResubmitting(false);
       setSubmissionText('');
       setSubmissionFile(null);
+
+
+      const updatedSubmissions = { ...exerciseSubmissions, [exerciseId]: submitted };
+      setExerciseSubmissions(updatedSubmissions);
+
+
+      const completed = await maybeCompleteNode(activeItem.nodeId, completedMaterials, updatedSubmissions);
+      if (completed) {
+        toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
+      } else {
+        await refreshProgressData();
+      }
     } catch (err: any) {
       console.error("Submit exercise failed:", err);
       toast.error(err.message || "Nộp bài tập thất bại. Vui lòng thử lại.");
@@ -517,10 +433,10 @@ export function StudentLearningPathPage() {
 
   const highestAttempt = useMemo(() => {
     if (attemptsForTest.length === 0) return null;
-    return attemptsForTest.reduce((max, curr) => curr.score > max.score ? curr : max, attemptsForTest[0]);
+    return attemptsForTest.reduce((max, curr) => (curr.score ?? 0) > (max.score ?? 0) ? curr : max, attemptsForTest[0]);
   }, [attemptsForTest]);
 
-  // Navigations (Prev & Next)
+  
   const currentItemIndex = useMemo(() => {
     if (!activeItem) return -1;
     return allItems.findIndex(item => item.type === activeItem.type && item.id === activeItem.id);
@@ -548,7 +464,7 @@ export function StudentLearningPathPage() {
     }
   };
 
-  // Calculate general progress
+  
   const progressStats = useMemo(() => {
     if (totalMaterials === 0) return { completed: 0, total: 0, percent: 0 };
     return {
@@ -558,7 +474,7 @@ export function StudentLearningPathPage() {
     };
   }, [totalMaterials, totalCompleted]);
 
-  // Complete active node logic
+  
   const activeNode = useMemo(() => {
     if (!activeItem) return null;
     return nodes.find(n => n.nodeId === activeItem.nodeId) || null;
@@ -566,7 +482,7 @@ export function StudentLearningPathPage() {
 
   const isNodeCompleted = activeNode?.studentStatus === 'COMPLETED';
 
-  // Check if active item is individually completed
+  
   const isItemCompleted = useMemo(() => {
     if (!activeItem || !activeNode) return false;
     if (activeNode.studentStatus === 'COMPLETED') return true;
@@ -575,7 +491,7 @@ export function StudentLearningPathPage() {
     }
     if (activeItem.type === 'test') {
       const history = testHistory.filter(h => h.testId === activeItem.id);
-      return history.some(h => h.score >= activeItem.data.passingPercentage);
+      return history.some(h => (h.score ?? 0) >= activeItem.data.passingPercentage);
     }
     if (activeItem.type === 'exercise') {
       const submission = exerciseSubmissions[activeItem.id];
@@ -591,7 +507,7 @@ export function StudentLearningPathPage() {
     try {
       setCompletingNodeId(activeNode.nodeId);
       
-      // 1. Mark this specific material completed on Backend
+      
       await studentService.completeMaterial(activeItem.id);
       
       const key = `${user.userId}-${activeItem.id}`;
@@ -599,39 +515,16 @@ export function StudentLearningPathPage() {
       setCompletedMaterials(updatedMaterials);
       
       toast.success("Đã đánh dấu hoàn thành bài học!");
-      await refreshProgressData();
 
-      // 2. Check if all items in this node are completed
-      const content = nodeContents[activeNode.nodeId];
-      if (content) {
-        const materials = content.materials || [];
-        const tests = content.tests || [];
-        const exercises = content.exercises || [];
 
-        const allMaterialsDone = materials.every(m => {
-          if (m.materialId === activeItem.id) return true;
-          return !!updatedMaterials[`${user.userId}-${m.materialId}`];
-        });
-
-        const allTestsDone = tests.every(t => {
-          const history = testHistory.filter(h => h.testId === t.testId);
-          return history.some(h => h.score >= (t.passingPercentage ?? 0));
-        });
-
-        const allExercisesDone = exercises.every(e => {
-          const sub = exerciseSubmissions[e.exerciseId];
-          return sub?.status === 'SUBMITTED' || sub?.status === 'GRADED';
-        });
-
-        if (allMaterialsDone && allTestsDone && allExercisesDone) {
-          // Complete node on backend
-          await studentService.completeNode(activeNode.nodeId);
-          toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
-          await refreshProgressData();
-        }
+      const completed = await maybeCompleteNode(activeNode.nodeId, updatedMaterials, exerciseSubmissions);
+      if (completed) {
+        toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
+      } else {
+        await refreshProgressData();
       }
 
-      // 3. Proactively go to next item
+
       if (currentItemIndex < allItems.length - 1) {
         setActiveItem(allItems[currentItemIndex + 1]);
       }
@@ -683,28 +576,15 @@ export function StudentLearningPathPage() {
             )}
           </div>
 
-          {/* Right side next item button removed as requested */}
+          {}
         </div>
 
-        <div className="flex items-center gap-6 text-muted-foreground text-xs font-semibold pt-2">
-          <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-            <ThumbsUp className="size-4" />
-            <span>Like</span>
-          </button>
-          <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-            <ThumbsDown className="size-4" />
-            <span>Dislike</span>
-          </button>
-          <button className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-            <Flag className="size-4" />
-            <span>Report an issue</span>
-          </button>
-        </div>
+
       </div>
     );
   };
 
-  // Loading indicator
+  
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] gap-3">
@@ -714,7 +594,7 @@ export function StudentLearningPathPage() {
     );
   }
 
-  // Error layout
+  
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 max-w-md mx-auto text-center">
@@ -753,9 +633,9 @@ export function StudentLearningPathPage() {
 
   return (
     <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden select-none font-sans">
-      {/* LEFT SIDEBAR: Roadmap Timeline */}
+      {}
       <div className="w-80 border-r border-border flex flex-col h-full bg-muted/30 shrink-0">
-        {/* Sidebar Header */}
+        {}
         <div className="p-4 border-b border-border bg-card">
           <button 
             onClick={() => setSearchParams({})}
@@ -772,7 +652,7 @@ export function StudentLearningPathPage() {
             Lớp: {subject?.className} • Mã môn: {subject?.subjectCode}
           </p>
 
-          {/* Progress bar */}
+          {}
           <div className="mt-4 space-y-1.5">
             <Progress value={progressStats.percent} className="h-1.5 bg-muted [&>div]:bg-primary rounded-full" />
             <div className="flex justify-between text-[10px] font-bold text-muted-foreground mb-0.5">
@@ -782,7 +662,7 @@ export function StudentLearningPathPage() {
           </div>
         </div>
 
-        {/* Sidebar List (Scrollable) */}
+        {}
         <div className="flex-1 overflow-y-auto min-h-0">
           <div className="p-3 space-y-2">
             {nodes.map((node, index) => {
@@ -794,7 +674,7 @@ export function StudentLearningPathPage() {
 
               return (
                 <div key={node.nodeId} className="border border-border rounded-lg overflow-hidden bg-card shadow-xs">
-                  {/* Node Title Header */}
+                  {}
                   <div 
                     onClick={() => handleToggleNode(node)}
                     className={`p-3 flex justify-between items-start cursor-pointer hover:bg-muted/50 transition-colors select-none ${
@@ -803,13 +683,29 @@ export function StudentLearningPathPage() {
                   >
                     <div className="flex-1 space-y-1 pr-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-sm border uppercase ${
-                          node.nodeType === 'AT_HOME' 
-                            ? 'bg-muted border-border text-muted-foreground' 
-                            : 'bg-primary border-primary text-primary-foreground'
-                        }`}>
-                          {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
-                        </span>
+                        {node.testKind && node.testKind !== 'NONE' ? (
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-sm border uppercase ${
+                            node.testKind === 'PLACEMENT'
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                              : node.testKind === 'GATE'
+                              ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                              : 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400'
+                          }`}>
+                            {node.testKind === 'PLACEMENT'
+                              ? 'Test năng lực'
+                              : node.testKind === 'GATE'
+                              ? 'Test phân luồng'
+                              : 'Test tự chọn'}
+                          </span>
+                        ) : (
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-sm border uppercase ${
+                            node.nodeType === 'AT_HOME' 
+                              ? 'bg-muted border-border text-muted-foreground' 
+                              : 'bg-primary border-primary text-primary-foreground'
+                          }`}>
+                            {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
+                          </span>
+                        )}
                         
                         {isCompleted && (
                           <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 uppercase">
@@ -829,7 +725,8 @@ export function StudentLearningPathPage() {
                       </div>
 
                       <h4 className="font-bold text-foreground text-[11px] leading-snug pt-0.5">
-                        {index + 1}. {node.title}
+                        {}
+                        {node.stageOrder != null ? `Chặng ${node.stageOrder} · ` : `${index + 1}. `}{node.title}
                       </h4>
 
                       {node.deadlineAt && !isCompleted && (
@@ -841,11 +738,13 @@ export function StudentLearningPathPage() {
                         </p>
                       )}
 
-                      {node.nodeType === 'ON_CLASS' && !isLocked && (
+                      {node.nodeType === 'ON_CLASS' && !isLocked && node.studentStatus !== 'COMPLETED' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/student/classroom-subjects/${classroomSubjectId}/live/${node.nodeId}`);
+                            const currentParams = searchParams.toString();
+                            const suffix = currentParams ? `?${currentParams}` : '';
+                            navigate(`/student/classroom-subjects/${classroomSubjectId}/live/${node.nodeId}${suffix}`);
                           }}
                           className="flex items-center gap-1 text-[9px] font-bold text-rose-600 dark:text-rose-400 hover:underline pt-0.5"
                         >
@@ -865,7 +764,7 @@ export function StudentLearningPathPage() {
                     </div>
                   </div>
 
-                  {/* Expanded Items */}
+                  {}
                   {isExpanded && !isLocked && (
                     <div className="border-t border-border bg-muted/10 divide-y divide-border">
                       {loadingNodeContent[node.nodeId] ? (
@@ -875,7 +774,7 @@ export function StudentLearningPathPage() {
                         </div>
                       ) : (
                         <>
-                          {/* Materials */}
+                          {}
                           {content?.materials?.map(m => {
                             const isItemActive = activeItem?.type === 'material' && activeItem?.id === m.materialId;
                             return (
@@ -903,7 +802,7 @@ export function StudentLearningPathPage() {
                             );
                           })}
 
-                          {/* Tests */}
+                          {}
                           {content?.tests?.map(t => {
                             const isItemActive = activeItem?.type === 'test' && activeItem?.id === t.testId;
                             return (
@@ -920,14 +819,14 @@ export function StudentLearningPathPage() {
                                   <Award className={`size-3.5 shrink-0 ${isItemActive ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
                                   <span className="truncate">{t.title}</span>
                                 </div>
-                                {(isCompleted || testHistory.filter(h => h.testId === t.testId).some(h => h.score >= (t.passingPercentage ?? 0))) && (
+                                {(isCompleted || testHistory.filter(h => h.testId === t.testId).some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0))) && (
                                   <CheckCircle2 className={`size-3.5 shrink-0 ${isItemActive ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-450'}`} />
                                 )}
                               </button>
                             );
                           })}
 
-                          {/* Exercises */}
+                          {}
                           {content?.exercises?.map(e => {
                             const isItemActive = activeItem?.type === 'exercise' && activeItem?.id === e.exerciseId;
                             const submission = exerciseSubmissions[e.exerciseId];
@@ -970,9 +869,9 @@ export function StudentLearningPathPage() {
             })}
           </div>
         </div>
-      </div>      {/* RIGHT MAIN PANEL: Content Viewer */}
+      </div>      {}
       <div className="flex-1 flex flex-col h-full bg-background text-foreground relative overflow-hidden">
-        {/* Top Header */}
+        {}
         <div className="h-12 border-b border-border flex items-center justify-between px-6 bg-card shrink-0">
           <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
             <span>Lộ trình học tập</span>
@@ -999,12 +898,12 @@ export function StudentLearningPathPage() {
           </button>
         </div>
 
-        {/* Content Body (Scrollable) */}
+        {}
         <div className="flex-1 overflow-y-auto p-8 bg-muted/10">
           <div className="max-w-3xl mx-auto space-y-6 pb-20">
             {activeItem ? (
               <>
-                {/* 1. MATERIAL VIEWER */}
+                {}
                 {activeItem.type === 'material' && (
                   <div className="space-y-5">
                     <div className="space-y-2">
@@ -1022,12 +921,12 @@ export function StudentLearningPathPage() {
                       ) : null}
                     </div>
 
-                    {/* Preview Area */}
+                    {}
                     <div className="border border-border rounded-lg overflow-hidden bg-card p-1.5 shadow-sm">
                       <MaterialPreview material={activeItem.data} />
                     </div>
 
-                    {/* Description */}
+                    {}
                     {activeItem.data.video?.description && (
                       <div className="space-y-1.5 border-t border-border pt-4">
                         <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mô tả chi tiết</h4>
@@ -1043,7 +942,7 @@ export function StudentLearningPathPage() {
                   </div>
                 )}
 
-                {/* 2. TEST VIEWER */}
+                {}
                 {activeItem.type === 'test' && (
                   <div className="space-y-5">
                     <div className="space-y-2">
@@ -1052,20 +951,68 @@ export function StudentLearningPathPage() {
                     </div>
 
                     <div className="border border-border rounded-lg p-5 bg-card flex flex-col gap-5 shadow-sm">
-                      <div className="grid grid-cols-3 gap-6 divide-x divide-border">
+                      <div className={`grid gap-6 divide-x divide-border ${
+                        (activeNode?.testKind === 'GATE' && (activeNode.gateUpMin != null || activeNode.gateDownMax != null)) ||
+                        (activeNode?.testKind === 'PLACEMENT' && (activeNode.placementYeuMax != null || activeNode.placementTbMax != null))
+                          ? 'grid-cols-5' 
+                          : 'grid-cols-3'
+                      }`}>
                         <div className="space-y-1 pl-0">
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Thời lượng</span>
                           <p className="text-sm font-bold text-foreground">{activeItem.data.durationMinutes || 0} phút</p>
                         </div>
-                        <div className="space-y-1 pl-6">
-                          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Yêu cầu đạt</span>
-                          <p className="text-sm font-bold text-foreground">{activeItem.data.passingPercentage || 0}%</p>
-                        </div>
+                        {activeNode?.testKind === 'PLACEMENT' && (activeNode.placementYeuMax != null || activeNode.placementTbMax != null) ? (
+                          <>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Mức Yếu khi ≤</span>
+                              <p className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                                {activeNode.placementYeuMax != null ? `${activeNode.placementYeuMax}%` : '—'}
+                              </p>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Mức TB khi ≤</span>
+                              <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                                {activeNode.placementTbMax != null ? `${activeNode.placementTbMax}%` : '—'}
+                              </p>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Mức Khá khi &gt;</span>
+                              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                {activeNode.placementTbMax != null ? `${activeNode.placementTbMax}%` : '—'}
+                              </p>
+                            </div>
+                          </>
+                        ) : activeNode?.testKind === 'GATE' ? null : (
+                          <div className="space-y-1 pl-6">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Yêu cầu đạt</span>
+                            <p className="text-sm font-bold text-foreground">{activeItem.data.passingPercentage || 0}%</p>
+                          </div>
+                        )}
+                        {activeNode?.testKind === 'GATE' && (activeNode.gateUpMin != null || activeNode.gateDownMax != null) && (
+                          <>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Lên Level khi ≥</span>
+                              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                                {activeNode.gateUpMin != null ? `${activeNode.gateUpMin}%` : '—'}
+                              </p>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Hạ Level khi &lt;</span>
+                              <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                                {activeNode.gateDownMax != null ? `${activeNode.gateDownMax}%` : '—'}
+                              </p>
+                            </div>
+                          </>
+                        )}
                         <div className="space-y-1 pl-6">
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái</span>
                           <p className="text-sm font-bold">
                             {highestAttempt ? (
-                              highestAttempt.score >= (activeItem.data.passingPercentage || 0) ? (
+                              highestAttempt.score == null ? (
+                                <span className="text-sky-600 dark:text-sky-400 font-bold">Chờ giáo viên chấm</span>
+                              ) : (activeNode?.testKind === 'PLACEMENT' || activeNode?.testKind === 'GATE') ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">Đã làm ({highestAttempt.score}%)</span>
+                              ) : highestAttempt.score >= (activeItem.data.passingPercentage || 0) ? (
                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">Đạt ({highestAttempt.score}%)</span>
                               ) : (
                                 <span className="text-red-600 dark:text-red-400 font-bold">Chưa đạt ({highestAttempt.score}%)</span>
@@ -1084,13 +1031,14 @@ export function StudentLearningPathPage() {
                         </div>
                       )}
 
-                      {/* Display past attempt history */}
+                      {}
                       {attemptsForTest.length > 0 && (
                         <div className="border-t border-border pt-4 space-y-3">
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Lịch sử làm bài thi</span>
                           <div className="space-y-2">
                             {attemptsForTest.map((att, idx) => {
-                              const isPassed = att.score >= (activeItem.data.passingPercentage || 0);
+                              const isPending = att.score == null;
+                              const isPassed = !isPending && (activeNode?.testKind === 'PLACEMENT' || activeNode?.testKind === 'GATE' || (att.score ?? 0) >= (activeItem.data.passingPercentage || 0));
                               return (
                                 <div key={att.attemptId} className="flex justify-between items-center p-3 border border-border bg-muted/20 rounded-md text-xs">
                                   <span className="font-bold text-foreground">Lần nộp {attemptsForTest.length - idx}</span>
@@ -1098,14 +1046,16 @@ export function StudentLearningPathPage() {
                                     <span className="text-muted-foreground font-semibold text-[11px]">
                                       {new Date(att.submittedAt).toLocaleString('vi-VN')}
                                     </span>
-                                    <Badge 
+                                    <Badge
                                       className={`text-[9px] rounded-sm font-bold border-transparent ${
-                                        isPassed 
-                                          ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
+                                        isPending
+                                          ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400 hover:bg-sky-500/20'
+                                          : isPassed
+                                          ? 'bg-emerald-500 text-white hover:bg-emerald-600'
                                           : 'bg-muted text-muted-foreground hover:bg-muted/80'
                                       }`}
                                     >
-                                      Điểm: {att.score}% - {isPassed ? 'Đạt' : 'Chưa đạt'}
+                                      {isPending ? 'Chờ giáo viên chấm tự luận' : `Điểm: ${att.score}% - ${isPassed ? 'Đạt' : 'Chưa đạt'}`}
                                     </Badge>
                                   </div>
                                 </div>
@@ -1117,12 +1067,16 @@ export function StudentLearningPathPage() {
 
                       <div className="border-t border-border pt-5 flex justify-end">
                         <Button
-                          onClick={() => navigate(`/student/tests/${activeItem.id}?csId=${classroomSubjectId}`)}
+                          onClick={() => {
+                            const params = new URLSearchParams(searchParams);
+                            params.set('csId', String(classroomSubjectId));
+                            navigate(`/student/tests/${activeItem.id}?${params.toString()}`);
+                          }}
                           className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
                         >
                           <span>
                             {attemptsForTest.length > 0 
-                              ? (highestAttempt && highestAttempt.score >= (activeItem.data.passingPercentage || 0) 
+                              ? (highestAttempt && (highestAttempt.score ?? 0) >= (activeItem.data.passingPercentage || 0) 
                                 ? 'Làm lại bài thi (Cải thiện điểm)' 
                                 : 'Làm lại bài thi') 
                               : 'Bắt đầu làm bài thi'}
@@ -1134,7 +1088,7 @@ export function StudentLearningPathPage() {
                   </div>
                 )}
 
-                {/* 3. EXERCISE VIEWER & SUBMISSION */}
+                {}
                 {activeItem.type === 'exercise' && (
                   <div className="space-y-5">
                     <div className="space-y-2">
@@ -1144,7 +1098,7 @@ export function StudentLearningPathPage() {
                           <h1 className="text-xl font-bold text-foreground leading-tight tracking-tight">{activeItem.title}</h1>
                         </div>
                         
-                        {/* Submission status badge */}
+                        {}
                         {(() => {
                           const submission = exerciseSubmissions[activeItem.id];
                           if (!submission) {
@@ -1156,7 +1110,7 @@ export function StudentLearningPathPage() {
                           if (submission.status === 'GRADED') {
                             return (
                               <Badge className="bg-emerald-500 text-white hover:bg-emerald-600 rounded-sm font-bold text-[9px] px-2 py-0.5 border-transparent">
-                                Đã chấm: {submission.grade} / 10
+                                Đã chấm: {submission.grade} / 100
                               </Badge>
                             );
                           }
@@ -1165,7 +1119,7 @@ export function StudentLearningPathPage() {
                       </div>
                     </div>
 
-                    {/* Instructions */}
+                    {}
                     {activeItem.data.instructions && (
                       <div className="border border-border bg-muted/20 rounded-lg p-4 space-y-1.5">
                         <h4 className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Yêu cầu & Hướng dẫn làm bài</h4>
@@ -1173,7 +1127,7 @@ export function StudentLearningPathPage() {
                       </div>
                     )}
 
-                    {/* Submission content view / form */}
+                    {}
                     {(() => {
                       const submission = exerciseSubmissions[activeItem.id];
                       const hasSubmitted = submission && (submission.status === 'SUBMITTED' || submission.status === 'GRADED');
@@ -1186,7 +1140,7 @@ export function StudentLearningPathPage() {
                               {isResubmitting ? 'Nộp lại bài làm của bạn' : 'Tiến hành nộp bài'}
                             </h3>
 
-                            {/* Text Submission Form */}
+                            {}
                             {activeItem.data.allowText && (
                               <div className="space-y-1.5">
                                 <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -1201,7 +1155,7 @@ export function StudentLearningPathPage() {
                               </div>
                             )}
 
-                            {/* File Upload Form */}
+                            {}
                             {activeItem.data.allowFile && (
                               <div className="space-y-1.5">
                                 <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">
@@ -1250,7 +1204,7 @@ export function StudentLearningPathPage() {
                               </div>
                             )}
 
-                            {/* Form Action buttons */}
+                            {}
                             <div className="flex items-center gap-2.5 pt-2">
                               <Button
                                 onClick={handleExerciseSubmit}
@@ -1324,7 +1278,7 @@ export function StudentLearningPathPage() {
                                   <div className="flex items-center gap-2">
                                     <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Đánh giá của giáo viên</span>
                                     <Badge className="bg-primary text-primary-foreground hover:bg-primary/95 font-bold text-[9px] px-2 py-0.5 border-transparent">
-                                      Điểm số: {submission.grade} / 10
+                                      Điểm số: {submission.grade} / 100
                                     </Badge>
                                   </div>
 
@@ -1341,7 +1295,7 @@ export function StudentLearningPathPage() {
                                 </div>
                               )}
 
-                              {/* Resubmit button if not graded or if allowed */}
+                              {}
                               <div className="border-t border-border pt-4 flex justify-end">
                                 <Button
                                   onClick={() => {
@@ -1363,16 +1317,16 @@ export function StudentLearningPathPage() {
                   </div>
                 )}
                 
-                {/* Completion Footer (Coursera style) */}
+                {}
                 {renderCompletionFooter()}
 
-                {/* Hỏi đáp & Thảo luận */}
+                {}
                 <div className="border-t border-border pt-8 mt-12">
                   <NodeDiscussion nodeId={activeItem.nodeId} role="student" />
                 </div>
               </>
             ) : (
-              // 4. ROADMAP OVERVIEW (IF NO ACTIVE ITEM SELECTED)
+              
               <div className="text-center py-20 border border-dashed border-border rounded-lg bg-card">
                 <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3 stroke-[1.5]" />
                 <h2 className="text-sm font-bold text-foreground">Chọn một mục để học</h2>
@@ -1384,7 +1338,7 @@ export function StudentLearningPathPage() {
           </div>
         </div>
 
-        {/* BOTTOM NAVIGATION PANEL: Prev / Next buttons */}
+        {}
         {activeItem && allItems.length > 0 && (
           <div className="h-14 border-t border-border bg-card flex items-center justify-between px-8 shrink-0">
             <Button
@@ -1413,103 +1367,7 @@ export function StudentLearningPathPage() {
         )}
       </div>
 
-      {/* Pop Quiz Alert Dialog */}
-      <Dialog open={showPopQuizAlert} onOpenChange={setShowPopQuizAlert}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
-              <span className="animate-pulse">🔔</span>
-              <span>Bài kiểm tra nhanh (Pop Quiz)!</span>
-            </DialogTitle>
-            <DialogDescription>
-              Giảng viên vừa giao bài kiểm tra nhanh cho bạn:
-              <strong className="block text-foreground text-base mt-2 font-bold">{activePopQuiz?.title}</strong>
-              Thời gian làm bài: {activePopQuiz?.durationMinutes} phút.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:justify-end mt-4">
-            <Button
-              onClick={handleStartPopQuiz}
-              disabled={startingPopQuiz}
-              className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl"
-            >
-              {startingPopQuiz ? "Đang kết nối..." : "Bắt đầu làm bài"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Pop Quiz Runner Dialog */}
-      <Dialog open={showPopQuizRunner} onOpenChange={() => {}}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-3 mb-4">
-            <div className="flex justify-between items-center pr-6">
-              <DialogTitle className="text-lg font-bold">Pop Quiz: {popQuizPaper?.title}</DialogTitle>
-              <div className="flex items-center gap-2 bg-amber-55 border border-amber-200 px-3 py-1.5 rounded-lg text-amber-700 font-extrabold text-sm animate-pulse">
-                <span>⏱️ Còn lại:</span>
-                <span>
-                  {Math.floor(popQuizSecondsLeft / 60)}m {popQuizSecondsLeft % 60}s
-                </span>
-              </div>
-            </div>
-          </DialogHeader>
-          {popQuizPaper && (
-            <div className="py-2">
-              <TestRunner
-                details={{
-                  testId: popQuizPaper.assignmentId,
-                  title: popQuizPaper.title,
-                  durationMinutes: popQuizPaper.durationMinutes,
-                  questions: popQuizPaper.questions.map((q) => ({
-                    questionId: q.questionId,
-                    questionContent: q.questionContent,
-                    questionType: q.questionType as any,
-                    score: q.score,
-                    answers: q.answers,
-                  })),
-                }}
-                started={true}
-                submitting={submittingPopQuiz}
-                onStart={() => {}}
-                onSubmit={handleSubmitPopQuiz}
-                onTabOut={handlePopQuizTabOut}
-                submitLabel="Nộp bài Pop Quiz"
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Pop Quiz Result Dialog */}
-      <Dialog open={showPopQuizResult} onOpenChange={setShowPopQuizResult}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-center">Kết quả Pop Quiz</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-6 space-y-4">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-4xl border border-emerald-200 font-bold">
-              {activePopQuiz?.score != null ? `${activePopQuiz.score}%` : '---'}
-            </div>
-            <p className="text-sm text-zinc-500 font-medium text-center">
-              {activePopQuiz?.status === 'EXPIRED' 
-                ? 'Bài làm của bạn đã quá hạn nộp. Hệ thống ghi nhận 0 điểm.' 
-                : 'Bài kiểm tra nhanh của bạn đã được ghi nhận thành công.'}
-            </p>
-          </div>
-          <DialogFooter className="sm:justify-center mt-2">
-            <Button
-              onClick={() => {
-                setShowPopQuizResult(false);
-                setActivePopQuiz(null);
-                setPopQuizPaper(null);
-              }}
-              className="bg-slate-950 hover:bg-slate-900 text-white font-bold rounded-xl px-6"
-            >
-              Đồng ý
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

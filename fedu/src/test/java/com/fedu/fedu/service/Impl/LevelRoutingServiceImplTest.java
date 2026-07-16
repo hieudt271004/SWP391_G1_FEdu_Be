@@ -33,7 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/** Unit test cho lõi định tuyến GATE (applyGateRouting) — không cần DB/Spring context. */
+
 @ExtendWith(MockitoExtension.class)
 class LevelRoutingServiceImplTest {
 
@@ -91,23 +91,23 @@ class LevelRoutingServiceImplTest {
 
     @Test
     void up_movesUpOneLevelWithinApplies() {
-        ClassroomSubjectStudent css = css(1); // Yếu
+        ClassroomSubjectStudent css = css(1); 
         stubFind(css);
 
         service.applyGateRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID, bd(85));
 
-        assertEquals(2, css.getCurrentLevel()); // lên TB
+        assertEquals(2, css.getCurrentLevel()); 
         verify(studentLevelHistoryRepository).save(any());
     }
 
     @Test
     void down_movesDownOneLevelWithinApplies() {
-        ClassroomSubjectStudent css = css(2); // TB
+        ClassroomSubjectStudent css = css(2); 
         stubFind(css);
 
         service.applyGateRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID, bd(30));
 
-        assertEquals(1, css.getCurrentLevel()); // xuống Yếu
+        assertEquals(1, css.getCurrentLevel()); 
         verify(studentLevelHistoryRepository).save(any());
     }
 
@@ -124,18 +124,18 @@ class LevelRoutingServiceImplTest {
 
     @Test
     void up_clampedAtTopOfApplies() {
-        ClassroomSubjectStudent css = css(2); // đã ở đỉnh của {1,2}
+        ClassroomSubjectStudent css = css(2); 
         stubFind(css);
 
         service.applyGateRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID, bd(95));
 
-        assertEquals(2, css.getCurrentLevel()); // không vượt max(applies)
+        assertEquals(2, css.getCurrentLevel()); 
         verify(studentLevelHistoryRepository, never()).save(any());
     }
 
     @Test
     void singleLevelGate_neverChangesLevel() {
-        ClassroomSubjectStudent css = css(3); // Khá, gate chỉ {3}
+        ClassroomSubjectStudent css = css(3); 
         stubFind(css);
 
         service.applyGateRouting(CS_ID, gate("3", bd(80), bd(40)), STUDENT_ID, bd(95));
@@ -146,7 +146,7 @@ class LevelRoutingServiceImplTest {
 
     @Test
     void currentLevelOutsideApplies_isIgnored() {
-        ClassroomSubjectStudent css = css(3); // Khá nhưng gate phụ trách {1,2}
+        ClassroomSubjectStudent css = css(3); 
         stubFind(css);
 
         service.applyGateRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID, bd(95));
@@ -182,37 +182,37 @@ class LevelRoutingServiceImplTest {
     @Test
     void levelChange_reopensMatchingLearningBranch_locksOtherLevel_keepsTestNodes() {
         long pathId = 50L;
-        ClassroomSubjectStudent css = css(1); // Yếu → gate {1,2} đạt 85 → lên TB (2)
+        ClassroomSubjectStudent css = css(1); 
         stubFind(css);
         when(learningPathRepository.findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(CS_ID))
                 .thenReturn(Optional.of(LearningPath.builder().pathId(pathId).build()));
 
-        StudentNodeProgress pTb = prog(learnNode(201L, 2), StudentProgressStatus.LOCKED);   // mức mới
-        StudentNodeProgress pYeu = prog(learnNode(202L, 1), StudentProgressStatus.OPEN);    // mức cũ
+        StudentNodeProgress pTb = prog(learnNode(201L, 2), StudentProgressStatus.LOCKED);   
+        StudentNodeProgress pYeu = prog(learnNode(202L, 1), StudentProgressStatus.OPEN);    
         StudentNodeProgress pFcKha = prog(testNode(203L, NodeTestKind.FREE_CHOICE, 3),
-                StudentProgressStatus.OPEN);                                                // node test mức 3
+                StudentProgressStatus.OPEN);                                                
         when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(STUDENT_ID, pathId))
                 .thenReturn(new ArrayList<>(List.of(pTb, pYeu, pFcKha)));
-        when(nodeEdgeRepository.findByToNodeNodeId(201L)).thenReturn(List.of()); // TB không tiên quyết → mở
+        when(nodeEdgeRepository.findByToNodeNodeId(201L)).thenReturn(List.of()); 
 
         service.applyGateRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID, bd(85));
 
         assertEquals(2, css.getCurrentLevel());
-        assertEquals(StudentProgressStatus.OPEN, pTb.getStatus());    // nhánh học TB mở
-        assertEquals(StudentProgressStatus.LOCKED, pYeu.getStatus()); // nhánh học Yếu khóa lại
-        assertEquals(StudentProgressStatus.OPEN, pFcKha.getStatus()); // node test KHÔNG bị khóa theo mức
+        assertEquals(StudentProgressStatus.OPEN, pTb.getStatus());    
+        assertEquals(StudentProgressStatus.LOCKED, pYeu.getStatus()); 
+        assertEquals(StudentProgressStatus.OPEN, pFcKha.getStatus()); 
     }
 
-    // ── P2c: applyFreeChoiceRouting ───────────────────────────────────────────
+    
 
     @Test
     void freeChoice_passSetsLevelToNodeTargetLevel() {
-        ClassroomSubjectStudent css = css(1); // Yếu
+        ClassroomSubjectStudent css = css(1); 
         stubFind(css);
 
         service.applyFreeChoiceRouting(CS_ID, testNode(300L, NodeTestKind.FREE_CHOICE, 3), STUDENT_ID);
 
-        assertEquals(3, css.getCurrentLevel()); // chọn & đạt bài Khá → lên Khá
+        assertEquals(3, css.getCurrentLevel()); 
         verify(studentLevelHistoryRepository).save(any());
     }
 

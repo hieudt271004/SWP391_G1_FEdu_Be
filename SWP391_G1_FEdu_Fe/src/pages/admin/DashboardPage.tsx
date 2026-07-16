@@ -45,7 +45,7 @@ interface ActivityItem {
   time: string;
 }
 
-// Reading this as: Admin Dashboard for FEdu administrators, with a SaaS B2B, clean, and data-dense language, leaning toward Outfit-driven modern minimalism.
+
 export function DashboardPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -70,7 +70,7 @@ export function DashboardPage() {
 
         if (!isMounted) return;
 
-        // 1. Calculate KPI Metrics
+        
         const studentsList = users.filter(u => u.roles.includes("STUDENT"));
         const teachersList = users.filter(u => u.roles.includes("TEACHER"));
         
@@ -90,7 +90,7 @@ export function DashboardPage() {
           activeRatio
         });
 
-        // 2. Generate Student Registration Trend (Last 6 Months)
+        
         const last6Months: MonthlyData[] = Array.from({ length: 6 }, (_, i) => {
           const d = new Date();
           d.setMonth(d.getMonth() - i);
@@ -115,7 +115,7 @@ export function DashboardPage() {
         });
         setChartData(last6Months);
 
-        // 3. Generate Recent Activities (Latest 5 registered users)
+        
         const sortedUsers = [...users]
           .filter(u => u.createdAt)
           .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
@@ -169,11 +169,11 @@ export function DashboardPage() {
     };
   }, []);
 
-  // Redesigned loading skeleton using the updated layout grid
+  
   if (loading) {
     return (
       <div className="space-y-6 animate-pulse p-1">
-        {/* Header Skeleton */}
+        {}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
           <div className="space-y-2">
             <div className="h-6 w-48 bg-muted/60 rounded-md" />
@@ -182,7 +182,7 @@ export function DashboardPage() {
           <div className="h-8 w-28 bg-muted/60 rounded-lg" />
         </div>
 
-        {/* KPIs Grid Skeleton */}
+        {}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, idx) => (
             <div key={idx} className="h-[120px] bg-muted/20 border border-border/40 rounded-xl p-5 flex flex-col justify-between">
@@ -198,19 +198,19 @@ export function DashboardPage() {
           ))}
         </div>
 
-        {/* Main Grid Skeleton */}
+        {}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 h-[380px] bg-muted/20 border border-border/40 rounded-xl p-5" />
           <div className="h-[380px] bg-muted/20 border border-border/40 rounded-xl p-5" />
         </div>
 
-        {/* Quick Actions Skeleton */}
+        {}
         <div className="h-[120px] bg-muted/20 border border-border/40 rounded-xl p-5" />
       </div>
     );
   }
 
-  // Custom Recharts Tooltip for a premium, high-contrast visual
+  
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -227,7 +227,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto p-1 font-sans">
-      {/* Page Header */}
+      {}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -238,11 +238,11 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto">
-          {/* Mock Time Filter Selector */}
+          {}
           <div className="bg-card border border-border/80 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground shadow-xs hover:bg-accent/40 active:bg-accent/60 transition-all duration-200 cursor-pointer flex items-center gap-1.5">
             6 tháng qua
           </div>
-          {/* Status Indicator */}
+          {}
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/40 border border-border/60 text-xs font-medium text-muted-foreground shadow-2xs">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -253,9 +253,9 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
+      {}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Total Students */}
+        {}
         <div className="bg-card border border-border/60 p-5 rounded-xl hover:border-border hover:bg-accent/5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between min-h-[120px]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground tracking-wide">Tổng Học viên</span>
@@ -271,7 +271,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* KPI 2: Total Teachers */}
+        {}
         <div className="bg-card border border-border/60 p-5 rounded-xl hover:border-border hover:bg-accent/5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between min-h-[120px]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground tracking-wide">Tổng Giảng viên</span>
@@ -287,7 +287,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* KPI 3: Total Courses */}
+        {}
         <div className="bg-card border border-border/60 p-5 rounded-xl hover:border-border hover:bg-accent/5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between min-h-[120px]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground tracking-wide">Số Môn học</span>
@@ -303,7 +303,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* KPI 4: Active Ratio */}
+        {}
         <div className="bg-card border border-border/60 p-5 rounded-xl hover:border-border hover:bg-accent/5 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between min-h-[120px]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground tracking-wide">Tỷ lệ Hoạt động</span>
@@ -320,9 +320,9 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Main Grid: Trend Chart + Recent Feed */}
+      {}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Trend Area Chart (2/3 width) */}
+        {}
         <div className="lg:col-span-2 bg-card rounded-xl p-5 border border-border/60 flex flex-col justify-between min-h-[380px]">
           <div className="flex items-start justify-between mb-4">
             <div className="space-y-0.5">
@@ -372,7 +372,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Registered Members Feed (1/3 width) */}
+        {}
         <div className="bg-card rounded-xl p-5 border border-border/60 flex flex-col justify-between min-h-[380px]">
           <div className="flex items-center justify-between mb-4">
             <div className="space-y-0.5">
@@ -385,7 +385,7 @@ export function DashboardPage() {
           <div className="space-y-3.5 flex-1 overflow-y-auto pr-1">
             {activities.length > 0 ? (
               activities.map((activity, idx) => {
-                // Determine style of role badge based on roles
+                
                 let badgeStyle = "bg-muted/80 text-foreground/80 border-border/40";
                 if (activity.role === "Quản trị viên") {
                   badgeStyle = "bg-red-50 text-red-700 border-red-100 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30";
@@ -425,7 +425,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* Tactile Quick Actions Panel */}
+      {}
       <div className="bg-card border border-border/60 p-5 rounded-xl">
         <h3 className="text-sm font-semibold text-foreground mb-4">Thao tác nhanh</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

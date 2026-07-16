@@ -33,10 +33,10 @@ export function TeacherTicketsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Search & Filter State
+  
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Response Modal State
+  
   const [selectedTicket, setSelectedTicket] = useState<TicketWithClassInfo | null>(null);
   const [answerText, setAnswerText] = useState('');
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
@@ -47,10 +47,10 @@ export function TeacherTicketsPage() {
       setLoading(true);
       setError(null);
       
-      // 1. Get all classrooms taught by the teacher
+      
       const classrooms = await teacherService.getClassroomsByTeacher(user.userId);
       
-      // 2. Fetch escalated tickets for each classroom
+      
       const allTicketsPromises = (classrooms ?? []).map(async (c) => {
         try {
           const classTickets = await teacherService.listEscalatedTickets(c.classroomSubjectId);
@@ -108,7 +108,7 @@ export function TeacherTicketsPage() {
       
       toast.success('Đã gửi câu trả lời và giải quyết ticket thành công!');
       handleCloseRespond();
-      fetchTickets(); // Refresh list
+      fetchTickets(); 
     } catch (err: any) {
       console.error('Lỗi khi trả lời ticket:', err);
       toast.error(err.message || 'Không thể gửi câu trả lời.');
@@ -117,7 +117,7 @@ export function TeacherTicketsPage() {
     }
   };
 
-  // Filtered tickets
+  
   const filteredTickets = tickets.filter((t) => {
     const matchesSearch = 
       t.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -129,7 +129,7 @@ export function TeacherTicketsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-card text-card-foreground p-6 rounded-2xl border border-border shadow-sm">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2 text-foreground">
@@ -146,9 +146,9 @@ export function TeacherTicketsPage() {
         </Badge>
       </div>
 
-      {/* Main List */}
+      {}
       <div className="bg-card text-card-foreground rounded-2xl border border-border shadow-sm overflow-hidden">
-        {/* Search */}
+        {}
         <div className="p-4 border-b border-border bg-accent/25 flex gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -162,7 +162,7 @@ export function TeacherTicketsPage() {
           </div>
         </div>
 
-        {/* Content */}
+        {}
         {loading ? (
           <div className="p-12 text-center">
             <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto" />
@@ -191,7 +191,7 @@ export function TeacherTicketsPage() {
                 key={ticket.ticketId} 
                 className="p-6 hover:bg-accent/40 transition-all flex flex-col md:flex-row gap-4 items-start justify-between"
               >
-                {/* Student Info & Question */}
+                {}
                 <div className="space-y-3 flex-1 min-w-0">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-muted text-foreground flex items-center justify-center font-bold text-sm shrink-0 border border-border">
@@ -227,7 +227,7 @@ export function TeacherTicketsPage() {
                   </div>
                 </div>
 
-                {/* Actions */}
+                {}
                 <div className="shrink-0 w-full md:w-auto flex md:flex-col justify-end items-end gap-2 self-stretch md:self-auto border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0">
                   <Button
                     onClick={() => handleOpenRespond(ticket)}
@@ -243,12 +243,12 @@ export function TeacherTicketsPage() {
         )}
       </div>
 
-      {/* Respond Modal */}
+      {}
       {selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCloseRespond} />
           <div className="relative bg-background text-foreground border border-border w-full max-w-xl rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            {/* Header */}
+            {}
             <div className="px-6 py-4 bg-accent/25 border-b border-border flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-foreground">Trả lời Ticket Hỗ trợ</h3>
@@ -259,7 +259,7 @@ export function TeacherTicketsPage() {
               </Button>
             </div>
 
-            {/* Form */}
+            {}
             <form onSubmit={handleSubmitAnswer} className="p-6 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Câu hỏi của học sinh</label>
@@ -280,7 +280,7 @@ export function TeacherTicketsPage() {
                 />
               </div>
 
-              {/* Actions */}
+              {}
               <div className="flex justify-end gap-3 pt-2">
                 <Button
                   type="button"

@@ -96,7 +96,7 @@ public class LearningPathIntegrationTest {
     void setUp() {
         transactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         transactionTemplate.execute(status -> {
-            // Clear all database tables via direct SQL to avoid flush order and FK constraint issues in shared DB
+            
             jdbcTemplate.execute("DELETE FROM ticket_comments");
             jdbcTemplate.execute("DELETE FROM support_tickets");
             jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
@@ -126,7 +126,7 @@ public class LearningPathIntegrationTest {
             jdbcTemplate.execute("DELETE FROM user_role");
             jdbcTemplate.execute("DELETE FROM user_account");
 
-            // Create teacher A
+            
             teacherA = userAccountRepository.save(UserAccount.builder()
                     .email("teacherA@fedu.edu.vn")
                     .firstName("Teacher")
@@ -141,7 +141,7 @@ public class LearningPathIntegrationTest {
                     .build());
             teacherA.setUserRoles(java.util.Collections.singletonList(userRoleA));
 
-            // Create teacher B
+            
             teacherB = userAccountRepository.save(UserAccount.builder()
                     .email("teacherB@fedu.edu.vn")
                     .firstName("Teacher")
@@ -155,7 +155,7 @@ public class LearningPathIntegrationTest {
                     .build());
             teacherB.setUserRoles(java.util.Collections.singletonList(userRoleB));
 
-            // Create subject
+            
             subject = subjectRepository.save(Subject.builder()
                     .subjectCode("PRJ301")
                     .subjectName("Java Web")
@@ -163,35 +163,35 @@ public class LearningPathIntegrationTest {
                     .isDeleted(false)
                     .build());
 
-            // Create classroom A owned by teacher A
+            
             classroomA = classroomRepository.save(Classroom.builder()
                     .className("Class A")
-                    .status("active")
+                    .status(com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE)
                     .isDeleted(false)
                     .build());
 
-            // Create classroom B owned by teacher B
+
             classroomB = classroomRepository.save(Classroom.builder()
                     .className("Class B")
-                    .status("active")
+                    .status(com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE)
                     .isDeleted(false)
                     .build());
 
-            // Create classroom subject for Class A
+            
             classroomSubjectA = classroomSubjectRepository.save(ClassroomSubject.builder()
                     .classroom(classroomA)
                     .subject(subject)
                     .lecturer(teacherA)
                     .build());
 
-            // Create classroom subject for Class B
+            
             classroomSubjectB = classroomSubjectRepository.save(ClassroomSubject.builder()
                     .classroom(classroomB)
                     .subject(subject)
                     .lecturer(teacherB)
                     .build());
 
-            // Create template learning path
+            
             templatePath = learningPathRepository.save(LearningPath.builder()
                     .subject(subject)
                     .pathName("Template Roadmap")
@@ -199,7 +199,7 @@ public class LearningPathIntegrationTest {
                     .isDeleted(false)
                     .build());
 
-            // Create nodes
+            
             node1 = learningNodeRepository.save(LearningNode.builder()
                     .learningPath(templatePath)
                     .title("Introduction")
@@ -222,7 +222,7 @@ public class LearningPathIntegrationTest {
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testEndToEndLearningPathFlow() throws Exception {
-        // 1. Clone template
+        
         List<LearningPath> clonedPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectA.getId());
         assertTrue(clonedPaths.isEmpty());
 
@@ -235,7 +235,7 @@ public class LearningPathIntegrationTest {
         assertNotNull(clonedPath);
         assertEquals(classroomSubjectA.getId(), clonedPath.getClassroomSubject().getId());
 
-        // Create enrolled student
+        
         UserAccount student = UserAccount.builder()
                 .email("student1@fedu.edu.vn")
                 .firstName("Student")
@@ -258,14 +258,14 @@ public class LearningPathIntegrationTest {
                 .build();
         classroomSubjectStudentRepository.save(enrollment);
 
-        // 2. Publish
+        
         learningPathService.publishClassroomPath(classroomSubjectA.getId(), clonedPath.getPathId());
 
-        // Check SNP count
+        
         long snpCount = studentNodeProgressRepository.count();
-        assertEquals(2, snpCount); // 1 student * 2 nodes = 2 SNP
+        assertEquals(2, snpCount); 
 
-        // 3. Enroll late student using ClassroomEnrollmentService
+        
         UserAccount student2 = UserAccount.builder()
                 .email("student2@fedu.edu.vn")
                 .firstName("Student")
@@ -285,22 +285,22 @@ public class LearningPathIntegrationTest {
 
         classroomEnrollmentService.enrollStudent(classroomSubjectA.getId(), addRequest);
 
-        // Simulate student 2 resolving placement level and getting bound path
+        
         ClassroomSubjectStudent css2 = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectA.getId(), student2.getUserId())
                 .orElseThrow();
         css2.setCurrentLevel(2);
         classroomSubjectStudentRepository.save(css2);
 
-        // Call backfill explicitly
+        
         learningPathService.backfillProgressForStudent(classroomSubjectA.getId(), student2.getUserId());
 
-        // Check SNP backfilled only for student 2
+        
         List<StudentNodeProgress> student2Progress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(student2.getUserId(), clonedPath.getPathId());
         assertEquals(2, student2Progress.size());
     }
 
-    // 6.8 Concurrent test publish race (2 threads, một thắng một 409)
+    
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testConcurrentPublishRace() throws Exception {
@@ -323,7 +323,7 @@ public class LearningPathIntegrationTest {
             executor.submit(() -> {
                 try {
                     latch.await();
-                    // Set security context for the background thread to mock teacherA login
+                    
                     org.springframework.security.core.context.SecurityContext context = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
                     context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                             "teacherA@fedu.edu.vn", "password",
@@ -342,7 +342,7 @@ public class LearningPathIntegrationTest {
             });
         }
 
-        latch.countDown(); // trigger concurrent run
+        latch.countDown(); 
         finishLatch.await();
         executor.shutdown();
 
@@ -350,20 +350,20 @@ public class LearningPathIntegrationTest {
         assertEquals(1, failureCount.get());
     }
 
-    // 6.9 Authorization test (Eng H6): teacher A (không phải lecturer của classroom B) gọi mọi endpoint trên classroom B -> 403; teacher A gọi trên classroom A -> 200
+    
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     void testAuthorizationForTeacherClassrooms() throws Exception {
-        // Teacher A calls GET classroom subject A graph -> 200
+        
         mockMvc.perform(get("/teacher-manage/classroom-subjects/{classroomSubjectId}/graph", classroomSubjectA.getId()))
                 .andExpect(status().isOk());
 
-        // Teacher A calls GET classroom subject B graph -> 403 Access Denied
+        
         mockMvc.perform(get("/teacher-manage/classroom-subjects/{classroomSubjectId}/graph", classroomSubjectB.getId()))
                 .andExpect(status().isForbidden());
     }
 
-    // 6.10 Test rollback enrollment khi backfill fail
+    
     @Test
     @WithMockUser(username = "teacherA@fedu.edu.vn", roles = {"TEACHER"})
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
@@ -391,7 +391,7 @@ public class LearningPathIntegrationTest {
         AddStudentRequest request = new AddStudentRequest();
         request.setEmail("studentRollback@fedu.edu.vn");
 
-        // Spy on service and throw error on backfill progress call
+        
         doThrow(new RuntimeException("Simulated backfill failure"))
                 .when(learningPathService).backfillProgressForStudent(eq(classroomSubjectA.getId()), anyLong());
 
@@ -399,7 +399,7 @@ public class LearningPathIntegrationTest {
             classroomEnrollmentService.enrollStudent(classroomSubjectA.getId(), request);
         });
 
-        // Verify that classroom_subject_students row does not exist (rolled back)
+        
         boolean enrolled = classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(classroomSubjectA.getId(), student.getUserId()).isPresent();
         assertFalse(enrolled);
     }

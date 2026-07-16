@@ -32,14 +32,14 @@ public class CreateLearningNodeRequest {
 
 
 
-    /** Chặng thứ mấy trong lộ trình (1..subject.learningpathLength). */
+    
     @jakarta.validation.constraints.Min(value = 1, message = "stageOrder phải >= 1")
     private Integer stageOrder;
 
-    /** Mức của node: null = node chung mọi mức; 1=yếu, 2=tb, 3=khá. */
+    
     private Integer level;
 
-    /** Loại test: NONE/GATE/PLACEMENT/FREE_CHOICE (mặc định NONE). */
+    
     private NodeTestKind testKind;
 
     private String appliesLevels;
@@ -48,6 +48,6 @@ public class CreateLearningNodeRequest {
     private java.math.BigDecimal placementYeuMax;
     private java.math.BigDecimal placementTbMax;
 
-    /** Hạn hoàn thành node cho học sinh (tùy chọn). */
+    
     private java.time.LocalDateTime deadlineAt;
 }

@@ -15,6 +15,10 @@ import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.RoleRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.repository.UserRoleRepository;
+import com.fedu.fedu.repository.ClassroomSubjectRepository;
+import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
+import com.fedu.fedu.entity.ClassroomSubject;
+import com.fedu.fedu.entity.ClassroomSubjectStudent;
 import com.fedu.fedu.service.UserAccountService;
 import com.fedu.fedu.utils.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +41,8 @@ public class UserAccountServiceImpl implements UserAccountService {
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final ClassroomSubjectRepository classroomSubjectRepository;
+    private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
 
     @Override
     public UserAccount getByEmail(String email) {
@@ -53,10 +59,43 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
+    @Transactional
     public void deleteByEmail(String email) {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        userAccountRepository.delete(userAccount);
+
+        
+        boolean isTeacher = userAccount.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.TEACHER);
+        if (isTeacher) {
+            List<ClassroomSubject> taughtClasses = classroomSubjectRepository.findByLecturerId(userAccount.getUserId());
+            boolean hasActiveTaughtClass = taughtClasses.stream()
+                    .anyMatch(cs -> cs.getClassroom() != null
+                            && com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE == cs.getClassroom().getStatus()
+                            && !Boolean.TRUE.equals(cs.getClassroom().getIsDeleted()));
+            if (hasActiveTaughtClass) {
+                throw new InvalidDataException("Không thể xóa giảng viên đang giảng dạy lớp học đang hoạt động.");
+            }
+        }
+
+        
+        boolean isStudent = userAccount.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.STUDENT);
+        if (isStudent) {
+            List<ClassroomSubjectStudent> enrollments = classroomSubjectStudentRepository.findAllByStudentId(userAccount.getUserId());
+            boolean hasActiveEnrollment = enrollments.stream()
+                    .anyMatch(css -> css.getClassroomSubject() != null
+                            && css.getClassroomSubject().getClassroom() != null
+                            && com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE == css.getClassroomSubject().getClassroom().getStatus()
+                            && !Boolean.TRUE.equals(css.getClassroomSubject().getClassroom().getIsDeleted()));
+            if (hasActiveEnrollment) {
+                throw new InvalidDataException("Không thể xóa học viên đang tham gia lớp học đang hoạt động.");
+            }
+        }
+
+        userAccount.setIsDeleted(true);
+        userAccount.setStatus(UserStatus.INACTIVE);
+        userAccountRepository.save(userAccount);
     }
 
     @Override
@@ -123,7 +162,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     private void assignUserRole(UserAccount userAccount, com.fedu.fedu.utils.enums.UserRole userRole) {
-        // Mặc định USER nếu input null/invalid — KHÔNG bao giờ fallback về ADMIN
+        
         com.fedu.fedu.utils.enums.UserRole targetRole =
                 (userRole != null) ? userRole : com.fedu.fedu.utils.enums.UserRole.USER;
 
@@ -147,7 +186,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     @Override
     @Transactional
     public void save(RegisterRequest request) {
-        // Check duplicate user
+        
         if (userAccountRepository.existsByEmail(request.getEmail())) {
             throw new InvalidDataException("Email already exists");
         }
@@ -215,7 +254,7 @@ public class UserAccountServiceImpl implements UserAccountService {
             }
         }
         
-        // Update fields
+        
         userAccount.setFirstName(request.getFirstName());
         userAccount.setLastName(request.getLastName());
         userAccount.setPhone(request.getPhone());
@@ -280,7 +319,7 @@ public class UserAccountServiceImpl implements UserAccountService {
             }
         }
         
-        // Update profile fields
+        
         userAccount.setFirstName(request.getFirstName());
         userAccount.setLastName(request.getLastName());
         userAccount.setPhone(request.getPhone());
@@ -291,7 +330,7 @@ public class UserAccountServiceImpl implements UserAccountService {
             userAccount.setAvatarUrl(request.getAvatarUrl());
         }
         
-        // Update status
+        
         if (request.getStatus() != null) {
             userAccount.setStatus(request.getStatus());
         }

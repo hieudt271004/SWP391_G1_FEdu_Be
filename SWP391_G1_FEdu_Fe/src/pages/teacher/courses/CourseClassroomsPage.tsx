@@ -9,6 +9,7 @@ import { Subject } from '../../../types/subject';
 import { useAuth } from '../../../context/AuthContext';
 import { LearningPathManager } from '../../../components/learningPath/LearningPathManager';
 import { Badge } from '../../../components/ui/badge';
+import { formatSemester } from '../../../utils/classroom';
 
 export function CourseClassroomsPage() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export function CourseClassroomsPage() {
         setSubject(subjectData);
 
         if (view === 'template') {
-          // Editor tự tải danh sách template + graph (LearningPathManager)
+          
         } else {
           const rawClassrooms = await teacherService.getClassroomsByTeacher(user.userId);
           const filtered = (rawClassrooms ?? []).filter((c) => c.subjectId === Number(subjectId));
@@ -48,8 +49,10 @@ export function CourseClassroomsPage() {
             classroomName: c.className,
             subjectId: c.subjectId,
             teacherId: c.lecturerId ?? 0,
-            semester: 'Summer 2026',
-            year: new Date().getFullYear(),
+            term: c.term,
+            academicYear: c.academicYear,
+            semesterLabel: c.semesterLabel,
+            status: c.status,
           }));
           setClassrooms(mapped);
         }
@@ -89,14 +92,14 @@ export function CourseClassroomsPage() {
     );
   }
 
-  // Filter classrooms taught by this teacher only
+  
   const myClassrooms = classrooms.filter(
     (c) => c.teacherId === user?.userId
   );
 
   return (
     <div className="space-y-8 text-foreground bg-background">
-      {/* Header */}
+      {}
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" onClick={() => navigate('/teacher/courses')}>
           <ArrowLeft className="w-4 h-4" />
@@ -109,7 +112,7 @@ export function CourseClassroomsPage() {
         </div>
       </div>
 
-      {/* Description */}
+      {}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Mô tả môn học</CardTitle>
@@ -122,8 +125,8 @@ export function CourseClassroomsPage() {
       </Card>
 
       {view === 'template' ? (
-        /* Editor template CÁ NHÂN — dùng chung LearningPathManager với admin,
-           teacherMode: BE chỉ trả template do chính GV tạo, không hiện/không sửa template của khoa */
+        
+
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-border">
             <Map className="w-5 h-5 text-foreground" />
@@ -137,7 +140,7 @@ export function CourseClassroomsPage() {
           />
         </div>
       ) : (
-        /* Classrooms Section */
+        
         <div className="space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <div className="flex items-center gap-2">
@@ -164,8 +167,10 @@ export function CourseClassroomsPage() {
                   </CardHeader>
                   <CardContent className="space-y-3 pb-2">
                     <div className="flex gap-4 text-xs text-muted-foreground">
-                      {classroom.semester && <div>Học kỳ: <span className="font-semibold text-foreground">{classroom.semester}</span></div>}
-                      {classroom.year && <div>Năm học: <span className="font-semibold text-foreground">{classroom.year}</span></div>}
+                      {(classroom.term || classroom.semesterLabel) && (
+                        <div>Học kỳ: <span className="font-semibold text-foreground">{formatSemester(classroom.term, classroom.academicYear, classroom.semesterLabel)}</span></div>
+                      )}
+                      {classroom.academicYear && <div>Năm học: <span className="font-semibold text-foreground">{classroom.academicYear}</span></div>}
                     </div>
                   </CardContent>
                   <CardFooter className="pt-2 border-t border-border">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { FileText, Settings, BookOpen, HelpCircle, Code2, Sparkles, AlertCircle, Trash2, Plus, X, GraduationCap, Calendar } from "lucide-react";
 import { learningPathService } from "../../services/learningPath.service";
 import type {
@@ -15,14 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 interface LearningPathManagerProps {
   subjectId: number;
-  /** Môn đang xuất bản ⇒ template của khoa bị khóa sửa (BE cũng chặn); gỡ xuất bản để chỉnh sửa. */
+  
   subjectPublished?: boolean;
-  /** Chọn sẵn template này khi mở (deep-link từ thư viện lộ trình của teacher). */
+  
   initialPathId?: number;
-  /**
-   * Teacher soạn template CÁ NHÂN: BE chỉ trả template của chính GV (không có của khoa),
-   * và template cá nhân không bị đóng băng theo trạng thái môn.
-   */
+  
+
+
+
   teacherMode?: boolean;
 }
 
@@ -38,7 +38,7 @@ const ALL_LEVELS: Lvl[] = [1, 2, 3];
 
 const isLearningNode = (n: LearningNodeResponse) => n.testKind == null || n.testKind === "NONE";
 const isPlacementNode = (n: LearningNodeResponse) => n.testKind === "PLACEMENT";
-// GATE và FREE_CHOICE đều nằm CÙNG STAGE với các node học của nhánh.
+
 const isGateLikeNode = (n: LearningNodeResponse) => n.testKind === "GATE" || n.testKind === "FREE_CHOICE";
 
 const parseApplies = (s?: string | null): Set<number> =>
@@ -64,10 +64,10 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
   const chungLearnAt = (s: number) =>
     (byStage.get(s) ?? []).find((n) => isLearningNode(n) && n.level == null) ?? null;
   const placementAt = (s: number) => (byStage.get(s) ?? []).find(isPlacementNode) ?? null;
-  // GATE (phân luồng) và FREE_CHOICE (tự do chọn) nối cạnh KHÁC nhau → tách riêng.
+  
   const gatesAt = (s: number) => (byStage.get(s) ?? []).filter((n) => n.testKind === "GATE");
   const freeChoiceAt = (s: number) => (byStage.get(s) ?? []).filter((n) => n.testKind === "FREE_CHOICE");
-  // Một chặng có thể có NHIỀU gate (vd Yếu+TB 1 gate, Khá 1 gate riêng).
+  
   const gateCovering = (s: number, x: Lvl): LearningNodeResponse | null => {
     for (const g of gatesAt(s)) {
       const a = parseApplies(g.appliesLevels);
@@ -75,7 +75,7 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
     }
     return null;
   };
-  // Test tự do = 3 node, mỗi node ứng 1 nhánh (level = mức đích). Đạt bài nào → nhánh đó.
+  
   const freeChoiceForLevel = (s: number, x: Lvl): LearningNodeResponse | null =>
     freeChoiceAt(s).find((t) => t.level === x) ?? null;
 
@@ -86,12 +86,18 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
     if (fc) return fc;
     const g = gateCovering(s, x);
     if (g) return g;
-    return learnAt(s, x) ?? chungLearnAt(s); // mức auto-pass (không test nào phụ trách)
+    return learnAt(s, x) ?? chungLearnAt(s); 
   };
   const entryForLevel = (s: number, x: Lvl): LearningNodeResponse | null => {
     const pl = placementAt(s);
     if (pl) return pl;
-    return learnAt(s, x) ?? chungLearnAt(s);
+    const learn = learnAt(s, x) ?? chungLearnAt(s);
+    if (learn) return learn;
+    
+    
+    
+    
+    return gateCovering(s, x);
   };
 
   const result = new Set<string>();
@@ -99,26 +105,38 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
     if (from !== to) result.add(`${from}->${to}`);
   };
 
-  // Trong stage: nối node học của nhánh vào test.
+  
   for (const s of stages) {
     const learns = (byStage.get(s) ?? []).filter(isLearningNode);
-    // GATE: chỉ nhánh có mức ∈ applies (có thể nhiều gate).
+    
     for (const g of gatesAt(s)) {
       const applies = parseApplies(g.appliesLevels);
       for (const L of learns) {
         if (L.level == null || applies.size === 0 || applies.has(L.level)) add(L.nodeId, g.nodeId);
       }
     }
-    // FREE_CHOICE: MỌI nhánh → MỖI node test tự do (HS chọn bài nào cũng được).
+    
     const fcs = freeChoiceAt(s);
     if (fcs.length) {
       for (const L of learns) for (const t of fcs) add(L.nodeId, t.nodeId);
     }
   }
-  // Giữa 2 stage liền kề.
+  
   for (let i = 0; i < stages.length - 1; i++) {
     const s = stages[i];
     const t = stages[i + 1];
+    
+    
+    
+    const tFcs = freeChoiceAt(t);
+    const tHasLearnable = placementAt(t) != null || (byStage.get(t) ?? []).some(isLearningNode);
+    if (tFcs.length > 0 && !tHasLearnable) {
+      for (const x of ALL_LEVELS) {
+        const e = exitForLevel(s, x);
+        if (e) for (const fc of tFcs) add(e.nodeId, fc.nodeId);
+      }
+      continue;
+    }
     for (const x of ALL_LEVELS) {
       const e = exitForLevel(s, x);
       const n = entryForLevel(t, x);
@@ -132,7 +150,7 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
   });
 }
 
-/** Đồng bộ cạnh thực tế về tập cạnh mong muốn (xóa thừa, thêm thiếu). */
+
 async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: number; to: number }>) {
   const desiredSet = new Set(desired.map((e) => `${e.from}->${e.to}`));
   const currentSet = new Set(current.map((e) => `${e.fromNodeId}->${e.toNodeId}`));
@@ -141,7 +159,7 @@ async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: num
       try {
         await learningPathService.deleteAdminEdge(e.edgeId);
       } catch {
-        /* bỏ qua */
+        
       }
     }
   }
@@ -150,7 +168,7 @@ async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: num
       try {
         await learningPathService.createAdminEdge({ fromNodeId: e.from, toNodeId: e.to });
       } catch {
-        /* bỏ qua nếu cạnh đã tồn tại */
+        
       }
     }
   }
@@ -180,12 +198,13 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const [nStage, setNStage] = useState(1);
   const [nKind, setNKind] = useState<"AT_HOME" | "ON_CLASS" | "GATE" | "PLACEMENT" | "FREE_CHOICE">("AT_HOME");
   const [nApplies, setNApplies] = useState<number[]>([]);
-  // Ngưỡng phân luồng/năng lực KHÔNG nhập lúc tạo node — chỉnh ở panel chi tiết node (e*)
+  
   const [eUpMin, setEUpMin] = useState("");
   const [eDownMax, setEDownMax] = useState("");
   const [eYeuMax, setEYeuMax] = useState("");
   const [eTbMax, setETbMax] = useState("");
   const [saving, setSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   const [mTitle, setMTitle] = useState("");
   const [mType, setMType] = useState<"video" | "file">("video");
@@ -326,7 +345,6 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const [exInstr, setExInstr] = useState("");
   const [exAllowText, setExAllowText] = useState(true);
   const [exAllowFile, setExAllowFile] = useState(true);
-  const [editingExercise, setEditingExercise] = useState<any | null>(null);
 
   const loadGraph = useCallback(async (pathId: number) => {
     const g = await learningPathService.getAdminTemplateGraph(pathId);
@@ -374,10 +392,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const submitCreateTpl = async () => {
+    if (saving || isSavingRef.current) return;
     if (!cTplName.trim()) {
       toast.error("Nhập tên lộ trình");
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const created = await learningPathService.createAdminTemplate({
@@ -398,6 +418,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch {
       toast.error("Không tạo được lộ trình");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -410,7 +431,9 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const submitEditTpl = async () => {
+    if (saving || isSavingRef.current) return;
     if(!path || !eTplDesc.trim()) { toast.error("Nhập tên lộ trình"); return; }
+    isSavingRef.current = true;
     setSaving(true);
     try{
       await learningPathService.updateAdminTemplate(path.pathId, {
@@ -424,6 +447,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       toast.error("Không cập nhật được lộ trình");
     }
     finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   }
@@ -445,7 +469,6 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const openNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
     setEditingNodeTest(null);
-    setEditingExercise(null);
     setETitle(node.title);
     setEDesc(node.description ?? "");
     setEUpMin(node.gateUpMin != null ? String(node.gateUpMin) : "");
@@ -502,7 +525,6 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     setSelectedNode(null);
     setContent(null);
     setEditingNodeTest(null);
-    setEditingExercise(null);
     setMTitle("");
     setMVideoUrl("");
     setMFile(null);
@@ -514,14 +536,16 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const saveNodeEdit = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode || !eTitle.trim()) {
       toast.error("Nhập tên node");
       return;
     }
-    // Ngưỡng gate vô tác dụng khi test chỉ phủ ĐÚNG 1 mức (bị kẹp không đổi mức);
-    // trống = mọi mức nên ngưỡng vẫn có nghĩa.
+    
+    
     const gateEditable = selectedNode.testKind === "GATE" && parseApplies(selectedNode.appliesLevels).size !== 1;
     const isPlacement = selectedNode.testKind === "PLACEMENT";
+    isSavingRef.current = true;
     setSaving(true);
     try {
       await learningPathService.updateAdminNode(selectedNode.nodeId, {
@@ -539,6 +563,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch {
       toast.error("Không lưu được node");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -572,6 +597,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const saveSidebarNodeTest = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode) return;
     const isTestNode = selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE' || selectedNode.testKind === 'FREE_CHOICE';
     const testTitleToUse = isTestNode ? eTitle.trim() : tTitle.trim();
@@ -581,7 +607,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     }
     const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
     
-    // Validate questions
+    
     for (let i = 0; i < numQ; i++) {
       const q = builderQuestions[i];
       if (!q) continue;
@@ -609,9 +635,10 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       }
     }
 
+    isSavingRef.current = true;
     setSaving(true);
     try {
-      // 1. If test already exists, delete it first
+      
       const testIdToDelete = isTestNode 
         ? (content?.tests && content.tests.length > 0 ? content.tests[0].testId : null)
         : (editingNodeTest ? editingNodeTest.testId : null);
@@ -620,7 +647,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         await learningPathService.deleteAdminNodeTest(testIdToDelete);
       }
 
-      // 2. Create new test
+      
       const testRes = await learningPathService.addAdminNodeTest(selectedNode.nodeId, {
         title: testTitleToUse,
         durationMinutes: Number(tDuration) || 15,
@@ -629,7 +656,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
 
       const createdTestId = testRes.testId;
 
-      // 3. Create questions sequentially
+      
       for (let i = 0; i < numQ; i++) {
         const q = builderQuestions[i];
         if (!q) continue;
@@ -652,11 +679,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       console.error(e);
       toast.error(e.response?.data?.message || "Không lưu được bài test");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
 
-  // Tính lại toàn bộ cạnh từ tập node hiện tại rồi đồng bộ, sau đó nạp lại graph.
+  
   const rewireAll = async (pathId: number) => {
     const g = await learningPathService.getAdminTemplateGraph(pathId);
     await syncEdges(g.edges, computeDesiredEdges(g.nodes));
@@ -664,6 +692,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const submitAddNode = async () => {
+    if (saving || isSavingRef.current) return;
     if (!path) return;
     if (!nTitle.trim()) {
       toast.error("Nhập tiêu đề bài học");
@@ -689,7 +718,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     let appliesLevels: string | undefined;
 
     if (nKind === "PLACEMENT") {
-      // Test năng lực: mọi mức đều thi → đứng MỘT MÌNH ở chặng của nó.
+      
       if (stageNodes.length > 0) {
         toast.error(`Test năng lực phải đứng riêng một chặng. Chặng ${nStage} đã có node khác.`);
         return;
@@ -697,8 +726,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       appliesLevels = "1,2,3";
       lvl = null;
     } else if (nKind === "FREE_CHOICE") {
-      // Test tự do chọn: bao mọi mức (HS tự chọn) → không ghép chung chặng với
-      // bất kỳ test phân luồng/tự do nào khác.
+      
+      
       if (stageHasPlacement) {
         toast.error(`Chặng ${nStage} là chặng test năng lực — không thêm node khác.`);
         return;
@@ -719,8 +748,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         return;
       }
       const sorted = [...nApplies].sort((a, b) => a - b);
-      // Test phân luồng chỉ ghép các mức LIỀN KỀ (tối đa 2): {Yếu},{TB},{Khá},
-      // {Yếu,TB},{TB,Khá}. KHÔNG cho Yếu+Khá hay cả 3 — dùng Test tự do thay thế.
+      
+      
       const contiguousPair = sorted.length <= 2 && (sorted.length < 2 || sorted[1] - sorted[0] === 1);
       if (!contiguousPair) {
         toast.error(
@@ -728,7 +757,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         );
         return;
       }
-      // Mỗi mức chỉ thuộc 1 test phân luồng trong cùng chặng (không chồng mức).
+      
       const overlap = stageNodes.filter(isGateLikeNode).some((g) => {
         const a = parseApplies(g.appliesLevels);
         return a.size === 0 || sorted.some((x) => a.has(x));
@@ -740,12 +769,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       appliesLevels = sorted.join(",");
       lvl = sorted.length === 1 ? sorted[0] : null;
     } else {
-      // Node học (AT_HOME / ON_CLASS)
+      
       if (stageHasPlacement) {
         toast.error(`Chặng ${nStage} là chặng test năng lực — không thêm node học.`);
         return;
       }
-      // Node Trên lớp = buổi học CHUNG cả lớp, không phân mức riêng (BE cũng chặn)
+      
       lvl = nKind === "ON_CLASS" ? null : nLevel === "" ? null : Number(nLevel);
       const atStage = stageNodes.filter((n) => n.testKind == null || n.testKind === "NONE");
       if (lvl == null) {
@@ -764,11 +793,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         }
       }
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       if (nKind === "FREE_CHOICE") {
-        // Test tự do = 3 node test (Yếu/TB/Khá) cùng chặng; mỗi node route về
-        // nhánh của nó (level = mức đích). Mọi nhánh sẽ nối vào cả 3 (rewireAll).
+        
+        
         const variants: { lv: 1 | 2 | 3; name: string }[] = [
           { lv: 1, name: "Yếu" },
           { lv: 2, name: "TB" },
@@ -796,14 +826,14 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
           nodeType: nKind === "ON_CLASS" ? "ON_CLASS" : "AT_HOME",
           testKind: nKind === "GATE" ? "GATE" : nKind === "PLACEMENT" ? "PLACEMENT" : "NONE",
           appliesLevels,
-          // Ngưỡng phân luồng/năng lực nhập sau ở panel chi tiết node
+          
           displayOrder: 0,
           isRequired: true,
           stageOrder: nStage,
           level: lvl,
         });
 
-        // Create test and questions sequentially if node is PLACEMENT
+        
         if (nKind === "PLACEMENT") {
           const testRes = await learningPathService.addAdminNodeTest(res.nodeId, {
             title: nTitle.trim(),
@@ -837,10 +867,6 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       setNStage(1);
       setNKind("AT_HOME");
       setNApplies([]);
-      setNUpMin("");
-      setNDownMax("");
-      setNYeuMax("");
-      setNTbMax("");
       setTDuration("15");
       setNumQuestions("0");
       setBuilderQuestions([]);
@@ -849,6 +875,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       console.error(e);
       toast.error(e.response?.data?.message || "Không thêm được bài học");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -856,7 +883,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const removeNode = async () => {
     if (!selectedNode || !path) return;
     const x = selectedNode;
-    // Test tự do gồm 3 node cùng chặng → xóa cả nhóm cho khỏi dở.
+    
     const isFC = x.testKind === "FREE_CHOICE";
     const group = isFC
       ? nodes.filter((n) => n.testKind === "FREE_CHOICE" && (n.stageOrder ?? 0) === (x.stageOrder ?? 0))
@@ -869,10 +896,10 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         try {
           await learningPathService.deleteAdminNode(n.nodeId);
         } catch {
-          /* bỏ qua */
+          
         }
       }
-      // Nếu chặng bị rỗng sau khi xóa thì dồn các chặng phía sau lên 1.
+      
       const deletedStage = x.stageOrder ?? 0;
       const stillAtStage = nodes.some((n) => !delIds.has(n.nodeId) && (n.stageOrder ?? 0) === deletedStage);
       if (deletedStage > 0 && !stillAtStage) {
@@ -885,11 +912,11 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
               stageOrder: (n.stageOrder ?? 0) - 1,
             });
           } catch {
-            /* bỏ qua */
+            
           }
         }
       }
-      // Cạnh được tính lại tất định từ tập node còn lại.
+      
       await rewireAll(path.pathId);
       toast.success("Đã xóa");
       closeDetail();
@@ -899,10 +926,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   };
 
   const addMaterial = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode || !mTitle.trim()) {
       toast.error("Nhập tiêu đề học liệu");
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const fd = new FormData();
@@ -912,7 +941,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         fd.append("videoUrl", mVideoUrl.trim());
         fd.append("videoTitle", mTitle.trim());
       } else if (mFile) {
-        // Upload thẳng lên Cloudinary, chỉ lưu URL + public_id vào BE (không lưu file trên server)
+        
         const uploaded = await uploadService.uploadToCloudinary(mFile, "materials");
         fd.append("fileUrl", uploaded.url);
         fd.append("fileName", mFile.name);
@@ -934,15 +963,18 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Không thêm được học liệu");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
 
   const addTest = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode || !tTitle.trim()) {
       toast.error("Nhập tiêu đề bài test");
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       await learningPathService.addAdminNodeTest(selectedNode.nodeId, {
@@ -957,6 +989,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     } catch {
       toast.error("Không thêm được bài test");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -983,23 +1016,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     }
   };
 
-  const startEditingExercise = (ex: any) => {
-    setEditingExercise(ex);
-    setExTitle(ex.title);
-    setExInstr(ex.instructions || "");
-    setExAllowText(ex.allowText);
-    setExAllowFile(ex.allowFile);
-  };
-
-  const cancelEditingExercise = () => {
-    setEditingExercise(null);
-    setExTitle("");
-    setExInstr("");
-    setExAllowText(true);
-    setExAllowFile(true);
-  };
-
   const addExercise = async () => {
+    if (saving || isSavingRef.current) return;
     if (!selectedNode || !exTitle.trim()) {
       toast.error("Nhập tiêu đề bài tập");
       return;
@@ -1008,35 +1026,26 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       toast.error("Chọn ít nhất một hình thức nộp (tự luận hoặc file)");
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
-      if (editingExercise) {
-        await learningPathService.updateAdminNodeExercise(editingExercise.exerciseId, {
-          title: exTitle.trim(),
-          instructions: exInstr.trim() || undefined,
-          allowText: exAllowText,
-          allowFile: exAllowFile,
-        });
-        toast.success("Đã cập nhật bài tập");
-      } else {
-        await learningPathService.addAdminNodeExercise(selectedNode.nodeId, {
-          title: exTitle.trim(),
-          instructions: exInstr.trim() || undefined,
-          allowText: exAllowText,
-          allowFile: exAllowFile,
-        });
-        toast.success("Đã thêm bài tập");
-      }
+      await learningPathService.addAdminNodeExercise(selectedNode.nodeId, {
+        title: exTitle.trim(),
+        instructions: exInstr.trim() || undefined,
+        allowText: exAllowText,
+        allowFile: exAllowFile,
+      });
+      toast.success("Đã thêm bài tập");
       setExTitle("");
       setExInstr("");
       setExAllowText(true);
       setExAllowFile(true);
-      setEditingExercise(null);
       setContent(await learningPathService.getAdminNodeContent(selectedNode.nodeId));
       await refresh();
     } catch {
-      toast.error(editingExercise ? "Không cập nhật được bài tập" : "Không thêm được bài tập");
+      toast.error("Không thêm được bài tập");
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -1056,10 +1065,10 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     return <div className="py-10 text-center text-sm text-slate-400">Đang tải lộ trình…</div>;
   }
 
-  // Môn đang xuất bản ⇒ khóa sửa template của khoa (template cá nhân của teacher không bị khóa).
-  // BE cũng chặn ở mọi endpoint — đây chỉ là lớp UX để admin biết phải gỡ xuất bản trước.
-  // Admin: môn published khóa cả khi chưa chọn path (tạo template khoa mới cũng bị BE chặn).
-  // Teacher: chỉ soạn template cá nhân (list đã chỉ còn của mình) → không đóng băng theo môn.
+  
+  
+  
+  
   const tplFrozen = !!subjectPublished
     && (teacherMode ? !!path && path.creatorRole !== "TEACHER" : !path || path.creatorRole !== "TEACHER");
   const frozenBanner = tplFrozen ? (
@@ -1331,7 +1340,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                     {selectedNode.title}
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
-                    {/* Node Type Badge */}
+                    {}
                     {selectedNode.testKind && selectedNode.testKind !== 'NONE' ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-purple-500/10 text-purple-600 border border-purple-500/20 dark:text-purple-400">
                         <AlertCircle className="w-2.5 h-2.5" />
@@ -1348,7 +1357,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                       </span>
                     )}
 
-                    {/* Node Level Badge */}
+                    {}
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
                       selectedNode.level === 1 
                         ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:text-amber-400' 
@@ -1361,7 +1370,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                       Mức: {selectedNode.level === 1 ? 'Yếu' : selectedNode.level === 2 ? 'TB' : selectedNode.level === 3 ? 'Khá' : 'Chung'}
                     </span>
 
-                    {/* Stage Badge */}
+                    {}
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-secondary text-secondary-foreground border border-border">
                       <Calendar className="w-2.5 h-2.5" />
                       Chặng {selectedNode.stageOrder ?? "—"}
@@ -1607,7 +1616,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                       </div>
                     </section>
 
-                    {/* Ngưỡng phân luồng/năng lực — chỉnh tại chi tiết node (không nhập lúc tạo) */}
+                    {}
                     {(selectedNode.testKind === "GATE" || selectedNode.testKind === "PLACEMENT") && (
                       <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
                         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
@@ -1985,27 +1994,20 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                                           <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground border border-border">Tự luận</span>
                                         )}
                                         {ex.allowFile && (
-                                          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Nộp file</span>
+                                          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">Nộp file</span>
                                         )}
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                      <button onClick={() => startEditingExercise(ex)} className="text-xs text-primary hover:underline">
-                                        sửa
-                                      </button>
-                                      <button onClick={() => removeExercise(ex.exerciseId)} className="text-xs text-rose-500 hover:underline">
-                                        xóa
-                                      </button>
-                                    </div>
+                                    <button onClick={() => removeExercise(ex.exerciseId)} className="shrink-0 text-xs text-rose-500 hover:underline">
+                                      xóa
+                                    </button>
                                   </li>
                                 ))}
                                 {(content?.exercises ?? []).length === 0 && <p className="text-xs text-muted-foreground">Chưa có bài tập.</p>}
                               </ul>
                             )}
                             <div className="mt-2 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                                {editingExercise ? "Sửa bài tập" : "Thêm bài tập"}
-                              </p>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Thêm bài tập</p>
                               <input className="lp-input" placeholder="Tiêu đề bài tập" value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
                               <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -2018,16 +2020,9 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                                   Nộp file
                                 </label>
                               </div>
-                              <div className="flex gap-2">
-                                <button onClick={addExercise} disabled={saving} className="flex-1 rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                                  {editingExercise ? "Cập nhật bài tập" : "Thêm bài tập"}
-                                </button>
-                                {editingExercise && (
-                                  <button onClick={cancelEditingExercise} className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold hover:bg-muted bg-transparent text-foreground">
-                                    Hủy
-                                  </button>
-                                )}
-                              </div>
+                              <button onClick={addExercise} disabled={saving} className="w-full rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                                Thêm bài tập
+                              </button>
                             </div>
                           </section>
                         )}
@@ -2141,7 +2136,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                     Ngưỡng phân mức (Điểm Yếu/TB tối đa) cấu hình sau ở phần chi tiết node.
                   </p>
 
-                  {/* Inline Test Configuration */}
+                  {}
                   <div className="grid grid-cols-2 gap-3 mt-2">
                     <Field label="Thời lượng làm test (phút)">
                       <input 

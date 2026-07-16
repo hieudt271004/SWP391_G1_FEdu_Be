@@ -4,11 +4,11 @@ import com.fedu.fedu.utils.enums.PopQuizStudentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
-/**
- * Trạng thái làm bài pop-quiz của một học sinh được giao trong một {@link TestAssignment}.
- * attemptId trỏ tới lượt làm thật (StudentTestAttempt) một khi học sinh bấm bắt đầu;
- * null nghĩa là PENDING (được giao nhưng chưa làm) hoặc đã bị giáo viên reset.
- */
+
+
+
+
+
 @Getter
 @Setter
 @Entity

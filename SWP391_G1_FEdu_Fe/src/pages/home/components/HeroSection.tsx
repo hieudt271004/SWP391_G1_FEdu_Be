@@ -6,7 +6,7 @@ export function HeroSection() {
   const navigate = useNavigate();
   return (
     <section className="relative overflow-hidden bg-background text-foreground border-b border-border font-sans py-16 md:py-24">
-      {/* Decorative background glow */}
+      {}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
       
       <div className="relative max-w-6xl mx-auto px-6">

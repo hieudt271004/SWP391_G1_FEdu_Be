@@ -36,6 +36,7 @@ function formatRelativeTime(dateStr: string): string {
 export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionProps) {
   const { user } = useAuth();
   const confirm = useConfirm();
+  const isAdmin = user?.roles?.includes('ADMIN');
 
   const onLoadSummaryRef = useRef(onLoadSummary);
   useEffect(() => {
@@ -46,16 +47,16 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Composers state
+  
   const [newCommentContent, setNewCommentContent] = useState<string>('');
   const [submittingComment, setSubmittingComment] = useState<boolean>(false);
 
-  // Reply states
+  
   const [activeReplyParentId, setActiveReplyParentId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState<string>('');
   const [submittingReply, setSubmittingReply] = useState<boolean>(false);
 
-  // Review form states (student only)
+  
   const [isEditingReview, setIsEditingReview] = useState<boolean>(false);
   const [reviewRating, setReviewRating] = useState<number>(0);
   const [reviewHoverRating, setReviewHoverRating] = useState<number>(0);
@@ -87,7 +88,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     loadData();
   }, [loadData]);
 
-  // Submit comment
+  
   const handlePostComment = async () => {
     if (!newCommentContent.trim()) return;
     setSubmittingComment(true);
@@ -115,7 +116,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     }
   };
 
-  // Submit reply
+  
   const handlePostReply = async (parentId: number) => {
     if (!replyContent.trim()) return;
     setSubmittingReply(true);
@@ -153,7 +154,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     }
   };
 
-  // Delete comment / review / reply
+  
   const handleDeleteEntry = async (item: NodeReviewResponse) => {
     const isReply = item.parentReviewId != null;
     const isReview = item.rating != null;
@@ -229,7 +230,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     }
   };
 
-  // Submit star review (student only)
+  
   const handleSubmitReview = async () => {
     if (reviewRating === 0) {
       toast.warning('Vui lòng chọn số sao đánh giá.');
@@ -246,7 +247,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
       setSummary((prev) => {
         if (!prev) return null;
 
-        // Cập nhật lại reviews trong list: nếu là chỉnh sửa thì thay thế, nếu là mới thì chèn vào
+        
         let updatedReviews = [...(prev.reviews || [])];
         const index = updatedReviews.findIndex((r) => r.studentId === user?.userId);
         if (index >= 0) {
@@ -259,8 +260,8 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
           onLoadSummaryRef.current(updatedReviews.length + (prev.comments?.length || 0));
         }
 
-        // Lấy lại trung bình cộng (tính đơn giản ở client hoặc gọi loadData lại)
-        // Gọi loadData() là giải pháp chính xác nhất để lấy averageRating và reviewCount chuẩn từ DB
+        
+        
         setTimeout(() => loadData(), 200);
 
         return {
@@ -284,7 +285,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     }
   };
 
-  // Render stars helper
+  
   const renderStars = (rating: number, interactive = false, size = 'w-4 h-4') => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
@@ -331,7 +332,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <AlertCircle className="w-10 h-10 text-red-500 mb-3" />
-        <p className="text-sm font-medium text-slate-800 mb-2">{error}</p>
+        <p className="text-sm font-medium text-foreground mb-2">{error}</p>
         <Button variant="outline" className="rounded-md text-xs font-semibold" onClick={loadData}>
           Thử lại
         </Button>
@@ -345,90 +346,92 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
 
   return (
     <div className="space-y-6 py-1 font-sans">
-      {/* Header Summary */}
+      {}
       {summary && summary.reviewCount > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700">
+        <div className="flex items-center gap-2 p-3 bg-muted/30 border border-border rounded-lg text-foreground">
           <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
           <span className="text-xs font-bold">Đánh giá chung:</span>
-          <span className="text-xs font-semibold text-slate-900">{summary.averageRating}/5</span>
-          <span className="text-xs text-slate-500">({summary.reviewCount} đánh giá)</span>
+          <span className="text-xs font-semibold text-foreground">{summary.averageRating}/5</span>
+          <span className="text-xs text-muted-foreground">({summary.reviewCount} đánh giá)</span>
         </div>
       )}
 
-      {/* Main Comment Composer */}
+      {}
       <div className="space-y-3">
-        <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Hỏi đáp & Thảo luận</h4>
-        <div className="relative border border-slate-200 rounded-lg bg-white p-3 hover:border-slate-350 transition-colors focus-within:ring-2 focus-within:ring-slate-900/5 focus-within:border-slate-900">
-          <Textarea
-            value={newCommentContent}
-            onChange={(e) => setNewCommentContent(e.target.value)}
-            placeholder="Đặt câu hỏi hoặc chia sẻ về bài học này..."
-            className="w-full min-h-[70px] resize-none border-none p-0 focus-visible:ring-0 text-slate-850 placeholder:text-slate-400 text-xs shadow-none"
-            maxLength={2000}
-          />
-          <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-2">
-            <span className="text-[10px] text-slate-400">
-              {newCommentContent.length}/2000 ký tự
-            </span>
-            <Button
-              onClick={handlePostComment}
-              disabled={!newCommentContent.trim() || submittingComment}
-              className="h-7 px-3.5 bg-slate-950 hover:bg-slate-900 text-white text-[11px] font-semibold rounded-md border-none flex items-center gap-1 shrink-0 transition-all outline-none"
-            >
-              {submittingComment ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Send className="w-3 h-3" />
-              )}
-              <span>Gửi bình luận</span>
-            </Button>
+        <h4 className="text-xs font-bold text-foreground/90 uppercase tracking-wider">Hỏi đáp & Thảo luận</h4>
+        {!isAdmin && (
+          <div className="relative border border-border rounded-lg bg-card p-3 hover:border-border/80 transition-colors focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+            <Textarea
+              value={newCommentContent}
+              onChange={(e) => setNewCommentContent(e.target.value)}
+              placeholder="Đặt câu hỏi hoặc chia sẻ về bài học này..."
+              className="w-full min-h-[70px] resize-none border-none p-0 focus-visible:ring-0 text-foreground bg-transparent placeholder:text-muted-foreground text-xs shadow-none"
+              maxLength={2000}
+            />
+            <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
+              <span className="text-[10px] text-muted-foreground">
+                {newCommentContent.length}/2000 ký tự
+              </span>
+              <Button
+                onClick={handlePostComment}
+                disabled={!newCommentContent.trim() || submittingComment}
+                className="h-7 px-3.5 bg-primary hover:bg-primary/95 text-primary-foreground text-[11px] font-semibold rounded-md border-none flex items-center gap-1 shrink-0 transition-all outline-none"
+              >
+                {submittingComment ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Send className="w-3 h-3" />
+                )}
+                <span>Gửi bình luận</span>
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Empty State */}
+      {}
       {totalItems === 0 ? (
-        <div className="flex flex-col items-center justify-center border border-dashed border-slate-200 bg-slate-50/50 rounded-xl py-12 px-6 text-center">
-          <HelpCircle className="w-8 h-8 text-slate-350 mb-3 stroke-[1.5]" />
-          <p className="text-xs font-semibold text-slate-800 mb-1">Chưa có cuộc thảo luận nào</p>
-          <p className="text-[11px] text-slate-500 max-w-sm">
+        <div className="flex flex-col items-center justify-center border border-dashed border-border bg-muted/10 rounded-xl py-12 px-6 text-center">
+          <HelpCircle className="w-8 h-8 text-muted-foreground mb-3 stroke-[1.5]" />
+          <p className="text-xs font-semibold text-foreground mb-1">Chưa có cuộc thảo luận nào</p>
+          <p className="text-[11px] text-muted-foreground max-w-sm">
             Bài học này chưa có câu hỏi hay đánh giá nào. Hãy là người đầu tiên đặt câu hỏi hoặc chia sẻ thắc mắc của bạn!
           </p>
         </div>
       ) : (
         <div className="space-y-5">
-          {/* Comments and Reviews List */}
+          {}
           <div className="space-y-4">
             {[...allReviews, ...allComments].map((item) => {
               const isOwnEntry = user && item.studentId === user.userId;
               const isReview = item.rating != null;
 
               return (
-                <div key={item.reviewId} className="group border border-slate-200/80 bg-white rounded-lg p-4 hover:border-slate-300 transition-colors">
+                <div key={item.reviewId} className="group border border-border bg-card rounded-lg p-4 hover:border-border/80 transition-colors">
                   <div className="flex items-start gap-3">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={item.studentAvatarUrl || undefined} />
-                      <AvatarFallback className="bg-slate-100 text-slate-700 font-bold text-xs uppercase">
+                      <AvatarFallback className="bg-muted text-foreground font-bold text-xs uppercase">
                         {(item.studentName || 'U').substring(0, 2)}
                       </AvatarFallback>
                     </Avatar>
 
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="text-xs font-bold text-slate-800 truncate">
+                        <span className="text-xs font-bold text-foreground truncate">
                           {item.studentName}
                         </span>
                         {item.authorRole === 'TEACHER' && (
-                          <Badge variant="outline" className="h-4 px-1.5 text-[9px] bg-amber-500/10 text-amber-700 border-transparent font-bold">
+                          <Badge variant="outline" className="h-4 px-1.5 text-[9px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-transparent font-bold">
                             Giảng viên
                           </Badge>
                         )}
-                        <span className="text-[10px] text-slate-400 font-medium">
+                        <span className="text-[10px] text-muted-foreground font-medium">
                           {formatRelativeTime(item.createdAt)}
                         </span>
                       </div>
 
-                      {/* Display stars if it is a review */}
+                      {}
                       {isReview && item.rating != null && (
                         <div className="flex items-center gap-1.5">
                           {renderStars(item.rating, false, 'w-3.5 h-3.5')}
@@ -436,14 +439,14 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                         </div>
                       )}
 
-                      <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                      <p className="text-xs text-foreground/90 leading-relaxed whitespace-pre-wrap break-words">
                         {item.content}
                       </p>
 
-                      {/* Thread action triggers */}
-                      <div className="flex items-center gap-4 pt-1 text-[10px] text-slate-500 font-bold">
-                        {/* Only root items can have replies */}
-                        {item.parentReviewId == null && (
+                      {}
+                      <div className="flex items-center gap-4 pt-1 text-[10px] text-muted-foreground font-bold">
+                        {}
+                        {item.parentReviewId == null && !isAdmin && (
                           <button
                             type="button"
                             onClick={() => {
@@ -452,18 +455,18 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                               );
                               setReplyContent('');
                             }}
-                            className="flex items-center gap-1 hover:text-slate-900 transition-colors cursor-pointer border-none bg-transparent p-0 outline-none"
+                            className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer border-none bg-transparent p-0 outline-none"
                           >
                             <MessageSquare className="w-3.5 h-3.5 stroke-[2]" />
                             <span>Trả lời</span>
                           </button>
                         )}
 
-                        {isOwnEntry && (
+                        {(isOwnEntry || isAdmin) && (
                           <button
                             type="button"
                             onClick={() => handleDeleteEntry(item)}
-                            className="flex items-center gap-1 hover:text-red-600 text-slate-400 transition-colors cursor-pointer border-none bg-transparent p-0 outline-none"
+                            className="flex items-center gap-1 hover:text-red-500 text-muted-foreground transition-colors cursor-pointer border-none bg-transparent p-0 outline-none"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             <span>Xóa</span>
@@ -473,44 +476,44 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                     </div>
                   </div>
 
-                  {/* Replies section */}
+                  {}
                   {item.replies && item.replies.length > 0 && (
-                    <div className="mt-3.5 pl-6 border-l-2 border-slate-100 space-y-3.5">
+                    <div className="mt-3.5 pl-6 border-l-2 border-border space-y-3.5">
                       {item.replies.map((reply) => {
                         const isOwnReply = user && reply.studentId === user.userId;
                         return (
                           <div key={reply.reviewId} className="flex items-start gap-2.5">
                             <Avatar className="h-6 w-6 shrink-0">
                               <AvatarImage src={reply.studentAvatarUrl || undefined} />
-                              <AvatarFallback className="bg-slate-100 text-slate-700 font-bold text-[9px] uppercase">
+                              <AvatarFallback className="bg-muted text-foreground font-bold text-[9px] uppercase">
                                 {(reply.studentName || 'U').substring(0, 2)}
                               </AvatarFallback>
                             </Avatar>
 
                             <div className="min-w-0 flex-1 space-y-1">
                               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                                <span className="text-[11px] font-bold text-slate-800 truncate">
+                                <span className="text-[11px] font-bold text-foreground truncate">
                                   {reply.studentName}
                                 </span>
                                 {reply.authorRole === 'TEACHER' && (
-                                  <Badge variant="outline" className="h-3.5 px-1 text-[8px] bg-amber-500/10 text-amber-700 border-transparent font-bold">
+                                  <Badge variant="outline" className="h-3.5 px-1 text-[8px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-transparent font-bold">
                                     Giảng viên
                                   </Badge>
                                 )}
-                                <span className="text-[9px] text-slate-400 font-medium">
+                                <span className="text-[9px] text-muted-foreground font-medium">
                                   {formatRelativeTime(reply.createdAt)}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
+                              <p className="text-[11px] text-foreground/90 leading-relaxed whitespace-pre-wrap break-words">
                                 {reply.content}
                               </p>
 
-                              {isOwnReply && (
+                              {(isOwnReply || isAdmin) && (
                                 <div className="pt-0.5">
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteEntry(reply)}
-                                    className="flex items-center gap-1 hover:text-red-600 text-slate-400 transition-colors cursor-pointer border-none bg-transparent p-0 text-[9px] font-bold outline-none"
+                                    className="flex items-center gap-1 hover:text-red-500 text-muted-foreground transition-colors cursor-pointer border-none bg-transparent p-0 text-[9px] font-bold outline-none"
                                   >
                                     <Trash2 className="w-3 h-3" />
                                     <span>Xóa</span>
@@ -524,19 +527,19 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                     </div>
                   )}
 
-                  {/* Inline reply composer */}
+                  {}
                   {activeReplyParentId === item.reviewId && (
-                    <div className="mt-3.5 pl-6 border-l-2 border-slate-100 space-y-2.5">
-                      <div className="relative border border-slate-200 rounded-md bg-white p-2">
+                    <div className="mt-3.5 pl-6 border-l-2 border-border space-y-2.5">
+                      <div className="relative border border-border rounded-md bg-card p-2">
                         <Textarea
                           value={replyContent}
                           onChange={(e) => setReplyContent(e.target.value)}
                           placeholder={`Phản hồi lại ${item.studentName}...`}
-                          className="w-full min-h-[50px] resize-none border-none p-0 focus-visible:ring-0 text-slate-850 placeholder:text-slate-400 text-xs shadow-none"
+                          className="w-full min-h-[50px] resize-none border-none p-0 focus-visible:ring-0 text-foreground bg-transparent placeholder:text-muted-foreground text-xs shadow-none"
                           maxLength={2000}
                         />
-                        <div className="flex items-center justify-between border-t border-slate-50 pt-1.5 mt-1.5">
-                          <span className="text-[9px] text-slate-400">
+                        <div className="flex items-center justify-between border-t border-border pt-1.5 mt-1.5">
+                          <span className="text-[9px] text-muted-foreground">
                             {replyContent.length}/2000 ký tự
                           </span>
                           <div className="flex items-center gap-1.5">
@@ -546,14 +549,14 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                                 setActiveReplyParentId(null);
                                 setReplyContent('');
                               }}
-                              className="h-6 px-2.5 text-[10px] font-semibold rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+                              className="h-6 px-2.5 text-[10px] font-semibold rounded-md border border-border text-foreground hover:bg-muted"
                             >
                               Hủy
                             </Button>
                             <Button
                               onClick={() => handlePostReply(item.reviewId)}
                               disabled={!replyContent.trim() || submittingReply}
-                              className="h-6 px-2.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold rounded-md border-none flex items-center gap-1"
+                              className="h-6 px-2.5 bg-primary hover:bg-primary/95 text-primary-foreground text-[10px] font-semibold rounded-md border-none flex items-center gap-1"
                             >
                               {submittingReply && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
                               <span>Gửi phản hồi</span>
@@ -570,22 +573,21 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
         </div>
       )}
 
-      {/* Review Block (student role only) */}
       {role === 'student' && summary && (
-        <div className="border-t border-slate-150 pt-5 space-y-4">
-          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Đánh giá bài học</h4>
+        <div className="border-t border-border pt-5 space-y-4">
+          <h4 className="text-xs font-bold text-foreground/90 uppercase tracking-wider">Đánh giá bài học</h4>
 
           {isEditingReview || (!summary.myReview && summary.canReview) ? (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3.5 animate-in fade-in-50 duration-200">
+            <div className="bg-muted/10 border border-border rounded-lg p-4 space-y-3.5 animate-in fade-in-50 duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800">
+                <span className="text-xs font-bold text-foreground">
                   {isEditingReview ? 'Chỉnh sửa đánh giá' : 'Đánh giá chất lượng bài học'}
                 </span>
                 {isEditingReview && (
                   <Button
                     variant="ghost"
                     onClick={() => setIsEditingReview(false)}
-                    className="h-6 px-2 text-[10px] font-bold text-slate-500 hover:bg-slate-100"
+                    className="h-6 px-2 text-[10px] font-bold text-muted-foreground hover:bg-muted"
                   >
                     Hủy sửa
                   </Button>
@@ -593,16 +595,16 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
               </div>
 
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-slate-500 block">Số sao đánh giá:</span>
+                <span className="text-[11px] font-semibold text-muted-foreground block">Số sao đánh giá:</span>
                 {renderStars(reviewRating, true, 'w-6 h-6')}
               </div>
 
-              <div className="relative border border-slate-200 rounded-md bg-white p-2">
+              <div className="relative border border-border rounded-md bg-card p-2">
                 <Textarea
                   value={reviewContent}
                   onChange={(e) => setReviewContent(e.target.value)}
                   placeholder="Viết nhận xét của bạn về bài học (không bắt buộc)..."
-                  className="w-full min-h-[60px] resize-none border-none p-0 focus-visible:ring-0 text-slate-850 placeholder:text-slate-400 text-xs shadow-none"
+                  className="w-full min-h-[60px] resize-none border-none p-0 focus-visible:ring-0 text-foreground bg-transparent placeholder:text-muted-foreground text-xs shadow-none"
                   maxLength={2000}
                 />
               </div>
@@ -610,29 +612,29 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
               <Button
                 onClick={handleSubmitReview}
                 disabled={reviewRating === 0 || submittingReview}
-                className="w-full h-8 bg-slate-950 hover:bg-slate-900 text-white text-[11px] font-semibold rounded-md border-none flex items-center justify-center gap-1.5 transition-all outline-none"
+                className="w-full h-8 bg-primary hover:bg-primary/95 text-primary-foreground text-[11px] font-semibold rounded-md border-none flex items-center justify-center gap-1.5 transition-all outline-none"
               >
                 {submittingReview && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>{isEditingReview ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}</span>
               </Button>
             </div>
           ) : summary.myReview ? (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3.5">
+            <div className="bg-muted/10 border border-border rounded-lg p-4 space-y-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold text-slate-500 block">Đánh giá của bạn:</span>
+                  <span className="text-[11px] font-bold text-muted-foreground block">Đánh giá của bạn:</span>
                   <div className="flex items-center gap-2">
                     {renderStars(summary.myReview.rating || 5, false, 'w-4 h-4')}
                     <span className="text-xs font-bold text-amber-600">({summary.myReview.rating} sao)</span>
                   </div>
                   {summary.myReview.content ? (
-                    <p className="text-xs text-slate-700 italic leading-relaxed">
+                    <p className="text-xs text-foreground/90 italic leading-relaxed">
                       &ldquo;{summary.myReview.content}&rdquo;
                     </p>
                   ) : (
-                    <p className="text-[11px] text-slate-400 italic">Không có bình luận chữ.</p>
+                    <p className="text-[11px] text-muted-foreground italic">Không có bình luận chữ.</p>
                   )}
-                  <span className="text-[10px] text-slate-450 block font-medium">
+                  <span className="text-[10px] text-muted-foreground block font-medium">
                     Cập nhật lúc: {new Date(summary.myReview.updatedAt).toLocaleString('vi-VN')}
                   </span>
                 </div>
@@ -641,14 +643,14 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                   <Button
                     variant="outline"
                     onClick={handleEditReviewClick}
-                    className="h-7 px-2.5 text-[10px] font-bold border-slate-200 hover:bg-slate-100 rounded-md"
+                    className="h-7 px-2.5 text-[10px] font-bold border-border hover:bg-muted rounded-md text-foreground"
                   >
                     Sửa
                   </Button>
                   <Button
                     variant="ghost"
                     onClick={() => handleDeleteEntry(summary.myReview!)}
-                    className="h-7 px-2.5 text-[10px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md"
+                    className="h-7 px-2.5 text-[10px] font-bold text-red-500 hover:text-red-650 hover:bg-red-500/10 rounded-md"
                   >
                     Xóa
                   </Button>
@@ -656,8 +658,8 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-xs italic">
-              <AlertCircle className="w-4 h-4 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-2 p-3 bg-muted/10 border border-border rounded-lg text-muted-foreground text-xs italic">
+              <AlertCircle className="w-4 h-4 shrink-0 text-muted-foreground" />
               <span>Hoàn thành lộ trình bài học của lớp-môn này để mở khóa đánh giá.</span>
             </div>
           )}

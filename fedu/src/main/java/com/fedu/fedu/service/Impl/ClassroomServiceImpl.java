@@ -13,6 +13,7 @@ import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.service.ClassroomService;
+import com.fedu.fedu.utils.enums.ClassroomStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,17 +32,26 @@ public class ClassroomServiceImpl implements ClassroomService {
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final ClassroomSubjectRepository classroomSubjectRepository;
     private final UserAccountRepository userAccountRepository;
+    private final com.fedu.fedu.repository.SemesterRepository semesterRepository;
 
     @Override
     @Transactional
     public ClassroomResponse createClassroom(ClassroomRequest request) {
         log.info("Creating classroom '{}'", request.getClassName());
 
+        if (request.getTerm() != null && request.getAcademicYear() != null) {
+            SemesterRelation relation = getSemesterRelation(request.getTerm(), request.getAcademicYear());
+            if (relation == SemesterRelation.PAST) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Không thể tạo lớp học với học kỳ trong quá khứ.");
+            }
+        }
+
         Classroom classroom = Classroom.builder()
                 .className(request.getClassName().trim())
-                .semester(request.getSemester())
+                .term(request.getTerm())
+                .academicYear(request.getAcademicYear())
                 .description(request.getDescription())
-                .status(request.getStatus() != null ? request.getStatus() : "inactive")
+                .status(ClassroomStatus.INACTIVE)
                 .isDeleted(false)
                 .build();
 
@@ -58,13 +68,69 @@ public class ClassroomServiceImpl implements ClassroomService {
         Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
 
-        classroom.setClassName(request.getClassName().trim());
-        classroom.setSemester(request.getSemester());
-        classroom.setDescription(request.getDescription());
-        if (request.getStatus() != null) {
-            classroom.setStatus(request.getStatus());
+        if (classroom.getStatus() == ClassroomStatus.COMPLETED) {
+            if (classroom.getTerm() != request.getTerm() || !java.util.Objects.equals(classroom.getAcademicYear(), request.getAcademicYear())) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Không thể chỉnh sửa học kỳ của lớp học đã kết thúc.");
+            }
         }
 
+        if (request.getTerm() != null && request.getAcademicYear() != null) {
+            SemesterRelation relation = getSemesterRelation(request.getTerm(), request.getAcademicYear());
+            if (classroom.getStatus() == ClassroomStatus.ACTIVE) {
+                if (relation != SemesterRelation.PRESENT) {
+                    throw new com.fedu.fedu.exception.InvalidDataException("Lớp học đang hoạt động chỉ có thể chọn học kỳ hiện tại.");
+                }
+            } else if (classroom.getStatus() == ClassroomStatus.INACTIVE) {
+                if (relation == SemesterRelation.PAST) {
+                    throw new com.fedu.fedu.exception.InvalidDataException("Không thể lưu lớp học với học kỳ trong quá khứ.");
+                }
+            }
+        }
+
+        classroom.setClassName(request.getClassName().trim());
+        classroom.setTerm(request.getTerm());
+        classroom.setAcademicYear(request.getAcademicYear());
+        classroom.setDescription(request.getDescription());
+        // Trạng thái vòng đời chỉ đổi qua updateClassroomStatus (admin), không qua update thông tin.
+
+        return toResponse(classroomRepository.save(classroom));
+    }
+
+    @Override
+    @Transactional
+    public ClassroomResponse updateClassroomStatus(Long classroomId, ClassroomStatus status) {
+        log.info("Updating classroom {} status -> {}", classroomId, status);
+        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
+
+        ClassroomStatus current = classroom.getStatus();
+        if (current == status) {
+            return toResponse(classroom);
+        }
+        // Chuyển hợp lệ: chưa bắt đầu -> hoạt động (bắt đầu), hoạt động -> hoàn thành (kết thúc),
+        // hoàn thành -> hoạt động (mở lại). Không cho quay về "chưa bắt đầu" sau khi đã bắt đầu.
+        boolean allowed = (current == ClassroomStatus.INACTIVE && status == ClassroomStatus.ACTIVE)
+                || (current == ClassroomStatus.ACTIVE && status == ClassroomStatus.COMPLETED)
+                || (current == ClassroomStatus.COMPLETED && status == ClassroomStatus.ACTIVE);
+        if (!allowed) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Không thể chuyển lớp từ trạng thái '" + current.getValue() + "' sang '" + status.getValue() + "'");
+        }
+
+        if (status == ClassroomStatus.ACTIVE) {
+            if (classroom.getTerm() == null || classroom.getAcademicYear() == null) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Vui lòng thiết lập học kỳ trước khi bắt đầu lớp học.");
+            }
+            SemesterRelation relation = getSemesterRelation(classroom.getTerm(), classroom.getAcademicYear());
+            if (relation == SemesterRelation.FUTURE) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Không thể bắt đầu lớp học thuộc học kỳ tương lai.");
+            }
+            if (relation == SemesterRelation.PAST) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Không thể bắt đầu lớp học thuộc học kỳ quá khứ.");
+            }
+        }
+
+        classroom.setStatus(status);
         return toResponse(classroomRepository.save(classroom));
     }
 
@@ -72,8 +138,12 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Transactional
     public void deleteClassroom(Long classroomId) {
         log.info("Deleting classroom id: {}", classroomId);
-        Classroom classroom = classroomRepository.findById(classroomId)
+        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
+        if (classroom.getStatus() != ClassroomStatus.INACTIVE) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Chỉ có thể xóa lớp chưa bắt đầu. Lớp đang hoạt động hoặc đã kết thúc không được xóa.");
+        }
         classroom.setIsDeleted(true);
         classroomRepository.save(classroom);
     }
@@ -81,7 +151,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public ClassroomResponse getClassroomById(Long classroomId) {
-        Classroom classroom = classroomRepository.findById(classroomId)
+        Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
         return toResponse(classroom);
     }
@@ -89,7 +159,7 @@ public class ClassroomServiceImpl implements ClassroomService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassroomResponse> getAllClassrooms() {
-        // Đếm số môn + số học sinh của mọi lớp trong 1 query, tránh 2 query cho mỗi lớp (N+1)
+        
         Map<Long, ClassroomRepository.ClassroomCounts> countsById = classroomRepository
                 .countSubjectsAndStudentsPerClassroom().stream()
                 .collect(Collectors.toMap(ClassroomRepository.ClassroomCounts::getClassroomId, c -> c));
@@ -158,10 +228,10 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .collect(Collectors.toList());
     }
 
-    // ─── Mapper ──────────────────────────────────────────────────────────────
+    
 
     private ClassroomResponse toResponse(Classroom classroom) {
-        // COUNT trong DB thay vì kéo nguyên list entity về chỉ để .size()
+        
         int subjectCount = (int) classroomSubjectRepository
                 .countByClassroomClassroomId(classroom.getClassroomId());
         int studentCount = (int) classroomSubjectStudentRepository
@@ -173,7 +243,9 @@ public class ClassroomServiceImpl implements ClassroomService {
         return ClassroomResponse.builder()
                 .classroomId(classroom.getClassroomId())
                 .className(classroom.getClassName())
-                .semester(classroom.getSemester())
+                .term(classroom.getTerm())
+                .academicYear(classroom.getAcademicYear())
+                .semesterLabel(classroom.semesterLabel())
                 .description(classroom.getDescription())
                 .status(classroom.getStatus())
                 .subjectCount(subjectCount)
@@ -210,17 +282,21 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .subjectName(subject != null ? subject.getSubjectName() : null)
                 .lecturerId(lecturer != null ? lecturer.getUserId() : null)
                 .lecturerName(lecturerName)
-                .displayName(classroom != null && subject != null 
-                        ? classroom.getClassName() + " - " + subject.getSubjectCode() 
+                .displayName(classroom != null && subject != null
+                        ? classroom.getClassName() + " - " + subject.getSubjectCode()
                         : null)
                 .studentCount(studentCount)
+                .status(classroom != null ? classroom.getStatus() : null)
+                .term(classroom != null ? classroom.getTerm() : null)
+                .academicYear(classroom != null ? classroom.getAcademicYear() : null)
+                .semesterLabel(classroom != null ? classroom.semesterLabel() : null)
                 .build();
     }
 
     private void assertTeacherOwnsClassroom(Long classroomId) {
         var auth = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
-        if (auth == null) return; // test/seed
+        if (auth == null) return; 
         boolean isAdmin = auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         if (isAdmin) return;
@@ -229,6 +305,29 @@ public class ClassroomServiceImpl implements ClassroomService {
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Unauthorized"));
         if (!classroomSubjectRepository.existsByClassroomClassroomIdAndLecturerUserId(classroomId, actor.getUserId())) {
             throw new org.springframework.security.access.AccessDeniedException("Bạn không giảng dạy lớp học này");
+        }
+    }
+
+    private enum SemesterRelation {
+        PAST, PRESENT, FUTURE
+    }
+
+    private SemesterRelation getSemesterRelation(String targetTerm, Integer targetYear) {
+        if (targetTerm == null || targetYear == null) {
+            return SemesterRelation.PRESENT;
+        }
+
+        com.fedu.fedu.entity.Semester targetSem = semesterRepository.findByTermAndAcademicYear(targetTerm, targetYear)
+                .orElseThrow(() -> new com.fedu.fedu.exception.InvalidDataException(
+                        "Học kỳ " + targetTerm + " " + targetYear + " chưa được cấu hình trên hệ thống."));
+
+        java.time.LocalDate now = java.time.LocalDate.now();
+        if (now.isBefore(targetSem.getStartDate())) {
+            return SemesterRelation.FUTURE;
+        } else if (now.isAfter(targetSem.getEndDate())) {
+            return SemesterRelation.PAST;
+        } else {
+            return SemesterRelation.PRESENT;
         }
     }
 }

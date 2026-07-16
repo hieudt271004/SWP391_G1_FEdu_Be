@@ -9,7 +9,7 @@ export function LeftPanel() {
         alt="Students learning"
         className="w-full h-full object-cover"
       />
-      {/* Static overlay */}
+      {}
       <div className="absolute inset-0 bg-slate-900/60" />
       
       <div className="absolute inset-0 flex flex-col justify-between p-12 z-10">

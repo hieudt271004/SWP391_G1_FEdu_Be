@@ -5,7 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 
-/** Một khoảng điểm của bài quiz: [minScore, maxScore] → targetLevel. */
+
 @Data
 @Builder
 @NoArgsConstructor

@@ -7,10 +7,10 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
-/**
- * Lịch sử thay đổi mức năng lực của học sinh trong một lớp-môn.
- * oldLevel null = lần phân loại đầu tiên (PLACEMENT).
- */
+
+
+
+
 @Getter
 @Setter
 @Entity
@@ -33,7 +33,7 @@ public class StudentLevelHistory {
     @JoinColumn(name = "classroom_subject_id", nullable = false)
     private ClassroomSubject classroomSubject;
 
-    /** Mức cũ; null cho lần phân loại đầu tiên. */
+    
     @Column(name = "old_level")
     private Integer oldLevel;
 

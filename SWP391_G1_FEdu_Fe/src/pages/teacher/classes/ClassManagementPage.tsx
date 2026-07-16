@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -34,8 +34,7 @@ import {
   Users,
   Undo2,
   Play,
-  Settings,
-  Code2
+  Settings
 } from 'lucide-react';
 import { teacherService } from '../../../services/teacher.service';
 import { classroomService } from '../../../services/classroom.service';
@@ -85,10 +84,10 @@ export function ClassManagementPage() {
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
 
-  // Classroom Publish Flow State
+  
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
 
-  // Derive active path details for the selected level
+  
   const activePath = graphData?.paths?.find((p) => p.level === selectedLevel);
   const activePathId = activePath?.pathId || graphData?.pathId || null;
   const nodes = activePath ? activePath.nodes || [] : graphData?.nodes || [];
@@ -96,23 +95,23 @@ export function ClassManagementPage() {
 
   const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
 
-  // Student Assignment States
+  
   const [assignedStudentIds, setAssignedStudentIds] = useState<number[]>([]);
   const [siblingAssignments, setSiblingAssignments] = useState<Record<number, { nodeId: number; nodeTitle: string }>>({});
   const [loadingNodeStudents, setLoadingNodeStudents] = useState(false);
   const [savingNodeStudents, setSavingNodeStudents] = useState(false);
 
-  // Modals state
+  
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isAddContentOpen, setIsAddContentOpen] = useState(false);
   const [selectedNodeForContent, setSelectedNodeForContent] = useState<LearningNodeResponse | null>(null);
 
-  // Custom delete confirm dialog state
+  
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [nodeToDelete, setNodeToDelete] = useState<{ nodeId: number, title: string } | null>(null);
   const [understandDelete, setUnderstandDelete] = useState(false);
 
-  // Publish / Unpublish states
+  
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [understandPublish, setUnderstandPublish] = useState(false);
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
@@ -127,12 +126,13 @@ export function ClassManagementPage() {
   const [nLevel, setNLevel] = useState<'' | 1 | 2 | 3>('');
   const [nStage, setNStage] = useState(1);
   const [nApplies, setNApplies] = useState<number[]>([]);
-  // Ngưỡng phân luồng/năng lực KHÔNG nhập lúc tạo node — chỉnh ở dialog "Sửa node"
+  
   const [tDuration, setTDuration] = useState('15');
   const [numQuestions, setNumQuestions] = useState('0');
   const [addingNode, setAddingNode] = useState(false);
+  const isAddingNodeRef = useRef(false);
 
-  // Edit Node Modal & Form State
+  
   const [isEditNodeOpen, setIsEditNodeOpen] = useState(false);
   const [nodeToEdit, setNodeToEdit] = useState<LearningNodeResponse | null>(null);
   const [editNodeTitle, setEditNodeTitle] = useState('');
@@ -143,13 +143,18 @@ export function ClassManagementPage() {
   const [editNodeRequired, setEditNodeRequired] = useState(true);
   const [editingNode, setEditingNode] = useState(false);
 
-  // Edit Node Thresholds
+  
   const [editPlacementYeuMax, setEditPlacementYeuMax] = useState<string>('');
   const [editPlacementTbMax, setEditPlacementTbMax] = useState<string>('');
   const [editGateUpMin, setEditGateUpMin] = useState<string>('');
   const [editGateDownMax, setEditGateDownMax] = useState<string>('');
 
-  // Sidebar Question Builder States
+  const [sidebarPlacementYeuMax, setSidebarPlacementYeuMax] = useState<string>('');
+  const [sidebarPlacementTbMax, setSidebarPlacementTbMax] = useState<string>('');
+  const [sidebarGateUpMin, setSidebarGateUpMin] = useState<string>('');
+  const [sidebarGateDownMax, setSidebarGateDownMax] = useState<string>('');
+
+  
   const [editingTTitle, setEditingTTitle] = useState("");
   const [editingTDuration, setEditingTDuration] = useState("15");
   const [editingTPass, setEditingTPass] = useState("0");
@@ -159,44 +164,37 @@ export function ClassManagementPage() {
   const [editingNodeTest, setEditingNodeTest] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Node content state
+  
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [nodeContentsLoading, setNodeContentsLoading] = useState<Record<number, boolean>>({});
 
-  // Exercise States
-  const [editingExercise, setEditingExercise] = useState<any | null>(null);
-  const [exTitle, setExTitle] = useState("");
-  const [exInstr, setExInstr] = useState("");
-  const [exAllowText, setExAllowText] = useState(true);
-  const [exAllowFile, setExAllowFile] = useState(true);
-
-  // New Content Form State
+  
   const [contentType, setContentType] = useState<'MATERIAL' | 'TEST'>('MATERIAL');
   const [materialType, setMaterialType] = useState<'FILE' | 'VIDEO' | 'EXTERNAL'>('FILE');
   const [contentTitle, setContentTitle] = useState('');
   const [isMaterialRequired, setIsMaterialRequired] = useState(true);
 
-  // File Upload State
+  
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileDescription, setFileDescription] = useState('');
 
-  // Video URL State
+  
   const [contentVideoUrl, setContentVideoUrl] = useState('');
   const [videoDuration, setVideoDuration] = useState<number | ''>('');
   const [videoDescription, setVideoDescription] = useState('');
 
-  // External URL State
+  
   const [contentFileUrl, setContentFileUrl] = useState('');
   const [fileName, setFileName] = useState('');
   const [fileType, setFileType] = useState('');
 
-  // Test State
+  
   const [testTitle, setTestTitle] = useState('');
   const [testDescription, setTestDescription] = useState('');
   const [testDuration, setTestDuration] = useState<number | ''>('');
   const [testPassingPercentage, setTestPassingPercentage] = useState<number | ''>(80);
 
-  // Submitting state
+  
   const [submittingContent, setSubmittingContent] = useState(false);
 
   const handleNumQuestionsChange = (val: string) => {
@@ -328,7 +326,7 @@ export function ClassManagementPage() {
     }
     const numQ = Math.max(0, parseInt(editingNumQuestions, 10) || 0);
     
-    // Validate questions
+    
     for (let i = 0; i < numQ; i++) {
       const q = builderQuestions[i];
       if (!q) continue;
@@ -358,7 +356,7 @@ export function ClassManagementPage() {
 
     setSaving(true);
     try {
-      // 1. Delete old test first
+      
       const nodeContent = nodeContents[selectedNode.nodeId];
       const testIdToDelete = isTestNode 
         ? (nodeContent?.tests && nodeContent.tests.length > 0 ? nodeContent.tests[0].testId : null)
@@ -368,17 +366,16 @@ export function ClassManagementPage() {
         await learningPathService.deleteTeacherNodeTest(testIdToDelete);
       }
 
-      // 2. Create new test
+      
       const testRes = await learningPathService.addTeacherNodeTest(selectedNode.nodeId, {
         title: testTitleToUse,
         durationMinutes: Number(editingTDuration) || 15,
-        passingPercentage: selectedNode.testKind === 'PLACEMENT' ? 0 : (Number(editingTPass) || 0),
-        holdRelease: editingNodeTest ? !editingNodeTest.releasedAt : false,
+        passingPercentage: (selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE') ? 0 : (Number(editingTPass) || 0),
       });
 
       const createdTestId = testRes.testId;
 
-      // 3. Create questions sequentially
+      
       for (let i = 0; i < numQ; i++) {
         const q = builderQuestions[i];
         if (!q) continue;
@@ -391,6 +388,26 @@ export function ClassManagementPage() {
             isCorrect: a.isCorrect
           }))
         });
+      }
+
+      // Update node details (gateUpMin/gateDownMax or placement thresholds)
+      const updatedNode = await learningPathService.updateLearningNode(selectedNode.nodeId, {
+        title: selectedNode.title,
+        description: selectedNode.description,
+        nodeType: selectedNode.nodeType,
+        status: selectedNode.status,
+        displayOrder: selectedNode.displayOrder,
+        isRequired: selectedNode.isRequired,
+        placementYeuMax: selectedNode.testKind === 'PLACEMENT' ? (sidebarPlacementYeuMax === '' ? null : Number(sidebarPlacementYeuMax)) : undefined,
+        placementTbMax: selectedNode.testKind === 'PLACEMENT' ? (sidebarPlacementTbMax === '' ? null : Number(sidebarPlacementTbMax)) : undefined,
+        gateUpMin: selectedNode.testKind === 'GATE' ? (sidebarGateUpMin === '' ? null : Number(sidebarGateUpMin)) : undefined,
+        gateDownMax: selectedNode.testKind === 'GATE' ? (sidebarGateDownMax === '' ? null : Number(sidebarGateDownMax)) : undefined,
+      });
+
+      setSelectedNode(updatedNode);
+
+      if (classroomSubjectId) {
+        await fetchGraphData(Number(classroomSubjectId));
       }
 
       toast.success("Đã cập nhật bài test thành công");
@@ -411,6 +428,12 @@ export function ClassManagementPage() {
       setNodeContents((prev) => ({ ...prev, [nodeId]: content }));
 
       const node = nodes.find(n => n.nodeId === nodeId);
+      if (node) {
+        setSidebarGateUpMin(node.gateUpMin != null ? String(node.gateUpMin) : '');
+        setSidebarGateDownMax(node.gateDownMax != null ? String(node.gateDownMax) : '');
+        setSidebarPlacementYeuMax(node.placementYeuMax != null ? String(node.placementYeuMax) : '');
+        setSidebarPlacementTbMax(node.placementTbMax != null ? String(node.placementTbMax) : '');
+      }
       const isTestNode = node?.testKind === "PLACEMENT" || node?.testKind === "GATE" || node?.testKind === "FREE_CHOICE";
       
       if (isTestNode && content.tests && content.tests.length > 0) {
@@ -456,11 +479,6 @@ export function ClassManagementPage() {
   const handleSelectNode = async (node: LearningNodeResponse) => {
     setSelectedNode(node);
     setEditingNodeTest(null);
-    setEditingExercise(null);
-    setExTitle("");
-    setExInstr("");
-    setExAllowText(true);
-    setExAllowFile(true);
     await fetchNodeContent(node.nodeId);
 
     setLoadingNodeStudents(true);
@@ -587,7 +605,7 @@ export function ClassManagementPage() {
     fetchClassroomData();
   }, [classroomSubjectId]);
 
-  // Cross-tab consistency
+  
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && classroomSubjectId) {
@@ -608,10 +626,6 @@ export function ClassManagementPage() {
     setNLevel('');
     setNStage(1);
     setNApplies([]);
-    setNUpMin('');
-    setNDownMax('');
-    setNYeuMax('');
-    setNTbMax('');
     setTDuration('15');
     setNumQuestions('0');
     setIsAddNodeOpen(true);
@@ -666,6 +680,9 @@ export function ClassManagementPage() {
           formData.append('fileName', selectedFile.name);
           formData.append('fileType', selectedFile.type || uploaded.format || '');
           formData.append('publicId', uploaded.publicId);
+          if (uploaded.resourceType) {
+            formData.append('resourceType', uploaded.resourceType);
+          }
           if (fileDescription.trim()) {
             formData.append('fileDescription', fileDescription.trim());
           }
@@ -702,7 +719,7 @@ export function ClassManagementPage() {
         await learningPathService.addTeacherNodeMaterial(selectedNodeForContent.nodeId, formData);
         toast.success('Thêm tài liệu học tập thành công!');
       } else {
-        // Create Test
+        
         if (!testTitle.trim()) {
           toast.error('Vui lòng nhập tiêu đề bài kiểm tra');
           setSubmittingContent(false);
@@ -712,7 +729,9 @@ export function ClassManagementPage() {
           title: testTitle.trim(),
           description: testDescription.trim() || undefined,
           durationMinutes: testDuration ? Number(testDuration) : undefined,
-          passingPercentage: testPassingPercentage ? Number(testPassingPercentage) : undefined,
+          passingPercentage: (selectedNodeForContent?.testKind === 'PLACEMENT' || selectedNodeForContent?.testKind === 'GATE')
+            ? 0
+            : (testPassingPercentage ? Number(testPassingPercentage) : undefined),
         });
         toast.success('Thêm bài kiểm tra thành công!');
       }
@@ -751,73 +770,6 @@ export function ClassManagementPage() {
     }
   };
 
-  const startEditingExercise = (ex: any) => {
-    setEditingExercise(ex);
-    setExTitle(ex.title);
-    setExInstr(ex.instructions || "");
-    setExAllowText(ex.allowText);
-    setExAllowFile(ex.allowFile);
-  };
-
-  const cancelEditingExercise = () => {
-    setEditingExercise(null);
-    setExTitle("");
-    setExInstr("");
-    setExAllowText(true);
-    setExAllowFile(true);
-  };
-
-  const addExercise = async () => {
-    if (!selectedNode || !exTitle.trim()) {
-      toast.error("Nhập tiêu đề bài tập");
-      return;
-    }
-    if (!exAllowText && !exAllowFile) {
-      toast.error("Chọn ít nhất một hình thức nộp (tự luận hoặc file)");
-      return;
-    }
-    setSaving(true);
-    try {
-      if (editingExercise) {
-        await learningPathService.updateTeacherNodeExercise(editingExercise.exerciseId, {
-          title: exTitle.trim(),
-          instructions: exInstr.trim() || undefined,
-          allowText: exAllowText,
-          allowFile: exAllowFile,
-          type: 'EXERCISE'
-        });
-        toast.success("Đã cập nhật bài tập");
-      } else {
-        await learningPathService.addTeacherNodeExercise(selectedNode.nodeId, {
-          title: exTitle.trim(),
-          instructions: exInstr.trim() || undefined,
-          allowText: exAllowText,
-          allowFile: exAllowFile,
-          type: 'EXERCISE'
-        });
-        toast.success("Đã thêm bài tập");
-      }
-      cancelEditingExercise();
-      await fetchNodeContent(selectedNode.nodeId);
-    } catch {
-      toast.error(editingExercise ? "Không cập nhật được bài tập" : "Không thêm được bài tập");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const removeExercise = async (exerciseId: number) => {
-    if (!selectedNode) return;
-    if (!window.confirm("Bạn có chắc chắn muốn xóa bài tập này không?")) return;
-    try {
-      await learningPathService.deleteTeacherNodeExercise(exerciseId);
-      toast.success("Xóa bài tập thành công!");
-      await fetchNodeContent(selectedNode.nodeId);
-    } catch {
-      toast.error("Không xóa được bài tập");
-    }
-  };
-
   const triggerRemoveNodeDialog = (nodeId: number, title: string) => {
     setNodeToDelete({ nodeId, title });
     setUnderstandDelete(false);
@@ -834,9 +786,9 @@ export function ClassManagementPage() {
         setSelectedNode(null);
       }
       setNodeToDelete(null);
-      if (classroomSubjectId) {
-        await fetchGraphData(Number(classroomSubjectId));
-      }
+      
+      
+      await rewireAll();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete node');
     }
@@ -854,6 +806,7 @@ export function ClassManagementPage() {
 
   const handleAddNodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (addingNode || isAddingNodeRef.current) return;
     if (!newNodeTitle.trim()) {
       toast.error('Tiêu đề bài học không được để trống');
       return;
@@ -875,7 +828,7 @@ export function ClassManagementPage() {
       kind: nKind,
       stage: nStage,
       applies: nApplies,
-      // Node Trên lớp = buổi học CHUNG cả lớp, không phân mức riêng (BE cũng chặn)
+      
       level: nKind === 'ON_CLASS' ? '' : nLevel,
       existingNodes: nodes,
     });
@@ -886,10 +839,11 @@ export function ClassManagementPage() {
 
     const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
 
+    isAddingNodeRef.current = true;
     setAddingNode(true);
     try {
       if (nKind === 'FREE_CHOICE') {
-        // Test tự do = 3 node test (Yếu/TB/Khá) cùng chặng; mỗi node route về nhánh của nó.
+        
         const variants: { lv: 1 | 2 | 3; name: string }[] = [
           { lv: 1, name: 'Yếu' },
           { lv: 2, name: 'TB' },
@@ -917,14 +871,14 @@ export function ClassManagementPage() {
           nodeType: nKind === 'ON_CLASS' ? 'ON_CLASS' : 'AT_HOME',
           testKind: nKind === 'GATE' ? 'GATE' : nKind === 'PLACEMENT' ? 'PLACEMENT' : 'NONE',
           appliesLevels: placement.appliesLevels,
-          // Ngưỡng phân luồng/năng lực nhập sau ở dialog "Sửa node"
+          
           displayOrder: 0,
           isRequired: true,
           stageOrder: nStage,
           level: placement.level,
         });
 
-        // Node Test năng lực: tạo luôn bài test + N câu hỏi mẫu (giống admin).
+        
         if (nKind === 'PLACEMENT') {
           const testRes = await learningPathService.addTeacherNodeTest(created.nodeId, {
             title: newNodeTitle.trim(),
@@ -953,6 +907,7 @@ export function ClassManagementPage() {
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Không thể thêm bài học');
     } finally {
+      isAddingNodeRef.current = false;
       setAddingNode(false);
     }
   };
@@ -1113,7 +1068,7 @@ export function ClassManagementPage() {
     const numQ = Math.max(0, parseInt(editingNumQuestions, 10) || 0);
     if (numQ <= 0) return null;
     return (
-      <div className="space-y-3 border-t border-slate-100 pt-3">
+      <div className="space-y-3 border-t border-border pt-3">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
           {Array.from({ length: numQ }).map((_, idx) => (
             <button
@@ -1122,8 +1077,8 @@ export function ClassManagementPage() {
               onClick={() => setActiveQuestionIdx(idx)}
               className={`size-7 shrink-0 rounded-md text-xs font-bold transition-all border ${
                 activeQuestionIdx === idx
-                  ? "bg-slate-800 text-white border-slate-800"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:bg-muted/50"
               }`}
             >
               {idx + 1}
@@ -1132,19 +1087,19 @@ export function ClassManagementPage() {
         </div>
 
         {builderQuestions[activeQuestionIdx] && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-2.5 space-y-2.5">
+          <div className="rounded-lg border border-border bg-muted/10 p-2.5 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Câu hỏi {activeQuestionIdx + 1}
               </span>
-              <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-md">
+              <div className="flex items-center gap-1 bg-muted p-0.5 rounded-md">
                 <button
                   type="button"
                   onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_CHOICE')}
                   className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
                     builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE'
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   Một đáp án
@@ -1154,8 +1109,8 @@ export function ClassManagementPage() {
                   onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'MULTIPLE_SELECT')}
                   className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
                     builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT'
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   Nhiều đáp án
@@ -1165,8 +1120,8 @@ export function ClassManagementPage() {
                   onClick={() => handleQuestionTypeChange(activeQuestionIdx, 'ESSAY')}
                   className={`px-1.5 py-0.5 rounded-sm text-[9px] font-semibold transition-all ${
                     builderQuestions[activeQuestionIdx].questionType === 'ESSAY'
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   Tự luận
@@ -1175,7 +1130,7 @@ export function ClassManagementPage() {
             </div>
 
             <textarea
-              className="lp-input text-xs w-full border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white"
+              className="lp-input text-xs w-full border border-border rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
               placeholder="Nhập đề / nội dung câu hỏi..."
               rows={2}
               value={builderQuestions[activeQuestionIdx].questionContent}
@@ -1185,14 +1140,14 @@ export function ClassManagementPage() {
             {builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ||
             builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_SELECT' ? (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground">
                   <span>
                     ĐÁP ÁN ({builderQuestions[activeQuestionIdx].questionType === 'MULTIPLE_CHOICE' ? 'Chọn 1 đáp án đúng' : 'Chọn nhiều đáp án đúng'})
                   </span>
                   <button
                     type="button"
                     onClick={() => addAnswerOption(activeQuestionIdx)}
-                    className="text-indigo-600 hover:underline text-[10px]"
+                    className="text-primary hover:underline text-[10px]"
                   >
                     + Thêm đáp án
                   </button>
@@ -1200,13 +1155,13 @@ export function ClassManagementPage() {
                 <div className="space-y-1.5">
                   {builderQuestions[activeQuestionIdx].answers.map((ans: any, aIdx: number) => (
                     <div key={aIdx} className="flex items-center gap-2">
-                      <span className="font-semibold text-[10px] text-slate-400 shrink-0 w-3">
+                      <span className="font-semibold text-[10px] text-muted-foreground shrink-0 w-3">
                         {String.fromCharCode(65 + aIdx)}
                       </span>
                       <input
                         type="text"
                         placeholder={`Đáp án ${String.fromCharCode(65 + aIdx)}`}
-                        className="lp-input flex-1 py-1 px-2 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white"
+                        className="lp-input flex-1 py-1 px-2 text-xs border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                         value={ans.answerContent}
                         onChange={(e) => updateAnswerField(activeQuestionIdx, aIdx, 'answerContent', e.target.value)}
                       />
@@ -1223,7 +1178,7 @@ export function ClassManagementPage() {
                             updateAnswerField(activeQuestionIdx, aIdx, 'isCorrect', e.target.checked);
                           }
                         }}
-                        className="h-3.5 w-3.5 text-indigo-600 cursor-pointer"
+                        className="h-3.5 w-3.5 text-primary cursor-pointer"
                       />
                       {builderQuestions[activeQuestionIdx].answers.length > 2 && (
                         <button
@@ -1240,9 +1195,9 @@ export function ClassManagementPage() {
               </div>
             ) : (
               <div className="space-y-1.5">
-                <span className="text-[10px] font-bold text-slate-500 block">CÂU TRẢ LỜI MẪU / HƯỚNG DẪN CHẤM</span>
+                <span className="text-[10px] font-bold text-muted-foreground block">CÂU TRẢ LỜI MẪU / HƯỚNG DẪN CHẤM</span>
                 <textarea
-                  className="lp-input text-xs w-full border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white"
+                  className="lp-input text-xs w-full border border-border rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                   placeholder="Nhập câu trả lời mẫu cho tự luận..."
                   rows={3}
                   value={builderQuestions[activeQuestionIdx].answers[0]?.answerContent || ""}
@@ -1280,7 +1235,7 @@ export function ClassManagementPage() {
 
   return (
     <div className="space-y-6 relative font-sans text-slate-800">
-      {/* Sticky Published Banner */}
+      {}
       {isPublished && (
         <div
           className="sticky top-0 z-40 w-full bg-emerald-600 text-white py-2.5 px-4 rounded-[6px] shadow-sm flex items-center gap-2 mb-4 font-semibold text-sm animate-in slide-in-from-top duration-300"
@@ -1311,7 +1266,7 @@ export function ClassManagementPage() {
             <Button
               onClick={handleAddNodeClick}
               disabled={isPublished}
-              className="text-white flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-xs font-semibold h-9"
+              className="flex items-center gap-1 disabled:opacity-50 transition-all rounded-[6px] shadow-xs px-4 py-2 text-xs font-semibold h-9"
             >
               <Plus className="size-4" />
               Thêm bài học
@@ -1321,27 +1276,27 @@ export function ClassManagementPage() {
       </div>
 
       <div className="flex flex-col gap-6">
-        <Card className="rounded-[10px] border border-slate-200/60 shadow-xs overflow-hidden bg-white">
-          <CardHeader className="border-b border-slate-100/80 bg-slate-50/40 py-4">
+        <Card className="rounded-[10px] border border-border shadow-xs overflow-hidden bg-card">
+          <CardHeader className="border-b border-border bg-muted/20 py-4">
             <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-              <Map className="size-4 text-slate-500" />
+              <Map className="size-4 text-muted-foreground" />
               Thiết lập lộ trình học tập
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5">
             <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
-              {/* Column 1: Roadmap Flow Graph — giới hạn ~3 node ngang, panel chi tiết phủ phần còn lại */}
+              {}
               <div className="space-y-3 lg:w-[560px] lg:shrink-0">
                 {nodes.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-[10px] bg-slate-50/40">
-                    <Map className="size-8 mx-auto text-slate-300 mb-2" />
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-[10px] bg-muted/10">
+                    <Map className="size-8 mx-auto text-muted-foreground/60 mb-2" />
                     <p className="text-xs font-medium mb-4">Chưa có bài học nào trong lộ trình lớp học.</p>
                     <div title={isPublished ? lockTooltip : undefined}>
                       <Button
                         onClick={() => setIsAddNodeOpen(true)}
                         disabled={isPublished}
                         size="sm"
-                        className="text-white rounded-[6px] shadow-xs hover:opacity-95 font-semibold text-xs py-1.5"
+                        className="rounded-[6px] shadow-xs hover:opacity-95 font-semibold text-xs py-1.5"
                       >
                         Tạo bài học đầu tiên
                       </Button>
@@ -1359,39 +1314,39 @@ export function ClassManagementPage() {
                 )}
               </div>
 
-              {/* Column 2: Selected Node Sidebar Details Panel */}
-              <div className="flex-1 min-w-0 border border-slate-200 rounded-xl bg-slate-50/40 p-4 space-y-4 h-[580px] overflow-y-auto">
+              {}
+              <div className="flex-1 min-w-0 border border-border rounded-xl bg-muted/10 p-4 space-y-4 h-[580px] overflow-y-auto">
                 {!selectedNode ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-16 text-slate-400">
-                    <Map className="w-10 h-10 mb-2 text-slate-300" />
-                    <p className="text-xs font-bold text-slate-800">Chọn một bài học trên sơ đồ</p>
-                    <p className="text-[10px] text-slate-500 mt-1 max-w-[200px]">Nhấp chọn node trên sơ đồ lộ trình bên trái để xem nội dung chi tiết & chỉnh sửa.</p>
+                  <div className="h-full flex flex-col items-center justify-center text-center py-16 text-muted-foreground">
+                    <Map className="w-10 h-10 mb-2 text-muted-foreground/60" />
+                    <p className="text-xs font-bold text-foreground">Chọn một bài học trên sơ đồ</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 max-w-[200px]">Nhấp chọn node trên sơ đồ lộ trình bên trái để xem nội dung chi tiết & chỉnh sửa.</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Node Header Info */}
-                    <div className="space-y-2 border-b border-slate-200/80 pb-3">
+                    {}
+                    <div className="space-y-2 border-b border-border pb-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                           Chi tiết bài học
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-slate-50 text-slate-650 border-slate-250 rounded-[4px]">
+                          <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-muted text-muted-foreground border-border rounded-[4px]">
                             {selectedNode.nodeType === 'ON_CLASS' ? 'Trên lớp' : 'Tự học'}
                           </Badge>
                           {selectedNode.isRequired && (
-                            <Badge className="text-[9px] py-0 px-1 font-normal bg-rose-50 text-rose-700 border-rose-250 rounded-[4px]" variant="outline">
+                            <Badge className="text-[9px] py-0 px-1 font-normal bg-rose-500/10 text-rose-500 border-rose-500/20 rounded-[4px]" variant="outline">
                               Bắt buộc
                             </Badge>
                           )}
                         </div>
                       </div>
-                      <h3 className="font-bold text-slate-800 text-sm">{selectedNode.title}</h3>
+                      <h3 className="font-bold text-foreground text-sm">{selectedNode.title}</h3>
                       {selectedNode.description && (
-                        <p className="text-xs text-slate-650 leading-relaxed italic">{selectedNode.description}</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed italic">{selectedNode.description}</p>
                       )}
-                      <div className="text-[10px] text-slate-500 font-medium">
-                        Trạng thái hiển thị: <span className="font-semibold text-slate-700">{selectedNode.status === 'OPEN' ? 'Mở' : selectedNode.status === 'LOCKED' ? 'Khóa' : 'Ẩn'}</span>
+                      <div className="text-[10px] text-muted-foreground font-medium">
+                        Trạng thái hiển thị: <span className="font-semibold text-foreground">{selectedNode.status === 'OPEN' ? 'Mở' : selectedNode.status === 'LOCKED' ? 'Khóa' : 'Ẩn'}</span>
                       </div>
 
                       {(() => {
@@ -1399,8 +1354,8 @@ export function ClassManagementPage() {
                         const incomingNodes = incomingEdges.map(e => nodes.find(n => n.nodeId === e.fromNodeId)).filter(Boolean);
                         if (incomingNodes.length > 0) {
                           return (
-                            <div className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200/60 p-1.5 rounded-[4px] mt-1.5">
-                              <span className="font-bold text-slate-800">Yêu cầu trước: </span>
+                            <div className="text-[10px] text-muted-foreground bg-muted border border-border p-1.5 rounded-[4px] mt-1.5">
+                              <span className="font-bold text-foreground">Yêu cầu trước: </span>
                               {incomingNodes.map(inNode => inNode?.title).join(', ')}
                             </div>
                           );
@@ -1410,47 +1365,97 @@ export function ClassManagementPage() {
                     </div>
 
                     {isTestNode ? (
-                      <div className="space-y-3 bg-indigo-50/20 border border-indigo-100 p-3.5 rounded-lg shadow-2xs">
-                        <h4 className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
+                      <div className="space-y-3 bg-primary/5 border border-primary/20 p-3.5 rounded-lg shadow-2xs">
+                        <h4 className="font-bold text-foreground text-[11px] uppercase tracking-wider">
                           {selectedNode.testKind === 'PLACEMENT' ? 'Cấu hình bài test năng lực' : 
                            selectedNode.testKind === 'GATE' ? 'Cấu hình bài test chặng' : 'Cấu hình bài test tự chọn'}
                         </h4>
                         <div className="space-y-3">
                           <div className={`grid gap-3 ${selectedNode.testKind === 'PLACEMENT' ? 'grid-cols-2' : 'grid-cols-3'}`}>
                             <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
+                              <label className="text-[10px] font-bold text-muted-foreground uppercase">Thời lượng</label>
                               <input 
                                 type="number" 
                                 min={1} 
-                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input" 
                                 value={editingTDuration} 
                                 onChange={(e) => setEditingTDuration(e.target.value)} 
                               />
                             </div>
-                            {selectedNode.testKind !== 'PLACEMENT' && (
+                            {selectedNode.testKind !== 'PLACEMENT' && selectedNode.testKind !== 'GATE' && (
                               <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase">% đạt</label>
                                 <input 
                                   type="number" 
                                   min={0} 
                                   max={100}
-                                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                  className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input" 
                                   value={editingTPass} 
                                   onChange={(e) => setEditingTPass(e.target.value)} 
                                 />
                               </div>
                             )}
                             <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
+                              <label className="text-[10px] font-bold text-muted-foreground uppercase">Số câu hỏi</label>
                               <input 
                                 type="number" 
                                 min={0} 
-                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input" 
                                 value={editingNumQuestions} 
                                 onChange={(e) => handleNumQuestionsChange(e.target.value)} 
                               />
                             </div>
                           </div>
+
+                          {selectedNode.testKind === 'GATE' && (
+                            <div className="grid grid-cols-2 gap-3 border-t border-border pt-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Ngưỡng lên (≥ %)</label>
+                                <input
+                                  type="number"
+                                  placeholder="vd 80"
+                                  className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input font-medium"
+                                  value={sidebarGateUpMin}
+                                  onChange={(e) => setSidebarGateUpMin(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Ngưỡng xuống (≤ %)</label>
+                                <input
+                                  type="number"
+                                  placeholder="vd 40"
+                                  className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input font-medium"
+                                  value={sidebarGateDownMax}
+                                  onChange={(e) => setSidebarGateDownMax(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {selectedNode.testKind === 'PLACEMENT' && (
+                            <div className="grid grid-cols-2 gap-3 border-t border-border pt-3">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Điểm Yếu tối đa (%)</label>
+                                <input
+                                  type="number"
+                                  placeholder="vd 40"
+                                  className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input font-medium"
+                                  value={sidebarPlacementYeuMax}
+                                  onChange={(e) => setSidebarPlacementYeuMax(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase">Điểm TB tối đa (%)</label>
+                                <input
+                                  type="number"
+                                  placeholder="vd 70"
+                                  className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input font-medium"
+                                  value={sidebarPlacementTbMax}
+                                  onChange={(e) => setSidebarPlacementTbMax(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          )}
 
                           {renderQuestionBuilder()}
 
@@ -1458,23 +1463,22 @@ export function ClassManagementPage() {
                             type="button"
                             onClick={saveSidebarNodeTest}
                             disabled={saving}
-                            className="w-full text-white font-semibold rounded-[6px] shadow-xs px-4 text-xs h-8 mt-2"
-                            style={{ backgroundColor: '#030213' }}
+                            className="w-full font-semibold rounded-[6px] shadow-xs px-4 text-xs h-8 mt-2"
                           >
                             {saving ? 'Đang lưu...' : 'Lưu bài test'}
                           </Button>
                         </div>
                       </div>
                     ) : editingNodeTest ? (
-                      <div className="space-y-3 bg-indigo-50/20 border border-indigo-100 p-3.5 rounded-lg shadow-2xs">
+                      <div className="space-y-3 bg-primary/5 border border-primary/20 p-3.5 rounded-lg shadow-2xs">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-bold text-indigo-700 text-[11px] uppercase tracking-wider">
+                          <h4 className="font-bold text-primary text-[11px] uppercase tracking-wider">
                             Cấu hình: {editingNodeTest.title}
                           </h4>
                           <button
                             type="button"
                             onClick={() => setEditingNodeTest(null)}
-                            className="text-xs text-slate-500 hover:text-slate-700 underline"
+                            className="text-xs text-muted-foreground hover:text-foreground underline"
                           >
                             Quay lại
                           </button>
@@ -1482,32 +1486,34 @@ export function ClassManagementPage() {
                         <div className="space-y-3">
                           <div className="grid grid-cols-3 gap-3">
                             <div className="space-y-1 col-span-1">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Thời lượng</label>
+                              <label className="text-[10px] font-bold text-muted-foreground uppercase">Thời lượng</label>
                               <input 
                                 type="number" 
                                 min={1} 
-                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input" 
                                 value={editingTDuration} 
                                 onChange={(e) => setEditingTDuration(e.target.value)} 
                               />
                             </div>
+                            {selectedNode.testKind !== 'PLACEMENT' && selectedNode.testKind !== 'GATE' && (
+                              <div className="space-y-1 col-span-1">
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase">% đạt</label>
+                                <input 
+                                  type="number" 
+                                  min={0} 
+                                  max={100}
+                                  className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input" 
+                                  value={editingTPass} 
+                                  onChange={(e) => setEditingTPass(e.target.value)} 
+                                />
+                              </div>
+                            )}
                             <div className="space-y-1 col-span-1">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">% đạt</label>
+                              <label className="text-[10px] font-bold text-muted-foreground uppercase">Số câu hỏi</label>
                               <input 
                                 type="number" 
                                 min={0} 
-                                max={100}
-                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
-                                value={editingTPass} 
-                                onChange={(e) => setEditingTPass(e.target.value)} 
-                              />
-                            </div>
-                            <div className="space-y-1 col-span-1">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Số câu hỏi</label>
-                              <input 
-                                type="number" 
-                                min={0} 
-                                className="w-full border border-slate-300/50 bg-white rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800 lp-input" 
+                                className="w-full border border-border bg-background rounded-[6px] px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-primary text-foreground lp-input" 
                                 value={editingNumQuestions} 
                                 onChange={(e) => handleNumQuestionsChange(e.target.value)} 
                               />
@@ -1520,8 +1526,7 @@ export function ClassManagementPage() {
                             type="button"
                             onClick={saveSidebarNodeTest}
                             disabled={saving}
-                            className="w-full text-white font-semibold rounded-[6px] shadow-xs px-4 text-xs h-8 mt-2"
-                            style={{ backgroundColor: '#030213' }}
+                            className="w-full font-semibold rounded-[6px] shadow-xs px-4 text-xs h-8 mt-2"
                           >
                             {saving ? 'Đang lưu...' : 'Lưu bài test'}
                           </Button>
@@ -1529,58 +1534,58 @@ export function ClassManagementPage() {
                       </div>
                     ) : (
                       <>
-                        {/* Node Content lists (materials, tests, exercises) */}
+                        {}
                         <div className="space-y-4">
-                          {/* Materials & Videos */}
+                          {}
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
+                            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider">
                               <span className="flex items-center gap-1.5">
-                                <BookOpen className="size-3.5 text-slate-500" />
+                                <BookOpen className="size-3.5 text-muted-foreground" />
                                 Tài liệu & Video ({nodeContents[selectedNode.nodeId]?.materials?.length || 0})
                               </span>
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 disabled={isPublished}
-                                className="h-6 text-[10px] text-primary hover:bg-primary/5 rounded font-bold px-1.5"
+                                className="h-6 text-[10px] text-primary hover:bg-primary/10 rounded font-bold px-1.5"
                                 onClick={() => handleAddContentClick(selectedNode)}
                               >
                                 + Thêm tài liệu
                               </Button>
                             </div>
                             {nodeContentsLoading[selectedNode.nodeId] ? (
-                              <div className="flex items-center gap-2 text-xs text-slate-500 py-1 pl-2">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1 pl-2">
                                 <Loader className="size-3 animate-spin" /> Tải tài liệu...
                               </div>
                             ) : !(nodeContents[selectedNode.nodeId]?.materials) || nodeContents[selectedNode.nodeId].materials.length === 0 ? (
-                              <p className="text-xs text-slate-400 italic pl-1">Chưa có tài liệu học tập.</p>
+                              <p className="text-xs text-muted-foreground italic pl-1">Chưa có tài liệu học tập.</p>
                             ) : (
                               <div className="space-y-1.5">
                                 {(nodeContents[selectedNode.nodeId]?.materials || []).map((material) => (
                                   <div
                                     key={material.materialId}
-                                    className="rounded-[6px] border border-slate-200/50 bg-white p-2 text-xs shadow-2xs"
+                                    className="rounded-[6px] border border-border bg-card p-2 text-xs shadow-2xs"
                                   >
                                     <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                      {material.video ? <Film className="size-3.5 text-slate-500 shrink-0" /> : <FileText className="size-3.5 text-slate-500 shrink-0" />}
-                                      <span className="truncate text-[11px] font-medium text-slate-700">{material.title}</span>
+                                      {material.video ? <Film className="size-3.5 text-muted-foreground shrink-0" /> : <FileText className="size-3.5 text-muted-foreground shrink-0" />}
+                                      <span className="truncate text-[11px] font-medium text-foreground">{material.title}</span>
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                       {material.video && (
-                                        <a href={material.video.videoUrl} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-750">
+                                        <a href={material.video.videoUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground">
                                           <ExternalLink className="size-3" />
                                         </a>
                                       )}
                                       {material.file && (
-                                        <a href={resolveAssetUrl(material.file.fileUrl)} target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-750">
+                                        <a href={resolveAssetUrl(material.file.fileUrl)} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground">
                                           <Download className="size-3" />
                                         </a>
                                       )}
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="size-5 rounded text-red-500 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
+                                        className="size-5 rounded text-red-500 hover:text-red-750 hover:bg-red-500/10 rounded-[6px] shrink-0"
                                         disabled={isPublished}
                                         onClick={() => handleDeleteMaterial(selectedNode.nodeId, material.materialId)}
                                       >
@@ -1597,39 +1602,38 @@ export function ClassManagementPage() {
                             )}
                           </div>
 
-                          {/* Quizzes & Tests */}
+                          {}
                           <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-650 uppercase tracking-wider">
+                            <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider">
                               <span className="flex items-center gap-1.5">
-                                <Award className="size-3.5 text-slate-500" />
+                                <Award className="size-3.5 text-muted-foreground" />
                                 Bài kiểm tra ({nodeContents[selectedNode.nodeId]?.tests?.length || 0})
                               </span>
                             </div>
                             {nodeContentsLoading[selectedNode.nodeId] ? (
-                              <div className="flex items-center gap-2 text-xs text-slate-500 py-1 pl-2">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1 pl-2">
                                 <Loader className="size-3 animate-spin" /> Tải kiểm tra...
                               </div>
                             ) : !(nodeContents[selectedNode.nodeId]?.tests) || nodeContents[selectedNode.nodeId].tests.length === 0 ? (
-                              <p className="text-xs text-slate-400 italic pl-1">Chưa có bài kiểm tra.</p>
+                              <p className="text-xs text-muted-foreground italic pl-1">Chưa có bài kiểm tra.</p>
                             ) : (
                               <div className="space-y-1.5">
                                 {(nodeContents[selectedNode.nodeId]?.tests || []).map((test) => (
                                   <div
                                     key={test.testId}
-                                    className="flex items-center justify-between p-2 rounded-[6px] border border-slate-200/50 bg-white hover:bg-slate-50/50 text-xs transition-colors shadow-2xs"
+                                    className="flex items-center justify-between p-2 rounded-[6px] border border-border bg-card hover:bg-muted/50 text-xs transition-colors shadow-2xs"
                                   >
                                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                       <Award className="size-3.5 text-foreground shrink-0" />
-                                      <span className="truncate text-[11px] font-semibold text-slate-700">{test.title}</span>
-                                      <span className="text-[10px] text-slate-400 shrink-0">({test.durationMinutes} ph)</span>
+                                      <span className="truncate text-[11px] font-semibold text-foreground">{test.title}</span>
+                                      <span className="text-[10px] text-muted-foreground shrink-0">({test.durationMinutes} ph)</span>
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="size-5 rounded text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 shrink-0"
-                                        disabled={isPublished || !!test.releasedAt}
-                                        title={test.releasedAt ? "Đề đã phát, không thể sửa" : ""}
+                                        className="size-5 rounded text-primary hover:text-primary/80 hover:bg-primary/10 shrink-0"
+                                        disabled={isPublished}
                                         onClick={() => startEditingNodeTest(test)}
                                       >
                                         <Settings className="size-3" />
@@ -1637,9 +1641,8 @@ export function ClassManagementPage() {
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="size-5 rounded text-red-500 hover:text-red-700 hover:bg-red-55/10 rounded-[6px] shrink-0"
-                                        disabled={isPublished || !!test.releasedAt}
-                                        title={test.releasedAt ? "Đề đã phát, không thể xóa" : ""}
+                                        className="size-5 rounded text-red-500 hover:text-red-700 hover:bg-red-500/10 rounded-[6px] shrink-0"
+                                        disabled={isPublished}
                                         onClick={() => handleDeleteTest(selectedNode.nodeId, test.testId)}
                                       >
                                         <X className="size-3" />
@@ -1650,89 +1653,16 @@ export function ClassManagementPage() {
                               </div>
                             )}
                           </div>
-
-                          {/* Bài tập thực hành (Sao chép y hệt Admin) */}
-                          <section className="lp-exercise-section bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border mt-4">
-                            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
-                              <Code2 className="w-4 h-4 text-primary shrink-0" />
-                              <span>Bài tập thực hành</span>
-                            </div>
-                            {nodeContentsLoading[selectedNode.nodeId] ? (
-                              <p className="text-xs text-muted-foreground">Đang tải…</p>
-                            ) : (
-                              <ul className="space-y-1">
-                                {(nodeContents[selectedNode.nodeId]?.exercises ?? []).map((ex) => (
-                                  <li key={ex.exerciseId} className="flex items-start justify-between gap-2 rounded-md bg-muted px-2.5 py-1.5 text-sm border border-border">
-                                    <div className="min-w-0">
-                                      <p className="truncate font-medium text-foreground">{ex.title}</p>
-                                      <div className="mt-0.5 flex flex-wrap gap-1">
-                                        {ex.allowText && (
-                                          <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground border border-border">Tự luận</span>
-                                        )}
-                                        {ex.allowFile && (
-                                          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Nộp file</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                      <button
-                                        disabled={isPublished}
-                                        onClick={() => startEditingExercise(ex)}
-                                        className="text-xs text-primary hover:underline disabled:opacity-50"
-                                      >
-                                        sửa
-                                      </button>
-                                      <button
-                                        disabled={isPublished}
-                                        onClick={() => removeExercise(ex.exerciseId)}
-                                        className="text-xs text-rose-500 hover:underline disabled:opacity-50"
-                                      >
-                                        xóa
-                                      </button>
-                                    </div>
-                                  </li>
-                                ))}
-                                {(nodeContents[selectedNode.nodeId]?.exercises ?? []).length === 0 && <p className="text-xs text-muted-foreground">Chưa có bài tập.</p>}
-                              </ul>
-                            )}
-                            <div className="mt-2 space-y-2 rounded-lg border border-border p-3 bg-muted/20">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
-                                {editingExercise ? "Sửa bài tập" : "Thêm bài tập"}
-                              </p>
-                              <input className="lp-input" placeholder="Tiêu đề bài tập" disabled={isPublished} value={exTitle} onChange={(e) => setExTitle(e.target.value)} />
-                              <textarea className="lp-input" rows={3} placeholder="Đề bài / hướng dẫn (tùy chọn)" disabled={isPublished} value={exInstr} onChange={(e) => setExInstr(e.target.value)} />
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <label className="flex cursor-pointer items-center gap-1.5">
-                                  <input type="checkbox" disabled={isPublished} checked={exAllowText} onChange={(e) => setExAllowText(e.target.checked)} />
-                                  Tự luận
-                                </label>
-                                <label className="flex cursor-pointer items-center gap-1.5">
-                                  <input type="checkbox" disabled={isPublished} checked={exAllowFile} onChange={(e) => setExAllowFile(e.target.checked)} />
-                                  Nộp file
-                                </label>
-                              </div>
-                              <div className="flex gap-2">
-                                <button onClick={addExercise} disabled={saving || isPublished} className="flex-1 rounded-md bg-primary py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-                                  {editingExercise ? "Cập nhật bài tập" : "Thêm bài tập"}
-                                </button>
-                                {editingExercise && (
-                                  <button onClick={cancelEditingExercise} className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold hover:bg-muted bg-transparent text-foreground">
-                                    Hủy
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </section>
                         </div>
                       </>
                     )}
 
-                    {/* Node actions (edit, delete) */}
-                    <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60 w-full font-sans">
+                    {}
+                    <div className="flex items-center gap-2 pt-3 border-t border-border w-full font-sans">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 text-slate-700 border-slate-250 hover:bg-slate-50 text-xs h-8 rounded-lg font-semibold"
+                        className="flex-1 text-foreground border-border hover:bg-muted text-xs h-8 rounded-lg font-semibold"
                         onClick={() => handleEditNodeClick(selectedNode)}
                       >
                         <Edit2 className="size-3.5 mr-1" /> Sửa bài học
@@ -1740,7 +1670,7 @@ export function ClassManagementPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50 text-xs h-8 rounded-lg font-semibold"
+                        className="text-red-500 border-red-500/20 hover:bg-red-500/10 text-xs h-8 rounded-lg font-semibold"
                         disabled={isPublished}
                         onClick={() => triggerRemoveNodeDialog(selectedNode.nodeId, selectedNode.title)}
                       >
@@ -1755,14 +1685,14 @@ export function ClassManagementPage() {
         </Card>
       </div>
 
-      {/* Hidden helper element for aria accessibility */}
+      {}
       {isPublished && (
         <span id="lock-reason" className="sr-only">
           {lockTooltip}
         </span>
       )}
 
-      {/* CUSTOM CONFIRM DIALOG FOR NODE DELETION */}
+      {}
       <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!open) { setShowDeleteConfirm(false); setUnderstandDelete(false); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1786,7 +1716,7 @@ export function ClassManagementPage() {
               />
               <label
                 htmlFor="understand-delete"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-muted-foreground leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi đồng ý xóa bài học và chấp nhận mất các liên kết prerequisites đi kèm.
               </label>
@@ -1796,7 +1726,7 @@ export function ClassManagementPage() {
             <Button
               variant="outline"
               onClick={() => { setShowDeleteConfirm(false); setUnderstandDelete(false); }}
-              className="rounded-[6px] border-slate-200"
+              className="rounded-[6px] border-border"
             >
               Hủy
             </Button>
@@ -1811,48 +1741,47 @@ export function ClassManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ADD NODE MODAL */}
       {isAddNodeOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-slate-150">
+          <div className="bg-background border border-border rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="text-base font-bold text-foreground">Tạo bài học mới</h2>
-              <button onClick={() => setIsAddNodeOpen(false)} className="text-slate-400 hover:text-slate-650">
+              <button onClick={() => setIsAddNodeOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="size-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddNodeSubmit} className="p-4 space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Tiêu đề bài học *</label>
+                <label className="text-xs font-semibold text-muted-foreground">Tiêu đề bài học *</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Giới thiệu Git & GitHub..."
-                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                  className="w-full border border-border bg-background rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                   value={newNodeTitle}
                   onChange={(e) => setNewNodeTitle(e.target.value)}
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Mô tả bài học</label>
+                <label className="text-xs font-semibold text-muted-foreground">Mô tả bài học</label>
                 <textarea
                   placeholder="Nhập mô tả ngắn gọn nội dung bài học..."
                   rows={3}
-                  className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                  className="w-full border border-border bg-background rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                   value={newNodeDesc}
                   onChange={(e) => setNewNodeDesc(e.target.value)}
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Loại</label>
+                <label className="text-xs font-semibold text-muted-foreground">Loại</label>
                 <Select
                   value={nKind}
                   onValueChange={(value) => setNKind(value as AddNodeKind)}
                 >
-                  <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                  <SelectTrigger className="w-full bg-background border-border rounded-[6px] h-9 text-foreground text-sm focus-visible:ring-0 shadow-none font-medium">
                     <SelectValue placeholder="Chọn loại bài học" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -1868,15 +1797,15 @@ export function ClassManagementPage() {
               {nKind === 'AT_HOME' || nKind === 'ON_CLASS' ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Mức năng lực</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Mức năng lực</label>
                     {nKind === 'ON_CLASS' ? (
-                      <p className="pt-2 text-sm text-slate-500">Học chung cả lớp — buổi trên lớp không phân mức</p>
+                      <p className="pt-2 text-sm text-muted-foreground">Học chung cả lớp — buổi trên lớp không phân mức</p>
                     ) : (
                       <Select
                         value={nLevel ? String(nLevel) : "none"}
                         onValueChange={(value) => setNLevel(value === "none" ? "" : (Number(value) as 1 | 2 | 3))}
                       >
-                        <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                        <SelectTrigger className="w-full bg-background border-border rounded-[6px] h-9 text-foreground text-sm focus-visible:ring-0 shadow-none font-medium">
                           <SelectValue placeholder="Chọn mức năng lực" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
@@ -1889,11 +1818,11 @@ export function ClassManagementPage() {
                     )}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Chặng (stage)</label>
                     <input
                       type="number"
                       min={1}
-                      className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                      className="w-full border border-border bg-background rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                       value={nStage}
                       onChange={(e) => setNStage(Number(e.target.value) || 1)}
                     />
@@ -1904,12 +1833,13 @@ export function ClassManagementPage() {
                   {nKind === 'GATE' ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-700">Mức làm test</label>
+                        <label className="text-xs font-semibold text-muted-foreground">Mức làm test</label>
                         <div className="flex gap-3 pt-2">
                           {[1, 2, 3].map((lv) => (
-                            <label key={lv} className="flex items-center gap-1 text-sm text-slate-700">
+                            <label key={lv} className="flex items-center gap-1 text-sm text-muted-foreground">
                               <input
                                 type="checkbox"
+                                className="rounded text-primary focus:ring-primary size-4 cursor-pointer"
                                 checked={nApplies.includes(lv)}
                                 onChange={() => setNApplies((p) => (p.includes(lv) ? p.filter((x) => x !== lv) : [...p, lv]))}
                               />
@@ -1919,11 +1849,11 @@ export function ClassManagementPage() {
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
+                        <label className="text-xs font-semibold text-muted-foreground">Chặng (stage)</label>
                         <input
                           type="number"
                           min={1}
-                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          className="w-full border border-border bg-background rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                           value={nStage}
                           onChange={(e) => setNStage(Number(e.target.value) || 1)}
                         />
@@ -1932,17 +1862,17 @@ export function ClassManagementPage() {
                   ) : (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-700">Mức làm test</label>
-                        <p className="pt-2 text-sm text-slate-500">
+                        <label className="text-xs font-semibold text-muted-foreground">Mức làm test</label>
+                        <p className="pt-2 text-sm text-muted-foreground">
                           {nKind === 'FREE_CHOICE' ? 'HS tự chọn 1 trong 3 mức' : 'Mọi mức (Yếu · TB · Khá)'}
                         </p>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-700">Chặng (stage)</label>
+                        <label className="text-xs font-semibold text-muted-foreground">Chặng (stage)</label>
                         <input
                           type="number"
                           min={1}
-                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          className="w-full border border-border bg-background rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                           value={nStage}
                           onChange={(e) => setNStage(Number(e.target.value) || 1)}
                         />
@@ -1952,32 +1882,32 @@ export function ClassManagementPage() {
 
                   {nKind === 'PLACEMENT' && (
                     <>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         Test năng lực phải đứng riêng một chặng; mọi học sinh đều làm và được phân về mức theo điểm.
                         Ngưỡng phân mức (Điểm Yếu/TB tối đa) cấu hình sau ở dialog "Sửa node".
                       </p>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-700">Thời lượng làm test (phút)</label>
-                          <input type="number" min={1} className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={tDuration} onChange={(e) => setTDuration(e.target.value)} placeholder="vd 15" />
+                          <label className="text-xs font-semibold text-muted-foreground">Thời lượng làm test (phút)</label>
+                          <input type="number" min={1} className="w-full border border-border bg-background rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground" value={tDuration} onChange={(e) => setTDuration(e.target.value)} placeholder="vd 15" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-700">Số lượng câu hỏi</label>
-                          <input type="number" min={0} className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} placeholder="vd 5" />
+                          <label className="text-xs font-semibold text-muted-foreground">Số lượng câu hỏi</label>
+                          <input type="number" min={0} className="w-full border border-border bg-background rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} placeholder="vd 5" />
                         </div>
                       </div>
                     </>
                   )}
 
                   {nKind === 'GATE' && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       Ngưỡng lên/xuống cấu hình sau ở dialog "Sửa node". Test chỉ chọn 1 mức là bài
                       chặn đường (làm để mở bài kế tiếp), không đổi mức nên không cần ngưỡng.
                     </p>
                   )}
 
                   {nKind === 'FREE_CHOICE' && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       Sẽ tạo <b>3 node test</b> (Yếu / TB / Khá) cùng chặng. Mọi nhánh đều nối vào cả 3; học sinh tự chọn
                       làm bài nào, đạt ≥ ngưỡng % của bài đó thì học tiếp nhánh tương ứng. Mỗi node thêm 1 bài test + ngưỡng % ở phần chi tiết.
                     </p>
@@ -1985,14 +1915,14 @@ export function ClassManagementPage() {
                 </>
               )}
 
-              <div className="flex justify-end gap-2 border-t border-slate-150 pt-4">
-                <Button type="button" variant="outline" className="rounded-[6px] border-slate-200" onClick={() => setIsAddNodeOpen(false)}>
+              <div className="flex justify-end gap-2 border-t border-border pt-4">
+                <Button type="button" variant="outline" className="rounded-[6px] border-border" onClick={() => setIsAddNodeOpen(false)}>
                   Hủy
                 </Button>
                 <Button
                   type="submit"
                   disabled={addingNode}
-                  className="text-white font-semibold rounded-[6px] shadow-xs px-4 disabled:opacity-60"
+                  className="font-semibold rounded-[6px] shadow-xs px-4 disabled:opacity-60"
                 >
                   {addingNode ? 'Đang lưu...' : 'Tạo bài học'}
                 </Button>
@@ -2002,23 +1932,22 @@ export function ClassManagementPage() {
         </div>
       )}
 
-      {/* ADD CONTENT MODAL */}
       {isAddContentOpen && selectedNodeForContent && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-slate-150">
+          <div className="bg-background border border-border rounded-[10px] shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-border">
               <div>
                 <h2 className="text-base font-bold text-foreground">Thêm nội dung bài học</h2>
-                <p className="text-[11px] text-slate-500 font-medium mt-0.5">Bài học: {selectedNodeForContent.title}</p>
+                <p className="text-[11px] text-muted-foreground font-medium mt-0.5">Bài học: {selectedNodeForContent.title}</p>
               </div>
-              <button onClick={() => setIsAddContentOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsAddContentOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="size-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddContentSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700">Loại nội dung</label>
+                <label className="text-xs font-semibold text-muted-foreground">Loại nội dung</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -2026,7 +1955,7 @@ export function ClassManagementPage() {
                     className={`py-2 px-3 text-xs font-semibold rounded-[6px] border transition-colors ${
                       contentType === 'MATERIAL'
                         ? 'bg-primary/10 border-primary/20 text-primary'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                        : 'border-border hover:bg-muted text-foreground'
                     }`}
                   >
                     Tài liệu học tập
@@ -2037,7 +1966,7 @@ export function ClassManagementPage() {
                     className={`py-2 px-3 text-xs font-semibold rounded-[6px] border transition-colors ${
                       contentType === 'TEST'
                         ? 'bg-primary/10 border-primary/20 text-primary'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                        : 'border-border hover:bg-muted text-foreground'
                     }`}
                   >
                     Bài kiểm tra (Test)
@@ -2048,27 +1977,27 @@ export function ClassManagementPage() {
               {contentType === 'MATERIAL' ? (
                 <>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Tiêu đề tài liệu *</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Tiêu đề tài liệu *</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. Slide bài giảng số 1, Video thực hành..."
-                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                       value={contentTitle}
                       onChange={(e) => setContentTitle(e.target.value)}
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">Hình thức tài liệu</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Hình thức tài liệu</label>
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         type="button"
                         onClick={() => setMaterialType('FILE')}
                         className={`py-1.5 px-2 text-[11px] font-bold rounded-[6px] border transition-colors ${
                           materialType === 'FILE'
-                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                            : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+                            : 'border-border hover:bg-muted text-foreground'
                         }`}
                       >
                         Tải file lên
@@ -2078,8 +2007,8 @@ export function ClassManagementPage() {
                         onClick={() => setMaterialType('VIDEO')}
                         className={`py-1.5 px-2 text-[11px] font-bold rounded-[6px] border transition-colors ${
                           materialType === 'VIDEO'
-                            ? 'bg-blue-50 border-blue-300 text-blue-800'
-                            : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                            ? 'bg-blue-500/10 border-blue-500/20 text-blue-500'
+                            : 'border-border hover:bg-muted text-foreground'
                         }`}
                       >
                         Video URL
@@ -2089,8 +2018,8 @@ export function ClassManagementPage() {
                         onClick={() => setMaterialType('EXTERNAL')}
                         className={`py-1.5 px-2 text-[11px] font-bold rounded-[6px] border transition-colors ${
                           materialType === 'EXTERNAL'
-                            ? 'bg-amber-50 border-amber-300 text-amber-800'
-                            : 'border-slate-200 hover:bg-slate-50 text-slate-750'
+                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                            : 'border-border hover:bg-muted text-foreground'
                         }`}
                       >
                         Link ngoài
@@ -2099,22 +2028,22 @@ export function ClassManagementPage() {
                   </div>
 
                   {materialType === 'FILE' && (
-                    <div className="space-y-3 p-3 bg-slate-50/50 border border-slate-200 rounded-[6px] animate-in fade-in duration-200">
+                    <div className="space-y-3 p-3 bg-muted/10 border border-border rounded-[6px] animate-in fade-in duration-200">
                       <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-750">Chọn tập tin từ máy *</label>
+                        <label className="text-[11px] font-bold text-muted-foreground">Chọn tập tin từ máy *</label>
                         <input
                           type="file"
                           required
-                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800"
+                          className="w-full border border-border bg-background rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                           onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-750">Mô tả file (Tùy chọn)</label>
+                        <label className="text-[11px] font-bold text-muted-foreground">Mô tả file (Tùy chọn)</label>
                         <input
                           type="text"
                           placeholder="e.g. Đọc tài liệu PDF trước khi lên lớp..."
-                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800"
+                          className="w-full border border-border bg-background rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                           value={fileDescription}
                           onChange={(e) => setFileDescription(e.target.value)}
                         />
@@ -2123,35 +2052,35 @@ export function ClassManagementPage() {
                   )}
 
                   {materialType === 'VIDEO' && (
-                    <div className="space-y-3 p-3 bg-slate-50/50 border border-slate-200 rounded-[6px] animate-in fade-in duration-200">
+                    <div className="space-y-3 p-3 bg-muted/10 border border-border rounded-[6px] animate-in fade-in duration-200">
                       <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-750">Đường dẫn Video URL *</label>
+                        <label className="text-[11px] font-bold text-muted-foreground">Đường dẫn Video URL *</label>
                         <input
                           type="url"
                           required
                           placeholder="https://youtube.com/watch?v=..."
-                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          className="w-full border border-border bg-background rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                           value={contentVideoUrl}
                           onChange={(e) => setContentVideoUrl(e.target.value)}
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                          <label className="text-[11px] font-bold text-slate-750">Thời lượng (giây)</label>
+                          <label className="text-[11px] font-bold text-muted-foreground">Thời lượng (giây)</label>
                           <input
                             type="number"
                             placeholder="Ví dụ: 600"
-                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            className="w-full border border-border bg-background rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                             value={videoDuration}
                             onChange={(e) => setVideoDuration(e.target.value ? Number(e.target.value) : '')}
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[11px] font-bold text-slate-750">Mô tả ngắn</label>
+                          <label className="text-[11px] font-bold text-muted-foreground">Mô tả ngắn</label>
                           <input
                             type="text"
                             placeholder="e.g. Video giảng lý thuyết..."
-                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            className="w-full border border-border bg-background rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                             value={videoDescription}
                             onChange={(e) => setVideoDescription(e.target.value)}
                           />
@@ -2161,35 +2090,35 @@ export function ClassManagementPage() {
                   )}
 
                   {materialType === 'EXTERNAL' && (
-                    <div className="space-y-3 p-3 bg-slate-50/50 border border-slate-200 rounded-[6px] animate-in fade-in duration-200">
+                    <div className="space-y-3 p-3 bg-muted/10 border border-border rounded-[6px] animate-in fade-in duration-200">
                       <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-750">Đường dẫn URL *</label>
+                        <label className="text-[11px] font-bold text-muted-foreground">Đường dẫn URL *</label>
                         <input
                           type="url"
                           required
                           placeholder="https://example.com/document"
-                          className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                          className="w-full border border-border bg-background rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                           value={contentFileUrl}
                           onChange={(e) => setContentFileUrl(e.target.value)}
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                          <label className="text-[11px] font-bold text-slate-750">Tên hiển thị</label>
+                          <label className="text-[11px] font-bold text-muted-foreground">Tên hiển thị</label>
                           <input
                             type="text"
                             placeholder="e.g. Slide bài đọc..."
-                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            className="w-full border border-border bg-background rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                             value={fileName}
                             onChange={(e) => setFileName(e.target.value)}
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[11px] font-bold text-slate-750">Định dạng (Type)</label>
+                          <label className="text-[11px] font-bold text-muted-foreground">Định dạng (Type)</label>
                           <input
                             type="text"
                             placeholder="e.g. PDF, Website..."
-                            className="w-full border border-slate-300/50 bg-white rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 text-slate-800"
+                            className="w-full border border-border bg-background rounded-[6px] px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
                             value={fileType}
                             onChange={(e) => setFileType(e.target.value)}
                           />
@@ -2202,11 +2131,11 @@ export function ClassManagementPage() {
                     <input
                       type="checkbox"
                       id="isMatRequiredChk"
-                      className="rounded text-slate-800 focus:ring-slate-800 size-4 cursor-pointer"
+                      className="rounded text-primary focus:ring-primary size-4 cursor-pointer"
                       checked={isMaterialRequired}
                       onChange={(e) => setIsMaterialRequired(e.target.checked)}
                     />
-                    <label htmlFor="isMatRequiredChk" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                    <label htmlFor="isMatRequiredChk" className="text-xs font-semibold text-muted-foreground cursor-pointer select-none">
                       Tài liệu bắt buộc hoàn thành (Required Material)
                     </label>
                   </div>
@@ -2214,23 +2143,23 @@ export function ClassManagementPage() {
               ) : (
                 <>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Tiêu đề bài kiểm tra *</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Tiêu đề bài kiểm tra *</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. Bài test trắc nghiệm số 1..."
-                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                       value={testTitle}
                       onChange={(e) => setTestTitle(e.target.value)}
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Mô tả bài kiểm tra</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Mô tả bài kiểm tra</label>
                     <textarea
                       placeholder="Mô tả nội dung bài kiểm tra hoặc quy chế thi..."
                       rows={2}
-                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                      className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                       value={testDescription}
                       onChange={(e) => setTestDescription(e.target.value)}
                     />
@@ -2238,25 +2167,25 @@ export function ClassManagementPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-700">Thời gian làm bài (Phút)</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Thời gian làm bài (Phút)</label>
                       <input
                         type="number"
                         placeholder="Ví dụ: 15"
                         min="1"
-                        className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                        className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                         value={testDuration}
                         onChange={(e) => setTestDuration(e.target.value ? Number(e.target.value) : '')}
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-700">Tỷ lệ điểm đạt (%)</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Tỷ lệ điểm đạt (%)</label>
                       <input
                         type="number"
                         placeholder="Ví dụ: 80"
                         min="0"
                         max="100"
-                        className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                        className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                         value={testPassingPercentage}
                         onChange={(e) => setTestPassingPercentage(e.target.value ? Number(e.target.value) : '')}
                       />
@@ -2265,14 +2194,14 @@ export function ClassManagementPage() {
                 </>
               )}
 
-              <div className="flex justify-end gap-2 border-t border-slate-150 pt-4">
-                <Button type="button" variant="outline" disabled={submittingContent} className="rounded-[6px] border-slate-200" onClick={() => setIsAddContentOpen(false)}>
+              <div className="flex justify-end gap-2 border-t border-border pt-4">
+                <Button type="button" variant="outline" disabled={submittingContent} className="rounded-[6px] border-border" onClick={() => setIsAddContentOpen(false)}>
                   Hủy
                 </Button>
                 <Button
                   type="submit"
                   disabled={submittingContent}
-                  className="text-white flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
+                  className="flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
                 >
                   {submittingContent && <Loader className="size-4 animate-spin" />}
                   Lưu nội dung
@@ -2283,36 +2212,36 @@ export function ClassManagementPage() {
         </div>
       )}
 
-      {/* EDIT NODE MODAL */}
+      {}
       {isEditNodeOpen && nodeToEdit && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[10px] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-slate-150">
+          <div className="bg-background border border-border rounded-[10px] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="text-base font-bold text-foreground">Chỉnh sửa bài học</h2>
-              <button onClick={() => { setIsEditNodeOpen(false); setNodeToEdit(null); }} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => { setIsEditNodeOpen(false); setNodeToEdit(null); }} className="text-muted-foreground hover:text-foreground">
                 <X className="size-5" />
               </button>
             </div>
 
             <form onSubmit={handleEditNodeSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Tiêu đề bài học *</label>
+                <label className="text-xs font-semibold text-muted-foreground">Tiêu đề bài học *</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Giới thiệu, Lab 1..."
-                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                  className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                   value={editNodeTitle}
                   onChange={(e) => setEditNodeTitle(e.target.value)}
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Mô tả chi tiết</label>
+                <label className="text-xs font-semibold text-muted-foreground">Mô tả chi tiết</label>
                 <textarea
                   placeholder="Nhập mô tả ngắn gọn nội dung bài học..."
                   rows={3}
-                  className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800"
+                  className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground"
                   value={editNodeDesc}
                   onChange={(e) => setEditNodeDesc(e.target.value)}
                 />
@@ -2320,12 +2249,12 @@ export function ClassManagementPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Hình thức học</label>
+                  <label className="text-xs font-semibold text-muted-foreground">Hình thức học</label>
                   <Select
                     value={editNodeType}
                     onValueChange={(value) => setEditNodeType(value as 'AT_HOME' | 'ON_CLASS')}
                   >
-                    <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                    <SelectTrigger className="w-full bg-background border-border rounded-[6px] h-9 text-foreground text-sm focus-visible:ring-0 shadow-none font-medium">
                       <SelectValue placeholder="Chọn hình thức học" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -2336,12 +2265,12 @@ export function ClassManagementPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Trạng thái khóa học</label>
+                  <label className="text-xs font-semibold text-muted-foreground">Trạng thái khóa học</label>
                   <Select
                     value={editNodeStatus}
                     onValueChange={(value) => setEditNodeStatus(value as 'LOCKED' | 'OPEN' | 'HIDDEN')}
                   >
-                    <SelectTrigger className="w-full bg-white border-slate-300/50 rounded-[6px] h-9 text-slate-800 text-sm focus-visible:ring-0 shadow-none font-medium">
+                    <SelectTrigger className="w-full bg-background border-border rounded-[6px] h-9 text-foreground text-sm focus-visible:ring-0 shadow-none font-medium">
                       <SelectValue placeholder="Chọn trạng thái" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -2355,12 +2284,12 @@ export function ClassManagementPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Thứ tự hiển thị</label>
+                  <label className="text-xs font-semibold text-muted-foreground">Thứ tự hiển thị</label>
                   <input
                     type="number"
                     min="0"
                     required
-                    className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                    className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground lp-input"
                     value={editNodeOrder}
                     onChange={(e) => setEditNodeOrder(Number(e.target.value))}
                   />
@@ -2370,20 +2299,20 @@ export function ClassManagementPage() {
               {nodeToEdit.testKind === 'PLACEMENT' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Điểm Yếu tối đa (%)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Điểm Yếu tối đa (%)</label>
                     <input
                       type="number"
-                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                      className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground lp-input"
                       value={editPlacementYeuMax}
                       onChange={(e) => setEditPlacementYeuMax(e.target.value)}
                       placeholder="vd 40"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Điểm TB tối đa (%)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Điểm TB tối đa (%)</label>
                     <input
                       type="number"
-                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                      className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground lp-input"
                       value={editPlacementTbMax}
                       onChange={(e) => setEditPlacementTbMax(e.target.value)}
                       placeholder="vd 70"
@@ -2393,29 +2322,29 @@ export function ClassManagementPage() {
               )}
 
               {nodeToEdit.testKind === 'GATE' && (
-                // Ngưỡng vô tác dụng khi test chỉ phủ ĐÚNG 1 mức (bị kẹp, không đổi mức); trống = mọi mức
+                
                 (nodeToEdit.appliesLevels ?? '').split(',').map((s) => s.trim()).filter(Boolean).length === 1 ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     Test này chỉ áp dụng 1 mức — là bài chặn đường (làm để mở bài kế tiếp),
                     không đổi mức nên không cần ngưỡng lên/xuống.
                   </p>
                 ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Ngưỡng lên (≥ %)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Ngưỡng lên (≥ %)</label>
                     <input
                       type="number"
-                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                      className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground lp-input"
                       value={editGateUpMin}
                       onChange={(e) => setEditGateUpMin(e.target.value)}
                       placeholder="vd 80"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Ngưỡng xuống (≤ %)</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Ngưỡng xuống (≤ %)</label>
                     <input
                       type="number"
-                      className="w-full border border-slate-300/50 rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-800 bg-white text-slate-800 lp-input"
+                      className="w-full border border-border rounded-[6px] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-background text-foreground lp-input"
                       value={editGateDownMax}
                       onChange={(e) => setEditGateDownMax(e.target.value)}
                       placeholder="vd 40"
@@ -2429,21 +2358,21 @@ export function ClassManagementPage() {
                 <input
                   type="checkbox"
                   id="editIsRequiredChk"
-                  className="rounded text-slate-800 focus:ring-slate-800 size-4 cursor-pointer"
+                  className="rounded text-primary focus:ring-primary size-4 cursor-pointer"
                   checked={editNodeRequired}
                   onChange={(e) => setEditNodeRequired(e.target.checked)}
                 />
-                <label htmlFor="editIsRequiredChk" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                <label htmlFor="editIsRequiredChk" className="text-xs font-semibold text-muted-foreground cursor-pointer select-none">
                   Mốc bài học bắt buộc (Required Milestone)
                 </label>
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-150 pt-4">
+              <div className="flex justify-end gap-2 border-t border-border pt-4">
                 <Button
                   type="button"
                   variant="outline"
                   disabled={editingNode}
-                  className="rounded-[6px] border-slate-200"
+                  className="rounded-[6px] border-border"
                   onClick={() => { setIsEditNodeOpen(false); setNodeToEdit(null); }}
                 >
                   Hủy
@@ -2451,7 +2380,7 @@ export function ClassManagementPage() {
                 <Button
                   type="submit"
                   disabled={editingNode}
-                  className="text-white flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
+                  className="flex items-center gap-1.5 font-semibold rounded-[6px] shadow-xs px-4"
                 >
                   {editingNode && <Loader className="size-4 animate-spin" />}
                   Lưu thay đổi
@@ -2461,20 +2390,20 @@ export function ClassManagementPage() {
           </div>
         </div>
       )}
-      {/* Confirmation Modal for Publish */}
+      {}
       <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận Publish lộ trình học</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Xác nhận Publish lộ trình học</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Hành động này sẽ chính thức kích hoạt lộ trình học cho sinh viên.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600 leading-relaxed">
-              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong>{students.length} học sinh</strong> đang enroll trong lớp học này.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong className="text-foreground font-bold">{students.length} học sinh</strong> đang enroll trong lớp học này.
             </p>
-            <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-100">
+            <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 p-3 rounded-md border border-amber-500/20">
               <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
@@ -2485,7 +2414,7 @@ export function ClassManagementPage() {
               />
               <label
                 htmlFor="understand-publish"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-foreground/90 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
               </label>
@@ -2502,7 +2431,7 @@ export function ClassManagementPage() {
             <Button
               onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium border-transparent"
             >
               {actionState === 'publishing' ? (
                 <>
@@ -2517,20 +2446,20 @@ export function ClassManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Modal for Unpublish */}
+      {}
       <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Rút lại lộ trình học để chỉnh sửa thêm bản nháp.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600 leading-relaxed font-medium">
+            <p className="text-sm text-muted-foreground leading-relaxed font-medium">
               Toàn bộ tiến độ học tập và ghi nhận bài học hiện tại của học sinh sẽ bị xóa sạch khỏi hệ thống.
             </p>
-            <p className="text-sm text-red-700 bg-red-50 p-3 rounded-md border border-red-100">
+            <p className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-md border border-red-500/20">
               <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
@@ -2541,7 +2470,7 @@ export function ClassManagementPage() {
               />
               <label
                 htmlFor="understand-unpublish"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-foreground/90 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
               </label>
@@ -2558,7 +2487,7 @@ export function ClassManagementPage() {
             <Button
               onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+              className="bg-amber-600 hover:bg-amber-500 text-white font-medium border-transparent"
             >
               {actionState === 'unpublishing' ? <Loader className="size-4 animate-spin mr-1" /> : null}
               Xác nhận Unpublish
@@ -2567,20 +2496,20 @@ export function ClassManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Unpublish Error Modal (already completed nodes) */}
+      {}
       <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
-        <DialogContent className="sm:max-w-md bg-white">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
+            <DialogTitle className="text-destructive flex items-center gap-2">
               <AlertTriangle className="size-5 shrink-0" />
               <span>Không thể unpublish</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="py-2 text-sm text-gray-600 leading-relaxed">
+          <div className="py-2 text-sm text-muted-foreground leading-relaxed">
             {unpublishErrorMsg || 'Đã có học sinh hoàn thành node, không thể unpublish.'}
           </div>
           <DialogFooter className="sm:justify-end">
-            <Button onClick={() => setShowUnpublishError(false)}>
+            <Button onClick={() => setShowUnpublishError(false)} className="bg-primary text-primary-foreground">
               Đồng ý
             </Button>
           </DialogFooter>
@@ -2588,21 +2517,8 @@ export function ClassManagementPage() {
       </Dialog>
       <style>{`
         .lp-input {
-          color: #0f172a !important;
-          background-color: #ffffff !important;
-        }
-        .lp-exercise-section .lp-input {
-          width: 100%;
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 6px 10px;
-          font-size: 14px;
-          outline: none;
           color: var(--foreground) !important;
-          background-color: var(--muted) !important;
-        }
-        .lp-exercise-section .lp-input:focus {
-          border-color: var(--primary);
+          background-color: var(--background) !important;
         }
       `}</style>
     </div>

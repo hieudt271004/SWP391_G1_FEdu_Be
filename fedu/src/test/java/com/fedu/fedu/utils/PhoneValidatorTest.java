@@ -71,7 +71,7 @@ class PhoneValidatorTest {
 
     @Test
     void testIsValid_adversarialCases() {
-        // Padded numbers return true because matches() checks the trimmed phoneNo
+        
         assertTrue(validator.isValid(" 1234567890 ", null));
         assertTrue(validator.isValid(" 123-456-7890", null));
         assertTrue(validator.isValid("123-456-7890 ", null));
@@ -80,38 +80,38 @@ class PhoneValidatorTest {
         assertTrue(validator.isValid(" 123-456-7890 x123 ", null));
         assertTrue(validator.isValid("  (123)-456-7890  ", null));
 
-        // Unicode spaces and dashes that are invalid
-        assertFalse(validator.isValid("123\u00A0456\u00A07890", null)); // Non-breaking space
-        assertFalse(validator.isValid("123\u2007456\u20077890", null)); // Figure space
-        assertFalse(validator.isValid("123–456–7890", null));         // En-dash
-        assertFalse(validator.isValid("123—456—7890", null));         // Em-dash
+        
+        assertFalse(validator.isValid("123\u00A0456\u00A07890", null)); 
+        assertFalse(validator.isValid("123\u2007456\u20077890", null)); 
+        assertFalse(validator.isValid("123–456–7890", null));         
+        assertFalse(validator.isValid("123—456—7890", null));         
 
-        // SQL injection / Command injection style inputs
+        
         assertFalse(validator.isValid("1234567890; DROP TABLE users;", null));
         assertFalse(validator.isValid("1234567890\nSELECT * FROM users", null));
 
-        // Excessively long input to test performance / overflow limits
+        
         String veryLongDigits = "1234567890".repeat(1000);
         assertFalse(validator.isValid(veryLongDigits, null));
 
-        // En-dash placeholder (should fail, as only Em-dash is allowed)
+        
         assertFalse(validator.isValid("–", null));
 
-        // Edge case: Whitespace-only unicode spaces return false because trim() doesn't strip them
-        assertFalse(validator.isValid("\u00A0", null)); // Non-breaking space
-        assertFalse(validator.isValid("\u3000", null)); // Ideographic space
+        
+        assertFalse(validator.isValid("\u00A0", null)); 
+        assertFalse(validator.isValid("\u3000", null)); 
 
-        // Edge case: Mixed separators are allowed by the current regex
+        
         assertTrue(validator.isValid("123-456.7890", null));
         assertTrue(validator.isValid("123 456-7890", null));
 
-        // Edge case: Newline and Tab separators are not allowed by the updated regex (since literal space is used)
+        
         assertFalse(validator.isValid("123\n456\n7890", null));
         assertFalse(validator.isValid("123\t456\t7890", null));
 
-        // Edge case: Extension format variants
-        assertFalse(validator.isValid("123-456-7890 Ext123", null));  // Capitalized Ext
-        assertFalse(validator.isValid("123-456-7890  x123", null));   // Double space
-        assertFalse(validator.isValid("123-456-7890 x 123", null));   // Space after x
+        
+        assertFalse(validator.isValid("123-456-7890 Ext123", null));  
+        assertFalse(validator.isValid("123-456-7890  x123", null));   
+        assertFalse(validator.isValid("123-456-7890 x 123", null));   
     }
 }

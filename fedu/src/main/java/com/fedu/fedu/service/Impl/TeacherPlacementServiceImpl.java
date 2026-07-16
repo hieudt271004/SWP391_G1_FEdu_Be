@@ -80,7 +80,7 @@ public class TeacherPlacementServiceImpl implements TeacherPlacementService {
                 .stream().map(this::toResponse).toList();
     }
 
-    /** Quyền: giảng viên phụ trách lớp-môn dùng test này (placement qua id_quiz_start, hoặc gate qua node). */
+    
     private void assertTeacherOwnsTest(Test test, Long teacherId) {
         ClassroomSubject owning = classroomSubjectRepository.findByQuizStartTestId(test.getTestId())
                 .orElse(null);
@@ -92,10 +92,10 @@ public class TeacherPlacementServiceImpl implements TeacherPlacementService {
                 && teacherId != null && owning.getLecturer().getUserId() != teacherId) {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn của bài test này");
         }
-        // owning == null (test mức template chưa gắn lớp-môn): cho phép giảng viên cấu hình (đã qua hasRole TEACHER).
+        
     }
 
-    /** Các band phải phủ kín dải [0, 100] liền mạch, không chồng lấn. */
+    
     private void validateBands(List<ScoreBandRequest> bands) {
         if (bands == null || bands.isEmpty()) {
             throw new InvalidDataException("Phải có ít nhất một khoảng điểm");

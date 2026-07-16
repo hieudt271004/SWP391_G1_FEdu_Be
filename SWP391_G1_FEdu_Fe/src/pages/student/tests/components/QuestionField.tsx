@@ -19,8 +19,8 @@ interface QuestionFieldProps {
   disabled?: boolean;
 }
 
-// Render input phù hợp với từng loại câu hỏi. Không bao giờ hiển thị đáp án đúng
-// (backend đã loại bỏ isCorrect khỏi payload trả về cho học sinh).
+
+
 export const QuestionField = memo(function QuestionField({
   question,
   value,
@@ -42,7 +42,7 @@ export const QuestionField = memo(function QuestionField({
         {answers.map((a) => {
           const id = `q${question.questionId}-a${a.answerId}`;
           return (
-            <div key={a.answerId} className="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-2 hover:bg-gray-50">
+            <div key={a.answerId} className="flex items-center gap-3 rounded-md border border-border px-3 py-2 hover:bg-accent transition-colors">
               <RadioGroupItem value={String(a.answerId)} id={id} />
               <Label htmlFor={id} className="flex-1 cursor-pointer font-normal">
                 {a.answerContent}
@@ -67,7 +67,7 @@ export const QuestionField = memo(function QuestionField({
         {answers.map((a) => {
           const id = `q${question.questionId}-a${a.answerId}`;
           return (
-            <div key={a.answerId} className="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-2 hover:bg-gray-50">
+            <div key={a.answerId} className="flex items-center gap-3 rounded-md border border-border px-3 py-2 hover:bg-accent transition-colors">
               <Checkbox
                 id={id}
                 checked={selectedSet.has(a.answerId)}
@@ -96,7 +96,7 @@ export const QuestionField = memo(function QuestionField({
     );
   }
 
-  // Fallback: loại câu hỏi backend trả về mà frontend chưa hỗ trợ — hiện rõ thay vì im lặng.
+  
   return (
     <Alert variant="destructive">
       <AlertTriangle />

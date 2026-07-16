@@ -42,7 +42,7 @@ export function ForgotPassword() {
       <div className="w-full lg:w-1/2 flex bg-background text-foreground overflow-y-auto p-4 lg:p-8">
         <div className="m-auto w-full max-w-md py-8">
 
-          {/* Mobile logo */}
+          {}
           <div className="lg:hidden flex items-center gap-2 mb-8">
             <img src={logo} alt="FEdu Logo" className="w-8 h-8 rounded-lg object-cover" />
             <span className="text-lg font-bold text-foreground">FEdu Learning</span>

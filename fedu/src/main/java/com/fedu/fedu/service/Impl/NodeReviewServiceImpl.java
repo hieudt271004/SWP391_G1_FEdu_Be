@@ -39,7 +39,7 @@ public class NodeReviewServiceImpl implements NodeReviewService {
     private final UserAccountRepository userAccountRepository;
     private final StudentNodeProgressRepository studentNodeProgressRepository;
 
-    // ===================== Học sinh & Giảng viên (Chung) =====================
+    
 
     @Override
     @Transactional(readOnly = true)
@@ -52,7 +52,7 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         summary.setMyReview(nodeReviewRepository
                 .findByLearningNodeNodeIdAndAuthorUserIdAndParentReviewIsNullAndRatingIsNotNullAndIsDeletedFalse(nodeId, studentId)
                 .map(r -> {
-                    // Trả về bản ghi có kèm theo replies nếu có trong summary
+                    
                     return summary.getReviews().stream()
                             .filter(rev -> rev.getReviewId().equals(r.getReviewId()))
                             .findFirst()
@@ -75,7 +75,7 @@ public class NodeReviewServiceImpl implements NodeReviewService {
             throw new InvalidDataException("Vui lòng chọn số sao đánh giá.");
         }
 
-        // Upsert: tái dùng bản ghi cũ (kể cả đã xóa mềm) để không vỡ unique index trên root reviews.
+        
         NodeReview review = nodeReviewRepository
                 .findByLearningNodeNodeIdAndAuthorUserIdAndParentReviewIsNullAndRatingIsNotNull(nodeId, studentId)
                 .orElse(null);
@@ -91,7 +91,7 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         } else {
             review.setRating(request.getRating());
             review.setContent(request.getContent());
-            review.setIsDeleted(false); // khôi phục nếu trước đó đã xóa mềm
+            review.setIsDeleted(false); 
         }
         nodeReviewRepository.save(review);
         log.info("Student {} reviewed node {} ({} sao)", studentId, nodeId, request.getRating());
@@ -112,7 +112,7 @@ public class NodeReviewServiceImpl implements NodeReviewService {
                 .learningNode(node)
                 .author(getUser(authorId))
                 .parentReview(null)
-                .rating(null) // comment không có rating
+                .rating(null) 
                 .content(request.getContent())
                 .isDeleted(false)
                 .build();
@@ -129,22 +129,22 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         LearningNode node = getNode(nodeId);
         assertCanParticipate(node, authorId);
 
-        // Tìm review/comment cha
+        
         NodeReview parentReview = nodeReviewRepository.findById(parentReviewId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Đánh giá hoặc thảo luận gốc không tồn tại với id: " + parentReviewId));
 
-        // Review cha phải thuộc cùng node
+        
         if (!parentReview.getLearningNode().getNodeId().equals(nodeId)) {
             throw new InvalidDataException("Bản ghi cha không thuộc bài học này.");
         }
 
-        // Review cha phải chưa bị xóa
+        
         if (Boolean.TRUE.equals(parentReview.getIsDeleted())) {
             throw new InvalidDataException("Không thể phản hồi thảo luận đã bị xóa.");
         }
 
-        // Chặn reply-to-reply: cha của reply phải là root (parentReview.getParentReview() == null)
+        
         if (parentReview.getParentReview() != null) {
             throw new InvalidDataException("Chỉ được phản hồi trực tiếp các đánh giá hoặc thảo luận gốc.");
         }
@@ -153,12 +153,12 @@ public class NodeReviewServiceImpl implements NodeReviewService {
             throw new InvalidDataException("Nội dung phản hồi không được để trống.");
         }
 
-        // Tạo reply (không cần rating, chỉ cần content)
+        
         NodeReview reply = NodeReview.builder()
                 .learningNode(node)
                 .author(getUser(authorId))
                 .parentReview(parentReview)
-                .rating(null) // reply không có rating
+                .rating(null) 
                 .content(request.getContent())
                 .isDeleted(false)
                 .build();
@@ -184,12 +184,14 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         NodeReview comment = nodeReviewRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Thảo luận không tồn tại với id: " + commentId));
 
-        // Chỉ cho phép xóa thảo luận của chính mình
-        if (comment.getAuthor() == null || !Long.valueOf(authorId).equals(comment.getAuthor().getUserId())) {
+        UserAccount user = getUser(authorId);
+        boolean isAdmin = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+
+        if (!isAdmin && (comment.getAuthor() == null || !Long.valueOf(authorId).equals(comment.getAuthor().getUserId()))) {
             throw new AccessDeniedException("Bạn không có quyền xóa thảo luận này.");
         }
 
-        // Phải là comment root (parentReview == null && rating == null)
         if (comment.getParentReview() != null) {
             throw new InvalidDataException("Đây là phản hồi, vui lòng dùng chức năng xóa phản hồi.");
         }
@@ -208,12 +210,14 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         NodeReview reply = nodeReviewRepository.findById(replyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Phản hồi không tồn tại với id: " + replyId));
 
-        // Chỉ cho phép xóa reply của chính mình (sử dụng equals thay cho !=)
-        if (reply.getAuthor() == null || !Long.valueOf(authorId).equals(reply.getAuthor().getUserId())) {
+        UserAccount user = getUser(authorId);
+        boolean isAdmin = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+
+        if (!isAdmin && (reply.getAuthor() == null || !Long.valueOf(authorId).equals(reply.getAuthor().getUserId()))) {
             throw new AccessDeniedException("Bạn không có quyền xóa phản hồi này.");
         }
 
-        // Phải là reply (có parentReview), không phải review/comment gốc
         if (reply.getParentReview() == null) {
             throw new InvalidDataException("Đây là thảo luận gốc, vui lòng dùng chức năng xóa thảo luận.");
         }
@@ -223,7 +227,7 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         log.info("User {} deleted reply {}", authorId, replyId);
     }
 
-    // ===================== Giảng viên =====================
+    
 
     @Override
     @Transactional(readOnly = true)
@@ -233,18 +237,18 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         return buildSummary(nodeId);
     }
 
-    // ===================== Helpers =====================
+    
 
     private NodeReviewSummaryResponse buildSummary(Long nodeId) {
-        // Query toàn bộ root (reviews + comments) trong 1 câu truy vấn
+        
         List<NodeReview> roots = nodeReviewRepository
                 .findByLearningNodeNodeIdAndParentReviewIsNullAndIsDeletedFalseOrderByCreatedAtDesc(nodeId);
 
-        // Query toàn bộ replies của node đó trong 1 câu truy vấn (cũ nhất trước)
+        
         List<NodeReview> allReplies = nodeReviewRepository
                 .findByLearningNodeNodeIdAndParentReviewIsNotNullAndIsDeletedFalseOrderByCreatedAtAsc(nodeId);
 
-        // Gom nhóm replies theo parentReviewId trong bộ nhớ để tránh N+1 queries
+        
         java.util.Map<Long, List<NodeReviewResponse>> repliesByParentId = allReplies.stream()
                 .map(reply -> mapReview(reply, false))
                 .filter(r -> r.getParentReviewId() != null)
@@ -277,11 +281,11 @@ public class NodeReviewServiceImpl implements NodeReviewService {
                 .build();
     }
 
-    /**
-     * "Đã hoàn thành cả lộ trình" theo lộ trình đã clone của lớp-môn:
-     * lộ trình adaptive nên học sinh chỉ có progress cho các node trên nhánh của mình.
-     * Coi là hoàn thành khi: có ít nhất 1 node COMPLETED và không còn node nào OPEN/IN_PROGRESS.
-     */
+    
+
+
+
+
     private boolean hasCompletedCourse(Long studentId, LearningNode node) {
         LearningPath path = node.getLearningPath();
         if (path == null) return false;
@@ -306,7 +310,7 @@ public class NodeReviewServiceImpl implements NodeReviewService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
     }
 
-    /** Node phải thuộc một lộ trình đã clone vào lớp-môn (đánh giá là phạm vi lớp-môn). */
+    
     private ClassroomSubject resolveClassroomSubject(LearningNode node) {
         LearningPath path = node.getLearningPath();
         if (path == null || path.getClassroomSubject() == null) {
@@ -324,6 +328,12 @@ public class NodeReviewServiceImpl implements NodeReviewService {
 
     private void assertTeacherOwnsNode(LearningNode node, Long teacherId) {
         ClassroomSubject cs = resolveClassroomSubject(node);
+        UserAccount user = getUser(teacherId);
+        boolean isAdmin = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+        if (isAdmin) {
+            return;
+        }
         if (cs.getLecturer() == null || cs.getLecturer().getUserId() != teacherId) {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn này.");
         }
@@ -331,6 +341,12 @@ public class NodeReviewServiceImpl implements NodeReviewService {
 
     private void assertCanParticipate(LearningNode node, Long userId) {
         ClassroomSubject cs = resolveClassroomSubject(node);
+        UserAccount user = getUser(userId);
+        boolean isAdmin = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+        if (isAdmin) {
+            return;
+        }
         boolean isStudent = classroomSubjectStudentRepository.existsByClassroomSubject_IdAndStudent_UserId(cs.getId(), userId);
         boolean isTeacher = cs.getLecturer() != null && cs.getLecturer().getUserId() == userId;
         if (!isStudent && !isTeacher) {
@@ -338,10 +354,10 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         }
     }
 
-    /**
-     * Map entity sang response DTO.
-     * @param includeReplies true để load và map replies (dùng cho danh sách tổng hợp), false cho single response.
-     */
+    
+
+
+
     private NodeReviewResponse mapReview(NodeReview r, boolean includeReplies) {
         UserAccount author = r.getAuthor();
         String authorRole = "STUDENT";
@@ -371,7 +387,7 @@ public class NodeReviewServiceImpl implements NodeReviewService {
                     .findByLearningNodeNodeIdAndParentReviewIsNotNullAndIsDeletedFalseOrderByCreatedAtAsc(r.getReviewId())
                     .stream()
                     .filter(reply -> reply.getParentReview() != null && reply.getParentReview().getReviewId().equals(r.getReviewId()))
-                    .map(reply -> mapReview(reply, false)) // chỉ 1 cấp reply, không đệ quy sâu
+                    .map(reply -> mapReview(reply, false)) 
                     .collect(Collectors.toList());
             builder.replies(replies);
         } else {

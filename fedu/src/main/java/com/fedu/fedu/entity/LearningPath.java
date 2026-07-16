@@ -4,10 +4,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
-/**
- * Lộ trình học tập.
- * classroomSubject != null ⇒ bản clone cho 1 lớp-môn
- */
+
+
+
+
 @Getter
 @Setter
 @Entity
@@ -39,7 +39,7 @@ public class LearningPath extends AbstractEntity<Long> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "classroom_subject_id")
-    private ClassroomSubject classroomSubject;   // null = template; có giá trị = bản clone của lớp-môn
+    private ClassroomSubject classroomSubject;   
 
     @Column(name = "published_at")
     private java.time.LocalDateTime publishedAt;

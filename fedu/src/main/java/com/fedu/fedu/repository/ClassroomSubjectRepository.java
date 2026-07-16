@@ -16,13 +16,14 @@ public interface ClassroomSubjectRepository extends JpaRepository<ClassroomSubje
 
     long countByClassroomClassroomId(Long classroomId);
 
-    List<ClassroomSubject> findBySubjectSubjectId(Long subjectId);
+    @Query("SELECT cs FROM ClassroomSubject cs WHERE cs.subject.subjectId = :subjectId AND cs.classroom.isDeleted = false")
+    List<ClassroomSubject> findBySubjectSubjectId(@Param("subjectId") Long subjectId);
 
-    // Tìm mối quan hệ lớp học - môn học cụ thể
+
     Optional<ClassroomSubject> findByClassroomClassroomIdAndSubjectSubjectId(Long classroomId, Long subjectId);
 
-    // Tìm tất cả lớp học của một giảng viên
-    @Query("SELECT cs FROM ClassroomSubject cs WHERE cs.lecturer.userId = :lecturerId")
+
+    @Query("SELECT cs FROM ClassroomSubject cs WHERE cs.lecturer.userId = :lecturerId AND cs.classroom.isDeleted = false")
     List<ClassroomSubject> findByLecturerId(@Param("lecturerId") Long lecturerId);
 
     boolean existsByIdAndLecturerUserId(Long classroomSubjectId, Long lecturerId);

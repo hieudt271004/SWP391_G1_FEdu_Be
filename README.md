@@ -179,5 +179,5 @@ Các lỗi được xử lý tập trung bởi `@RestControllerAdvice` trong `Gl
 ## 👥 Thành viên thực hiện (Group 1 - SWP391)
 
 - Sinh viên Đại học FPT.
-- Liên hệ hỗ trợ: `hieudtfptu@gmail.com`
+- Liên hệ hỗ trợ: `fedu.swp391@gmail.com`
   test update

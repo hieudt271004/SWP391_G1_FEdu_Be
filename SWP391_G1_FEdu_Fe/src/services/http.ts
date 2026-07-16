@@ -2,7 +2,7 @@ import type { AxiosResponse } from 'axios';
 import { apiClient } from './api.client';
 import { extractErrorMessage } from '../utils/apiError';
 
-// BE luôn trả ResponseData: { status, message, data }
+
 async function unwrap<T>(call: Promise<AxiosResponse>): Promise<T> {
   let body: { status?: number; message?: string; data?: T };
   try {

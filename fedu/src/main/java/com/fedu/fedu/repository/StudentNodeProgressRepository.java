@@ -17,7 +17,7 @@ public interface StudentNodeProgressRepository extends JpaRepository<StudentNode
 
     void deleteAllByLearningPathPathId(Long pathId);
 
-    // Progress nối tới enrollment (classroom_subject_student); lọc theo userId học sinh qua CSS.
+    
     @Query("SELECT p FROM StudentNodeProgress p " +
             "WHERE p.classroomSubjectStudent.student.userId = :userId AND p.learningPath.pathId = :pathId")
     List<StudentNodeProgress> findByStudentUserIdAndLearningPathPathId(@Param("userId") Long userId, @Param("pathId") Long pathId);
@@ -32,8 +32,8 @@ public interface StudentNodeProgressRepository extends JpaRepository<StudentNode
     @Query("SELECT p FROM StudentNodeProgress p WHERE p.classroomSubjectStudent.student.userId = :studentId")
     List<StudentNodeProgress> findAllByStudentId(@Param("studentId") Long studentId);
 
-    // Toàn bộ progress của 1 path (báo cáo lớp) — JOIN FETCH để group trong bộ nhớ không dính N+1;
-    // loại node đã soft-delete (xóa node vẫn để lại progress rows).
+    
+    
     @Query("SELECT p FROM StudentNodeProgress p " +
             "JOIN FETCH p.learningNode n " +
             "JOIN FETCH p.classroomSubjectStudent " +

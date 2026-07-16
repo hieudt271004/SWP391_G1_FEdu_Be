@@ -3,6 +3,7 @@ import { X, Loader2, Upload, Trash2, Calendar, Phone, Mail, User, Shield, Info }
 import { adminService } from "../../services/admin.service";
 import { uploadService } from "../../services/upload.service";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 interface AdminUser {
   id?: number;
@@ -36,7 +37,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
     role: string;
     status: string;
     gender: "MALE" | "FEMALE" | "OTHER";
-    dateOfBirth: string; // HTML date picker format: "yyyy-MM-dd"
+    dateOfBirth: string; 
   }>({
     email: "",
     password: "",
@@ -58,20 +59,20 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
   useEffect(() => {
     if (isOpen) {
       if (mode === "edit" && user) {
-        // Safe mapping of gender: Male/Female/Other or MALE/FEMALE/OTHER
+        
         const rawGender = user.gender ? user.gender.toUpperCase() : "OTHER";
         const normalizedGender = (rawGender === "MALE" || rawGender === "FEMALE" || rawGender === "OTHER") 
           ? rawGender 
           : "OTHER";
 
-        // Convert date of birth from backend format "dd/MM/yyyy" to HTML date picker format "yyyy-MM-dd"
+        
         let dateOfBirthVal = "";
         if (user.dateOfBirth && user.dateOfBirth !== "—") {
           const parts = user.dateOfBirth.split("/");
           if (parts.length === 3) {
             dateOfBirthVal = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
           } else {
-            // Handle if already in format yyyy-MM-dd
+            
             const dashParts = user.dateOfBirth.split("-");
             if (dashParts.length === 3) {
               dateOfBirthVal = user.dateOfBirth;
@@ -79,7 +80,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
           }
         }
 
-        // Clean empty phone number to display empty instead of placeholder "—"
+        
         const cleanPhone = user.phone === "—" ? "" : user.phone || "";
 
         setFormData({
@@ -154,7 +155,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
       setSubmitting(true);
       setError(null);
 
-      // Convert date of birth from HTML date picker format "yyyy-MM-dd" back to backend format "dd/MM/yyyy"
+      
       let mappedBod: string | undefined = undefined;
       if (formData.dateOfBirth) {
         const parts = formData.dateOfBirth.split("-");
@@ -209,14 +210,14 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
 
   if (!isOpen) return null;
 
-  // Initials for avatar preview placeholder
+  
   const initials = ((formData.firstName[0] || "") + (formData.lastName[0] || "")).toUpperCase() || "?";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-all duration-300">
       <div className="relative w-full max-w-2xl bg-card text-card-foreground border border-border rounded-xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-sans animate-in fade-in-50 zoom-in-95 duration-200">
         
-        {/* Header */}
+        {}
         <div className="flex items-center justify-between px-6 py-5 border-b border-border">
           <div>
             <h2 className="text-lg font-bold text-foreground">
@@ -236,7 +237,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
           </button>
         </div>
 
-        {/* Form Container */}
+        {}
         <form id="userDetailForm" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
             <div className="flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg animate-in fade-in slide-in-from-top-1">
@@ -245,10 +246,10 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
             </div>
           )}
 
-          {/* Grid Layout */}
+          {}
           <div className="space-y-6">
             
-            {/* Avatar Upload Control */}
+            {}
             <div className="bg-accent/30 rounded-lg p-5 border border-border/40 flex flex-col sm:flex-row items-center gap-5">
               <div className="relative group w-20 h-20 rounded-full overflow-hidden bg-primary text-primary-foreground flex items-center justify-center border border-border shadow-sm">
                 {formData.avatarUrl ? (
@@ -303,7 +304,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
               </div>
             </div>
 
-            {/* Email Field */}
+            {}
             <div className="space-y-2">
               <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-muted-foreground" />
@@ -321,7 +322,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
               />
             </div>
             
-            {/* First and Last Names */}
+            {}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -355,7 +356,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
               </div>
             </div>
 
-            {/* Phone & Gender (Only Edit supports Gender properly in update payload) */}
+            {}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -377,19 +378,23 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
                   <User className="w-3.5 h-3.5 text-muted-foreground" />
                   Giới tính
                 </label>
-                <select 
-                  value={formData.gender} 
-                  onChange={(e) => handleChange("gender", e.target.value as any)}
-                  className="w-full px-4 py-2.5 bg-input-background text-foreground border border-border/80 rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary/50 outline-none cursor-pointer"
+                <Select
+                  value={formData.gender}
+                  onValueChange={(val) => handleChange("gender", val)}
                 >
-                  <option value="MALE">Nam</option>
-                  <option value="FEMALE">Nữ</option>
-                  <option value="OTHER">Khác</option>
-                </select>
+                  <SelectTrigger className="w-full h-10 bg-input-background border-border text-foreground">
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="MALE">Nam</SelectItem>
+                    <SelectItem value="FEMALE">Nữ</SelectItem>
+                    <SelectItem value="OTHER">Khác</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            {/* Date of Birth & Password */}
+            {}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -421,32 +426,40 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
               </div>
             </div>
 
-            {/* Role & Status */}
+            {}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider">Role (Vai trò)</label>
-                <select 
-                  value={formData.role} 
-                  onChange={(e) => handleChange("role", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-input-background text-foreground border border-border/80 rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary/50 outline-none cursor-pointer"
+                <Select
+                  value={formData.role}
+                  onValueChange={(val) => handleChange("role", val)}
                 >
-                  <option value="STUDENT">Học viên</option>
-                  <option value="TEACHER">Giảng viên</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
+                  <SelectTrigger className="w-full h-10 bg-input-background border-border text-foreground">
+                    <SelectValue placeholder="Chọn vai trò" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="STUDENT">Học viên</SelectItem>
+                    <SelectItem value="TEACHER">Giảng viên</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">
                 <label className="text-xs font-bold text-foreground uppercase tracking-wider">Status (Trạng thái)</label>
-                <select 
-                  value={formData.status} 
-                  onChange={(e) => handleChange("status", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-input-background text-foreground border border-border/80 rounded-lg text-sm transition-all focus:ring-4 focus:ring-primary/10 focus:border-primary/50 outline-none cursor-pointer"
+                <Select
+                  value={formData.status}
+                  onValueChange={(val) => handleChange("status", val)}
                 >
-                  <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-                  <option value="INACTIVE">Ngưng (INACTIVE)</option>
-                  <option value="NONE">Khác (NONE)</option>
-                </select>
+                  <SelectTrigger className="w-full h-10 bg-input-background border-border text-foreground">
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="ACTIVE">Hoạt động (ACTIVE)</SelectItem>
+                    <SelectItem value="INACTIVE">Ngưng (INACTIVE)</SelectItem>
+                    <SelectItem value="NONE">Khác (NONE)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -461,7 +474,7 @@ export function UserDetailModal({ isOpen, onClose, user, mode, onSuccess }: User
           </div>
         </form>
 
-        {/* Action Buttons */}
+        {}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-accent/20">
           <button
             type="button"

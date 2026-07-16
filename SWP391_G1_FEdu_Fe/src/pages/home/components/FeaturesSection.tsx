@@ -248,7 +248,7 @@ export function FeaturesSection({ stats: propStats }: FeaturesSectionProps) {
           />
         </div>
 
-        {/* Dynamic Data Explorer Section */}
+        {}
         <div className="mt-16 border-t border-border pt-12">
           <div className="text-center max-w-2xl mx-auto mb-8">
             <div className="inline-block rounded-lg border border-border bg-muted/60 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
@@ -262,7 +262,7 @@ export function FeaturesSection({ stats: propStats }: FeaturesSectionProps) {
             </p>
           </div>
 
-          {/* Tab triggers */}
+          {}
           <div className="flex flex-wrap justify-center gap-2 mb-6">
             {[
               { id: 'paths', label: 'Lộ trình', count: stats.totalPaths },
@@ -284,9 +284,9 @@ export function FeaturesSection({ stats: propStats }: FeaturesSectionProps) {
             ))}
           </div>
 
-          {/* Tab content */}
+          {}
           <div className="rounded-2xl border border-border bg-muted/30 p-5 md:p-6 shadow-2xs">
-            {/* Search Box */}
+            {}
             <div className="relative mb-5 max-w-md mx-auto">
               <input
                 type="text"

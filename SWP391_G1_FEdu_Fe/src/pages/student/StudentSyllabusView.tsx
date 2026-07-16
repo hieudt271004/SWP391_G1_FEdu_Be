@@ -23,7 +23,7 @@ export interface LearningPathItem {
   data: any;
 }
 
-// Deadline node (BE trả LocalDateTime không timezone → new Date() parse theo giờ local là đúng)
+
 const formatDeadline = (iso: string) => {
   const d = new Date(iso);
   return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ${d.toLocaleDateString('vi-VN')}`;
@@ -62,7 +62,7 @@ export function StudentSyllabusView({
   const navigate = useNavigate();
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
 
-  // Initialize selectedNodeId to first incomplete node or first node
+  
   useEffect(() => {
     if (nodes.length > 0 && selectedNodeId === null) {
       const firstIncompleteNode = nodes.find(n => n.studentStatus !== 'COMPLETED');
@@ -72,7 +72,7 @@ export function StudentSyllabusView({
     }
   }, [nodes, selectedNodeId, ensureNodeContent]);
 
-  // Load content when selected node changes
+  
   const handleSelectNode = (nodeId: number) => {
     setSelectedNodeId(nodeId);
     ensureNodeContent(nodeId);
@@ -80,7 +80,7 @@ export function StudentSyllabusView({
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-16">
-      {/* Top Banner / Breadcrumb */}
+      {}
       <div className="bg-card border-b border-border py-4 px-6 mb-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
@@ -95,7 +95,7 @@ export function StudentSyllabusView({
           </div>
           <Button
             onClick={() => {
-              // Find first incomplete item
+              
               const firstIncomplete = allItems.find(item => {
                 const node = nodes.find(n => n.nodeId === item.nodeId);
                 return node && node.studentStatus !== 'COMPLETED';
@@ -113,7 +113,7 @@ export function StudentSyllabusView({
       </div>
 
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Left Column: Course details & Module Navigation list */}
+        {}
         <div className="space-y-6">
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-muted border border-border">
@@ -127,7 +127,7 @@ export function StudentSyllabusView({
                 Lớp: {subject?.className} • Mã: {subject?.subjectCode}
               </p>
             </div>
-            {/* Progress */}
+            {}
             <div className="pt-2 border-t border-border space-y-1.5">
               <div className="flex justify-between items-center text-xs font-bold text-foreground">
                 <span>Tiến độ học tập</span>
@@ -140,7 +140,7 @@ export function StudentSyllabusView({
             </div>
           </div>
 
-          {/* Module List Menu */}
+          {}
           <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
             <div className="p-4 border-b border-border bg-muted/30">
               <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
@@ -191,7 +191,7 @@ export function StudentSyllabusView({
           </div>
         </div>
 
-        {/* Right Column: Node Details & Syllabus items list */}
+        {}
         <div className="md:col-span-3 space-y-6">
           {(() => {
             const activeNode = nodes.find(n => n.nodeId === selectedNodeId);
@@ -199,7 +199,7 @@ export function StudentSyllabusView({
             const content = nodeContents[activeNode.nodeId];
             const isCompleted = activeNode.studentStatus === 'COMPLETED';
             
-            // Gather items inside the selected node
+            
             const nodeItems: LearningPathItem[] = [];
             if (content) {
               if (content.materials) {
@@ -224,13 +224,29 @@ export function StudentSyllabusView({
                 <div className="flex justify-between items-start flex-wrap gap-4 border-b border-border pb-5">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-[4px] border uppercase ${
-                        activeNode.nodeType === 'AT_HOME' 
-                          ? 'bg-muted border-border text-muted-foreground' 
-                          : 'bg-primary border-primary text-primary-foreground'
-                      }`}>
-                        {activeNode.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
-                      </span>
+                      {activeNode.testKind && activeNode.testKind !== 'NONE' ? (
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-[4px] border uppercase ${
+                          activeNode.testKind === 'PLACEMENT'
+                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                            : activeNode.testKind === 'GATE'
+                            ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                            : 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400'
+                        }`}>
+                          {activeNode.testKind === 'PLACEMENT'
+                            ? 'Test năng lực'
+                            : activeNode.testKind === 'GATE'
+                            ? 'Test phân luồng'
+                            : 'Test tự chọn'}
+                        </span>
+                      ) : (
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-[4px] border uppercase ${
+                          activeNode.nodeType === 'AT_HOME' 
+                            ? 'bg-muted border-border text-muted-foreground' 
+                            : 'bg-primary border-primary text-primary-foreground'
+                        }`}>
+                          {activeNode.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
+                        </span>
+                      )}
                       {isCompleted && (
                         <Badge className="bg-emerald-500/10 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[9px] font-extrabold px-2 py-0.5 rounded-md">
                           Hoàn thành
@@ -263,7 +279,7 @@ export function StudentSyllabusView({
                   </div>
                 </div>
 
-                {/* List of items */}
+                {}
                 <div className="space-y-4">
                   <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
                     Danh sách bài học & học liệu
@@ -342,6 +358,31 @@ export function StudentSyllabusView({
                                             : 'Bài tập tự luận'
                                       }
                                     </span>
+                                    {isTest && (
+                                       <>
+                                         {activeNode.testKind === 'PLACEMENT' && (activeNode.placementYeuMax != null || activeNode.placementTbMax != null) ? (
+                                            <>
+                                              <span>•</span>
+                                              <span className="normal-case">
+                                                Phân mức: Yếu ≤ {activeNode.placementYeuMax}% · TB ≤ {activeNode.placementTbMax}% · Khá &gt; {activeNode.placementTbMax}%
+                                              </span>
+                                            </>
+                                          ) : activeNode.testKind === 'GATE' ? null : (
+                                            <>
+                                              <span>•</span>
+                                              <span className="normal-case">Yêu cầu đạt: {item.data.passingPercentage}%</span>
+                                            </>
+                                          )}
+                                        {activeNode.testKind === 'GATE' && (activeNode.gateUpMin != null || activeNode.gateDownMax != null) && (
+                                          <>
+                                            <span>•</span>
+                                            <span className="text-emerald-600 dark:text-emerald-455 normal-case font-bold">Lên Level khi ≥ {activeNode.gateUpMin ?? '—'}%</span>
+                                            <span>•</span>
+                                            <span className="text-rose-600 dark:text-rose-455 normal-case font-bold">Hạ Level khi &lt; {activeNode.gateDownMax ?? '—'}%</span>
+                                          </>
+                                        )}
+                                      </>
+                                    )}
                                   </p>
                                 </div>
                               </div>

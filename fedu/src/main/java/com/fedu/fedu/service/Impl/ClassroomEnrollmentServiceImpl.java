@@ -67,7 +67,7 @@ public class ClassroomEnrollmentServiceImpl implements ClassroomEnrollmentServic
 
         if (classroomSubjectStudentRepository
                 .existsByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, student.getUserId())) {
-            return new ImportRowResult(newAccount, true); // đã có trong lớp-môn → bỏ qua
+            return new ImportRowResult(newAccount, true); 
         }
 
         ClassroomSubjectStudent enrollment = ClassroomSubjectStudent.builder()

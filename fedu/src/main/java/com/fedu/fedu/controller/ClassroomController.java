@@ -1,6 +1,7 @@
 package com.fedu.fedu.controller;
 
 import com.fedu.fedu.dto.req.ClassroomRequest;
+import com.fedu.fedu.dto.req.UpdateClassroomStatusRequest;
 import com.fedu.fedu.dto.res.ClassroomResponse;
 import com.fedu.fedu.dto.res.ResponseData;
 import com.fedu.fedu.entity.UserAccount;
@@ -100,8 +101,19 @@ public class ClassroomController {
         return new ResponseData<>(HttpStatus.OK.value(), "Classroom updated successfully", response);
     }
 
-    @Operation(summary = "Delete classroom (soft delete)")
-    @PreAuthorize("hasAnyRole('TEACHER', 'ADMIN')")
+    @Operation(summary = "Đổi trạng thái lớp học (bắt đầu / kết thúc / mở lại) — chỉ Admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{classroomId}/status")
+    public ResponseData<ClassroomResponse> updateClassroomStatus(
+            @PathVariable Long classroomId,
+            @Valid @RequestBody UpdateClassroomStatusRequest request) {
+        log.info("Request update classroom {} status -> {}", classroomId, request.getStatus());
+        return new ResponseData<>(HttpStatus.OK.value(), "Classroom status updated successfully",
+                classroomService.updateClassroomStatus(classroomId, request.getStatus()));
+    }
+
+    @Operation(summary = "Xóa lớp học (soft delete, chỉ lớp chưa bắt đầu) — chỉ Admin")
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{classroomId}")
     public ResponseData<Void> deleteClassroom(@PathVariable Long classroomId) {
         log.info("Request delete classroom id: {}", classroomId);

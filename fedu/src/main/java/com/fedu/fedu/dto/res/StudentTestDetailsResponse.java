@@ -15,7 +15,8 @@ public class StudentTestDetailsResponse {
     private String description;
     private Integer durationMinutes;
     private BigDecimal passingPercentage;
-    /** Hạn nộp CHUNG cả lớp của đề phát trong buổi live; null = chỉ tính giờ theo durationMinutes. */
+    private String testKind;
+    
     private java.time.LocalDateTime releaseEndsAt;
     private List<QuestionResponse> questions;
 }

@@ -29,9 +29,9 @@ public class SubMentorServiceImpl implements SubMentorService {
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final SubMentorStudentAssignmentRepository assignmentRepository;
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+    
 
-    /** Lấy lớp-môn và xác nhận giảng viên phụ trách. */
+    
     private ClassroomSubject requireLecturerOwnership(Long classroomSubjectId, Long lecturerId) {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -42,7 +42,7 @@ public class SubMentorServiceImpl implements SubMentorService {
         return cs;
     }
 
-    /** Lấy CSS và xác nhận nó thuộc đúng lớp-môn. */
+    
     private ClassroomSubjectStudent requireCssInClassroomSubject(Long cssId, Long classroomSubjectId) {
         ClassroomSubjectStudent css = classroomSubjectStudentRepository.findById(cssId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -53,7 +53,7 @@ public class SubMentorServiceImpl implements SubMentorService {
         return css;
     }
 
-    // ─── SubMentor flag operations ────────────────────────────────────────────
+    
 
     @Override
     @Transactional
@@ -62,9 +62,7 @@ public class SubMentorServiceImpl implements SubMentorService {
         ClassroomSubjectStudent css = requireCssInClassroomSubject(classroomSubjectStudentId, classroomSubjectId);
         css.setIsSubmentor(true);
         classroomSubjectStudentRepository.save(css);
-        
-        // Xóa học sinh này khỏi danh sách được kèm cặp của các sub-mentor khác
-        assignmentRepository.deleteByStudentCss_Id(classroomSubjectStudentId);
+        // Sub-mentor can still be assigned to another sub-mentor, so we don't delete their assignment.
         
         log.info("Đã bật cờ sub-mentor cho CSS id={} trong lớp-môn id={}", classroomSubjectStudentId, classroomSubjectId);
     }
@@ -77,13 +75,13 @@ public class SubMentorServiceImpl implements SubMentorService {
         css.setIsSubmentor(false);
         classroomSubjectStudentRepository.save(css);
         
-        // Xóa tất cả các học sinh mà sub-mentor này đang kèm cặp
+        
         assignmentRepository.deleteBySubMentorCss_Id(classroomSubjectStudentId);
         
         log.info("Đã tắt cờ sub-mentor cho CSS id={} trong lớp-môn id={}", classroomSubjectStudentId, classroomSubjectId);
     }
 
-    // ─── Assignment operations ─────────────────────────────────────────────────
+    
 
     @Override
     @Transactional
@@ -97,26 +95,28 @@ public class SubMentorServiceImpl implements SubMentorService {
         ClassroomSubjectStudent studentCss = requireCssInClassroomSubject(
                 request.getStudentCssId(), classroomSubjectId);
 
-        // Kiểm sub-mentor phải có cờ isSubmentor=true
+        
         if (!Boolean.TRUE.equals(subMentorCss.getIsSubmentor())) {
             throw new InvalidDataException("Học sinh với CSS id=" + request.getSubMentorCssId()
                     + " chưa được bật cờ sub-mentor");
         }
 
-        // Sub-mentor không thể kèm cặp một sub-mentor khác cùng lớp
-        if (Boolean.TRUE.equals(studentCss.getIsSubmentor())) {
-            throw new InvalidDataException("Sub-mentor không thể kèm cặp một sub-mentor khác cùng lớp");
-        }
+        
+        // A submentor can be assigned as a student to another submentor, so we remove the restriction check here.
 
-        // Chống tự kèm
+        
         if (request.getSubMentorCssId().equals(request.getStudentCssId())) {
             throw new InvalidDataException("Sub-mentor không thể kèm chính mình");
         }
 
-        // Chống trùng cặp
+        
         if (assignmentRepository.existsBySubMentorCss_IdAndStudentCss_Id(
                 request.getSubMentorCssId(), request.getStudentCssId())) {
             throw new InvalidDataException("Cặp (sub-mentor, học sinh) này đã tồn tại");
+        }
+
+        if (assignmentRepository.existsByStudentCss_Id(request.getStudentCssId())) {
+            throw new InvalidDataException("Học sinh này đã được gán cho một trợ giảng khác quản lý");
         }
 
         SubMentorStudentAssignment assignment = SubMentorStudentAssignment.builder()
@@ -135,7 +135,7 @@ public class SubMentorServiceImpl implements SubMentorService {
         requireLecturerOwnership(classroomSubjectId, lecturerId);
         SubMentorStudentAssignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy assignment id: " + assignmentId));
-        // Xác nhận assignment thuộc lớp-môn
+        
         if (!assignment.getSubMentorCss().getClassroomSubject().getId().equals(classroomSubjectId)) {
             throw new InvalidDataException("Assignment này không thuộc lớp-môn id=" + classroomSubjectId);
         }
@@ -147,7 +147,7 @@ public class SubMentorServiceImpl implements SubMentorService {
     @Transactional(readOnly = true)
     public List<SubMentorStudentAssignmentResponse> listAssignments(Long classroomSubjectId, Long lecturerId) {
         requireLecturerOwnership(classroomSubjectId, lecturerId);
-        // Lấy tất cả CSS trong lớp-môn, rồi lấy assignment của các CSS đó
+        
         List<ClassroomSubjectStudent> cssList = classroomSubjectStudentRepository
                 .findAllByClassroomSubjectId(classroomSubjectId);
         List<Long> cssIds = cssList.stream().map(ClassroomSubjectStudent::getId).collect(Collectors.toList());
@@ -158,7 +158,7 @@ public class SubMentorServiceImpl implements SubMentorService {
                 .collect(Collectors.toList());
     }
 
-    // ─── Mapper ───────────────────────────────────────────────────────────────
+    
 
     private SubMentorStudentAssignmentResponse toResponse(SubMentorStudentAssignment a) {
         var mentor = a.getSubMentorCss().getStudent();

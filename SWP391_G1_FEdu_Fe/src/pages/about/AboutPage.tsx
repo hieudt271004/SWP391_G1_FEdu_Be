@@ -11,7 +11,7 @@ interface Subject {
   description: string;
 }
 
-// Static fallback data in case Backend fails or is empty
+
 const FALLBACK_SUBJECTS = [
   {
     subjectId: 1,
@@ -61,7 +61,7 @@ export function AboutPage() {
   return (
     <div className="pt-20 pb-12 bg-background text-foreground min-h-screen font-sans">
       <div className="max-w-6xl mx-auto px-6 text-center mb-16 relative">
-        {/* Subtle background glow effect */}
+        {}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
         
         <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-3.5 py-1.5 text-xs text-muted-foreground font-semibold mb-4">
@@ -79,7 +79,7 @@ export function AboutPage() {
 
       <AboutSection />
 
-      {/* Featured Subjects Section */}
+      {}
       <section className="bg-muted/20 py-20 border-t border-border relative overflow-hidden">
         <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
         

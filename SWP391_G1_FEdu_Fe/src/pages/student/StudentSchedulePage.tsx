@@ -13,10 +13,10 @@ export function StudentSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Current week state
+  
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
-  // Fetch slots and schedule
+  
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -25,7 +25,8 @@ export function StudentSchedulePage() {
         slotService.getAllSlots(),
         studentService.getStudentSchedule(),
       ]);
-      setSlots(slotsRes || []);
+      const sortedSlots = (slotsRes || []).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      setSlots(sortedSlots);
       setSchedule(scheduleRes || []);
     } catch (e: any) {
       setError(e.response?.data?.message || "Không thể tải thời khóa biểu");
@@ -38,9 +39,9 @@ export function StudentSchedulePage() {
     fetchData();
   }, []);
 
-  // Helper: Get start and end of week for a given date (Monday to Sunday)
+  
   const getWeekDays = (date: Date) => {
-    const currentDay = date.getDay(); // 0 is Sunday, 1 is Monday...
+    const currentDay = date.getDay(); 
     const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
     const monday = new Date(date);
     monday.setDate(date.getDate() + distanceToMonday);
@@ -84,7 +85,7 @@ export function StudentSchedulePage() {
     return names[dayIndex];
   };
 
-  // Check if two dates are same day
+  
   const isSameDay = (d1: Date, dateStr: string) => {
     const d2 = new Date(dateStr);
     return (
@@ -94,7 +95,7 @@ export function StudentSchedulePage() {
     );
   };
 
-  // Get nodes scheduled in a specific slot and day
+  
   const getEntriesForCell = (day: Date, slotId: number) => {
     return schedule.filter(
       (entry) => entry.slotId === slotId && isSameDay(day, entry.studyDate)
@@ -195,7 +196,7 @@ export function StudentSchedulePage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {/* Calendar Grid Desktop */}
+          {}
           <div className="hidden lg:block overflow-x-auto border border-border rounded-lg bg-card shadow-sm">
             <div className="grid grid-cols-8 border-b border-border bg-muted/40 text-center font-semibold text-sm min-w-[1000px]">
               <div className="py-4 border-r border-border text-foreground font-bold">Ca / Giờ</div>
@@ -216,7 +217,7 @@ export function StudentSchedulePage() {
 
             {slots.map((slot) => (
               <div key={slot.slotId} className="grid grid-cols-8 border-b border-border last:border-b-0 min-h-[140px] min-w-[1000px]">
-                {/* Slot Details Column */}
+                {}
                 <div className="p-3 border-r border-border bg-muted/20 flex flex-col justify-center gap-1 text-center">
                   <span className="font-bold text-sm text-foreground">{slot.slotName}</span>
                   <span className="text-xs text-muted-foreground font-mono">
@@ -224,7 +225,7 @@ export function StudentSchedulePage() {
                   </span>
                 </div>
 
-                {/* Days Columns */}
+                {}
                 {weekDays.map((day, idx) => {
                   const cellEntries = getEntriesForCell(day, slot.slotId);
                   const isConflict = cellEntries.length > 1;
@@ -240,7 +241,7 @@ export function StudentSchedulePage() {
                           : ""
                       }`}
                     >
-                      {/* Conflict Warnings */}
+                      {}
                       {isConflict && (
                         <div className="flex items-center gap-1 bg-destructive/15 text-destructive px-1.5 py-0.5 rounded text-[10px] font-bold border border-destructive/20">
                           <AlertTriangle className="h-3 w-3 shrink-0" />
@@ -280,7 +281,7 @@ export function StudentSchedulePage() {
             ))}
           </div>
 
-          {/* Calendar List View Mobile / Tablet */}
+          {}
           <div className="lg:hidden space-y-4">
             {weekDays.map((day, idx) => {
               const daySchedule = schedule.filter((entry) => isSameDay(day, entry.studyDate));

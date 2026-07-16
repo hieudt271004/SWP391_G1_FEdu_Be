@@ -32,9 +32,9 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: hieudtfptu@gmail.com
+    username: fedu.swp391@gmail.com
     password: ${MAIL_PASSWORD:}
-    from: hieudtfptu@gmail.com
+    from: fedu.swp391@gmail.com
     properties:
       mail:
         smtp:

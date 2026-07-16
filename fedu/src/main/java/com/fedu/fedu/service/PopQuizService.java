@@ -4,13 +4,13 @@ import com.fedu.fedu.dto.req.AttemptSubmissionRequest;
 import com.fedu.fedu.dto.req.CreatePopQuizRequest;
 import com.fedu.fedu.dto.res.*;
 
-/**
- * Giao, hiển thị, làm, chấm và quản lý bài kiểm tra ad-hoc (pop quiz) trong buổi ON_CLASS
- * cho một nhóm học sinh được chọn. Điểm không tác động routing/level/learning path.
- */
+
+
+
+
 public interface PopQuizService {
 
-    // ---- Teacher side ----
+    
 
     PopQuizAssignmentResponse createAndAssign(Long nodeId, CreatePopQuizRequest request, Long teacherId);
 
@@ -22,9 +22,9 @@ public interface PopQuizService {
 
     void closeAssignment(Long assignmentId, Long teacherId);
 
-    // ---- Student side ----
+    
 
-    /** data = null khi không có assignment nào giao cho học sinh này tại node đó. */
+    
     PopQuizPendingResponse getPending(Long nodeId, Long studentId);
 
     PopQuizPaperResponse startAttempt(Long assignmentId, Long studentId);

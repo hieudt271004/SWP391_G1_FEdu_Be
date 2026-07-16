@@ -11,7 +11,7 @@ import type {
 } from '../types/submentor';
 import type { SubmissionResponse } from './student.service';
 
-// ── Pop Quiz types ──────────────────────────────────────────────────────────
+
 export interface CreatePopQuizRequest {
   title: string;
   durationMinutes?: number;
@@ -68,7 +68,7 @@ export const teacherService = {
   cancelStudentPlacement: (csId: number, studentId: number) =>
     http.post<void>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/placement/cancel`),
 
-  // ─── Sub-mentor & Support Tickets ──────────────────────────────────────────
+  
   enableSubMentor: (classroomSubjectId: number, cssId: number) =>
     http.post<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/sub-mentors/${cssId}/enable`),
 
@@ -96,7 +96,7 @@ export const teacherService = {
   gradeSubmission: (submissionId: number, grade: number, feedback?: string) =>
     http.put<SubmissionResponse>(`/teacher-manage/submissions/${submissionId}/grade`, { grade, feedback }),
 
-  // ─── Pop Quiz ──────────────────────────────────────────────────────────────
+  
   getActivePopQuiz: (nodeId: number) =>
     http.get<PopQuizAssignmentResponse>(`/teacher-manage/on-class/${nodeId}/pop-quiz/active`),
 

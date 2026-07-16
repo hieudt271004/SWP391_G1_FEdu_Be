@@ -45,7 +45,7 @@ export function TermsPage() {
     <div className="flex h-screen w-full">
       <LeftPanel />
       <div className="w-full lg:w-1/2 flex flex-col bg-background text-foreground">
-        {/* Header */}
+        {}
         <div className="flex items-center gap-3 px-8 py-5 border-b border-border bg-card">
           <Button
             variant="ghost"
@@ -65,7 +65,7 @@ export function TermsPage() {
           <div className="w-16" />
         </div>
 
-        {/* Content */}
+        {}
         <div className="flex-1 overflow-y-auto px-8 py-6">
           <div className="text-sm leading-relaxed text-muted-foreground">
             <p className="text-xs text-muted-foreground/80 mb-6">
@@ -80,7 +80,7 @@ export function TermsPage() {
           </div>
         </div>
 
-        {/* Footer */}
+        {}
         <div className="px-8 py-5 border-t border-border bg-card">
           <Button
             onClick={() => window.close()}

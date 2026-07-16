@@ -68,7 +68,7 @@ export function RegisterPage() {
     <div className="flex h-screen w-full font-sans bg-background text-foreground">
       <LeftPanel />
       <div className="w-full lg:w-1/2 flex bg-background text-foreground overflow-y-auto p-4 lg:p-8 relative">
-        {/* Theme Toggle Button */}
+        {}
         <div className="absolute top-6 right-6 z-10">
           <Button
             variant="ghost"
@@ -80,12 +80,12 @@ export function RegisterPage() {
           </Button>
         </div>
 
-        {/* Glow backdrop */}
+        {}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
         
         <div className="m-auto w-full max-w-md py-8 relative">
 
-          {/* Mobile logo */}
+          {}
           <Link to="/" className="lg:hidden flex items-center gap-2.5 mb-8 w-fit hover:opacity-90 transition-opacity">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary text-primary-foreground shadow-sm">
               <BookOpen className="w-4.5 h-4.5" />
@@ -108,7 +108,7 @@ export function RegisterPage() {
 
           <form className="mt-8 space-y-5" onSubmit={(e) => { e.preventDefault(); handleRegister(); }}>
 
-            {/* Họ & Tên */}
+            {}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label htmlFor="reg-first" className="text-xs font-semibold text-foreground">Họ</label>
@@ -142,7 +142,7 @@ export function RegisterPage() {
               </div>
             </div>
 
-            {/* Email */}
+            {}
             <div className="space-y-1.5">
               <label htmlFor="reg-email" className="text-xs font-semibold text-foreground">Email</label>
               <div className="relative">
@@ -159,7 +159,7 @@ export function RegisterPage() {
               {errors.email && <p className="text-[11px] text-destructive mt-1">* {errors.email}</p>}
             </div>
 
-            {/* Mật khẩu */}
+            {}
             <div className="space-y-1.5">
               <label htmlFor="reg-password" className="text-xs font-semibold text-foreground">Mật khẩu</label>
               <div className="relative">
@@ -183,7 +183,7 @@ export function RegisterPage() {
               {errors.pw && <p className="text-[11px] text-destructive mt-1">* {errors.pw}</p>}
             </div>
 
-            {/* Xác nhận mật khẩu */}
+            {}
             <div className="space-y-1.5">
               <label htmlFor="reg-confirm" className="text-xs font-semibold text-foreground">Xác nhận mật khẩu</label>
               <div className="relative">
@@ -240,7 +240,7 @@ export function RegisterPage() {
             </div>
             {errors.terms && <p className="text-[11px] text-destructive mt-1">* {errors.terms}</p>}
 
-            {/* Submit */}
+            {}
             <Button
               type="submit"
               disabled={loading}
@@ -249,14 +249,14 @@ export function RegisterPage() {
               {loading ? "Đang tạo..." : "Tạo tài khoản"}
             </Button>
 
-            {/* Divider */}
+            {}
             <div className="relative flex items-center gap-3">
               <div className="flex-1 h-px bg-border" />
               <span className="text-muted-foreground text-[11px]">hoặc đăng ký với</span>
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            {/* Social */}
+            {}
             <div className="grid grid-cols-2 gap-3">
               {[{ name: "Google", color: "#ea4335" }, { name: "Facebook", color: "#1877f2" }].map(({ name, color }) => (
                 <Button

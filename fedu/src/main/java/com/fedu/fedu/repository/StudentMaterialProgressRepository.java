@@ -23,10 +23,8 @@ public interface StudentMaterialProgressRepository extends JpaRepository<Student
 
     @Query("SELECT COUNT(p) FROM StudentMaterialProgress p " +
            "WHERE p.classroomSubjectStudent.student.userId = :studentId " +
-           "AND p.material.learningNode.learningPath.pathId = :pathId " +
-           "AND (p.material.learningNode.level IS NULL OR p.material.learningNode.level = :level)")
-    int countCompletedMaterialsByStudentAndPathAndLevel(
-            @Param("studentId") Long studentId, 
-            @Param("pathId") Long pathId, 
-            @Param("level") Integer level);
+           "AND p.material.learningNode.nodeId IN :nodeIds")
+    int countCompletedMaterialsByStudentAndNodeIds(
+            @Param("studentId") Long studentId,
+            @Param("nodeIds") java.util.Collection<Long> nodeIds);
 }

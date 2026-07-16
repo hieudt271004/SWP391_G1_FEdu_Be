@@ -60,7 +60,7 @@ export function StatsSection() {
 
   return (
     <section className="bg-background border-y border-border py-16 font-sans text-foreground relative overflow-hidden">
-      {/* Subtle backdrop light glow */}
+      {}
       <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-muted/30 blur-[80px] pointer-events-none" />
       
       <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-10 items-center relative">

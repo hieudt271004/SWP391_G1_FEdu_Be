@@ -18,7 +18,7 @@ export type AddNodeKind = "AT_HOME" | "ON_CLASS" | "GATE" | "PLACEMENT" | "FREE_
 
 export const isLearningNode = (n: LearningNodeResponse) => n.testKind == null || n.testKind === "NONE";
 export const isPlacementNode = (n: LearningNodeResponse) => n.testKind === "PLACEMENT";
-// GATE và FREE_CHOICE đều nằm CÙNG STAGE với các node học của nhánh.
+
 export const isGateLikeNode = (n: LearningNodeResponse) =>
   n.testKind === "GATE" || n.testKind === "FREE_CHOICE";
 
@@ -47,10 +47,10 @@ export function computeDesiredEdges(
   const chungLearnAt = (s: number) =>
     (byStage.get(s) ?? []).find((n) => isLearningNode(n) && n.level == null) ?? null;
   const placementAt = (s: number) => (byStage.get(s) ?? []).find(isPlacementNode) ?? null;
-  // GATE (phân luồng) và FREE_CHOICE (tự do chọn) nối cạnh KHÁC nhau → tách riêng.
+  
   const gatesAt = (s: number) => (byStage.get(s) ?? []).filter((n) => n.testKind === "GATE");
   const freeChoiceAt = (s: number) => (byStage.get(s) ?? []).filter((n) => n.testKind === "FREE_CHOICE");
-  // Một chặng có thể có NHIỀU gate (vd Yếu+TB 1 gate, Khá 1 gate riêng).
+  
   const gateCovering = (s: number, x: Lvl): LearningNodeResponse | null => {
     for (const g of gatesAt(s)) {
       const a = parseApplies(g.appliesLevels);
@@ -58,7 +58,7 @@ export function computeDesiredEdges(
     }
     return null;
   };
-  // Test tự do = 3 node, mỗi node ứng 1 nhánh (level = mức đích). Đạt bài nào → nhánh đó.
+  
   const freeChoiceForLevel = (s: number, x: Lvl): LearningNodeResponse | null =>
     freeChoiceAt(s).find((t) => t.level === x) ?? null;
 
@@ -69,12 +69,18 @@ export function computeDesiredEdges(
     if (fc) return fc;
     const g = gateCovering(s, x);
     if (g) return g;
-    return learnAt(s, x) ?? chungLearnAt(s); // mức auto-pass (không test nào phụ trách)
+    return learnAt(s, x) ?? chungLearnAt(s); 
   };
   const entryForLevel = (s: number, x: Lvl): LearningNodeResponse | null => {
     const pl = placementAt(s);
     if (pl) return pl;
-    return learnAt(s, x) ?? chungLearnAt(s);
+    const learn = learnAt(s, x) ?? chungLearnAt(s);
+    if (learn) return learn;
+    
+    
+    
+    
+    return gateCovering(s, x);
   };
 
   const result = new Set<string>();
@@ -82,26 +88,38 @@ export function computeDesiredEdges(
     if (from !== to) result.add(`${from}->${to}`);
   };
 
-  // Trong stage: nối node học của nhánh vào test.
+  
   for (const s of stages) {
     const learns = (byStage.get(s) ?? []).filter(isLearningNode);
-    // GATE: chỉ nhánh có mức ∈ applies (có thể nhiều gate).
+    
     for (const g of gatesAt(s)) {
       const applies = parseApplies(g.appliesLevels);
       for (const L of learns) {
         if (L.level == null || applies.size === 0 || applies.has(L.level)) add(L.nodeId, g.nodeId);
       }
     }
-    // FREE_CHOICE: MỌI nhánh → MỖI node test tự do (HS chọn bài nào cũng được).
+    
     const fcs = freeChoiceAt(s);
     if (fcs.length) {
       for (const L of learns) for (const t of fcs) add(L.nodeId, t.nodeId);
     }
   }
-  // Giữa 2 stage liền kề.
+  
   for (let i = 0; i < stages.length - 1; i++) {
     const s = stages[i];
     const t = stages[i + 1];
+    
+    
+    
+    const tFcs = freeChoiceAt(t);
+    const tHasLearnable = placementAt(t) != null || (byStage.get(t) ?? []).some(isLearningNode);
+    if (tFcs.length > 0 && !tHasLearnable) {
+      for (const x of ALL_LEVELS) {
+        const e = exitForLevel(s, x);
+        if (e) for (const fc of tFcs) add(e.nodeId, fc.nodeId);
+      }
+      continue;
+    }
     for (const x of ALL_LEVELS) {
       const e = exitForLevel(s, x);
       const n = entryForLevel(t, x);
@@ -132,7 +150,7 @@ export async function syncEdges(
       try {
         await adapter.deleteEdge(e.edgeId);
       } catch {
-        /* bỏ qua */
+        
       }
     }
   }
@@ -141,7 +159,7 @@ export async function syncEdges(
       try {
         await adapter.createEdge({ fromNodeId: e.from, toNodeId: e.to });
       } catch {
-        /* bỏ qua nếu cạnh đã tồn tại */
+        
       }
     }
   }
@@ -163,7 +181,7 @@ export function resolveNodePlacement(params: {
   const stageHasPlacement = stageNodes.some(isPlacementNode);
 
   if (kind === "PLACEMENT") {
-    // Test năng lực: mọi mức đều thi → đứng MỘT MÌNH ở chặng của nó.
+    
     if (stageNodes.length > 0) {
       return { error: `Test năng lực phải đứng riêng một chặng. Chặng ${stage} đã có node khác.` };
     }
@@ -188,7 +206,7 @@ export function resolveNodePlacement(params: {
       return { error: "Chọn ít nhất 1 mức làm test phân luồng." };
     }
     const sorted = [...applies].sort((a, b) => a - b);
-    // Test phân luồng chỉ ghép các mức LIỀN KỀ (tối đa 2): {Yếu},{TB},{Khá},{Yếu,TB},{TB,Khá}.
+    
     const contiguousPair = sorted.length <= 2 && (sorted.length < 2 || sorted[1] - sorted[0] === 1);
     if (!contiguousPair) {
       return {
@@ -196,7 +214,7 @@ export function resolveNodePlacement(params: {
           "Test phân luồng chỉ ghép 2 mức liền kề (Yếu+TB hoặc TB+Khá). Yếu và Khá phải tách riêng — hoặc dùng Test tự do chọn.",
       };
     }
-    // Mỗi mức chỉ thuộc 1 test phân luồng trong cùng chặng (không chồng mức).
+    
     const overlap = stageNodes.filter(isGateLikeNode).some((g) => {
       const a = parseApplies(g.appliesLevels);
       return a.size === 0 || sorted.some((x) => a.has(x));
@@ -207,7 +225,7 @@ export function resolveNodePlacement(params: {
     return { level: sorted.length === 1 ? sorted[0] : null, appliesLevels: sorted.join(",") };
   }
 
-  // Node học (AT_HOME / ON_CLASS)
+  
   if (stageHasPlacement) {
     return { error: `Chặng ${stage} là chặng test năng lực — không thêm node học.` };
   }

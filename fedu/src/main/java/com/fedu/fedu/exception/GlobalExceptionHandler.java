@@ -51,7 +51,7 @@ public class GlobalExceptionHandler {
                 .body(new ResponseError(HttpStatus.BAD_REQUEST.value(), message));
     }
 
-    /** Token sai/hết hạn, sai mật khẩu */
+    
     @ExceptionHandler({AuthenticationException.class, BadCredentialsException.class})
     @ApiResponses(@ApiResponse(responseCode = "401", description = "Unauthorized",
             content = @Content(mediaType = APPLICATION_JSON_VALUE, examples = @ExampleObject(
@@ -62,7 +62,7 @@ public class GlobalExceptionHandler {
                 .body(new ResponseError(HttpStatus.UNAUTHORIZED.value(), e.getMessage()));
     }
 
-    /** Đã login nhưng không đủ quyền */
+    
     @ExceptionHandler(AccessDeniedException.class)
     @ApiResponses(@ApiResponse(responseCode = "403", description = "Forbidden",
             content = @Content(mediaType = APPLICATION_JSON_VALUE, examples = @ExampleObject(
@@ -73,7 +73,7 @@ public class GlobalExceptionHandler {
                 .body(new ResponseError(HttpStatus.FORBIDDEN.value(), "Bạn không có quyền truy cập"));
     }
 
-    /** Resource không tồn tại */
+    
     @ExceptionHandler(ResourceNotFoundException.class)
     @ApiResponses(@ApiResponse(responseCode = "404", description = "Not Found",
             content = @Content(mediaType = APPLICATION_JSON_VALUE, examples = @ExampleObject(
@@ -119,7 +119,7 @@ public class GlobalExceptionHandler {
                 .body(new ResponseData<>(HttpStatus.CONFLICT.value(), "Trùng lịch ca học", e.getConflictResponse()));
     }
 
-    /** Fallback */
+    
     @ExceptionHandler(Exception.class)
     @ApiResponses(@ApiResponse(responseCode = "500", description = "Internal Server Error",
             content = @Content(mediaType = APPLICATION_JSON_VALUE, examples = @ExampleObject(

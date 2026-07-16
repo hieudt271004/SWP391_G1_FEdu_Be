@@ -69,7 +69,7 @@ export function StudentDetailsPage() {
   ]);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({
-    4: true, // Keep 'current' module expanded by default
+    4: true, 
   });
 
   const toggleNode = (id: number) => {
@@ -92,7 +92,7 @@ export function StudentDetailsPage() {
     setNodes((prev) => [...prev, newNode]);
     setExpandedNodes((prev) => ({
       ...prev,
-      3: true, // automatically expand parent node 3 to show the new custom node
+      3: true, 
     }));
   };
 
@@ -249,7 +249,7 @@ export function StudentDetailsPage() {
                       key={node.id}
                       className={`transition-all duration-200 ${getStatusClasses(node.status)}`}
                     >
-                      {/* Card Header (Clickable toggle) */}
+                      {}
                       <div
                         onClick={() => toggleNode(node.id)}
                         className="flex items-center justify-between p-4 cursor-pointer select-none"
@@ -291,7 +291,7 @@ export function StudentDetailsPage() {
                         </div>
                       </div>
 
-                      {/* Card Expanded Content */}
+                      {}
                       {isExpanded && (
                         <div className="px-4 pb-4 pt-1 bg-muted/5 border-t border-muted/20 space-y-4">
                           <p className="text-sm text-muted-foreground">{node.description}</p>

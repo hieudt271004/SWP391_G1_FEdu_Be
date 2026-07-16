@@ -35,7 +35,7 @@ public class TeacherReportServiceImpl implements TeacherReportService {
     @Override
     @Transactional(readOnly = true)
     public List<StudentProgressReportResponse> getProgressReport(Long classroomSubjectId, Long teacherId) {
-        // Endpoint teacher-only (controller đã chặn role); admin cần xem thì thêm endpoint /classrooms riêng
+        
         if (!classroomSubjectRepository.existsByIdAndLecturerUserId(classroomSubjectId, teacherId)) {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
         }
@@ -50,7 +50,7 @@ public class TeacherReportServiceImpl implements TeacherReportService {
                 .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
                 .orElse(null);
 
-        // Chưa có lộ trình / chưa publish → trả row toàn 0 cho từng học sinh để bảng FE hiển thị đồng nhất
+        
         Map<Long, List<StudentNodeProgress>> progressByCss;
         if (path == null || path.getPublishedAt() == null) {
             progressByCss = Map.of();
@@ -70,8 +70,8 @@ public class TeacherReportServiceImpl implements TeacherReportService {
     private StudentProgressReportResponse buildRow(ClassroomSubjectStudent css, List<StudentNodeProgress> rows) {
         Integer level = css.getCurrentLevel();
 
-        // Chỉ tính node học sinh thực sự thấy trên lộ trình: đúng mức (hoặc chung), không tính PLACEMENT
-        // (PLACEMENT được auto-COMPLETED lúc seed, node khác mức bị LOCKED vĩnh viễn — đều là nhiễu)
+        
+        
         List<StudentNodeProgress> visible = rows.stream()
                 .filter(p -> p.getLearningNode().getTestKind() != NodeTestKind.PLACEMENT)
                 .filter(p -> p.getLearningNode().getLevel() == null

@@ -13,8 +13,7 @@ public interface TestRepository extends JpaRepository<Test, Long> {
     Optional<Test> findByTestIdAndIsDeletedFalse(Long testId);
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(t) FROM Test t " +
-           "WHERE t.learningNode.learningPath.pathId = :pathId " +
-           "AND t.isDeleted = false " +
-           "AND (t.learningNode.level IS NULL OR t.learningNode.level = :level)")
-    int countTotalTestsByPathIdAndLevel(@org.springframework.data.repository.query.Param("pathId") Long pathId, @org.springframework.data.repository.query.Param("level") Integer level);
+           "WHERE t.learningNode.nodeId IN :nodeIds " +
+           "AND t.isDeleted = false")
+    int countByLearningNodeNodeIdInAndIsDeletedFalse(@org.springframework.data.repository.query.Param("nodeIds") java.util.Collection<Long> nodeIds);
 }

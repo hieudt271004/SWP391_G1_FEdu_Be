@@ -69,7 +69,7 @@ public class StudentLearningPathController {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found"));
 
-        // Check student node progress status
+        
         StudentNodeProgress progress = studentNodeProgressRepository
                 .findByStudentUserIdAndLearningPathPathId(currentUser.getUserId(), node.getLearningPath().getPathId())
                 .stream()
@@ -81,14 +81,14 @@ public class StudentLearningPathController {
             throw new AccessDeniedException("Bài học này hiện đang bị khóa");
         }
 
-        // Auto transition OPEN -> IN_PROGRESS on first access
+        
         if (progress.getStatus() == StudentProgressStatus.OPEN) {
             progress.setStatus(StudentProgressStatus.IN_PROGRESS);
             studentNodeProgressRepository.save(progress);
         }
 
         NodeContentResponse content = nodeContentService.getNodeContent(nodeId);
-        // Đề đã soạn nhưng chưa phát (releasedAt null) không hiện với học sinh
+        
         if (content.getTests() != null) {
             content.getTests().removeIf(t -> t.getReleasedAt() == null);
         }

@@ -5,108 +5,95 @@ hide circle
 skinparam linetype ortho
 
 entity "user_account" as user_account {
-  * user_id : BIGSERIAL [PK]
+  * user_id : BIGINT [PK]
   --
-  * email : VARCHAR(100)
-  * password : VARCHAR(255)
-  * last_name : VARCHAR(255)
-  * first_name : VARCHAR(255)
-  avatar_url : TEXT
-  is_deleted : BOOLEAN
-  * status : e_user_status
-  gender : e_gender
   bod : DATE
-  phone : VARCHAR(50)
+  is_deleted : BOOLEAN
+  avatar_url : TEXT
+  * email : VARCHAR(255)
+  * first_name : VARCHAR(255)
+  gender : VARCHAR(10)
+  * last_name : VARCHAR(255)
+  * password : VARCHAR(255)
+  phone : VARCHAR(255)
+  status : VARCHAR(20)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "roles" as roles {
-  * role_id : BIGSERIAL [PK]
+  * role_id : BIGINT [PK]
   --
-  * role_name : e_role
+  role_name : VARCHAR(20)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "user_role" as user_role {
-  * user_role_id : BIGSERIAL [PK]
+  * user_role_id : BIGINT [PK]
   --
+  * role_id : BIGINT [FK]
   * user_id : BIGINT [FK]
-  * role_id : BIGINT [FK]
-}
-
-entity "permissions" as permissions {
-  * permission_id : BIGSERIAL [PK]
-  --
-  * permission_name : VARCHAR(100)
-  description : VARCHAR(255)
-  created_at : TIMESTAMP
-  updated_at : TIMESTAMP
-}
-
-entity "role_permission" as role_permission {
-  * role_permission_id : BIGSERIAL [PK]
-  --
-  * role_id : BIGINT [FK]
-  * permission_id : BIGINT [FK]
-  created_at : TIMESTAMP
 }
 
 entity "tokens" as tokens {
-  * id : BIGSERIAL [PK]
+  * id : BIGINT [PK]
   --
+  is_revoked : BOOLEAN
+  expired_at : TIMESTAMP
   * user_id : BIGINT [FK]
   access_token : TEXT
   refresh_token : TEXT
   reset_token : TEXT
-  expired_at : TIMESTAMP
-  is_revoked : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "subjects" as subjects {
-  * subject_id : BIGSERIAL [PK]
+  * subject_id : BIGINT [PK]
   --
-  * subject_code : VARCHAR(50)
-  * subject_name : VARCHAR(255)
-  description : TEXT
-  created_by : BIGINT [FK]
   is_deleted : BOOLEAN
+  created_by : BIGINT [FK]
+  * status : VARCHAR(50)
+  description : TEXT
+  * subject_code : VARCHAR(255)
+  * subject_name : VARCHAR(255)
+  learningpath_length : INT
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "classrooms" as classrooms {
-  * classroom_id : BIGSERIAL [PK]
+  * classroom_id : BIGINT [PK]
   --
-  * class_name : VARCHAR(255)
-  semester : VARCHAR(50)
-  description : TEXT
   is_deleted : BOOLEAN
+  * status : VARCHAR(50)
+  * class_name : VARCHAR(255)
+  description : TEXT
+  semester : VARCHAR(255)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "classroom_subjects" as classroom_subjects {
-  * id : BIGSERIAL [PK]
+  * id : BIGINT [PK]
   --
   * classroom_id : BIGINT [FK]
-  * subject_id : BIGINT [FK]
   * lecturer_id : BIGINT [FK]
+  * subject_id : BIGINT [FK]
+  id_quiz_start : BIGINT [FK]
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "classroom_subject_students" as classroom_subject_students {
-  * id : BIGSERIAL [PK]
+  * id : BIGINT [PK]
   --
   * classroom_subject_id : BIGINT [FK]
+  * joined_at : TIMESTAMP
   * student_id : BIGINT [FK]
   current_level : INT
-  is_submentor : BOOLEAN
-  joined_at : TIMESTAMP
+  * is_submentor : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
@@ -122,80 +109,102 @@ entity "sub_mentor_student_assignment" as sub_mentor_student_assignment {
 }
 
 entity "learning_paths" as learning_paths {
-  * path_id : BIGSERIAL [PK]
+  * path_id : BIGINT [PK]
   --
-  subject_id : BIGINT [FK]
-  * path_name : VARCHAR(255)
-  description : TEXT
-  created_by : BIGINT [FK]
-  classroom_id : BIGINT [FK]
-  original_path_id : BIGINT [FK]
   is_deleted : BOOLEAN
+  classroom_subject_id : BIGINT [FK]
+  created_by : BIGINT [FK]
+  original_path_id : BIGINT [FK]
+  published_at : TIMESTAMP
+  published_by : BIGINT [FK]
+  subject_id : BIGINT [FK]
+  description : TEXT
+  * path_name : VARCHAR(255)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "learning_nodes" as learning_nodes {
-  * node_id : BIGSERIAL [PK]
+  * node_id : BIGINT [PK]
   --
-  * path_id : BIGINT [FK]
-  * title : VARCHAR(255)
-  description : TEXT
-  * node_type : e_node_type
-  * node_status : e_node_status
+  * display_order : INT
   is_deleted : BOOLEAN
+  * is_required : BOOLEAN
+  * path_id : BIGINT [FK]
+  description : TEXT
+  node_status : VARCHAR(20)
+  node_type : VARCHAR(20)
+  * title : VARCHAR(255)
+  stage_order : INT
+  level : INT
+  test_kind : VARCHAR(20)
+  applies_levels : VARCHAR(20)
+  gate_up_min : DECIMAL(5,2)
+  gate_down_max : DECIMAL(5,2)
+  placement_yeu_max : DECIMAL(5,2)
+  placement_tb_max : DECIMAL(5,2)
+  study_date : DATE
+  slot_id : BIGINT [FK]
+  deadline_at : TIMESTAMP
+  session_started_at : TIMESTAMP
+  session_ended_at : TIMESTAMP
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "node_materials" as node_materials {
-  * material_id : BIGSERIAL [PK]
+  * material_id : BIGINT [PK]
   --
+  is_deleted : BOOLEAN
+  order_index : INT
+  required : BOOLEAN
   * node_id : BIGINT [FK]
   * title : VARCHAR(255)
-  required : BOOLEAN
-  order_index : INT
-  is_deleted : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "videos" as videos {
-  * video_id : BIGSERIAL [PK]
+  * video_id : BIGINT [PK]
   --
-  * material_id : BIGINT [FK]
-  * video_url : TEXT
-  title : VARCHAR(255)
   duration_seconds : INT
-  description : TEXT
   is_deleted : BOOLEAN
+  * material_id : BIGINT [FK]
+  description : TEXT
+  title : VARCHAR(255)
+  * video_url : TEXT
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "files" as files {
-  * file_id : BIGSERIAL [PK]
+  * file_id : BIGINT [PK]
   --
-  * material_id : BIGINT [FK]
-  * file_url : TEXT
-  file_name : VARCHAR(255)
-  file_type : VARCHAR(100)
-  description : TEXT
   is_deleted : BOOLEAN
+  * material_id : BIGINT [FK]
+  description : TEXT
+  file_name : VARCHAR(255)
+  file_type : VARCHAR(255)
+  * file_url : TEXT
+  public_id : VARCHAR(255)
+  resource_type : VARCHAR(20)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "tests" as tests {
-  * test_id : BIGSERIAL [PK]
+  * test_id : BIGINT [PK]
   --
-  * node_id : BIGINT [FK]
-  * title : VARCHAR(255)
-  description : TEXT
   duration_minutes : INT
-  passing_percentage : DECIMAL(5,2)
-  test_kind : VARCHAR(20)
   is_deleted : BOOLEAN
+  order_index : INT
+  passing_percentage : DECIMAL(5,2)
+  node_id : BIGINT [FK]
+  description : TEXT
+  * title : VARCHAR(255)
+  release_ends_at : TIMESTAMP
+  released_at : TIMESTAMP
+  * test_kind : VARCHAR(20)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
@@ -207,9 +216,9 @@ entity "test_assignments" as test_assignments {
   * node_id : BIGINT [FK]
   * classroom_subject_id : BIGINT [FK]
   * assigned_by : BIGINT [FK]
-  status : VARCHAR(20)
+  * status : VARCHAR(20)
   close_at : TIMESTAMP
-  is_deleted : BOOLEAN
+  * is_deleted : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
@@ -219,125 +228,132 @@ entity "test_assignment_students" as test_assignment_students {
   --
   * assignment_id : BIGINT [FK]
   * classroom_subject_student_id : BIGINT [FK]
-  status : VARCHAR(20)
+  * status : VARCHAR(20)
   attempt_id : BIGINT [FK]
-  is_deleted : BOOLEAN
+  * is_deleted : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "test_questions" as test_questions {
-  * question_id : BIGSERIAL [PK]
+  * question_id : BIGINT [PK]
   --
+  score : DECIMAL(5,2)
   * test_id : BIGINT [FK]
   * question_content : TEXT
-  * question_type : VARCHAR(50)
-  score : DECIMAL(5,2)
+  * question_type : VARCHAR(255)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "test_answers" as test_answers {
-  * answer_id : BIGSERIAL [PK]
+  * answer_id : BIGINT [PK]
   --
+  is_correct : BOOLEAN
   * question_id : BIGINT [FK]
   * answer_content : TEXT
-  is_correct : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "student_test_attempts" as student_test_attempts {
-  * attempt_id : BIGSERIAL [PK]
+  * attempt_id : BIGINT [PK]
   --
-  * test_id : BIGINT [FK]
-  * student_id : BIGINT [FK]
   score : DECIMAL(5,2)
   started_at : TIMESTAMP
+  * student_id : BIGINT [FK]
   submitted_at : TIMESTAMP
+  * test_id : BIGINT [FK]
+  status : VARCHAR(20)
+  tab_out_count : INT
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "student_test_responses" as student_test_responses {
-  * response_id : BIGSERIAL [PK]
+  * response_id : BIGINT [PK]
   --
+  is_correct : BOOLEAN
   * attempt_id : BIGINT [FK]
   * question_id : BIGINT [FK]
   selected_answer_id : BIGINT [FK]
   response_text : TEXT
-  is_correct : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "student_selected_answers" as student_selected_answers {
-  * response_id : BIGINT [PK, FK]
-  * answer_id : BIGINT [PK, FK]
+  --
+  * answer_id : BIGINT [FK]
+  * response_id : BIGINT [FK]
 }
 
 entity "student_node_progress" as student_node_progress {
-  * progress_id : BIGSERIAL [PK]
+  * progress_id : BIGINT [PK]
   --
-  * student_id : BIGINT [FK]
+  * order_index : INT
+  completed_at : TIMESTAMP
   * node_id : BIGINT [FK]
   * path_id : BIGINT [FK]
-  * order_index : INT
-  * status : VARCHAR(50)
   unlocked_at : TIMESTAMP
-  completed_at : TIMESTAMP
+  * status : VARCHAR(255)
+  * classroom_subject_student_id : BIGINT [FK]
+  completed_late : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "submissions" as submissions {
-  * submission_id : BIGSERIAL [PK]
+  * submission_id : BIGINT [PK]
   --
+  grade : DECIMAL(5,2)
+  is_deleted : BOOLEAN
+  graded_at : TIMESTAMP
+  graded_by : BIGINT [FK]
   * node_id : BIGINT [FK]
   * student_id : BIGINT [FK]
-  graded_by : BIGINT [FK]
-  title : VARCHAR(255)
-  content : TEXT
-  file_url : TEXT
-  submission_status : e_submission_status
-  grade : DECIMAL(5,2)
-  feedback : TEXT
-  is_deleted : BOOLEAN
   submitted_at : TIMESTAMP
-  graded_at : TIMESTAMP
+  content : TEXT
+  feedback : TEXT
+  file_url : TEXT
+  submission_status : VARCHAR(20)
+  title : VARCHAR(255)
+  exercise_id : BIGINT [FK]
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "node_questions" as node_questions {
-  * question_id : BIGSERIAL [PK]
+  * question_id : BIGINT [PK]
   --
+  is_deleted : BOOLEAN
   * node_id : BIGINT [FK]
   * student_id : BIGINT [FK]
   * content : TEXT
-  is_deleted : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "question_answers" as question_answers {
-  * answer_id : BIGSERIAL [PK]
+  * answer_id : BIGINT [PK]
   --
-  * question_id : BIGINT [FK]
   * lecturer_id : BIGINT [FK]
+  * question_id : BIGINT [FK]
   * content : TEXT
+  is_deleted : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
 entity "node_reviews" as node_reviews {
-  * review_id : BIGSERIAL [PK]
+  * review_id : BIGINT [PK]
   --
+  is_deleted : BOOLEAN
+  rating : INT
   * node_id : BIGINT [FK]
   * student_id : BIGINT [FK]
-  rating : INT
   content : TEXT
-  is_deleted : BOOLEAN
+  parent_review_id : BIGINT [FK]
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
@@ -349,62 +365,159 @@ entity "support_tickets" as support_tickets {
   * message_student : TEXT
   message_response : TEXT
   * status : VARCHAR(20)
+  * is_deleted : BOOLEAN
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "classroom_sub_mentor" as classroom_sub_mentor {
+  * id : BIGSERIAL [PK]
+  --
+  * classroom_subject_id : BIGINT [FK]
+  * sub_mentor_id : BIGINT [FK]
+  assigned_at : TIMESTAMP
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "node_edges" as node_edges {
+  * edge_id : BIGINT [PK]
+  --
+  * from_node_id : BIGINT [FK]
+  * to_node_id : BIGINT [FK]
+  * created_at : TIMESTAMP
+}
+
+entity "node_exercises" as node_exercises {
+  * exercise_id : BIGSERIAL [PK]
+  --
+  * node_id : BIGINT [FK]
+  * title : VARCHAR(255)
+  instructions : TEXT
+  allow_text : BOOLEAN
+  allow_file : BOOLEAN
+  order_index : INT
   is_deleted : BOOLEAN
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
 }
 
+entity "quiz_score_bands" as quiz_score_bands {
+  * band_id : BIGSERIAL [PK]
+  --
+  * test_id : BIGINT [FK]
+  * min_score : DECIMAL(5,2)
+  * max_score : DECIMAL(5,2)
+  * target_level : INT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "slots" as slots {
+  * slot_id : BIGSERIAL [PK]
+  --
+  * slot_name : VARCHAR(50)
+  * start_time : TIME
+  * end_time : TIME
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity "student_learning_routes" as student_learning_routes {
+  * id : BIGINT [PK]
+  --
+  * assigned_at : TIMESTAMP
+  assigned_by : BIGINT [FK]
+  * edge_id : BIGINT [FK]
+  * student_id : BIGINT [FK]
+}
+
+entity "student_level_history" as student_level_history {
+  * id : BIGSERIAL [PK]
+  --
+  * student_id : BIGINT [FK]
+  * classroom_subject_id : BIGINT [FK]
+  old_level : INT
+  * new_level : INT
+  * reason : VARCHAR(50)
+  changed_at : TIMESTAMP
+}
+
+entity "student_material_progress" as student_material_progress {
+  * progress_id : BIGSERIAL [PK]
+  --
+  * classroom_subject_student_id : BIGINT [FK]
+  * material_id : BIGINT [FK]
+  completed_at : TIMESTAMP
+}
+
 ' Relationships
-user_account ||--o{ user_role
-roles ||--o{ user_role
-roles ||--o{ role_permission
-permissions ||--o{ role_permission
-user_account ||--o{ tokens
-user_account ||--o{ subjects
-classrooms ||--o{ classroom_subjects
-subjects ||--o{ classroom_subjects
-user_account ||--o{ classroom_subjects
-classroom_subjects ||--o{ classroom_subject_students
-user_account ||--o{ classroom_subject_students
-classroom_subject_students ||--o{ sub_mentor_student_assignment : "sub_mentor_css"
-classroom_subject_students ||--o{ sub_mentor_student_assignment : "student_css"
+tests ||--o{ classroom_subjects
+tests ||--o{ quiz_score_bands
+user_account ||--o{ student_level_history
+classroom_subjects ||--o{ student_level_history
+classroom_subject_students ||--o{ student_node_progress
+learning_nodes ||--o{ node_exercises
+node_exercises ||--o{ submissions
+classroom_subject_students ||--o{ sub_mentor_student_assignment : "sub_mentor_css_id"
+classroom_subject_students ||--o{ sub_mentor_student_assignment : "student_css_id"
 classroom_subject_students ||--o{ support_tickets
+classroom_subjects ||--o{ classroom_sub_mentor
+user_account ||--o{ classroom_sub_mentor
+slots ||--o{ learning_nodes
+classroom_subject_students ||--o{ student_material_progress
+node_materials ||--o{ student_material_progress
+user_account ||--o{ learning_paths : "published_by"
+user_account ||--o{ learning_paths : "created_by"
 subjects ||--o{ learning_paths
-classrooms ||--o{ learning_paths
-user_account ||--o{ learning_paths
-learning_paths ||--o{ learning_paths
-learning_paths ||--o{ learning_nodes
-learning_nodes ||--o{ node_materials
-node_materials ||--o{ videos
-node_materials ||--o{ files
-learning_nodes ||--o{ tests
-tests ||--o{ test_questions
-test_questions ||--o{ test_answers
+node_reviews ||--o{ node_reviews
 tests ||--o{ test_assignments
 learning_nodes ||--o{ test_assignments
 classroom_subjects ||--o{ test_assignments
-user_account ||--o{ test_assignments : "assigned_by"
+user_account ||--o{ test_assignments
 test_assignments ||--o{ test_assignment_students
 classroom_subject_students ||--o{ test_assignment_students
 student_test_attempts ||--o{ test_assignment_students
-tests ||--o{ student_test_attempts
-user_account ||--o{ student_test_attempts
-student_test_attempts ||--o{ student_test_responses
-test_questions ||--o{ student_test_responses
-test_answers ||--o{ student_test_responses
-student_test_responses ||--o{ student_selected_answers
-test_answers ||--o{ student_selected_answers
-user_account ||--o{ student_node_progress
-learning_nodes ||--o{ student_node_progress
-learning_paths ||--o{ student_node_progress
-learning_nodes ||--o{ submissions
-user_account ||--o{ submissions
-user_account ||--o{ submissions
+classroom_subjects ||--o{ learning_paths
+learning_paths ||--o{ learning_paths
+classroom_subjects ||--o{ classroom_subject_students
+user_account ||--o{ classroom_subject_students
+classrooms ||--o{ classroom_subjects
+user_account ||--o{ classroom_subjects
+subjects ||--o{ classroom_subjects
+node_materials ||--o{ files
+learning_paths ||--o{ learning_nodes
+learning_nodes ||--o{ node_edges : "from_node_id"
+learning_nodes ||--o{ node_edges : "to_node_id"
+learning_nodes ||--o{ node_materials
 learning_nodes ||--o{ node_questions
 user_account ||--o{ node_questions
-node_questions ||--o{ question_answers
-user_account ||--o{ question_answers
 learning_nodes ||--o{ node_reviews
 user_account ||--o{ node_reviews
+user_account ||--o{ question_answers
+node_questions ||--o{ question_answers
+user_account ||--o{ student_learning_routes : "assigned_by"
+user_account ||--o{ student_learning_routes : "student_id"
+node_edges ||--o{ student_learning_routes
+learning_nodes ||--o{ student_node_progress
+learning_paths ||--o{ student_node_progress
+test_answers ||--o{ student_selected_answers
+student_test_responses ||--o{ student_selected_answers
+user_account ||--o{ student_test_attempts
+tests ||--o{ student_test_attempts
+test_answers ||--o{ student_test_responses
+student_test_attempts ||--o{ student_test_responses
+test_questions ||--o{ student_test_responses
+user_account ||--o{ subjects
+user_account ||--o{ submissions : "graded_by"
+user_account ||--o{ submissions : "student_id"
+learning_nodes ||--o{ submissions
+test_questions ||--o{ test_answers
+tests ||--o{ test_questions
+learning_nodes ||--o{ tests
+user_account ||--o{ tokens
+roles ||--o{ user_role
+user_account ||--o{ user_role
+node_materials ||--o{ videos
 
 @enduml

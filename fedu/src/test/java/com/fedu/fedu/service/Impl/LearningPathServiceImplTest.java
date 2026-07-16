@@ -56,7 +56,7 @@ class LearningPathServiceImplTest {
     @Mock
     private NodeExerciseRepository nodeExerciseRepository;
 
-    // Guard thật (không mock) để isAdminTemplate/canUseTemplate chạy đúng logic trong test
+    
     @Spy
     @InjectMocks
     private TemplateEditGuard templateEditGuard;
@@ -111,7 +111,7 @@ class LearningPathServiceImplTest {
         SecurityContextHolder.clearContext();
     }
 
-    // Unit test cloneLearningPath
+    
     @Test
     void testCloneLearningPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -158,7 +158,7 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // Unit test cycle detection iterative Kahn
+    
     @Test
     void testCloneLearningPath_CycleDetected() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -175,7 +175,7 @@ class LearningPathServiceImplTest {
         LearningNode node2 = LearningNode.builder().nodeId(2L).title("Node 2").build();
         when(learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(202L)).thenReturn(Arrays.asList(node1, node2));
 
-        // Create a cycle: 1 -> 2 and 2 -> 1
+        
         NodeEdge edge1 = NodeEdge.builder().fromNode(node1).toNode(node2).build();
         NodeEdge edge2 = NodeEdge.builder().fromNode(node2).toNode(node1).build();
         when(nodeEdgeRepository.findByFromNodeLearningPathPathId(202L)).thenReturn(Arrays.asList(edge1, edge2));
@@ -187,7 +187,7 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // Unit test getClassroomGraph
+    
     @Test
     void testGetClassroomGraph_NoPath() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -241,7 +241,7 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // Unit test publishClassroomPath
+    
     @Test
     void testPublishClassroomPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -330,7 +330,7 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // Unit test unpublishClassroomPath
+    
     @Test
     void testUnpublishClassroomPath_Success() {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
@@ -377,7 +377,7 @@ class LearningPathServiceImplTest {
         clearAuthentication();
     }
 
-    // 6.6 Unit test backfillProgressForStudent
+    
     @Test
     void testBackfillProgressForStudent_Success() {
         LearningPath path = new LearningPath();

@@ -14,7 +14,7 @@ public class CloneablePathResponse {
     private Long pathId;
     private String pathName;
     private String description;
-    private String type; // "ADMIN_TEMPLATE" (của khoa) hoặc "MY_TEMPLATE" (cá nhân của GV hiện tại)
+    private String type; 
     private String creatorName;
     private int nodeCount;
     private LocalDateTime lastUpdatedAt;

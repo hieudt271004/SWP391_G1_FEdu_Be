@@ -69,10 +69,10 @@ public class PopQuizIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Commit fixtures in their own transaction (REQUIRES_NEW) so worker threads spawned by the
-        // concurrency test (separate connections) can actually see them — same pattern as
-        // LearningPathIntegrationTest.setUp(), since the class-level @Transactional rollback wrapper
-        // never commits, and other connections only ever see committed data.
+        
+        
+        
+        
         transactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         transactionTemplate.execute(status -> {
             setUpFixtures();
@@ -81,7 +81,7 @@ public class PopQuizIntegrationTest {
     }
 
     private void setUpFixtures() {
-        // Clear in dependency order (children before parents) — shared Neon DB, no reliance on cascade.
+        
         jdbcTemplate.execute("DELETE FROM test_assignment_students");
         jdbcTemplate.execute("DELETE FROM test_assignments");
         jdbcTemplate.execute("DELETE FROM support_tickets");
@@ -109,9 +109,9 @@ public class PopQuizIntegrationTest {
         jdbcTemplate.execute("DELETE FROM classrooms");
         jdbcTemplate.execute("DELETE FROM subjects");
         jdbcTemplate.execute("DELETE FROM tokens");
-        // setUp() now commits for real (REQUIRES_NEW, needed so worker threads in the concurrency
-        // test see it) — these fixture users would otherwise persist and collide on email across
-        // this class's tests, unlike the other integration tests where user creation rolls back.
+        
+        
+        
         jdbcTemplate.execute("DELETE FROM user_account WHERE email LIKE '%@popquiz.test'");
 
         Subject subject = subjectRepository.save(Subject.builder()
@@ -123,7 +123,7 @@ public class PopQuizIntegrationTest {
 
         Classroom classroom = classroomRepository.save(Classroom.builder()
                 .className("PQ101")
-                .status("active")
+                .status(com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE)
                 .isDeleted(false)
                 .build());
 
@@ -206,7 +206,7 @@ public class PopQuizIntegrationTest {
                 .build();
     }
 
-    // ==================== 6.1: main flow ====================
+    
 
     @Test
     void fullFlow_assignPollStartSubmitResetRetakeClose() {
@@ -220,13 +220,13 @@ public class PopQuizIntegrationTest {
         assertEquals(TestKind.POP_QUIZ, createdTest.getTestKind());
         assertEquals(2, assignment.getTargetStudentCount());
 
-        // Targeted student sees it; non-targeted student sees nothing.
+        
         PopQuizPendingResponse pendingS1 = popQuizService.getPending(onClassNode.getNodeId(), student1.getUserId());
         assertNotNull(pendingS1);
         assertEquals(PopQuizStudentStatus.PENDING, pendingS1.getStatus());
         assertNull(popQuizService.getPending(onClassNode.getNodeId(), studentOutsider.getUserId()));
 
-        // Start: exactly one attempt, shuffled paper.
+        
         PopQuizPaperResponse paper = popQuizService.startAttempt(assignment.getAssignmentId(), student1.getUserId());
         assertEquals(2, paper.getQuestions().size());
         List<Long> firstOrder = paper.getQuestions().stream().map(QuestionResponse::getQuestionId).toList();
@@ -234,20 +234,20 @@ public class PopQuizIntegrationTest {
         assertThrows(InvalidDataException.class,
                 () -> popQuizService.startAttempt(assignment.getAssignmentId(), student1.getUserId()));
 
-        // Re-fetch preserves order.
+        
         PopQuizPaperResponse refetched = popQuizService.getPaper(assignment.getAssignmentId(), student1.getUserId());
         List<Long> secondOrder = refetched.getQuestions().stream().map(QuestionResponse::getQuestionId).toList();
         assertEquals(firstOrder, secondOrder);
 
-        // Submit correct answers -> graded, no routing side effects.
+        
         AttemptSubmissionRequest submission = buildCorrectSubmission(paper);
         AttemptSubmissionResultResponse result = popQuizService.submit(assignment.getAssignmentId(), student1.getUserId(), submission);
         assertEquals(0, BigDecimal.valueOf(100).compareTo(result.getScore()));
 
         ClassroomSubjectStudent refreshedCss1 = classroomSubjectStudentRepository.findById(css1.getId()).orElseThrow();
-        assertEquals(2, refreshedCss1.getCurrentLevel()); // unchanged by pop-quiz grading
+        assertEquals(2, refreshedCss1.getCurrentLevel()); 
 
-        // Teacher reset: old attempt cancelled but kept as audit; student can retake.
+        
         Long firstAttemptId = result.getAttemptId();
         popQuizService.resetStudent(assignment.getAssignmentId(), css1.getId(), teacherA.getUserId());
         StudentTestAttempt cancelled = studentTestAttemptRepository.findById(firstAttemptId).orElseThrow();
@@ -256,7 +256,7 @@ public class PopQuizIntegrationTest {
         PopQuizPaperResponse retakePaper = popQuizService.startAttempt(assignment.getAssignmentId(), student1.getUserId());
         assertNotEquals(firstAttemptId, retakePaper.getAttemptId());
 
-        // Close: new starts blocked, but the in-progress retake can still submit.
+        
         popQuizService.closeAssignment(assignment.getAssignmentId(), teacherA.getUserId());
         assertThrows(InvalidDataException.class,
                 () -> popQuizService.startAttempt(assignment.getAssignmentId(), student2.getUserId()));
@@ -289,7 +289,7 @@ public class PopQuizIntegrationTest {
         assertEquals(0, testRepository.count());
     }
 
-    // ==================== 6.1b: timeout / lazy finalize ====================
+    
 
     @Test
     void expiredAttempt_finalizedToZero_atResultsAndAtSubmit() {
@@ -301,18 +301,18 @@ public class PopQuizIntegrationTest {
         popQuizService.startAttempt(assignment.getAssignmentId(), student1.getUserId());
         backdateAttemptStart(assignment.getAssignmentId(), student1.getUserId(), 30);
 
-        // Touchpoint: teacher views results -> lazily finalizes to EXPIRED/0.
+        
         PopQuizResultsResponse results = popQuizService.getResults(assignment.getAssignmentId(), teacherA.getUserId());
         PopQuizResultsResponse.StudentResult s1 = results.getStudents().stream()
                 .filter(s -> s.getStudentId() == student1.getUserId()).findFirst().orElseThrow();
         assertEquals(PopQuizStudentStatus.EXPIRED, s1.getStatus());
         assertEquals(0, BigDecimal.ZERO.compareTo(s1.getScore()));
 
-        // Touchpoint: student polling after expiry also reflects EXPIRED + score.
+        
         PopQuizPendingResponse pending = popQuizService.getPending(onClassNode.getNodeId(), student1.getUserId());
         assertEquals(PopQuizStudentStatus.EXPIRED, pending.getStatus());
 
-        // Touchpoint: submitting late (no prior poll/paper fetch) is finalized to zero, not graded, not an error.
+        
         popQuizService.startAttempt(assignment.getAssignmentId(), student2.getUserId());
         backdateAttemptStart(assignment.getAssignmentId(), student2.getUserId(), 30);
         AttemptSubmissionResultResponse lateResult = popQuizService.submit(
@@ -320,7 +320,7 @@ public class PopQuizIntegrationTest {
                 AttemptSubmissionRequest.builder().submissions(List.of()).build());
         assertEquals(0, BigDecimal.ZERO.compareTo(lateResult.getScore()));
 
-        // Once finalized, getPaper refuses to serve the (now closed) attempt.
+        
         assertThrows(InvalidDataException.class,
                 () -> popQuizService.getPaper(assignment.getAssignmentId(), student2.getUserId()));
     }
@@ -336,7 +336,7 @@ public class PopQuizIntegrationTest {
         studentTestAttemptRepository.save(attempt);
     }
 
-    // ==================== 6.2: security + race ====================
+    
 
     @Test
     void popQuizTest_blockedFromGenericStudentEndpoints() {
@@ -366,8 +366,8 @@ public class PopQuizIntegrationTest {
 
     @Test
     void concurrentStart_onlyOneAttemptWins() throws InterruptedException {
-        // Commit the assignment for real (REQUIRES_NEW) so the worker threads below — separate
-        // connections — can see it; the ambient test transaction never commits until rollback.
+        
+        
         PopQuizAssignmentResponse assignment = transactionTemplate.execute(status ->
                 popQuizService.createAndAssign(
                         onClassNode.getNodeId(), inlineRequest(List.of(student1.getUserId())), teacherA.getUserId()));
@@ -400,7 +400,7 @@ public class PopQuizIntegrationTest {
         assertEquals(1, failureCount.get());
     }
 
-    // ==================== 6.3: validation ====================
+    
 
     @Test
     void inlineEssayQuestion_rejected() {
@@ -501,9 +501,9 @@ public class PopQuizIntegrationTest {
         assertEquals(existingTest.getTestId(), assignment.getTestId());
         assertEquals(countBefore, testRepository.count());
         com.fedu.fedu.entity.Test reloaded = testRepository.findById(existingTest.getTestId()).orElseThrow();
-        assertEquals(TestKind.NORMAL, reloaded.getTestKind()); // unchanged
+        assertEquals(TestKind.NORMAL, reloaded.getTestKind()); 
 
-        // Non-auto-gradable existing test is rejected.
+        
         com.fedu.fedu.entity.Test essayTest = testRepository.save(com.fedu.fedu.entity.Test.builder()
                 .title("Essay test")
                 .durationMinutes(20)
@@ -524,7 +524,7 @@ public class PopQuizIntegrationTest {
                 () -> popQuizService.createAndAssign(onClassNode.getNodeId(), badRequest, teacherA.getUserId()));
     }
 
-    // ==================== helpers ====================
+    
 
     private AttemptSubmissionRequest buildCorrectSubmission(PopQuizPaperResponse paper) {
         List<AttemptSubmissionRequest.QuestionSubmission> subs = new ArrayList<>();

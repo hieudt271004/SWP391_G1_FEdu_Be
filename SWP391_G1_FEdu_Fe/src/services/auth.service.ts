@@ -1,4 +1,4 @@
-import { apiClient } from './api.client'; // chỉ còn dùng cho logout (cần custom header)
+import { apiClient } from './api.client'; 
 import { http } from './http';
 import { LoginResponse, User } from '../types/user';
 
@@ -26,7 +26,7 @@ export const authService = {
         headers: { 'x-refresh-token': refreshToken },
       });
     } catch {
-      // logout: kệ lỗi, FE vẫn clear token
+      
     }
   },
 };

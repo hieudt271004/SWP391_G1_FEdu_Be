@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
@@ -53,10 +53,7 @@ import {
   Radio
 } from 'lucide-react';
 import {
-  teacherService,
-  type CreatePopQuizRequest,
-  type PopQuizAssignmentResponse,
-  type PopQuizResultsResponse
+  teacherService
 } from '../../../services/teacher.service';
 import { resolveAssetUrl } from '../../../components/learningPath/MaterialPreview';
 import type { SubmissionResponse } from '../../../services/student.service';
@@ -70,9 +67,11 @@ import {
   NodeContentResponse,
   StudentInClassResponse,
   StudentAttemptResponse,
-  StudentProgressReportResponse
+  StudentProgressReportResponse,
+  AttemptGradingDetail
 } from '../../../services/learningPath.service';
 import { slotService, SlotResponse } from '../../../services/slot.service';
+import { getClassroomStatusMeta } from '../../../utils/classroom';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -113,26 +112,25 @@ export function ClassOverviewPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [classroomStatus, setClassroomStatus] = useState<string>('inactive');
-  const [parentClassroomId, setParentClassroomId] = useState<number | null>(null);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [loadingContents, setLoadingContents] = useState<Record<number, boolean>>({});
 
-  // New classroom publish flow states
+  
   const [graphData, setGraphData] = useState<ClassroomGraphResponse | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'cloning' | 'publishing' | 'unpublishing' | 'deleting'>('idle');
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [cloneablePaths, setCloneablePaths] = useState<CloneablePathResponse[]>([]);
   const [loadingCloneablePaths, setLoadingCloneablePaths] = useState(false);
-  // Xem trước lộ trình mẫu trước khi áp dụng/đè lên
+  
   const [templatePreview, setTemplatePreview] = useState<{ pathId: number; nodes: LearningNodeResponse[]; edges: NodeEdgeResponse[] } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  // Path đã được auto-chọn + auto-preview (chỉ làm 1 lần/path, để "Bỏ xem trước" không bị bật lại)
+  
   const autoPreviewedPathRef = useRef<number | null>(null);
   const [showApplyTemplateConfirm, setShowApplyTemplateConfirm] = useState(false);
 
-  // Dialog visibility and confirmation states
+  
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [understandPublish, setUnderstandPublish] = useState(false);
 
@@ -144,7 +142,7 @@ export function ClassOverviewPage() {
 
   const [seededCount, setSeededCount] = useState<number | null>(null);
 
-  // Selected Node Details state
+  
   const [selectedNode, setSelectedNode] = useState<LearningNodeResponse | null>(null);
   const [nodeStudents, setNodeStudents] = useState<StudentInClassResponse[]>([]);
   const [nodeContent, setNodeContent] = useState<NodeContentResponse | null>(null);
@@ -152,31 +150,14 @@ export function ClassOverviewPage() {
   const [activeTabs, setActiveTabs] = useState<Record<number, string>>({});
   const [discussionCounts, setDiscussionCounts] = useState<Record<number, number>>({});
 
-  // Teacher Pop Quiz states
-  const [activePQAssignment, setActivePQAssignment] = useState<PopQuizResultsResponse | null>(null);
-  const [loadingPQResults, setLoadingPQResults] = useState(false);
-  const [submittingCreatePQ, setSubmittingCreatePQ] = useState(false);
-  const [pqTitle, setPqTitle] = useState("");
-  const [pqDuration, setPqDuration] = useState(15);
-  const [pqSource, setPqSource] = useState<'inline' | 'existing'>('inline');
-  const [pqExistingTestId, setPqExistingTestId] = useState<number | undefined>(undefined);
-  const [pqTargetStudentIds, setPqTargetStudentIds] = useState<number[]>([]);
-  const [pqQuestions, setPqQuestions] = useState<{
-    questionContent: string;
-    questionType: 'MULTIPLE_CHOICE' | 'MULTIPLE_SELECT' | 'TRUE_FALSE';
-    score: number;
-    answers: {
-      answerContent: string;
-      isCorrect: boolean;
-    }[];
-  }[]>([]);
 
-  // Node scheduling states
+
+  
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [schedulingNode, setSchedulingNode] = useState<LearningNodeResponse | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleSlotId, setScheduleSlotId] = useState("");
-  // Deadline CHỈ dành cho node Tự học (AT_HOME) — đặt ở panel node, không thuộc dialog xếp lịch
+  
   const [deadlineInput, setDeadlineInput] = useState("");
   const [savingDeadline, setSavingDeadline] = useState(false);
   const [slotsList, setSlotsList] = useState<SlotResponse[]>([]);
@@ -204,7 +185,8 @@ export function ClassOverviewPage() {
     
     try {
       const res = await slotService.getAllSlots();
-      setSlotsList(res || []);
+      const sortedSlots = (res || []).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      setSlotsList(sortedSlots);
     } catch (err) {
       console.error("Failed to load slots list:", err);
       toast.error("Không thể tải danh sách ca học");
@@ -218,7 +200,7 @@ export function ClassOverviewPage() {
       return;
     }
 
-    // Kiểm tra không cho phép chọn ca học trong quá khứ
+    
     const selectedSlot = slotsList.find(s => String(s.slotId) === scheduleSlotId);
     if (selectedSlot) {
       const now = new Date();
@@ -302,12 +284,12 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Đồng bộ ô nhập deadline khi đổi node (BE trả "YYYY-MM-DDTHH:mm:ss" → cắt cho datetime-local)
+  
   useEffect(() => {
     setDeadlineInput(selectedNode?.deadlineAt ? selectedNode.deadlineAt.slice(0, 16) : "");
   }, [selectedNode?.nodeId, selectedNode?.deadlineAt]);
 
-  // Đặt hạn hoàn thành cho node Tự học (AT_HOME) — node Trên lớp không dùng deadline
+  
   const handleSaveDeadline = async () => {
     if (!selectedNode) return;
     if (!deadlineInput) {
@@ -316,7 +298,7 @@ export function ClassOverviewPage() {
     }
     try {
       setSavingDeadline(true);
-      // Gửi nguyên chuỗi "YYYY-MM-DDTHH:mm" (LocalDateTime — không toISOString để khỏi lệch múi giờ)
+      
       const res = await learningPathService.updateLearningNode(selectedNode.nodeId, {
         title: selectedNode.title,
         nodeType: selectedNode.nodeType,
@@ -335,7 +317,7 @@ export function ClassOverviewPage() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
 
-  // Báo cáo tiến độ + hoàn thành trễ per học sinh (cột trong tab Học sinh), key = userId
+  
   const [progressReport, setProgressReport] = useState<Record<number, StudentProgressReportResponse>>({});
   const [loadingReport, setLoadingReport] = useState(false);
 
@@ -350,7 +332,7 @@ export function ClassOverviewPage() {
           setProgressReport(Object.fromEntries((rows ?? []).map((r) => [r.studentId, r])));
         }
       } catch (err) {
-        // Cột phụ — lỗi thì để trống, không toast làm phiền
+        
         console.error('Không thể tải báo cáo theo dõi học sinh:', err);
       } finally {
         if (!cancelled) setLoadingReport(false);
@@ -361,11 +343,68 @@ export function ClassOverviewPage() {
     };
   }, [activeTab, classroomSubjectId]);
 
-  // Theo dõi bài làm (node ON_CLASS): dialog 2 tab — đang làm / cảnh báo gian lận (rời tab)
+  
   const [monitorTest, setMonitorTest] = useState<{ testId: number; title: string } | null>(null);
   const [monitorAttempts, setMonitorAttempts] = useState<StudentAttemptResponse[]>([]);
   const [monitorLoading, setMonitorLoading] = useState(false);
-  const [monitorTab, setMonitorTab] = useState<'doing' | 'cheat'>('doing');
+  const [monitorTab, setMonitorTab] = useState<'doing' | 'cheat' | 'grading'>('doing');
+
+  
+  const [gradingAttempt, setGradingAttempt] = useState<AttemptGradingDetail | null>(null);
+  const [gradingLoading, setGradingLoading] = useState(false);
+  const [essayMarks, setEssayMarks] = useState<Record<number, boolean>>({});
+  const [savingEssayGrades, setSavingEssayGrades] = useState(false);
+
+  const openEssayGrading = async (attemptId: number) => {
+    setGradingLoading(true);
+    setEssayMarks({});
+    try {
+      const detail = await learningPathService.getAttemptGrading(attemptId);
+      setGradingAttempt(detail);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Không thể tải bài làm để chấm');
+    } finally {
+      setGradingLoading(false);
+    }
+  };
+
+  const handleSaveEssayGrades = async () => {
+    if (!gradingAttempt) return;
+    const pendingEssays = gradingAttempt.responses.filter(
+      (r) => r.questionType === 'ESSAY' && r.isCorrect == null
+    );
+    const grades: { responseId: number; isCorrect: boolean }[] = [];
+    for (const r of pendingEssays) {
+      const mark = essayMarks[r.responseId];
+      if (mark !== undefined) grades.push({ responseId: r.responseId, isCorrect: mark });
+    }
+    if (grades.length === 0) {
+      toast.error('Hãy chấm Đạt/Không đạt cho ít nhất một câu tự luận.');
+      return;
+    }
+    setSavingEssayGrades(true);
+    try {
+      const updated = await learningPathService.gradeEssayAttempt(gradingAttempt.attemptId, grades);
+      if (updated.status === 'SUBMITTED') {
+        toast.success(`Đã chấm xong — điểm cuối: ${updated.score ?? 0}%. Hệ thống đã xếp mức/mở bài cho học sinh.`);
+        setGradingAttempt(null);
+      } else {
+        toast.success('Đã lưu kết quả chấm. Vẫn còn câu tự luận chưa chấm.');
+        setGradingAttempt(updated);
+        setEssayMarks({});
+      }
+      
+      if (monitorTest) {
+        try {
+          setMonitorAttempts((await learningPathService.getTestAttempts(monitorTest.testId)) ?? []);
+        } catch {  }
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lưu kết quả chấm thất bại');
+    } finally {
+      setSavingEssayGrades(false);
+    }
+  };
 
   useEffect(() => {
     if (!monitorTest) return;
@@ -384,7 +423,7 @@ export function ClassOverviewPage() {
       }
     };
     fetchAttempts(true);
-    // "Live" nhẹ nhàng: refetch mỗi 10s khi dialog đang mở (không cần websocket)
+    
     const interval = setInterval(() => fetchAttempts(false), 10000);
     return () => {
       cancelled = true;
@@ -392,7 +431,7 @@ export function ClassOverviewPage() {
     };
   }, [monitorTest]);
 
-  // Submissions Grading States
+  
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
   const [selectedExerciseTitle, setSelectedExerciseTitle] = useState('');
   const [submissionsList, setSubmissionsList] = useState<SubmissionResponse[]>([]);
@@ -441,11 +480,11 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Support Tab functions
+  
   const [isAssignSubMentorModalOpen, setIsAssignSubMentorModalOpen] = useState(false);
   const [assignSubMentorIds, setAssignSubMentorIds] = useState<number[]>([]);
 
-  // Sync activeTab from ?tab= query parameter (e.g. when redirected from ClassManagementPage)
+  
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam === 'placement' || tabParam === 'students' || tabParam === 'support' || tabParam === 'roadmap') {
@@ -453,7 +492,7 @@ export function ClassOverviewPage() {
     }
   }, [searchParams]);
 
-  // Placement Quiz states
+  
   const [placementQuiz, setPlacementQuiz] = useState<any>(null);
   const [loadingPlacement, setLoadingPlacement] = useState(false);
   const [isCreateQuizOpen, setIsCreateQuizOpen] = useState(false);
@@ -462,11 +501,11 @@ export function ClassOverviewPage() {
   const [quizDuration, setQuizDuration] = useState('45');
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
 
-  // Score bands state
+  
   const [scoreBands, setScoreBands] = useState<any[]>([]);
   const [savingBands, setSavingBands] = useState(false);
 
-  // Questions state
+  
   const [questions, setQuestions] = useState<any[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
@@ -481,17 +520,56 @@ export function ClassOverviewPage() {
   ]);
   const [submittingQuestion, setSubmittingQuestion] = useState(false);
 
-  // Student level history modal state
+  
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedStudentName, setSelectedStudentName] = useState('');
   const [levelHistory, setLevelHistory] = useState<any[]>([]);
 
-  // Student details modal state
+  
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [detailTab, setDetailTab] = useState<'info' | 'history'>('info');
+  const [detailTab, setDetailTab] = useState<'info' | 'history' | 'roadmap'>('info');
+  const [studentGraph, setStudentGraph] = useState<ClassroomGraphResponse | null>(null);
+  const [studentGraphLoading, setStudentGraphLoading] = useState(false);
   const [resettingPlacement, setResettingPlacement] = useState(false);
+
+  const studentProgressPercent = useMemo(() => {
+    if (!studentGraph || !studentGraph.nodes || studentGraph.nodes.length === 0) return 0;
+    
+    const visible = studentGraph.nodes.filter((n) => !n.isDeleted);
+    if (visible.length === 0) return 0;
+
+    const activeLevelByStage: Record<number, number> = {};
+    visible.forEach((n) => {
+      const stage = n.stageOrder ?? 0;
+      const isStudyCompletedOrActive = n.studentStatus === 'COMPLETED' || n.studentStatus === 'IN_PROGRESS' || n.studentStatus === 'OPEN';
+      if (isStudyCompletedOrActive && n.level != null) {
+        activeLevelByStage[stage] = n.level;
+      }
+    });
+
+    let totalNodes = 0;
+    let completedNodes = 0;
+
+    visible.forEach((n) => {
+      const stage = n.stageOrder ?? 0;
+      const isCommon = n.level == null;
+      const isActiveLevel = n.level != null && n.level === activeLevelByStage[stage];
+      const isCompleted = n.studentStatus === 'COMPLETED';
+      const isFutureActiveLevel = n.level != null && activeLevelByStage[stage] === undefined && n.level === selectedStudent?.currentLevel;
+
+      if (isCommon || isActiveLevel || isCompleted || isFutureActiveLevel) {
+        totalNodes++;
+        if (isCompleted) {
+          completedNodes++;
+        }
+      }
+    });
+
+    if (totalNodes === 0) return 0;
+    return Math.round((completedNodes / totalNodes) * 100);
+  }, [studentGraph, selectedStudent?.currentLevel]);
 
   const isMounted = useRef(true);
   useEffect(() => {
@@ -501,7 +579,7 @@ export function ClassOverviewPage() {
     };
   }, []);
 
-  // Support & Peer Mentoring states
+  
   const [escalatedTickets, setEscalatedTickets] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loadingSupport, setLoadingSupport] = useState(false);
@@ -650,7 +728,7 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Keep track of which first nodes have been initialized to avoid redundant calls or state resets
+  
   const initializedPathsRef = useRef<Set<number>>(new Set());
 
   const handleViewHistory = async (student: Student) => {
@@ -668,11 +746,30 @@ export function ClassOverviewPage() {
     }
   };
 
+  const fetchStudentGraph = async (studentId: number) => {
+    if (!classroomSubjectId) return;
+    try {
+      setStudentGraphLoading(true);
+      const res = await learningPathService.getStudentClassroomGraph(Number(classroomSubjectId), studentId);
+      setStudentGraph(res);
+    } catch (err) {
+      console.error("Failed to load student graph:", err);
+      toast.error("Không thể tải lộ trình chi tiết của học sinh.");
+    } finally {
+      setStudentGraphLoading(false);
+    }
+  };
+
   const handleViewDetail = async (student: Student) => {
     setSelectedStudent(student);
     setDetailTab('info');
     setIsDetailOpen(true);
     setHistoryLoading(true);
+    setStudentGraph(null);
+    
+    // Fetch student graph in parallel
+    fetchStudentGraph(student.rawUserId);
+    
     try {
       const res = await learningPathService.getStudentLevelHistory(Number(classroomSubjectId), student.rawUserId);
       setLevelHistory(res);
@@ -683,6 +780,7 @@ export function ClassOverviewPage() {
       setHistoryLoading(false);
     }
   };
+
 
   const fetchNodeContent = useCallback(async (nodeId: number) => {
     try {
@@ -749,7 +847,7 @@ export function ClassOverviewPage() {
       setIsCreateQuizOpen(false);
       await fetchPlacementQuiz();
 
-      // Update graphData to check quizStartTestId
+      
       const updatedGraph = await learningPathService.getClassroomGraph(Number(classroomSubjectId));
       setGraphData(updatedGraph);
     } catch (err: any) {
@@ -990,7 +1088,7 @@ export function ClassOverviewPage() {
         feedbackValue.trim()
       );
 
-      // Update submissionsList locally and re-sort
+      
       setSubmissionsList((prev) => {
         const updated = prev.map((s) => (s.submissionId === res.submissionId ? res : s));
         return updated.sort((a, b) => {
@@ -1026,11 +1124,10 @@ export function ClassOverviewPage() {
       setClassInfo({
         classCode: classData.className,
         courseCode: classData.subjectCode,
-        semester: fullClassroom.semester || '',
+        semester: fullClassroom.semesterLabel || '',
         description: fullClassroom.description || '',
       });
       setClassroomStatus(fullClassroom.status || 'inactive');
-      setParentClassroomId(fullClassroom.classroomId);
 
       if (!isMounted.current) return;
       const formatted = (studentsData ?? []).map((item) => ({
@@ -1060,27 +1157,7 @@ export function ClassOverviewPage() {
     }
   };
 
-  const handleUpdateStatus = async (newStatus: string) => {
-    if (!parentClassroomId) return;
-    const actionText = newStatus === 'active' ? 'bắt đầu' : 'kết thúc';
-    if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không? (Hành động này ảnh hưởng đến toàn bộ môn học trong lớp)`)) return;
-
-    try {
-      setActionState(newStatus === 'active' ? 'publishing' : 'unpublishing');
-      await classroomService.update(parentClassroomId, {
-        className: classInfo.classCode,
-        semester: classInfo.semester || '',
-        description: classInfo.description || '',
-        status: newStatus,
-      });
-      setClassroomStatus(newStatus);
-      toast.success(newStatus === 'active' ? 'Lớp học đã bắt đầu thành công!' : 'Lớp học đã kết thúc!');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Cập nhật trạng thái thất bại');
-    } finally {
-      setActionState('idle');
-    }
-  };
+  // Mở/đóng lớp là quyền của Admin — teacher chỉ xem trạng thái (badge ở header).
 
   useEffect(() => {
     initializedPathsRef.current.clear();
@@ -1088,9 +1165,9 @@ export function ClassOverviewPage() {
     fetchClassroomData();
   }, [classroomSubjectId]);
 
-  // Auto-select template if there's only one template available
-  // (kèm nạp preview — set mỗi selectedTemplateId thì dropdown "đã chọn sẵn" nhưng
-  //  không bao giờ hiện bản xem trước vì onChange không bắn khi chọn lại cùng giá trị)
+  
+  
+  
   useEffect(() => {
     if (graphData?.state === 'NO_PATH' && graphData.availableTemplates) {
       if (graphData.availableTemplates.length === 1) {
@@ -1103,7 +1180,7 @@ export function ClassOverviewPage() {
     }
   }, [graphData]);
 
-  // Cross-tab consistency
+  
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && classroomSubjectId) {
@@ -1150,13 +1227,6 @@ export function ClassOverviewPage() {
       ]);
       setNodeContent(content);
       setNodeStudents(students);
-      setPqTargetStudentIds(students.map(s => s.userId));
-
-      if (node.nodeType === 'ON_CLASS') {
-        fetchActivePopQuiz(node.nodeId, node.title);
-      } else {
-        setActivePQAssignment(null);
-      }
     } catch (err) {
       console.error('Lỗi khi tải chi tiết node:', err);
       toast.error('Không thể tải chi tiết bài học');
@@ -1165,562 +1235,7 @@ export function ClassOverviewPage() {
     }
   };
 
-  const fetchActivePopQuiz = async (nodeId: number, nodeTitle: string) => {
-    setLoadingPQResults(true);
-    try {
-      const activeRes = await teacherService.getActivePopQuiz(nodeId);
-      if (activeRes) {
-        const results = await teacherService.getPopQuizResults(activeRes.assignmentId);
-        setActivePQAssignment(results);
-      } else {
-        setActivePQAssignment(null);
-        setPqTitle(`Kiểm tra nhanh - ${nodeTitle}`);
-        setPqDuration(15);
-        setPqSource('inline');
-        setPqQuestions([]);
-      }
-    } catch (err) {
-      console.error("Lỗi khi tải trạng thái Pop Quiz:", err);
-    } finally {
-      setLoadingPQResults(false);
-    }
-  };
 
-  // Polling results for teacher
-  useEffect(() => {
-    if (!selectedNode || selectedNode.nodeType !== 'ON_CLASS' || !activePQAssignment || activePQAssignment.status !== 'OPEN') return;
-    
-    const currentTab = activeTabs[selectedNode.nodeId];
-    if (currentTab !== 'popQuiz') return;
-
-    const pollResults = async () => {
-      try {
-        const results = await teacherService.getPopQuizResults(activePQAssignment.assignmentId);
-        setActivePQAssignment(results);
-      } catch (err) {
-        console.error("Lỗi khi poll kết quả Pop Quiz:", err);
-      }
-    };
-
-    const interval = setInterval(pollResults, 10000);
-    return () => clearInterval(interval);
-  }, [selectedNode, activePQAssignment, activeTabs]);
-
-  const handleCreatePopQuiz = async () => {
-    if (!selectedNode) return;
-    if (!pqTitle.trim()) {
-      toast.error("Vui lòng nhập tiêu đề bài Pop Quiz");
-      return;
-    }
-    if (pqTargetStudentIds.length === 0) {
-      toast.error("Vui lòng chọn ít nhất 1 học sinh để giao bài");
-      return;
-    }
-
-    const payload: CreatePopQuizRequest = {
-      title: pqTitle.trim(),
-      studentIds: pqTargetStudentIds,
-    };
-
-    if (pqSource === 'inline') {
-      if (pqQuestions.length === 0) {
-        toast.error("Vui lòng thêm ít nhất 1 câu hỏi");
-        return;
-      }
-      for (let i = 0; i < pqQuestions.length; i++) {
-        const q = pqQuestions[i];
-        if (!q.questionContent.trim()) {
-          toast.error(`Vui lòng nhập nội dung cho câu hỏi ${i + 1}`);
-          return;
-        }
-        if (q.answers.length < 2) {
-          toast.error(`Câu hỏi ${i + 1} phải có ít nhất 2 đáp án`);
-          return;
-        }
-        const hasCorrect = q.answers.some(a => a.isCorrect);
-        if (!hasCorrect) {
-          toast.error(`Câu hỏi ${i + 1} chưa có đáp án đúng`);
-          return;
-        }
-      }
-      payload.durationMinutes = pqDuration;
-      payload.questions = pqQuestions;
-    } else {
-      if (!pqExistingTestId) {
-        toast.error("Vui lòng chọn một bài test có sẵn");
-        return;
-      }
-      payload.existingTestId = pqExistingTestId;
-    }
-
-    setSubmittingCreatePQ(true);
-    try {
-      const res = await teacherService.createPopQuiz(selectedNode.nodeId, payload);
-      toast.success("Giao bài kiểm tra nhanh thành công!");
-      const results = await teacherService.getPopQuizResults(res.assignmentId);
-      setActivePQAssignment(results);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Giao bài thất bại");
-    } finally {
-      setSubmittingCreatePQ(false);
-    }
-  };
-
-  const handleClosePopQuiz = async () => {
-    if (!activePQAssignment) return;
-    if (!window.confirm("Bạn có chắc chắn muốn đóng bài kiểm tra này? Học sinh chưa nộp sẽ không thể bắt đầu làm bài nữa.")) return;
-    try {
-      await teacherService.closePopQuiz(activePQAssignment.assignmentId);
-      toast.success("Đã đóng bài kiểm tra!");
-      const results = await teacherService.getPopQuizResults(activePQAssignment.assignmentId);
-      setActivePQAssignment(results);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Không thể đóng bài kiểm tra");
-    }
-  };
-
-  const handleResetPopQuizStudent = async (studentId: number) => {
-    if (!activePQAssignment || !selectedNode) return;
-    const student = nodeStudents.find(s => s.userId === studentId);
-    if (!student || !student.classroomSubjectStudentId) {
-      toast.error("Không tìm thấy thông tin ghi danh học sinh");
-      return;
-    }
-    if (!window.confirm(`Bạn có chắc muốn cho học sinh ${student.lastName} ${student.firstName} làm lại bài Pop Quiz này? Lượt làm bài cũ sẽ bị hủy.`)) return;
-    try {
-      await teacherService.resetPopQuizStudent(activePQAssignment.assignmentId, student.classroomSubjectStudentId);
-      toast.success("Đã reset lượt làm bài thành công!");
-      const results = await teacherService.getPopQuizResults(activePQAssignment.assignmentId);
-      setActivePQAssignment(results);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Không thể reset lượt làm bài");
-    }
-  };
-
-  const renderPopQuizTabContent = () => {
-    if (!selectedNode || !nodeContent) return null;
-
-    if (loadingPQResults) {
-      return (
-        <div className="flex items-center justify-center py-10">
-          <Loader className="w-6 h-6 animate-spin text-primary" />
-        </div>
-      );
-    }
-
-    if (activePQAssignment) {
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-muted/40 border p-3 rounded-lg text-xs">
-            <div>
-              <p className="font-bold text-foreground">Tiêu đề: {activePQAssignment.title}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant={activePQAssignment.status === 'OPEN' ? 'default' : 'secondary'}>
-                  {activePQAssignment.status === 'OPEN' ? 'Đang mở' : 'Đã đóng'}
-                </Badge>
-                {activePQAssignment.status === 'OPEN' && (
-                  <span className="text-[10px] text-muted-foreground animate-pulse flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block"></span>
-                    Đang theo dõi...
-                  </span>
-                )}
-              </div>
-            </div>
-            {activePQAssignment.status === 'OPEN' && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleClosePopQuiz}
-                className="h-7 text-[10px] font-bold rounded"
-              >
-                Đóng bài thi
-              </Button>
-            )}
-            {activePQAssignment.status === 'CLOSED' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActivePQAssignment(null)}
-                className="h-7 text-[10px] font-bold rounded border-border"
-              >
-                Giao bài mới
-              </Button>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Kết quả làm bài</h4>
-            <div className="border border-border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow>
-                    <TableHead className="text-[10px] font-bold h-8 py-1">Học sinh</TableHead>
-                    <TableHead className="text-[10px] font-bold h-8 py-1">Trạng thái</TableHead>
-                    <TableHead className="text-[10px] font-bold h-8 py-1">Điểm số</TableHead>
-                    <TableHead className="text-[10px] font-bold h-8 py-1 text-center">Rời tab</TableHead>
-                    <TableHead className="text-[10px] font-bold h-8 py-1 text-right">Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activePQAssignment.students.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-4 text-xs text-muted-foreground italic">
-                        Không có học sinh nào được giao bài
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    activePQAssignment.students.map((std) => (
-                      <TableRow key={std.studentId} className="hover:bg-muted/10">
-                        <TableCell className="py-2 text-xs font-medium text-foreground">{std.studentName}</TableCell>
-                        <TableCell className="py-2 text-xs">
-                          <span className={`px-1.5 py-0.5 rounded-sm text-[10px] font-bold ${
-                            std.status === 'SUBMITTED' ? 'bg-emerald-100 text-emerald-700' :
-                            std.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
-                            std.status === 'EXPIRED' ? 'bg-red-100 text-red-700' :
-                            'bg-zinc-100 text-zinc-600'
-                          }`}>
-                            {std.status === 'SUBMITTED' ? 'Đã nộp' :
-                             std.status === 'IN_PROGRESS' ? 'Đang làm' :
-                             std.status === 'EXPIRED' ? 'Quá hạn' :
-                             'Chờ làm'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="py-2 text-xs font-semibold">
-                          {std.score != null ? `${std.score}%` : '---'}
-                        </TableCell>
-                        <TableCell className="py-2 text-xs text-center text-amber-600 font-semibold">
-                          {std.tabOutCount != null ? std.tabOutCount : 0}
-                        </TableCell>
-                        <TableCell className="py-2 text-right">
-                          {std.status !== 'PENDING' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleResetPopQuizStudent(std.studentId)}
-                              className="h-6 px-2 text-[9px] hover:bg-zinc-100 text-amber-600 hover:text-amber-700 font-bold rounded"
-                              title="Hủy lượt làm bài và cho phép làm lại"
-                            >
-                              Cho làm lại
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-4 text-xs">
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Tiêu đề bài Pop Quiz</label>
-          <input
-            type="text"
-            value={pqTitle}
-            onChange={(e) => setPqTitle(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none placeholder:text-muted-foreground"
-            placeholder="Ví dụ: Kiểm tra nhanh buổi học"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Nguồn đề thi</label>
-            <div className="flex gap-4 py-1.5">
-              <label className="flex items-center gap-1.5 font-medium cursor-pointer">
-                <input
-                  type="radio"
-                  checked={pqSource === 'inline'}
-                  onChange={() => setPqSource('inline')}
-                  className="accent-primary"
-                />
-                <span>Soạn đề nhanh</span>
-              </label>
-              <label className="flex items-center gap-1.5 font-medium cursor-pointer">
-                <input
-                  type="radio"
-                  checked={pqSource === 'existing'}
-                  onChange={() => setPqSource('existing')}
-                  className="accent-primary"
-                />
-                <span>Chọn bài có sẵn</span>
-              </label>
-            </div>
-          </div>
-
-          {pqSource === 'inline' && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Thời gian làm (phút)</label>
-              <input
-                type="number"
-                value={pqDuration}
-                onChange={(e) => setPqDuration(Math.max(1, Number(e.target.value)))}
-                className="w-full bg-background border border-border rounded-lg px-3 py-1 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
-                min={1}
-                max={180}
-              />
-            </div>
-          )}
-        </div>
-
-        {pqSource === 'inline' ? (
-          <div className="space-y-3 border-t border-border/60 pt-3">
-            <div className="flex justify-between items-center">
-              <h5 className="font-bold text-foreground">Danh sách câu hỏi ({pqQuestions.length})</h5>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPqQuestions(prev => [
-                  ...prev,
-                  {
-                    questionContent: "",
-                    questionType: 'MULTIPLE_CHOICE',
-                    score: 1,
-                    answers: [
-                      { answerContent: "", isCorrect: false },
-                      { answerContent: "", isCorrect: false }
-                    ]
-                  }
-                ])}
-                className="h-7 text-[10px] border-border hover:bg-accent rounded font-bold"
-              >
-                + Thêm câu hỏi
-              </Button>
-            </div>
-
-            {pqQuestions.length === 0 ? (
-              <p className="text-muted-foreground italic text-center py-2">Chưa có câu hỏi nào. Hãy bấm nút Thêm câu hỏi.</p>
-            ) : (
-              <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
-                {pqQuestions.map((q, qIdx) => (
-                  <div key={qIdx} className="bg-muted/30 border border-border rounded-lg p-3 space-y-2 relative">
-                    <button
-                      onClick={() => setPqQuestions(prev => prev.filter((_, idx) => idx !== qIdx))}
-                      className="absolute top-2 right-2 text-muted-foreground hover:text-destructive transition-colors outline-none"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                    <div className="font-semibold text-foreground text-[10px] uppercase">Câu {qIdx + 1}</div>
-                    
-                    <div className="space-y-1.5">
-                      <input
-                        type="text"
-                        value={q.questionContent}
-                        onChange={(e) => setPqQuestions(prev => {
-                          const list = [...prev];
-                          list[qIdx] = { ...list[qIdx], questionContent: e.target.value };
-                          return list;
-                        })}
-                        placeholder="Nội dung câu hỏi..."
-                        className="w-full bg-background border border-border rounded px-2.5 py-1 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Loại câu hỏi</span>
-                        <select
-                          value={q.questionType}
-                          onChange={(e) => setPqQuestions(prev => {
-                            const list = [...prev];
-                            const type = e.target.value as any;
-                            const answers = type === 'TRUE_FALSE' 
-                              ? [
-                                  { answerContent: "Đúng", isCorrect: false },
-                                  { answerContent: "Sai", isCorrect: false }
-                                ]
-                              : list[qIdx].answers.filter(a => a.answerContent !== "Đúng" && a.answerContent !== "Sai");
-                            
-                            const finalAnswers = answers.length >= 2 ? answers : [
-                              { answerContent: "", isCorrect: false },
-                              { answerContent: "", isCorrect: false }
-                            ];
-                            
-                            list[qIdx] = { 
-                              ...list[qIdx], 
-                              questionType: type,
-                              answers: finalAnswers.map(a => ({ ...a, isCorrect: false }))
-                            };
-                            return list;
-                          })}
-                          className="w-full bg-background border border-border rounded px-2 py-1 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
-                        >
-                          <option value="MULTIPLE_CHOICE">Trắc nghiệm 1 đáp án</option>
-                          <option value="MULTIPLE_SELECT">Trắc nghiệm nhiều đáp án</option>
-                          <option value="TRUE_FALSE">Đúng / Sai</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Điểm số</span>
-                        <input
-                          type="number"
-                          value={q.score}
-                          onChange={(e) => setPqQuestions(prev => {
-                            const list = [...prev];
-                            list[qIdx] = { ...list[qIdx], score: Math.max(1, Number(e.target.value)) };
-                            return list;
-                          })}
-                          className="w-full bg-background border border-border rounded px-2 py-0.5 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
-                          min={1}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-bold text-zinc-500 uppercase">Đáp án</span>
-                        {q.questionType !== 'TRUE_FALSE' && (
-                          <button
-                            onClick={() => setPqQuestions(prev => {
-                              const list = [...prev];
-                              list[qIdx] = {
-                                ...list[qIdx],
-                                answers: [...list[qIdx].answers, { answerContent: "", isCorrect: false }]
-                              };
-                              return list;
-                            })}
-                            className="text-[9px] font-bold text-primary hover:underline outline-none bg-transparent"
-                          >
-                            + Thêm đáp án
-                          </button>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        {q.answers.map((ans, aIdx) => (
-                          <div key={aIdx} className="flex items-center gap-2">
-                            <input
-                              type={q.questionType === 'MULTIPLE_CHOICE' || q.questionType === 'TRUE_FALSE' ? 'radio' : 'checkbox'}
-                              name={`correct-ans-${qIdx}`}
-                              checked={ans.isCorrect}
-                              onChange={(e) => setPqQuestions(prev => {
-                                const list = [...prev];
-                                const answers = list[qIdx].answers.map((a, idx) => {
-                                  if (q.questionType === 'MULTIPLE_CHOICE' || q.questionType === 'TRUE_FALSE') {
-                                    return { ...a, isCorrect: idx === aIdx };
-                                  }
-                                  return idx === aIdx ? { ...a, isCorrect: e.target.checked } : a;
-                                });
-                                list[qIdx] = { ...list[qIdx], answers };
-                                return list;
-                              })}
-                              className="accent-primary shrink-0"
-                            />
-                            <input
-                              type="text"
-                              value={ans.answerContent}
-                              onChange={(e) => setPqQuestions(prev => {
-                                const list = [...prev];
-                                const answers = [...list[qIdx].answers];
-                                answers[aIdx] = { ...answers[aIdx], answerContent: e.target.value };
-                                list[qIdx] = { ...list[qIdx], answers };
-                                return list;
-                              })}
-                              placeholder={`Đáp án ${aIdx + 1}...`}
-                              className="flex-1 bg-background border border-border rounded px-2 py-0.5 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
-                              disabled={q.questionType === 'TRUE_FALSE'}
-                            />
-                            {q.questionType !== 'TRUE_FALSE' && q.answers.length > 2 && (
-                              <button
-                                onClick={() => setPqQuestions(prev => {
-                                  const list = [...prev];
-                                  list[qIdx] = {
-                                    ...list[qIdx],
-                                    answers: list[qIdx].answers.filter((_, idx) => idx !== aIdx)
-                                  };
-                                  return list;
-                                })}
-                                className="text-muted-foreground hover:text-destructive transition-colors outline-none shrink-0"
-                              >
-                                <Trash2 className="size-3" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-1.5 border-t border-border/60 pt-3">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Chọn bài kiểm tra có sẵn</label>
-            <select
-              value={pqExistingTestId || ""}
-              onChange={(e) => setPqExistingTestId(e.target.value ? Number(e.target.value) : undefined)}
-              className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
-            >
-              <option value="">-- Chọn bài test --</option>
-              {nodeContent.tests?.map((test) => (
-                <option key={test.testId} value={test.testId}>
-                  {test.title} ({test.durationMinutes} phút)
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div className="space-y-2 border-t border-border/60 pt-3">
-          <div className="flex justify-between items-center">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Học sinh được giao ({pqTargetStudentIds.length}/{nodeStudents.length})</label>
-            <button
-              onClick={() => {
-                if (pqTargetStudentIds.length === nodeStudents.length) {
-                  setPqTargetStudentIds([]);
-                } else {
-                  setPqTargetStudentIds(nodeStudents.map(s => s.userId));
-                }
-              }}
-              className="text-[10px] text-primary font-bold hover:underline outline-none"
-            >
-              {pqTargetStudentIds.length === nodeStudents.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-            </button>
-          </div>
-          {nodeStudents.length === 0 ? (
-            <p className="italic text-muted-foreground py-1">Chưa có học sinh nào đạt tới bài học này</p>
-          ) : (
-            <div className="max-h-32 overflow-y-auto space-y-1 pr-1 border border-border rounded-lg p-2 bg-muted/20">
-              {nodeStudents.map((std) => {
-                const isChecked = pqTargetStudentIds.includes(std.userId);
-                return (
-                  <div key={std.userId} className="flex items-center gap-2 py-0.5">
-                    <Checkbox
-                      id={`pq-std-${std.userId}`}
-                      checked={isChecked}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setPqTargetStudentIds(prev => [...prev, std.userId]);
-                        } else {
-                          setPqTargetStudentIds(prev => prev.filter(id => id !== std.userId));
-                        }
-                      }}
-                    />
-                    <label htmlFor={`pq-std-${std.userId}`} className="text-xs text-zinc-700 font-medium cursor-pointer flex-1 select-none">
-                      {std.lastName} {std.firstName}
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <Button
-          onClick={handleCreatePopQuiz}
-          disabled={submittingCreatePQ || nodeStudents.length === 0}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl py-2 shadow-xs"
-        >
-          {submittingCreatePQ ? "Đang giao bài..." : "⚡ Giao bài Pop Quiz"}
-        </Button>
-      </div>
-    );
-  };
 
   useEffect(() => {
     const fetchCloneablePaths = async () => {
@@ -1729,7 +1244,7 @@ export function ClassOverviewPage() {
         setLoadingCloneablePaths(true);
         const res = await learningPathService.getCloneablePaths(Number(classroomSubjectId));
         setCloneablePaths(res);
-        // Chỉ có đúng 1 lựa chọn và lớp chưa có lộ trình → chọn sẵn + hiện luôn bản xem trước
+        
         if (graphData?.state === 'NO_PATH' && res.length === 1 && autoPreviewedPathRef.current !== res[0].pathId) {
           autoPreviewedPathRef.current = res[0].pathId;
           handlePreviewTemplate(res[0].pathId);
@@ -1746,7 +1261,7 @@ export function ClassOverviewPage() {
     }
   }, [graphData?.state, classroomSubjectId]);
 
-  // Chọn 1 template ở dropdown → tải graph mẫu để xem trước trong khung "Sơ đồ lộ trình học tập".
+  
   const handlePreviewTemplate = async (templatePathId: number | null) => {
     setSelectedTemplateId(templatePathId);
     setSelectedNode(null);
@@ -1766,8 +1281,8 @@ export function ClassOverviewPage() {
     }
   };
 
-  // Áp dụng template đang xem trước. Nếu lớp đã có bản nháp → BE thay nháp bằng clone mới
-  // trong 1 transaction (không dùng delete-rồi-clone 2 request rời — lỗi giữa chừng sẽ mất nháp).
+  
+  
   const handleApplyTemplate = async () => {
     if (!classroomSubjectId || !selectedTemplateId) return;
     try {
@@ -1910,7 +1425,7 @@ export function ClassOverviewPage() {
     const colNodes = pathDto.nodes || [];
     const colEdges = pathDto.edges || [];
 
-    const isColSubNode = (_n: LearningNodeResponse) => false; // model mới không còn "nhánh phụ" (cạnh có max_score)
+    const isColSubNode = (_n: LearningNodeResponse) => false; 
     const colSubDepth = (n: LearningNodeResponse, seen: Set<number> = new Set()): number => {
       if (!isColSubNode(n)) return 0;
       if (seen.has(n.nodeId)) return 1;
@@ -1924,7 +1439,7 @@ export function ClassOverviewPage() {
     const subInfo: Record<number, { base: string; idx: number }> = {};
     let lessonCounter = 0;
 
-    // Sort nodes by displayOrder, then nodeId for stable sorting
+    
     const sortedColNodes = [...colNodes].sort((a, b) => (a.displayOrder - b.displayOrder) || (a.nodeId - b.nodeId));
 
     for (const n of sortedColNodes) {
@@ -1962,7 +1477,7 @@ export function ClassOverviewPage() {
     return (
       <Card className="border border-slate-200 bg-white shadow-xs flex flex-col min-h-[500px] p-6 rounded-2xl">
         <div className="flex-1">
-          {/* Column Header */}
+          {}
           <div className="pb-4 mb-4 border-b border-slate-100">
             <div className="flex items-center gap-2 mb-1.5">
               <BookOpen className="w-5 h-5 text-primary shrink-0" />
@@ -1973,7 +1488,7 @@ export function ClassOverviewPage() {
             </p>
           </div>
 
-          {/* Stats Bar */}
+          {}
           {sortedColNodes.length > 0 && (
             <div className="flex items-center flex-wrap gap-x-3 gap-y-1 pb-3 mb-4 border-b border-slate-100 text-[11px] text-slate-500 font-medium">
               <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 text-primary" /> {sortedColNodes.length} bài học</span>
@@ -1989,7 +1504,7 @@ export function ClassOverviewPage() {
             </div>
           )}
 
-          {/* Nodes list */}
+          {}
           {sortedColNodes.length === 0 ? (
             <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
               <Map className="w-8 h-8 mx-auto text-slate-300 mb-2" />
@@ -2006,7 +1521,7 @@ export function ClassOverviewPage() {
 
                 return (
                   <div key={node.nodeId} className="w-full relative" style={{ marginLeft: `${depth * 28}px` }}>
-                    {/* Branch connector on the left */}
+                    {}
                     {depth > 0 && (
                       <div className="absolute top-0 bottom-0 flex items-start justify-center pointer-events-none" style={{ left: `-${28}px`, width: `${28}px` }}>
                         <svg className="w-full h-12 text-slate-300" viewBox="0 0 28 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -2016,7 +1531,7 @@ export function ClassOverviewPage() {
                       </div>
                     )}
 
-                    {/* Standard vertical line connector for main nodes */}
+                    {}
                     {index > 0 && depth === 0 && (
                       <div className="flex flex-col items-center justify-center my-1.5">
                         <div className="h-4 w-0.5 bg-slate-200 relative flex items-center justify-center">
@@ -2033,7 +1548,7 @@ export function ClassOverviewPage() {
                             : "bg-slate-50/50 hover:bg-white hover:border-slate-300 border-slate-200"
                       }`}
                     >
-                      {/* Node Header */}
+                      {}
                       <div
                         onClick={() => toggleNode(node.nodeId)}
                         className="flex items-center justify-between p-3.5 cursor-pointer select-none"
@@ -2063,14 +1578,14 @@ export function ClassOverviewPage() {
                         </div>
                       </div>
 
-                      {/* Node Expanded Content */}
+                      {}
                       {isExpanded && (
                         <div className="px-3.5 pb-3.5 pt-1.5 bg-slate-50/30 border-t border-slate-100 space-y-3">
                           <p className="text-xs text-slate-500 leading-relaxed">
                             {node.description || "Chưa có mô tả chi tiết."}
                           </p>
 
-                          {/* Materials & Tests list */}
+                          {}
                           <div className="border border-slate-200/80 rounded-lg p-2.5 bg-white space-y-2">
                             <div className="text-[10px] font-bold text-slate-700 flex items-center gap-1">
                               <BookOpen className="w-3 h-3 text-primary" />
@@ -2202,6 +1717,12 @@ export function ClassOverviewPage() {
   }
 
   const isNonIdle = actionState !== 'idle';
+  const classroomActive = classroomStatus === 'active';
+  const publishBlockedReason = classroomStatus === 'inactive'
+    ? 'Lớp chưa bắt đầu — admin cần bắt đầu lớp trước khi publish lộ trình.'
+    : classroomStatus === 'completed'
+      ? 'Lớp đã kết thúc — chỉ có thể xem.'
+      : null;
 
   return (
     <div className={`space-y-6 ${isNonIdle ? 'pointer-events-none opacity-60' : ''}`} aria-busy={isNonIdle}>
@@ -2213,33 +1734,19 @@ export function ClassOverviewPage() {
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-3">
             Class {classInfo.classCode} - {classInfo.courseCode}
             {(() => {
-              switch (classroomStatus) {
-                case 'active':
-                  return <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">Đang hoạt động</Badge>;
-                case 'completed':
-                  return <Badge className="bg-primary/10 text-primary border-primary/20">Đã hoàn thành</Badge>;
-                default:
-                  return <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">Chưa bắt đầu</Badge>;
-              }
+              const meta = getClassroomStatusMeta(classroomStatus);
+              return <Badge className={`border ${meta.badgeClass}`}>{meta.label}</Badge>;
             })()}
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          {classroomStatus === 'inactive' && (
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
-              onClick={() => handleUpdateStatus('active')}
-              disabled={isNonIdle}
-            >
-              Bắt đầu lớp học
-            </Button>
-          )}
-          {/* "Kết thúc lớp học" chỉ dành cho admin — đã bỏ ở giao diện giáo viên. */}
+          {}
           {graphData?.state === 'DRAFT' && (
             <Button
               className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
               onClick={() => setShowPublishConfirm(true)}
-              disabled={isNonIdle}
+              disabled={isNonIdle || !classroomActive}
+              title={publishBlockedReason ?? undefined}
             >
               <Play className="size-4" />
               Publish lộ trình
@@ -2250,7 +1757,8 @@ export function ClassOverviewPage() {
               variant="outline"
               className="text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200 font-semibold rounded-xl flex items-center gap-1.5"
               onClick={() => setShowUnpublishConfirm(true)}
-              disabled={isNonIdle}
+              disabled={isNonIdle || classroomStatus === 'completed'}
+              title={classroomStatus === 'completed' ? 'Lớp đã kết thúc — chỉ có thể xem.' : undefined}
             >
               <Undo2 className="size-4" />
               Unpublish lộ trình
@@ -2259,7 +1767,14 @@ export function ClassOverviewPage() {
         </div>
       </div>
 
-      {/* Banner trạng thái khi lớp chưa có lộ trình */}
+      {graphData?.state === 'DRAFT' && publishBlockedReason && (
+        <div className="text-sm text-amber-700 bg-amber-50 py-2 px-3 rounded-md border border-amber-200">
+          {publishBlockedReason}
+          {classroomStatus === 'inactive' && ' Bạn vẫn có thể chuẩn bị và chỉnh sửa lộ trình nháp trước.'}
+        </div>
+      )}
+
+      {}
       {graphData?.state === 'NO_PATH' && (
         <Card className="border-primary/20 bg-primary/5 rounded-2xl">
           <CardContent className="pt-6">
@@ -2285,11 +1800,11 @@ export function ClassOverviewPage() {
 
 
       {graphData?.state === 'PUBLISHED' && (
-        <Card className="border-emerald-100 bg-emerald-50/10" role="alert">
+        <Card className="border-emerald-500/20 bg-emerald-500/5" role="alert">
           <CardContent className="pt-6">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-emerald-950 font-semibold">
-                <CheckCircle2 className="size-5 text-emerald-600" />
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
                 <span>Đã publish lúc {graphData.publishedAt ? new Date(graphData.publishedAt).toLocaleString() : ''}</span>
               </div>
               <p className="text-sm text-muted-foreground">Lộ trình học đã được mở cho học sinh. Mọi tiến độ học tập đang được ghi nhận.</p>
@@ -2301,14 +1816,14 @@ export function ClassOverviewPage() {
         </Card>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex border-b border-slate-200">
+      {}
+      <div className="flex border-b border-border">
         <button
           onClick={() => setActiveTab('roadmap')}
           className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
             activeTab === 'roadmap'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              ? 'border-primary text-foreground font-bold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           Lộ trình học tập
@@ -2318,8 +1833,8 @@ export function ClassOverviewPage() {
           onClick={() => setActiveTab('students')}
           className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
             activeTab === 'students'
-              ? 'border-primary text-primary font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              ? 'border-primary text-foreground font-bold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           Danh sách học sinh ({students.length})
@@ -2336,7 +1851,7 @@ export function ClassOverviewPage() {
         </button>
       </div>
 
-      {/* Tab Content */}
+      {}
       {activeTab === 'roadmap' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between pl-1">
@@ -2358,8 +1873,8 @@ export function ClassOverviewPage() {
             )}
           </div>
 
-          {/* Chọn nguồn lộ trình để áp dụng: template của khoa hoặc template cá nhân của GV.
-              Hiện khi lớp chưa có lộ trình hoặc còn bản nháp (áp dụng sẽ ghi đè nháp). */}
+          {
+}
           {(graphData?.state === 'NO_PATH' || graphData?.state === 'DRAFT') && (
             <Card className="border border-primary/20 bg-primary/5 rounded-2xl mb-6">
               <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
@@ -2409,7 +1924,8 @@ export function ClassOverviewPage() {
                 </div>
                 <Button
                   onClick={() => (graphData?.state === 'DRAFT' ? setShowApplyTemplateConfirm(true) : handleApplyTemplate())}
-                  disabled={isNonIdle || !selectedTemplateId}
+                  disabled={isNonIdle || !selectedTemplateId || classroomStatus === 'completed'}
+                  title={classroomStatus === 'completed' ? 'Lớp đã kết thúc — chỉ có thể xem.' : undefined}
                   className="shrink-0 rounded-xl font-semibold"
                 >
                   {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
@@ -2484,7 +2000,7 @@ export function ClassOverviewPage() {
                         </div>
                       ) : (
                         <>
-                          {/* Student list above materials */}
+                          {}
                           <div className="space-y-2">
                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Danh sách sinh viên ({nodeStudents.length})</h4>
                             {nodeStudents.length === 0 ? (
@@ -2511,7 +2027,7 @@ export function ClassOverviewPage() {
                             )}
                           </div>
 
-                          {/* Scheduling for ON_CLASS nodes */}
+                          {}
                           {selectedNode.nodeType === 'ON_CLASS' && (
                             <div className="space-y-2 border-t border-border pt-3">
                               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Lịch học trên lớp</h4>
@@ -2542,7 +2058,7 @@ export function ClassOverviewPage() {
                             </div>
                           )}
 
-                          {/* Deadline CHỈ cho node Tự học — node Trên lớp học theo buổi (lịch + live) */}
+                          {}
                           {selectedNode.nodeType === 'AT_HOME' && (
                             <div className="space-y-2 border-t border-border pt-3">
                               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Hạn hoàn thành (deadline)</h4>
@@ -2577,7 +2093,7 @@ export function ClassOverviewPage() {
                             </div>
                           )}
 
-                          {/* Unlocking status and action for ON_CLASS nodes */}
+                          {}
                           {selectedNode.nodeType === 'ON_CLASS' && (
                             <div className="space-y-2 border-t border-border pt-3">
                               <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Trạng thái buổi học</h4>
@@ -2621,7 +2137,7 @@ export function ClassOverviewPage() {
                             onValueChange={(val) => setActiveTabs((prev) => ({ ...prev, [selectedNode.nodeId]: val }))}
                             className="w-full"
                           >
-                            <TabsList className={`grid w-full bg-slate-100 p-1 rounded-lg h-9 mb-4 ${selectedNode.nodeType === 'ON_CLASS' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                            <TabsList className="grid w-full bg-slate-100 p-1 rounded-lg h-9 mb-4 grid-cols-2">
                               <TabsTrigger value="content" className="text-xs py-1.5 font-semibold rounded-md">
                                 Nội dung
                               </TabsTrigger>
@@ -2630,15 +2146,10 @@ export function ClassOverviewPage() {
                                   ? `Thảo luận (${discussionCounts[selectedNode.nodeId]})`
                                   : 'Thảo luận'}
                               </TabsTrigger>
-                              {selectedNode.nodeType === 'ON_CLASS' && (
-                                <TabsTrigger value="popQuiz" className="text-xs py-1.5 font-semibold rounded-md">
-                                  Pop Quiz
-                                </TabsTrigger>
-                              )}
                             </TabsList>
 
                             <TabsContent value="content" className="mt-0 space-y-4">
-                              {/* Materials */}
+                              {}
                               <div className="space-y-2 pt-3 border-t border-border">
                                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Tài liệu học tập</h4>
                                 {!nodeContent || (!nodeContent.materials?.length && !nodeContent.tests?.length && !nodeContent.exercises?.length) ? (
@@ -2668,14 +2179,13 @@ export function ClassOverviewPage() {
                                         <div className="flex-1 min-w-0">
                                           <p className="font-medium text-foreground truncate">{t.title} ({t.durationMinutes} phút)</p>
                                         </div>
-                                        {selectedNode.nodeType === 'ON_CLASS' && (
-                                          <Button
-                                            onClick={() => { setMonitorTab('doing'); setMonitorTest({ testId: t.testId, title: t.title }); }}
-                                            className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
-                                          >
-                                            <Activity className="w-3 h-3 mr-1" /> Theo dõi
-                                          </Button>
-                                        )}
+                                        {}
+                                        <Button
+                                          onClick={() => { setMonitorTab(selectedNode.nodeType === 'ON_CLASS' ? 'doing' : 'grading'); setMonitorTest({ testId: t.testId, title: t.title }); }}
+                                          className="h-6 px-2 text-[9px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded shrink-0"
+                                        >
+                                          <Activity className="w-3 h-3 mr-1" /> Theo dõi
+                                        </Button>
                                       </div>
                                     ))}
                                     {nodeContent.exercises?.map((e) => (
@@ -2717,12 +2227,6 @@ export function ClassOverviewPage() {
                                 />
                               )}
                             </TabsContent>
-
-                            {selectedNode.nodeType === 'ON_CLASS' && (
-                              <TabsContent value="popQuiz" className="mt-0">
-                                {renderPopQuizTabContent()}
-                              </TabsContent>
-                            )}
                           </Tabs>
                         </>
                       )}
@@ -2735,7 +2239,7 @@ export function ClassOverviewPage() {
         </div>
       )}
 
-      {/* Xác nhận ghi đè template lên bản nháp hiện tại */}
+      {}
       <Dialog open={showApplyTemplateConfirm} onOpenChange={(o) => { if (!o) setShowApplyTemplateConfirm(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -2791,9 +2295,9 @@ export function ClassOverviewPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-200">
-              {/* Left Column: Quiz Info & Score Bands */}
+              {}
               <div className="lg:col-span-1 space-y-6">
-                {/* General Info Card */}
+                {}
                 <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white">
                   <CardHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
                     <CardTitle className="text-sm font-bold text-slate-850 flex items-center gap-1.5">
@@ -2821,10 +2325,17 @@ export function ClassOverviewPage() {
                       <span className="font-medium text-slate-650">Thời gian làm bài:</span>
                       <span className="font-bold text-slate-800">{placementQuiz.durationMinutes} phút</span>
                     </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => { setMonitorTab('grading'); setMonitorTest({ testId: placementQuiz.testId, title: placementQuiz.title }); }}
+                      className="w-full h-8 rounded-lg text-[11px] font-bold text-primary border-primary/20 hover:bg-primary/5"
+                    >
+                      <Activity className="size-3.5 mr-1" /> Bài làm & chấm tự luận
+                    </Button>
                   </CardContent>
                 </Card>
 
-                {/* Score Bands Card */}
+                {}
                 <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white">
                   <CardHeader className="border-b border-slate-100 pb-3 flex items-center justify-between flex-row">
                     <CardTitle className="text-sm font-bold text-slate-855 flex items-center gap-1.5">
@@ -2899,7 +2410,7 @@ export function ClassOverviewPage() {
                 </Card>
               </div>
 
-              {/* Right Column: Question Library */}
+              {}
               <div className="lg:col-span-2">
                 <Card className="border border-slate-200 shadow-xs rounded-2xl bg-white h-full flex flex-col justify-between">
                   <div>
@@ -2994,17 +2505,16 @@ export function ClassOverviewPage() {
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50 border-border">
                   <TableHead className="font-bold text-muted-foreground w-[12%]">Mã học sinh</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[18%]">Họ và tên</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[16%]">Phân loại năng lực</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[20%]">Lộ trình học tập</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[12%] text-center">Hoàn thành trễ</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[22%] text-center">Hành động</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[28%]">Họ và tên</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[18%]">Phân loại năng lực</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[15%] text-center">Hoàn thành trễ</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[27%] text-center">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {students.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">
                       Chưa có học sinh nào tham gia lớp học này.
                     </TableCell>
                   </TableRow>
@@ -3031,14 +2541,9 @@ export function ClassOverviewPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-[10px] font-bold border rounded-[6px] px-2 py-0.5 ${levelColor}`}>
+                          <Badge variant="outline" className={`text-[10px] font-bold border rounded-[6px] px-2 py-0.5 w-28 justify-center ${levelColor}`}>
                             {levelLabel}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-foreground font-medium text-xs">
-                          {student.assignedPathName || (
-                            <span className="text-muted-foreground italic text-[11px]">Chưa gán lộ trình</span>
-                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           {(() => {
@@ -3113,7 +2618,7 @@ export function ClassOverviewPage() {
         </Card>
       )}
 
-      {/* Dialog: Create/Update Placement Quiz */}
+      {}
       <Dialog open={isCreateQuizOpen} onOpenChange={setIsCreateQuizOpen}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleCreateOrUpdateQuiz}>
@@ -3171,7 +2676,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Add/Edit Question */}
+      {}
       <Dialog open={isQuestionModalOpen} onOpenChange={setIsQuestionModalOpen}>
         <DialogContent className="sm:max-w-xl">
           <form onSubmit={handleQuestionSubmit}>
@@ -3315,20 +2820,20 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Modal for Publish */}
+      {}
       <Dialog open={showPublishConfirm} onOpenChange={(open) => { if (!open) { setShowPublishConfirm(false); setUnderstandPublish(false); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận Publish lộ trình học</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Xác nhận Publish lộ trình học</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Hành động này sẽ chính thức kích hoạt lộ trình học cho sinh viên.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600 leading-relaxed">
-              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong>{students.length} học sinh</strong> đang enroll trong lớp học này.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Lộ trình sẽ mở khóa các bài học đầu tiên (entry nodes) cho <strong className="text-foreground font-bold">{students.length} học sinh</strong> đang enroll trong lớp học này.
             </p>
-            <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-100">
+            <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 p-3 rounded-md border border-amber-500/20">
               <strong>Chú ý:</strong> Hành động không thể hủy bỏ (unpublish) nếu đã có bất kỳ học sinh nào hoàn thành tối thiểu một bài học trong lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
@@ -3339,7 +2844,7 @@ export function ClassOverviewPage() {
               />
               <label
                 htmlFor="understand-publish"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-foreground/90 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi hiểu và đồng ý publish lộ trình học cho sinh viên lớp này.
               </label>
@@ -3356,7 +2861,7 @@ export function ClassOverviewPage() {
             <Button
               onClick={handlePublish}
               disabled={!understandPublish || actionState === 'publishing'}
-              className="font-medium"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium border-transparent"
             >
               {actionState === 'publishing' ? (
                 <>
@@ -3371,20 +2876,20 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Modal for Unpublish */}
+      {}
       <Dialog open={showUnpublishConfirm} onOpenChange={(open) => { if (!open) { setShowUnpublishConfirm(false); setUnderstandUnpublish(false); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">Xác nhận rút lại lộ trình học (Unpublish)</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Rút lại lộ trình học để chỉnh sửa thêm bản nháp.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600 leading-relaxed font-medium">
+            <p className="text-sm text-muted-foreground leading-relaxed font-medium">
               Toàn bộ tiến độ học tập và ghi nhận bài học hiện tại của học sinh sẽ bị xóa sạch khỏi hệ thống.
             </p>
-            <p className="text-sm text-red-700 bg-red-50 p-3 rounded-md border border-red-100">
+            <p className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-md border border-red-500/20">
               <strong>Cảnh báo:</strong> Hãy đảm bảo chưa có học sinh nào hoàn thành bất kỳ bài học nào, nếu không hệ thống sẽ từ chối rút lại lộ trình.
             </p>
             <div className="flex items-start gap-2 pt-2">
@@ -3395,7 +2900,7 @@ export function ClassOverviewPage() {
               />
               <label
                 htmlFor="understand-unpublish"
-                className="text-xs text-gray-700 leading-tight cursor-pointer select-none font-medium"
+                className="text-xs text-foreground/90 leading-tight cursor-pointer select-none font-medium"
               >
                 Tôi xác nhận muốn xóa sạch tiến trình hiện tại để đưa lộ trình về trạng thái nháp.
               </label>
@@ -3412,7 +2917,7 @@ export function ClassOverviewPage() {
             <Button
               onClick={handleUnpublish}
               disabled={!understandUnpublish || actionState === 'unpublishing'}
-              className="font-medium"
+              className="bg-amber-600 hover:bg-amber-500 text-white font-medium border-transparent"
             >
               {actionState === 'unpublishing' ? <Loader className="size-4 animate-spin mr-1" /> : null}
               Xác nhận Unpublish
@@ -3421,33 +2926,33 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Unpublish Error Modal (already completed nodes) */}
+      {}
       <Dialog open={showUnpublishError} onOpenChange={setShowUnpublishError}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
+            <DialogTitle className="text-destructive flex items-center gap-2">
               <AlertTriangle className="size-5 shrink-0" />
               <span>Không thể unpublish</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="py-2 text-sm text-gray-600 leading-relaxed">
+          <div className="py-2 text-sm text-muted-foreground leading-relaxed">
             {unpublishErrorMsg || 'Đã có học sinh hoàn thành node, không thể unpublish.'}
           </div>
           <DialogFooter className="sm:justify-end">
-            <Button onClick={() => setShowUnpublishError(false)}>
+            <Button onClick={() => setShowUnpublishError(false)} className="bg-primary text-primary-foreground">
               Đồng ý
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Student Level History Modal */}
+      {}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg bg-background border-border shadow-2xl">
           <DialogHeader>
-            <DialogTitle>Lịch sử xếp lớp học sinh</DialogTitle>
-            <DialogDescription>
-              Xem nhật ký phân loại học lực và đổi nhánh lộ trình của <span className="font-bold text-slate-800">{selectedStudentName}</span>.
+            <DialogTitle className="text-foreground">Lịch sử xếp lớp học sinh</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Xem nhật ký phân loại học lực và đổi nhánh lộ trình của <span className="font-bold text-primary">{selectedStudentName}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 text-xs">
@@ -3456,8 +2961,8 @@ export function ClassOverviewPage() {
                 <Loader className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : levelHistory.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                <History className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
                 <p className="text-xs">Chưa có lịch sử thay đổi mức năng lực.</p>
               </div>
             ) : (
@@ -3472,20 +2977,20 @@ export function ClassOverviewPage() {
                   };
 
                   return (
-                    <div key={hist.id || idx} className="flex gap-4 items-start p-3 border border-slate-100 bg-slate-50/30 rounded-xl">
-                      <div className="flex flex-col items-center justify-center bg-primary/5 text-primary p-2 rounded-lg font-bold shrink-0 min-w-10 text-center">
-                        <span className="text-[10px] text-slate-400 block uppercase font-medium">Mức mới</span>
-                        <span className="text-sm font-extrabold text-primary">{getLvlLabel(hist.newLevel)}</span>
+                    <div key={hist.id || idx} className="flex gap-4 items-start p-3 border border-border bg-card rounded-xl">
+                      <div className="flex flex-col items-center justify-center bg-muted text-foreground p-2 rounded-lg font-bold shrink-0 w-24 text-center border border-border">
+                        <span className="text-[10px] text-muted-foreground block uppercase font-medium">Mức mới</span>
+                        <span className="text-sm font-extrabold text-foreground">{getLvlLabel(hist.newLevel)}</span>
                       </div>
                       <div className="flex-1 space-y-1">
                         <div className="flex justify-between items-center">
-                          <span className="font-bold text-slate-800">Lý do: {getReasonLabel(hist.reason)}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">
+                          <span className="font-bold text-foreground">Lý do: {getReasonLabel(hist.reason)}</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">
                             {new Date(hist.changedAt).toLocaleString('vi-VN')}
                           </span>
                         </div>
-                        <p className="text-slate-500 leading-relaxed text-[11px]">
-                          Chuyển từ mức <span className="font-semibold text-slate-700">{hist.oldLevel ? getLvlLabel(hist.oldLevel) : 'Chưa xếp lớp'}</span> sang mức <span className="font-semibold text-slate-700">{getLvlLabel(hist.newLevel)}</span>.
+                        <p className="text-muted-foreground leading-relaxed text-[11px]">
+                          Chuyển từ mức <span className="font-semibold text-foreground/90">{hist.oldLevel ? getLvlLabel(hist.oldLevel) : 'Chưa xếp lớp'}</span> sang mức <span className="font-semibold text-foreground/90">{getLvlLabel(hist.newLevel)}</span>.
                         </p>
                       </div>
                     </div>
@@ -3495,120 +3000,114 @@ export function ClassOverviewPage() {
             )}
           </div>
           <DialogFooter className="sm:justify-end">
-            <Button type="button" onClick={() => setIsHistoryOpen(false)} className="font-semibold">
+            <Button type="button" onClick={() => setIsHistoryOpen(false)} className="font-semibold bg-primary text-primary-foreground">
               Đóng
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Student Details & History Modal */}
+      {}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+        <DialogContent className={`${detailTab === 'roadmap' ? 'sm:max-w-3xl' : 'sm:max-w-xl'} bg-background border-border shadow-2xl transition-all duration-300`}>
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <User className="size-5 text-primary" /> Thông tin chi tiết học sinh
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-muted-foreground">
               Xem hồ sơ học tập và lộ trình của học sinh trong lớp học.
             </DialogDescription>
           </DialogHeader>
 
           {selectedStudent && (
             <div className="py-4 space-y-4">
-              {/* Profile Card Header */}
-              <div className="flex items-center gap-4 bg-slate-50/50 p-4 border border-slate-100 rounded-2xl">
-                <div className="size-12 bg-primary/5 text-primary rounded-full flex items-center justify-center font-extrabold text-lg border border-primary/10">
+              {}
+              <div className="flex items-center gap-4 bg-muted/30 p-4 border border-border rounded-2xl">
+                <div className="size-12 bg-muted text-foreground rounded-full flex items-center justify-center font-extrabold text-lg border border-border">
                   {selectedStudent.fullName.split(' ').pop()?.charAt(0).toUpperCase() || 'S'}
                 </div>
                 <div className="flex-1 space-y-1">
-                  <h4 className="font-bold text-slate-800 text-sm leading-none">{selectedStudent.fullName}</h4>
-                  <div className="flex items-center gap-4 text-slate-500 text-xs mt-1">
+                  <h4 className="font-bold text-foreground text-sm leading-none">{selectedStudent.fullName}</h4>
+                  <div className="flex items-center gap-4 text-muted-foreground text-xs mt-1">
                     <span className="flex items-center gap-1 font-medium">
-                      <span className="font-bold text-slate-400">Mã HS:</span> {selectedStudent.id}
+                      <span className="font-bold text-muted-foreground">Mã HS:</span> {selectedStudent.id}
                     </span>
                     {selectedStudent.email && (
                       <span className="flex items-center gap-1">
-                        <Mail className="size-3 text-slate-400" /> {selectedStudent.email}
+                        <Mail className="size-3 text-muted-foreground" /> {selectedStudent.email}
                       </span>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Tabs selector */}
-              <div className="flex border-b border-slate-100 gap-4 text-xs font-semibold text-slate-500">
-                <button
-                  type="button"
-                  onClick={() => setDetailTab('info')}
-                  className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'info' ? 'text-primary border-b-2 border-primary' : 'hover:text-slate-700'
-                  }`}
+              <div className="py-4 space-y-4 max-h-[65vh] overflow-y-auto pr-2">
+                <Tabs
+                  value={detailTab}
+                  onValueChange={(val) => {
+                    setDetailTab(val as any);
+                    if (val === 'roadmap' && !studentGraph && selectedStudent) {
+                      fetchStudentGraph(selectedStudent.rawUserId);
+                    }
+                  }}
+                  className="w-full"
                 >
-                  Học lực & Lộ trình
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDetailTab('history')}
-                  className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'history' ? 'text-primary border-b-2 border-primary' : 'hover:text-slate-700'
-                  }`}
-                >
-                  Lịch sử xếp lớp
-                </button>
-              </div>
+                  <TabsList className="grid w-full grid-cols-3 bg-muted p-1 rounded-xl h-10 mb-5">
+                    <TabsTrigger value="info" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Học lực & Lộ trình
+                    </TabsTrigger>
+                    <TabsTrigger value="history" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Lịch sử xếp lớp
+                    </TabsTrigger>
+                    <TabsTrigger value="roadmap" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Bản đồ lộ trình
+                    </TabsTrigger>
+                  </TabsList>
 
-              {/* Tab Contents */}
-              <div className="min-h-[220px]">
-                {detailTab === 'info' && (
-                  <div className="space-y-4 pt-1">
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Left Block */}
-                      <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/20 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Phân loại học lực</span>
-                        <div className="pt-1">
-                          {(() => {
-                            const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                            const badgeColor = selectedStudent.currentLevel === 1
-                              ? 'bg-rose-50 border-rose-200 text-rose-700'
-                              : selectedStudent.currentLevel === 2
-                                ? 'bg-amber-50 border-amber-200 text-amber-700'
-                                : selectedStudent.currentLevel === 3
-                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                  : 'bg-slate-50 border-slate-200 text-slate-500';
-                            return (
-                              <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 ${badgeColor}`}>
-                                {label}
-                              </Badge>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      {/* Right Block */}
-                      <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/20 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Lộ trình học tập</span>
-                        <div className="pt-1 font-semibold text-slate-700 text-xs">
-                          {selectedStudent.assignedPathName || (
-                            <span className="text-slate-400 italic font-normal">Chưa gán lộ trình</span>
-                          )}
-                        </div>
+                  <TabsContent value="info" className="mt-0 space-y-4">
+                    {/* Phân loại học lực */}
+                    <div className="p-4 border border-border rounded-xl bg-muted/10 space-y-1.5">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Phân loại học lực</span>
+                      <div className="pt-0.5">
+                        {(() => {
+                          const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
+                          const badgeColor = selectedStudent.currentLevel === 1
+                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
+                            : selectedStudent.currentLevel === 2
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                              : selectedStudent.currentLevel === 3
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-muted border-border text-muted-foreground';
+                          return (
+                            <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 w-28 justify-center ${badgeColor}`}>
+                              {label}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                     </div>
 
-                    {/* Progress details */}
-                    <div className="p-4 border border-slate-100 rounded-xl bg-slate-50/10 space-y-3">
+                    {/* TODO: Tính năng chuyển nhánh lộ trình */}
+                    <div className="p-4 border border-dashed border-amber-500/30 rounded-xl bg-amber-500/5 space-y-1.5">
+                      <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                        <AlertTriangle className="size-3.5 animate-pulse" /> TODO: Tính năng tự chọn nhánh lộ trình
+                      </span>
+                      <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                        Giảng viên xem mức học hiện tại của học sinh và có thể chủ động chuyển học sinh sang nhánh lộ trình khác theo ý muốn (chuyển đổi giữa Yếu, Trung bình, Khá) thay vì dựa hoàn toàn vào bài thi phân lớp tự động.
+                      </p>
+                    </div>
+                    <div className="p-4 border border-border rounded-xl bg-muted/5 space-y-3">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                        <span className="font-bold text-foreground flex items-center gap-1.5">
                           <TrendingUp className="size-4 text-primary" /> Tiến độ lộ trình
                         </span>
-                        <span className="font-semibold text-primary">0%</span>
+                        <span className="font-semibold text-foreground">{studentProgressPercent}%</span>
                       </div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: '0%' }} />
+                      <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                        <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: `${studentProgressPercent}%` }} />
                       </div>
-                      <p className="text-[10.5px] text-slate-500 leading-relaxed">
-                        Học sinh đang học theo nhánh riêng biệt của mức năng lực <span className="font-semibold">{selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại'}</span>. Tiến độ sẽ tự động tăng khi học sinh làm bài test cổng phụ hoặc hoàn thành bài học.
+                      <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                        Học sinh đang học theo nhánh riêng biệt của mức năng lực <span className="font-semibold text-foreground">{selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại'}</span>. Tiến độ sẽ tự động tăng khi học sinh làm bài test cổng phụ hoặc hoàn thành bài học.
                       </p>
                     </div>
                     {selectedStudent.currentLevel != null && (
@@ -3625,22 +3124,20 @@ export function ClassOverviewPage() {
                         </Button>
                       </div>
                     )}
-                  </div>
-                )}
+                  </TabsContent>
 
-                {detailTab === 'history' && (
-                  <div className="space-y-4 pt-1 text-xs">
+                  <TabsContent value="history" className="mt-0 space-y-4">
                     {historyLoading ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader className="w-8 h-8 animate-spin text-primary" />
                       </div>
                     ) : levelHistory.length === 0 ? (
-                      <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                        <History className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                        <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
                         <p className="text-xs">Chưa có lịch sử thay đổi mức năng lực.</p>
                       </div>
                     ) : (
-                      <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+                      <div className="space-y-3">
                         {levelHistory.map((hist, idx) => {
                           const getLvlLabel = (l: number) => l === 1 ? 'Yếu' : l === 2 ? 'Trung bình' : l === 3 ? 'Khá' : 'N/A';
                           const getReasonLabel = (r: string) => {
@@ -3651,20 +3148,20 @@ export function ClassOverviewPage() {
                           };
 
                           return (
-                            <div key={hist.id || idx} className="flex gap-3 items-start p-2.5 border border-slate-100 bg-slate-50/30 rounded-xl">
-                              <div className="flex flex-col items-center justify-center bg-primary/5 text-primary p-1.5 rounded-lg font-bold shrink-0 min-w-10 text-center">
-                                <span className="text-[9px] text-slate-400 block uppercase font-medium">Mức mới</span>
-                                <span className="text-xs font-extrabold text-primary">{getLvlLabel(hist.newLevel)}</span>
+                            <div key={hist.id || idx} className="flex gap-3 items-start p-2.5 border border-border bg-card rounded-xl">
+                              <div className="flex flex-col items-center justify-center bg-muted text-foreground border border-border p-1.5 rounded-lg font-bold shrink-0 w-24 text-center">
+                                <span className="text-[9px] text-muted-foreground block uppercase font-medium">Mức mới</span>
+                                <span className="text-xs font-extrabold text-foreground">{getLvlLabel(hist.newLevel)}</span>
                               </div>
                               <div className="flex-1 space-y-0.5">
                                 <div className="flex justify-between items-center">
-                                  <span className="font-bold text-slate-700">Lý do: {getReasonLabel(hist.reason)}</span>
-                                  <span className="text-[9px] text-slate-400">
+                                  <span className="font-bold text-foreground">Lý do: {getReasonLabel(hist.reason)}</span>
+                                  <span className="text-[9px] text-muted-foreground">
                                     {new Date(hist.changedAt).toLocaleString('vi-VN')}
                                   </span>
                                 </div>
-                                <p className="text-slate-500 leading-relaxed text-[10.5px]">
-                                  Chuyển từ mức <span className="font-semibold text-slate-650">{hist.oldLevel ? getLvlLabel(hist.oldLevel) : 'Chưa xếp lớp'}</span> sang mức <span className="font-semibold text-slate-650">{getLvlLabel(hist.newLevel)}</span>.
+                                <p className="text-muted-foreground leading-relaxed text-[10.5px]">
+                                  Chuyển từ mức <span className="font-semibold text-foreground">{hist.oldLevel ? getLvlLabel(hist.oldLevel) : 'Chưa xếp lớp'}</span> sang mức <span className="font-semibold text-foreground">{getLvlLabel(hist.newLevel)}</span>.
                                 </p>
                               </div>
                             </div>
@@ -3672,24 +3169,63 @@ export function ClassOverviewPage() {
                         })}
                       </div>
                     )}
-                  </div>
-                )}
+                  </TabsContent>
+
+                  <TabsContent value="roadmap" className="mt-0 space-y-4">
+                    {studentGraphLoading ? (
+                      <div className="flex flex-col items-center justify-center py-16 gap-2">
+                        <Loader className="w-8 h-8 animate-spin text-primary" />
+                        <span className="text-xs text-muted-foreground">Đang tải sơ đồ lộ trình học sinh...</span>
+                      </div>
+                    ) : !studentGraph || !studentGraph.nodes?.length ? (
+                      <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                        <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-xs font-semibold">Học sinh này chưa bắt đầu lộ trình.</p>
+                      </div>
+                    ) : (
+                      <div className="border border-border rounded-2xl p-4 bg-muted/5 overflow-x-auto relative">
+                        <div className="flex items-center justify-between text-[11px] mb-4 bg-card border border-border p-3 rounded-xl gap-4">
+                          <span className="font-bold text-foreground">Chú giải ký hiệu:</span>
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="flex items-center gap-1.5 font-medium text-foreground">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border border-background shadow-xs shrink-0" /> Đã học
+                            </span>
+                            <span className="flex items-center gap-1.5 font-medium text-foreground">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-600 border border-background shadow-xs shrink-0" /> Khóa (Sẽ học)
+                            </span>
+                            <span className="flex items-center gap-1.5 font-medium text-muted-foreground/60">
+                              <span className="w-2.5 h-2.5 rounded-full bg-muted border border-background shadow-xs opacity-60 shrink-0" /> Mức khác (Không học)
+                            </span>
+                          </div>
+                        </div>
+                        <LearningPathFlow
+                          nodes={studentGraph.nodes}
+                          edges={studentGraph.edges || []}
+                          highlightLevel={selectedStudent?.currentLevel}
+                          onNodeClick={(node) => {
+                            toast.info(`Bài học: ${node.title} (${node.studentStatus === 'COMPLETED' ? 'Đã hoàn thành' : node.studentStatus === 'LOCKED' ? 'Đang khóa' : 'Đang học'})`);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
           )}
 
-          <DialogFooter className="border-t border-slate-100 pt-3 sm:justify-end">
-            <Button type="button" onClick={() => setIsDetailOpen(false)} className="font-semibold">
+          <DialogFooter className="border-t border-border pt-3 sm:justify-end">
+            <Button type="button" onClick={() => setIsDetailOpen(false)} className="font-semibold bg-primary text-primary-foreground">
               Đóng
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ─── Tab Support: Trợ giảng & Hỏi đáp ─────────────────────────────────── */}
+      {}
       {activeTab === 'support' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Cột trái: Quản lý nhóm trợ giảng (2 cols) */}
+          {}
           <div className="lg:col-span-2 space-y-6">
             <Card className="border border-border shadow-xs rounded-2xl bg-card text-card-foreground">
               <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between flex-wrap gap-2">
@@ -3804,7 +3340,7 @@ export function ClassOverviewPage() {
             </Card>
           </div>
 
-          {/* Cột phải: Hỏi đáp leo thang (1 col) */}
+          {}
           <div className="space-y-6">
             <Card className="border border-border shadow-xs rounded-2xl bg-card text-card-foreground h-full flex flex-col justify-between">
               <div>
@@ -3870,45 +3406,43 @@ export function ClassOverviewPage() {
         </div>
       )}
 
-      {/* Modal: Gán học sinh kèm cặp */}
+      {}
       <Dialog open={isAssignStudentModalOpen} onOpenChange={setIsAssignStudentModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <UserCheck className="size-5 text-primary" /> Thêm học sinh kèm cặp
             </DialogTitle>
-            <DialogDescription>
-              Giao phó học sinh cho trợ giảng <strong>{selectedSubMentor?.fullName}</strong> kèm cặp.
+            <DialogDescription className="text-muted-foreground">
+              Giao phó học sinh cho trợ giảng <strong className="text-foreground font-bold">{selectedSubMentor?.fullName}</strong> kèm cặp.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateAssignment}>
             <div className="py-4 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 block">Chọn học sinh trong lớp:</label>
-                <div className="max-h-[250px] overflow-y-auto pr-2 space-y-2 py-2 border border-slate-200 rounded-xl bg-white p-2">
+                <label className="text-xs font-bold text-foreground block">Chọn học sinh trong lớp:</label>
+                <div className="max-h-[250px] overflow-y-auto pr-2 space-y-2 py-2 border border-border rounded-xl bg-muted/20 p-2">
                   {students.filter(s => {
-                    if (s.isSubmentor) return false;
                     if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
-                    const isAssignedToThis = assignments.some(
-                      a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
+                    const isAssignedToAny = assignments.some(
+                      a => a.studentCssId === s.classroomSubjectStudentId
                     );
-                    return !isAssignedToThis;
+                    return !isAssignedToAny;
                   }).length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-4">Tất cả học sinh khả dụng đã được gán.</p>
+                    <p className="text-xs text-muted-foreground text-center py-4">Tất cả học sinh khả dụng đã được gán.</p>
                   ) : (
                     students.filter(s => {
-                      if (s.isSubmentor) return false;
                       if (s.classroomSubjectStudentId === selectedSubMentor?.classroomSubjectStudentId) return false;
-                      const isAssignedToThis = assignments.some(
-                        a => a.subMentorCssId === selectedSubMentor?.classroomSubjectStudentId && a.studentCssId === s.classroomSubjectStudentId
+                      const isAssignedToAny = assignments.some(
+                        a => a.studentCssId === s.classroomSubjectStudentId
                       );
-                      return !isAssignedToThis;
+                      return !isAssignedToAny;
                     }).map(s => (
-                      <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
+                      <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border cursor-pointer transition-colors">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 rounded border-slate-300 focus:ring-primary"
+                          className="w-4 h-4 rounded border-border bg-background focus:ring-primary text-foreground"
                           checked={selectedStudentsToAssign.includes(s.classroomSubjectStudentId!)}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -3919,8 +3453,8 @@ export function ClassOverviewPage() {
                           }}
                         />
                         <div>
-                          <p className="text-sm font-semibold text-slate-700">{s.fullName}</p>
-                          <p className="text-xs text-slate-500">{s.id} {s.isSubmentor ? " [Trợ giảng]" : ""}</p>
+                          <p className="text-sm font-semibold text-foreground">{s.fullName}</p>
+                          <p className="text-xs text-muted-foreground">{s.id} {s.isSubmentor ? " [Trợ giảng]" : ""}</p>
                         </div>
                       </label>
                     ))
@@ -3929,7 +3463,7 @@ export function ClassOverviewPage() {
               </div>
             </div>
 
-            <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+            <DialogFooter className="border-t border-border pt-3 flex gap-2 justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -3937,14 +3471,14 @@ export function ClassOverviewPage() {
                   setIsAssignStudentModalOpen(false);
                   setSelectedStudentsToAssign([]);
                 }}
-                className="h-9 rounded-xl text-xs border-slate-200"
+                className="h-9 rounded-xl text-xs border-border"
               >
                 Hủy
               </Button>
               <Button
                 type="submit"
                 disabled={submittingAssignment || selectedStudentsToAssign.length === 0}
-                className="h-9 rounded-xl text-xs font-semibold"
+                className="h-9 rounded-xl text-xs font-semibold bg-primary text-primary-foreground"
               >
                 {submittingAssignment ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
                 Lưu phân công
@@ -3954,7 +3488,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Giảng viên trả lời câu hỏi leo thang */}
+      {}
       <Dialog open={isRespondModalOpen} onOpenChange={setIsRespondModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader className="pb-3 border-b border-slate-100">
@@ -4016,32 +3550,32 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Exercise Submissions Split Dialog */}
+      {}
       {selectedExerciseId && (
         <Dialog open={!!selectedExerciseId} onOpenChange={() => {
           setSelectedExerciseId(null);
           setGradingSubmission(null);
         }}>
-          <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-            <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-white shrink-0">
-              <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
+          <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background border-border shadow-2xl">
+            <DialogHeader className="p-6 pb-4 border-b border-border bg-card shrink-0">
+              <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
                 Chấm bài thực hành: {selectedExerciseTitle}
               </DialogTitle>
             </DialogHeader>
 
             <div className="flex-1 overflow-hidden grid grid-cols-12 min-h-[50vh]">
-              {/* Left Column: Submissions List */}
-              <div className="col-span-5 border-r border-slate-100 overflow-y-auto p-4 bg-slate-50/50">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Danh sách bài nộp</h4>
+              {}
+              <div className="col-span-5 border-r border-border overflow-y-auto p-4 bg-muted/20">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Danh sách bài nộp</h4>
                 {loadingSubmissions ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-2">
-                    <Loader className="w-5 h-5 animate-spin text-indigo-600" />
-                    <span className="text-[10px] text-slate-500 font-medium">Đang tải...</span>
+                    <Loader className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-[10px] text-muted-foreground font-medium">Đang tải...</span>
                   </div>
                 ) : submissionsList.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white p-4">
-                    <p className="text-[11px] font-medium text-slate-500">Chưa có học sinh nào nộp bài.</p>
+                  <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl bg-card p-4">
+                    <p className="text-[11px] font-medium text-muted-foreground">Chưa có học sinh nào nộp bài.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -4053,25 +3587,25 @@ export function ClassOverviewPage() {
                           onClick={() => handleOpenGrading(sub)}
                           className={`p-3 rounded-xl border transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-indigo-50/40 border-indigo-200 shadow-sm'
-                              : 'bg-white border-slate-100 hover:border-slate-200'
+                              ? 'bg-primary/10 border-primary/30 shadow-sm'
+                              : 'bg-card border-border hover:border-border/80'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-slate-800 text-xs">
+                            <span className="font-bold text-foreground text-xs">
                               {sub.studentName} {sub.status === 'GRADED' ? `(${sub.grade}/10)` : ''}
                             </span>
                             {sub.status === 'GRADED' ? (
-                              <Badge className="text-[8px] font-bold text-emerald-700 bg-emerald-50 border-emerald-150 rounded-[4px] px-1 py-0 border">
+                              <Badge className="text-[8px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/20 rounded-[4px] px-1.5 py-0.5 border">
                                 Đã chấm
                               </Badge>
                             ) : (
-                              <Badge className="text-[8px] font-bold text-amber-700 bg-amber-50 border-amber-150 rounded-[4px] px-1 py-0 border">
+                              <Badge className="text-[8px] font-bold text-amber-600 bg-amber-500/10 border-amber-500/20 rounded-[4px] px-1.5 py-0.5 border">
                                 Chờ chấm
                               </Badge>
                             )}
                           </div>
-                          <div className="text-[9px] text-slate-400 mt-1">
+                          <div className="text-[9px] text-muted-foreground mt-1">
                             Nộp: {new Date(sub.submittedAt).toLocaleString('vi-VN')}
                           </div>
                         </div>
@@ -4081,24 +3615,24 @@ export function ClassOverviewPage() {
                 )}
               </div>
 
-              {/* Right Column: Submission Details & Form */}
-              <div className="col-span-7 overflow-y-auto p-6 bg-white flex flex-col">
+              {}
+              <div className="col-span-7 overflow-y-auto p-6 bg-background flex flex-col">
                 {gradingSubmission ? (
                   <form onSubmit={handleSaveGrade} className="space-y-4 text-xs flex-1 flex flex-col justify-between">
                     <div className="space-y-4">
-                      <div className="border-b border-slate-100 pb-3">
-                        <h3 className="font-bold text-slate-800 text-sm">
+                      <div className="border-b border-border pb-3">
+                        <h3 className="font-bold text-foreground text-sm">
                           Bài làm của: {gradingSubmission.studentName}
                         </h3>
-                        <p className="text-[10px] text-slate-400 mt-1">
+                        <p className="text-[10px] text-muted-foreground mt-1">
                           Trạng thái: {gradingSubmission.status === 'GRADED' ? 'Đã chấm điểm (Khóa chỉnh sửa)' : 'Đang chờ chấm điểm'}
                         </p>
                       </div>
 
                       {gradingSubmission.content && (
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nội dung bài làm</label>
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-44 overflow-y-auto whitespace-pre-wrap leading-relaxed text-slate-800">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Nội dung bài làm</label>
+                          <div className="bg-muted/10 p-3 rounded-xl border border-border max-h-44 overflow-y-auto whitespace-pre-wrap leading-relaxed text-foreground">
                             {gradingSubmission.content}
                           </div>
                         </div>
@@ -4106,14 +3640,14 @@ export function ClassOverviewPage() {
 
                       {gradingSubmission.fileUrl && (
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">File đính kèm</label>
-                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-3">
-                            <span className="font-semibold text-slate-650 truncate max-w-xs">{gradingSubmission.fileUrl.split('/').pop()}</span>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">File đính kèm</label>
+                          <div className="p-3 bg-muted/10 rounded-xl border border-border flex items-center justify-between gap-3">
+                            <span className="font-semibold text-foreground truncate max-w-xs">{gradingSubmission.fileUrl.split('/').pop()}</span>
                             <a
                               href={resolveAssetUrl(gradingSubmission.fileUrl)}
                               target="_blank"
                               rel="noreferrer"
-                              className="px-3 py-1 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 transition-colors text-[10px]"
+                              className="px-3 py-1 bg-primary text-primary-foreground rounded font-bold hover:bg-primary/90 transition-colors text-[10px]"
                             >
                               Tải về / Xem tệp
                             </a>
@@ -4123,7 +3657,7 @@ export function ClassOverviewPage() {
 
                       <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1.5 col-span-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Điểm số (0 - 10) *</label>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Điểm số (0 - 10) *</label>
                           <input
                             type="number"
                             step="0.1"
@@ -4132,18 +3666,18 @@ export function ClassOverviewPage() {
                             required
                             disabled={gradingSubmission.status === 'GRADED'}
                             placeholder="VD: 8.5"
-                            className="w-full border border-slate-200 disabled:bg-slate-50 disabled:text-slate-500 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                            className="w-full border border-border disabled:bg-muted/10 disabled:text-muted-foreground rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-primary text-foreground bg-background"
                             value={gradeValue}
                             onChange={(e) => setGradeValue(e.target.value)}
                           />
                         </div>
                         <div className="space-y-1.5 col-span-2">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nhận xét của giảng viên</label>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Nhận xét của giảng viên</label>
                           <input
                             type="text"
                             disabled={gradingSubmission.status === 'GRADED'}
                             placeholder={gradingSubmission.status === 'GRADED' ? "Không có nhận xét nào" : "Nhập nhận xét hoặc feedback..."}
-                            className="w-full border border-slate-200 disabled:bg-slate-50 disabled:text-slate-500 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                            className="w-full border border-border disabled:bg-muted/10 disabled:text-muted-foreground rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary text-foreground bg-background"
                             value={feedbackValue}
                             onChange={(e) => setFeedbackValue(e.target.value)}
                           />
@@ -4151,7 +3685,7 @@ export function ClassOverviewPage() {
                       </div>
                     </div>
 
-                    <div className="border-t border-slate-100 pt-4 mt-6 flex justify-end gap-2">
+                    <div className="border-t border-border pt-4 mt-6 flex justify-end gap-2">
                       {gradingSubmission.status !== 'GRADED' ? (
                         <Button
                           type="submit"
@@ -4162,22 +3696,22 @@ export function ClassOverviewPage() {
                           Lưu điểm & Khóa bài
                         </Button>
                       ) : (
-                        <span className="text-[10px] text-slate-400 italic py-2">
+                        <span className="text-[10px] text-muted-foreground italic py-2">
                           Bài nộp này đã được chấm và khóa chỉnh sửa.
                         </span>
                       )}
                     </div>
                   </form>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center gap-2 py-20">
-                    <Users className="w-8 h-8 text-slate-300" />
+                  <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-center gap-2 py-20">
+                    <Users className="w-8 h-8 text-muted-foreground/60" />
                     <p className="text-xs font-medium">Chọn một học sinh từ danh sách bên trái để chấm điểm.</p>
                   </div>
                 )}
               </div>
             </div>
 
-            <DialogFooter className="p-4 border-t border-slate-100 shrink-0 bg-white">
+            <DialogFooter className="p-4 border-t border-border shrink-0 bg-card">
               <Button type="button" onClick={() => {
                 setSelectedExerciseId(null);
                 setGradingSubmission(null);
@@ -4190,25 +3724,25 @@ export function ClassOverviewPage() {
       )}
 
       <Dialog open={isAssignSubMentorModalOpen} onOpenChange={setIsAssignSubMentorModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+        <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <UserPlus className="size-5 text-primary" /> Chỉ định trợ giảng
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-muted-foreground">
               Chọn các học sinh để cấp quyền trợ giảng trong lớp này.
             </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 py-2">
             {students.filter(s => !s.isSubmentor).length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-4">Không có học sinh nào khả dụng.</p>
+              <p className="text-xs text-muted-foreground text-center py-4">Không có học sinh nào khả dụng.</p>
             ) : (
               students.filter(s => !s.isSubmentor).map(s => (
-                <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors">
+                <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border cursor-pointer transition-colors">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 rounded border-slate-300 focus:ring-primary"
+                    className="w-4 h-4 rounded border-border bg-background focus:ring-primary text-foreground"
                     checked={assignSubMentorIds.includes(s.classroomSubjectStudentId!)}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -4219,15 +3753,15 @@ export function ClassOverviewPage() {
                     }}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-slate-700">{s.fullName}</p>
-                    <p className="text-xs text-slate-500">{s.id}</p>
+                    <p className="text-sm font-semibold text-foreground">{s.fullName}</p>
+                    <p className="text-xs text-muted-foreground">{s.id}</p>
                   </div>
                 </label>
               ))
             )}
           </div>
 
-          <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+          <DialogFooter className="border-t border-border pt-3 flex gap-2 justify-end">
             <Button
               type="button"
               variant="outline"
@@ -4235,13 +3769,13 @@ export function ClassOverviewPage() {
                 setIsAssignSubMentorModalOpen(false);
                 setAssignSubMentorIds([]);
               }}
-              className="h-9 rounded-xl text-xs border-slate-200"
+              className="h-9 rounded-xl text-xs border-border"
             >
               Hủy
             </Button>
             <Button
               onClick={handleConfirmAssignSubMentors}
-              className="h-9 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+              className="h-9 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-primary text-primary-foreground"
               disabled={assignSubMentorIds.length === 0 || loadingSupport}
             >
               <Save className="size-3.5" />
@@ -4251,11 +3785,11 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Xếp lịch học cho node trên lớp */}
+      {}
       <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
         <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl text-xs">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <Calendar className="size-5 text-primary" /> Xếp lịch học trên lớp
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5">
@@ -4302,28 +3836,28 @@ export function ClassOverviewPage() {
             )}
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-700">Ngày học</label>
+              <label className="font-bold text-foreground">Ngày học</label>
               <input
                 type="date"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white text-slate-700 outline-none focus:border-primary/50"
+                className="w-full border border-border rounded-xl px-3 py-2 text-xs bg-background text-foreground outline-none focus:border-primary/50"
                 value={scheduleDate}
                 onChange={(e) => {
                   setScheduleDate(e.target.value);
-                  setScheduleConflict(null); // Clear previous conflicts on change
+                  setScheduleConflict(null); 
                 }}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-slate-700">Ca học (Slot)</label>
+              <label className="font-bold text-foreground">Ca học (Slot)</label>
               <Select
                 value={scheduleSlotId ? String(scheduleSlotId) : "none"}
                 onValueChange={(value) => {
                   setScheduleSlotId(value === "none" ? "" : value);
-                  setScheduleConflict(null); // Clear conflicts
+                  setScheduleConflict(null); 
                 }}
               >
-                <SelectTrigger className="w-full bg-white border-slate-200 rounded-xl h-9 text-slate-700 text-xs outline-none focus-visible:ring-0 shadow-none">
+                <SelectTrigger className="w-full bg-background border-border rounded-xl h-9 text-foreground text-xs outline-none focus-visible:ring-0 shadow-none">
                   <SelectValue placeholder="-- Chọn ca học --" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
@@ -4339,13 +3873,13 @@ export function ClassOverviewPage() {
 
           </div>
 
-          <DialogFooter className="border-t border-slate-100 pt-3 flex gap-2 justify-end">
+          <DialogFooter className="border-t border-border pt-3 flex gap-2 justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={handleClearSchedule}
               disabled={savingSchedule}
-              className="h-9 rounded-xl text-xs border-slate-200 text-destructive hover:bg-destructive/10"
+              className="h-9 rounded-xl text-xs text-destructive hover:bg-destructive/10"
             >
               Hủy lịch học
             </Button>
@@ -4353,7 +3887,7 @@ export function ClassOverviewPage() {
               type="button"
               variant="outline"
               onClick={() => setIsScheduleModalOpen(false)}
-              className="h-9 rounded-xl text-xs border-slate-200"
+              className="h-9 rounded-xl text-xs"
             >
               Đóng
             </Button>
@@ -4361,7 +3895,7 @@ export function ClassOverviewPage() {
               type="button"
               onClick={() => handleSaveSchedule(false)}
               disabled={savingSchedule}
-              className="h-9 rounded-xl text-xs bg-primary hover:bg-primary/90 text-white font-semibold"
+              className="h-9 rounded-xl text-xs font-semibold"
             >
               {savingSchedule ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
               Lưu lịch học
@@ -4370,7 +3904,7 @@ export function ClassOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog theo dõi bài làm test của node ON_CLASS: đang làm + cảnh báo gian lận (rời tab) */}
+      {}
       <Dialog open={!!monitorTest} onOpenChange={(open) => { if (!open) setMonitorTest(null); }}>
         <DialogContent className="sm:max-w-2xl bg-background border-border shadow-2xl text-xs">
           <DialogHeader>
@@ -4384,6 +3918,7 @@ export function ClassOverviewPage() {
             const cheaters = monitorAttempts
               .filter((a) => (a.tabOutCount ?? 0) > 0 && a.status !== 'CANCELLED')
               .sort((x, y) => (y.tabOutCount ?? 0) - (x.tabOutCount ?? 0));
+            const pendingGrade = monitorAttempts.filter((a) => a.status === 'PENDING_REVIEW');
             const tabOutBadge = (count: number) => (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-[6px] border ${
                 count >= 3
@@ -4412,6 +3947,14 @@ export function ClassOverviewPage() {
                   >
                     Cảnh báo gian lận ({cheaters.length})
                   </button>
+                  <button
+                    onClick={() => setMonitorTab('grading')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      monitorTab === 'grading' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Chờ chấm tự luận ({pendingGrade.length})
+                  </button>
                   <span className="ml-auto text-[10px] text-muted-foreground italic">Tự làm mới mỗi 10 giây</span>
                 </div>
 
@@ -4438,20 +3981,45 @@ export function ClassOverviewPage() {
                       ))}
                     </div>
                   )
-                ) : cheaters.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic py-6 text-center">Chưa ghi nhận học sinh nào rời tab khi làm bài.</p>
+                ) : monitorTab === 'cheat' ? (
+                  cheaters.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic py-6 text-center">Chưa ghi nhận học sinh nào rời tab khi làm bài.</p>
+                  ) : (
+                    <div className="max-h-[50vh] overflow-y-auto divide-y divide-border border border-border rounded-xl">
+                      {cheaters.map((a) => (
+                        <div key={a.attemptId} className="flex items-center gap-3 p-2.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-foreground truncate">{a.studentName || a.studentEmail || `HS #${a.studentId}`}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{a.studentEmail}</p>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground shrink-0">
+                            {a.status === 'IN_PROGRESS' ? 'Đang làm' : a.score != null ? `Đã nộp — ${a.score} điểm` : 'Đã nộp'}
+                          </span>
+                          {tabOutBadge(a.tabOutCount ?? 0)}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : pendingGrade.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-6 text-center">Không có bài nào chờ chấm tự luận.</p>
                 ) : (
                   <div className="max-h-[50vh] overflow-y-auto divide-y divide-border border border-border rounded-xl">
-                    {cheaters.map((a) => (
+                    {pendingGrade.map((a) => (
                       <div key={a.attemptId} className="flex items-center gap-3 p-2.5">
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-foreground truncate">{a.studentName || a.studentEmail || `HS #${a.studentId}`}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{a.studentEmail}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            Nộp lúc: {a.submittedAt ? new Date(a.submittedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '—'}
+                          </p>
                         </div>
-                        <span className="text-[10px] text-muted-foreground shrink-0">
-                          {a.status === 'IN_PROGRESS' ? 'Đang làm' : a.score != null ? `Đã nộp — ${a.score} điểm` : 'Đã nộp'}
-                        </span>
-                        {tabOutBadge(a.tabOutCount ?? 0)}
+                        <Button
+                          size="sm"
+                          onClick={() => openEssayGrading(a.attemptId)}
+                          disabled={gradingLoading}
+                          className="h-7 rounded-lg text-[10px] font-bold px-2.5"
+                        >
+                          Chấm tự luận
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -4459,6 +4027,108 @@ export function ClassOverviewPage() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {}
+      <Dialog open={!!gradingAttempt} onOpenChange={(open) => { if (!open) setGradingAttempt(null); }}>
+        <DialogContent className="sm:max-w-2xl bg-background border-border shadow-2xl text-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <Activity className="size-5 text-primary" />
+              Chấm tự luận — {gradingAttempt?.studentName || `HS #${gradingAttempt?.studentId}`}
+            </DialogTitle>
+            <p className="text-[11px] text-muted-foreground">
+              {gradingAttempt?.testTitle} · Câu trắc nghiệm đã được chấm tự động.
+              Chấm đủ mọi câu tự luận thì hệ thống chốt điểm và xếp mức/mở bài cho học sinh.
+            </p>
+          </DialogHeader>
+
+          <div className="max-h-[55vh] overflow-y-auto space-y-2.5 pr-1">
+            {(gradingAttempt?.responses ?? []).map((r, idx) => {
+              const isEssay = r.questionType === 'ESSAY';
+              const pendingEssay = isEssay && r.isCorrect == null;
+              const mark = essayMarks[r.responseId];
+              return (
+                <div key={r.responseId} className="border border-border rounded-xl p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold text-foreground text-[11.5px] leading-snug">
+                      Câu {idx + 1}. {r.questionContent}
+                    </p>
+                    <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-[6px] border uppercase ${
+                      isEssay
+                        ? 'bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400'
+                        : 'bg-muted border-border text-muted-foreground'
+                    }`}>
+                      {isEssay ? 'Tự luận' : 'Tự chấm'}
+                    </span>
+                  </div>
+
+                  <div className="bg-muted/40 border border-border rounded-lg p-2 text-[11px] text-foreground whitespace-pre-wrap break-words">
+                    {isEssay || r.questionType === 'SHORT_ANSWER'
+                      ? (r.responseText?.trim() ? r.responseText : <span className="italic text-muted-foreground">Học sinh không trả lời</span>)
+                      : (r.selectedAnswers && r.selectedAnswers.length > 0
+                          ? r.selectedAnswers.join(', ')
+                          : <span className="italic text-muted-foreground">Không chọn đáp án</span>)}
+                  </div>
+
+                  {pendingEssay ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Chấm:</span>
+                      <button
+                        onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: true }))}
+                        className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
+                          mark === true
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
+                        }`}
+                      >
+                        Đạt (+{r.maxScore} điểm)
+                      </button>
+                      <button
+                        onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: false }))}
+                        className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
+                          mark === false
+                            ? 'bg-rose-600 border-rose-600 text-white'
+                            : 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20'
+                        }`}
+                      >
+                        Không đạt (0 điểm)
+                      </button>
+                    </div>
+                  ) : (
+                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-[6px] border ${
+                      r.isCorrect
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-400'
+                    }`}>
+                      {r.isCorrect ? `Đúng · +${r.maxScore} điểm` : 'Sai · 0 điểm'}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setGradingAttempt(null)}
+              className="h-9 rounded-xl text-xs font-semibold"
+            >
+              Đóng
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveEssayGrades}
+              disabled={savingEssayGrades || gradingAttempt?.status !== 'PENDING_REVIEW'}
+              className="h-9 rounded-xl text-xs font-semibold"
+            >
+              {savingEssayGrades ? <Loader className="size-3.5 animate-spin mr-1" /> : null}
+              Lưu kết quả chấm
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

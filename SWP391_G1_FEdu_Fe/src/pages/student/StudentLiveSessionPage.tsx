@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { AlarmClock, ArrowLeft, Award, FileText, Loader2, Radio } from 'lucide-react';
 import { studentService } from '../../services/student.service';
 import type { LiveSessionState } from '../../services/learningPath.service';
 import { MaterialPreview } from '../../components/learningPath/MaterialPreview';
+import { StudentPopQuizRunner } from '../../components/popQuiz/StudentPopQuizRunner';
 
-// Màn hình học tập của buổi live (node ON_CLASS): polling 5s — tài liệu giáo viên vừa đưa lên
-// hiện ra ngay, đề vừa phát hiện banner + đếm ngược chung cả lớp (đồng bộ theo releaseEndsAt).
+
+
 const POLL_MS = 5000;
 
 const fmtTime = (iso?: string | null) =>
@@ -26,6 +27,7 @@ export function StudentLiveSessionPage() {
   const cs = Number(csId);
   const nid = Number(nodeId);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [state, setState] = useState<LiveSessionState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,9 +87,13 @@ export function StudentLiveSessionPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 text-foreground">
-      {/* Header */}
+      {}
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={() => navigate(`/student/classroom-subjects/${cs}/learning-path`)}>
+        <Button variant="outline" size="icon" onClick={() => {
+          const currentParams = searchParams.toString();
+          const suffix = currentParams ? `?${currentParams}` : '';
+          navigate(`/student/classroom-subjects/${cs}/learning-path${suffix}`);
+        }}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
@@ -108,7 +114,7 @@ export function StudentLiveSessionPage() {
       </div>
 
       {!state.live ? (
-        /* Phòng chờ — tự cập nhật khi giáo viên bắt đầu */
+        
         <div className="rounded-3xl border border-border bg-card p-10 text-center space-y-3">
           <Radio className="w-10 h-10 mx-auto text-muted-foreground animate-pulse" />
           <h2 className="text-base font-bold text-foreground">
@@ -122,7 +128,7 @@ export function StudentLiveSessionPage() {
         </div>
       ) : (
         <>
-          {/* Đề đang phát — banner nổi bật + đếm ngược chung cả lớp */}
+          {}
           {active && (
             <div className="rounded-2xl border-2 border-rose-500/30 bg-rose-500/5 p-4 flex flex-wrap items-center gap-3">
               <Award className="size-6 text-rose-500 shrink-0" />
@@ -136,7 +142,13 @@ export function StudentLiveSessionPage() {
                 <span className="flex items-center gap-1 text-base font-bold text-rose-600 dark:text-rose-400">
                   <AlarmClock className="size-4" /> {fmtCountdown(activeRemainMs)}
                 </span>
-                <Button onClick={() => navigate(`/student/tests/${active.testId}`)}
+                <Button onClick={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.set('csId', String(cs));
+                  params.set('from', 'live');
+                  params.set('nodeId', String(nid));
+                  navigate(`/student/tests/${active.testId}?${params.toString()}`);
+                }}
                   className="h-9 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white">
                   Vào làm bài
                 </Button>
@@ -144,7 +156,7 @@ export function StudentLiveSessionPage() {
             </div>
           )}
 
-          {/* Tài liệu buổi học — reading flow, tự xuất hiện khi giáo viên đưa lên */}
+          {}
           <div className="rounded-3xl border border-border bg-card p-6 space-y-5">
             <h2 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <FileText className="size-3.5" /> Tài liệu buổi học ({materials.length})
@@ -165,7 +177,7 @@ export function StudentLiveSessionPage() {
             )}
           </div>
 
-          {/* Các đề đã phát (kể cả đã hết giờ — để xem lại) */}
+          {}
           {releasedTests.length > 0 && (
             <div className="rounded-3xl border border-border bg-card p-6 space-y-3">
               <h2 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
@@ -185,7 +197,13 @@ export function StudentLiveSessionPage() {
                           <p className="text-[10px] text-muted-foreground">Đã hết giờ làm bài</p>
                         ) : null}
                       </div>
-                      <Button onClick={() => navigate(`/student/tests/${t.testId}`)} disabled={timedOut && !isActive}
+                      <Button onClick={() => {
+                        const params = new URLSearchParams(searchParams);
+                        params.set('csId', String(cs));
+                        params.set('from', 'live');
+                        params.set('nodeId', String(nid));
+                        navigate(`/student/tests/${t.testId}?${params.toString()}`);
+                      }} disabled={timedOut && !isActive}
                         variant={isActive ? 'default' : 'outline'}
                         className="h-7 px-3 rounded-lg text-[11px] font-bold shrink-0">
                         {isActive ? 'Vào làm bài' : timedOut ? 'Hết giờ' : 'Làm bài'}
@@ -198,6 +216,7 @@ export function StudentLiveSessionPage() {
           )}
         </>
       )}
+      {nid && <StudentPopQuizRunner nodeId={nid} />}
     </div>
   );
 }

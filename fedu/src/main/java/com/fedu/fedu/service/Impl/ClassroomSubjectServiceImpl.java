@@ -39,13 +39,14 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
     public ClassroomSubjectResponse addSubjectToClassroom(Long classroomId, AddClassroomSubjectRequest req) {
         Classroom classroom = classroomRepository.findByClassroomIdAndIsDeletedFalse(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(classroom);
         Subject subject = subjectRepository.findBySubjectIdAndIsDeletedFalse(req.getSubjectId())
                 .orElseThrow(() -> new ResourceNotFoundException("Subject not found with id: " + req.getSubjectId()));
         UserAccount lecturer = userAccountRepository.findById(req.getLecturerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Lecturer not found with id: " + req.getLecturerId()));
         assertIsTeacher(lecturer);
 
-        // Chặn trùng môn trong lớp
+        
         classroomSubjectRepository
                 .findByClassroomClassroomIdAndSubjectSubjectId(classroomId, req.getSubjectId())
                 .ifPresent(cs -> { throw new InvalidDataException("Lớp đã có môn này"); });
@@ -110,6 +111,7 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
     public void removeClassroomSubject(Long classroomSubjectId) {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found with id: " + classroomSubjectId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(cs);
 
         int studentCount = classroomSubjectStudentRepository.findAllByClassroomSubjectId(classroomSubjectId).size();
         if (studentCount > 0) {
@@ -120,7 +122,7 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
         log.info("Removed classroom-subject id: {}", classroomSubjectId);
     }
 
-    // helpers
+    
     private void assertIsTeacher(UserAccount user) {
         boolean isTeacher = user.getUserRoles().stream()
                 .anyMatch(ur -> ur.getRole().getRoleName() == UserRole.TEACHER);
@@ -132,18 +134,23 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
     private ClassroomSubjectResponse toResponse(ClassroomSubject cs) {
         Subject s = cs.getSubject();
         UserAccount l = cs.getLecturer();
+        Classroom classroom = cs.getClassroom();
         int studentCount = classroomSubjectStudentRepository.findAllByClassroomSubjectId(cs.getId()).size();
         return ClassroomSubjectResponse.builder()
                 .classroomSubjectId(cs.getId())
-                .classroomId(cs.getClassroom().getClassroomId())
-                .className(cs.getClassroom().getClassName())
+                .classroomId(classroom.getClassroomId())
+                .className(classroom.getClassName())
                 .subjectId(s.getSubjectId())
                 .subjectCode(s.getSubjectCode())
                 .subjectName(s.getSubjectName())
                 .lecturerId(l.getUserId())
                 .lecturerName(l.getFirstName() + " " + l.getLastName())
-                .displayName(cs.getClassroom().getClassName() + " - " + s.getSubjectCode())
+                .displayName(classroom.getClassName() + " - " + s.getSubjectCode())
                 .studentCount(studentCount)
+                .status(classroom.getStatus())
+                .term(classroom.getTerm())
+                .academicYear(classroom.getAcademicYear())
+                .semesterLabel(classroom.semesterLabel())
                 .build();
     }
 }

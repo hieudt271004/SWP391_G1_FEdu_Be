@@ -34,7 +34,7 @@ interface AdminUser {
   avatarUrl: string;
 }
 
-// Fixed BE UserResponse → AdminUser (display) with correct runtime mapping for gender
+
 function beUserToAdminUser(u: AdminUserResponse): AdminUser {
   const fname = u.firstName || "";
   const lname = u.lastName || "";
@@ -52,7 +52,7 @@ function beUserToAdminUser(u: AdminUserResponse): AdminUser {
     ? "STUDENT"
     : ((u.roles?.[0] as UserRole) || "USER");
 
-  // Fix runtime gender mapping (BE values: MALE/FEMALE/OTHER -> display: Male/Female/Other)
+  
   const normalizedGender = u.gender === "MALE" 
     ? "Male" 
     : u.gender === "FEMALE" 
@@ -210,7 +210,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
   };
 
   const filteredUsers = users.filter((user) => {
-    // Exclude currently logged in admin
+    
     if (currentUser && user.email === currentUser.email) {
       return false;
     }
@@ -283,7 +283,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
   return (
     <div className="space-y-6 font-sans">
       
-      {/* Breadcrumb & Title */}
+      {}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">{pageTitle}</h1>
@@ -295,7 +295,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
         </div>
       </div>
 
-      {/* View Toggle & Add Button */}
+      {}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-2 bg-accent/40 p-1 rounded-lg border border-border/40">
           <button
@@ -329,7 +329,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
         )}
       </div>
 
-      {/* Filters & Controls */}
+      {}
       <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2 shrink-0">
@@ -388,7 +388,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
         </div>
       </div>
 
-      {/* Content */}
+      {}
       {viewMode === "list" ? (
         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden transition-all duration-300">
           <div className="overflow-x-auto">
@@ -527,7 +527,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
             </table>
           </div>
           
-          {/* Pagination */}
+          {}
           {filteredUsers.length > 0 && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-card">
               <div className="text-sm text-muted-foreground">
@@ -577,7 +577,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                 key={user.id}
                 className="p-6 relative bg-card border border-border rounded-xl shadow-sm hover:shadow-md transition-all duration-300 group flex flex-col justify-between"
               >
-                {/* Dropdown Options */}
+                {}
                 <div className="absolute top-4 right-4">
                   {user.roleKey !== "ADMIN" && (
                     <div className="relative">
@@ -610,7 +610,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                   )}
                 </div>
 
-                {/* Profile Card Header */}
+                {}
                 <div className="flex flex-col items-center text-center mb-4">
                   <div className="w-20 h-20 rounded-full flex items-center justify-center mb-3.5 border border-border shadow-sm bg-accent/40 overflow-hidden">
                     {user.avatarUrl ? (
@@ -635,7 +635,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                   </span>
                 </div>
 
-                {/* Details Section */}
+                {}
                 <div className="space-y-2 mb-5 border-t border-b border-border/50 py-3 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Giới tính:</span>
@@ -655,7 +655,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
                   </div>
                 </div>
 
-                {/* Action Buttons */}
+                {}
                 <button
                   onClick={() => handleViewUser(user)}
                   className="w-full py-2.5 text-sm font-semibold text-primary border border-primary hover:bg-primary hover:text-white rounded-lg transition-all duration-200 shadow-sm cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
@@ -672,7 +672,7 @@ export function UserManagementPage({ filterRole = "all" }: UserManagementPagePro
         </div>
       )}
 
-      {/* User Detail Modal */}
+      {}
       <UserDetailModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}

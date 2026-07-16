@@ -34,6 +34,6 @@ public class UpdateLearningNodeRequest {
     private java.math.BigDecimal placementYeuMax;
     private java.math.BigDecimal placementTbMax;
 
-    /** Hạn hoàn thành node cho học sinh (tùy chọn). */
+    
     private java.time.LocalDateTime deadlineAt;
 }

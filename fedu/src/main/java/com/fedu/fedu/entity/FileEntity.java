@@ -3,10 +3,10 @@ package com.fedu.fedu.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-/**
- * Lưu trữ các file tài liệu (PDF, Word, v.v.) đính kèm trong NodeMaterial.
- * Sử dụng tên "FileEntity" để tránh xung đột với java.io.File.
- */
+
+
+
+
 @Getter
 @Setter
 @Entity
@@ -34,11 +34,11 @@ public class FileEntity extends AbstractEntity<Long> {
     @Column(name = "file_type")
     private String fileType;
 
-    // id asset trên Cloudinary; null = file không thuộc Cloudinary.
+    
     @Column(name = "public_id")
     private String publicId;
 
-    // Cloudinary resource_type: image / raw / video — cần để gọi destroy đúng loại
+    
     @Column(name = "resource_type")
     private String resourceType;
 

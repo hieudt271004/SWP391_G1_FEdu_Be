@@ -74,7 +74,7 @@ export function StudentDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Roadmap Modal State
+  
   const [isRoadmapOpen, setIsRoadmapOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
@@ -94,11 +94,11 @@ export function StudentDashboardPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch enrolled classroom subjects
+        
         const enrolledSubjects = await classroomService.getClassroomSubjectsByStudent(user.userId);
         setSubjects(enrolledSubjects || []);
 
-        // Load level history for each subject in parallel to determine level status
+        
         const levelsMap: Record<number, number | null> = {};
         const pathsMap: Record<number, string | null> = {};
 
@@ -107,7 +107,7 @@ export function StudentDashboardPage() {
             try {
               const history = await studentService.getLevelHistory(s.classroomSubjectId);
               if (history && history.length > 0) {
-                // Latest entry represents current level
+                
                 const latest = history[history.length - 1];
                 levelsMap[s.classroomSubjectId] = latest.newLevel;
               } else {
@@ -118,7 +118,7 @@ export function StudentDashboardPage() {
             }
 
             try {
-              // Get graph to see if path is assigned
+              
               const graph = await studentService.getClassroomSubjectGraph(s.classroomSubjectId);
               if (graph && graph.state !== 'NEED_PLACEMENT' && graph.state !== 'NO_PATH') {
                 pathsMap[s.classroomSubjectId] = graph.state === 'PUBLISHED' ? 'Lộ trình chính thức' : 'Bản nháp';
@@ -152,8 +152,13 @@ export function StudentDashboardPage() {
     setNodeContents({});
     try {
       const graph = await studentService.getClassroomSubjectGraph(cs.classroomSubjectId);
-      // Sort nodes by displayOrder
-      const sortedNodes = (graph.nodes || []).sort((a, b) => a.displayOrder - b.displayOrder);
+      
+      const sortedNodes = (graph.nodes || []).sort((a, b) => {
+        const sA = a.stageOrder ?? 0;
+        const sB = b.stageOrder ?? 0;
+        if (sA !== sB) return sA - sB;
+        return ((a.displayOrder ?? 0) - (b.displayOrder ?? 0)) || (a.nodeId - b.nodeId);
+      });
       setNodes(sortedNodes);
     } catch (err: any) {
       console.error("Failed to load roadmap graph:", err);
@@ -188,7 +193,7 @@ export function StudentDashboardPage() {
     }
 
     setExpandedNodeId(nodeId);
-    if (nodeContents[nodeId]) return; // already loaded
+    if (nodeContents[nodeId]) return; 
 
     setLoadingNodeContent(prev => ({ ...prev, [nodeId]: true }));
     try {
@@ -226,13 +231,13 @@ export function StudentDashboardPage() {
     );
   }
 
-  // Calculate stats
+  
   const totalCourses = subjects.length;
   const placementDone = Object.values(subjectLevels).filter(lvl => lvl !== null).length;
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Welcome Banner */}
+      {}
       <div className="rounded-xl bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 p-6 text-white border border-border/40 shadow-md relative overflow-hidden">
         <div className="absolute right-0 bottom-0 top-0 opacity-10 flex items-center justify-center pr-12 hidden md:flex pointer-events-none select-none">
           <GraduationCap className="size-48" />
@@ -258,7 +263,7 @@ export function StudentDashboardPage() {
         </div>
       </div>
 
-      {/* Metrics Grid */}
+      {}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         <Card className="bg-card border border-border/60 rounded-xl shadow-xs hover:shadow-md hover:border-border/80 transition-all duration-300 flex flex-col justify-between p-5">
           <div className="flex justify-between items-center">
@@ -302,7 +307,7 @@ export function StudentDashboardPage() {
         </Card>
       </div>
 
-      {/* Enrolled Courses Section */}
+      {}
       <div className="space-y-4">
         <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
           <GraduationCap className="size-5 text-primary" /> Danh sách môn học của tôi
@@ -336,7 +341,7 @@ export function StudentDashboardPage() {
               return (
                 <Card key={c.classroomSubjectId} className="bg-card border border-border/60 shadow-xs rounded-xl hover:shadow-md hover:-translate-y-1 hover:border-border/80 transition-all duration-300 flex flex-col justify-between overflow-hidden group">
                   <div className="p-5 space-y-4">
-                    {/* Header */}
+                    {}
                     <div>
                       <span className="text-[10px] uppercase font-bold text-muted-foreground/75 tracking-wider">Lớp: {c.className}</span>
                       <h3 className="font-bold text-foreground text-base leading-snug mt-1 group-hover:text-primary transition-colors truncate" title={c.subjectName}>
@@ -347,10 +352,10 @@ export function StudentDashboardPage() {
                       </p>
                     </div>
 
-                    {/* Divider */}
+                    {}
                     <div className="border-t border-border/50" />
 
-                    {/* Details Info */}
+                    {}
                     <div className="space-y-2.5 text-xs text-muted-foreground/95">
                       <div className="flex justify-between items-center">
                         <span className="font-medium text-muted-foreground/75">Giảng viên:</span>
@@ -365,7 +370,7 @@ export function StudentDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Actions footer */}
+                  {}
                   <CardFooter className="bg-muted/15 p-4 border-t border-border/40 flex flex-col gap-3">
                     {currentLevel === null ? (
                       <div className="w-full space-y-2">
@@ -407,7 +412,7 @@ export function StudentDashboardPage() {
         )}
       </div>
 
-      {/* Roadmap Graph Modal */}
+      {}
       <Dialog open={isRoadmapOpen} onOpenChange={setIsRoadmapOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-card text-foreground">
           <DialogHeader className="p-6 pb-4 border-b border-border shrink-0 bg-card">
@@ -441,7 +446,7 @@ export function StudentDashboardPage() {
 
                   return (
                     <div key={node.nodeId} className="relative">
-                      {/* Timeline Dot Indicator */}
+                      {}
                       <span className={`absolute -left-[35px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full border ring-4 ring-background shrink-0 z-10 transition-colors ${
                         isCompleted 
                           ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
@@ -458,7 +463,7 @@ export function StudentDashboardPage() {
                         )}
                       </span>
 
-                      {/* Content Card */}
+                      {}
                       <Card className={`border transition-all ${
                         isOpen 
                           ? 'border-blue-500/30 shadow-sm bg-blue-500/5' 
@@ -472,13 +477,29 @@ export function StudentDashboardPage() {
                         >
                           <div className="flex-1 space-y-1 pr-4">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
-                                node.nodeType === 'AT_HOME' 
-                                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' 
-                                  : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-650 dark:text-indigo-400'
-                              }`}>
-                                {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
-                              </Badge>
+                              {node.testKind && node.testKind !== 'NONE' ? (
+                                <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
+                                  node.testKind === 'PLACEMENT'
+                                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                                    : node.testKind === 'GATE'
+                                    ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-650 dark:text-indigo-400'
+                                    : 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400'
+                                }`}>
+                                  {node.testKind === 'PLACEMENT'
+                                    ? 'Test năng lực'
+                                    : node.testKind === 'GATE'
+                                    ? 'Test phân luồng'
+                                    : 'Test tự chọn'}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
+                                  node.nodeType === 'AT_HOME' 
+                                    ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' 
+                                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-650 dark:text-indigo-400'
+                                }`}>
+                                  {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
+                                </Badge>
+                              )}
                               {node.isRequired && (
                                 <Badge variant="outline" className="text-[9px] font-bold px-1.5 rounded-[4px] bg-muted border-border text-muted-foreground">
                                   Bắt buộc
@@ -502,7 +523,7 @@ export function StudentDashboardPage() {
                               </p>
                             )}
                           </div>
-                          {/* Right side: Slot details & status (for ON_CLASS nodes) */}
+                          {}
                           <div className="flex flex-col items-end gap-1.5 text-right shrink-0">
                             {node.nodeType === 'ON_CLASS' && (
                               <>
@@ -536,7 +557,7 @@ export function StudentDashboardPage() {
                           </div>
                         </div>
 
-                        {/* Expanded details (Materials and tests) */}
+                        {}
                         {isExpanded && !isLocked && (
                           <div className="p-4 pt-0 border-t border-border bg-card/50 rounded-b-xl space-y-4 text-xs">
                             {loadingNodeContent[node.nodeId] ? (
@@ -546,7 +567,7 @@ export function StudentDashboardPage() {
                               </div>
                             ) : (
                               <div className="space-y-4 pt-4 divide-y divide-border">
-                                {/* Materials */}
+                                {}
                                 {nodeContents[node.nodeId]?.materials && nodeContents[node.nodeId].materials.length > 0 && (
                                   <div className="space-y-2">
                                     <h5 className="font-bold text-foreground flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -570,7 +591,7 @@ export function StudentDashboardPage() {
                                   </div>
                                 )}
 
-                                {/* Tests */}
+                                {}
                                 {nodeContents[node.nodeId]?.tests && nodeContents[node.nodeId].tests.length > 0 && (
                                   <div className="space-y-2 pt-4">
                                     <h5 className="font-bold text-foreground flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -581,11 +602,30 @@ export function StudentDashboardPage() {
                                         <div key={t.testId} className="flex items-center justify-between p-2.5 border border-border bg-background rounded-xl gap-4">
                                           <div className="flex-1 space-y-0.5">
                                             <span className="font-bold text-foreground block">{t.title}</span>
-                                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
-                                              <span>Thời gian: {t.durationMinutes} phút</span>
-                                              <span>•</span>
-                                              <span>Yêu cầu đạt: {t.passingPercentage}%</span>
-                                            </div>
+                                             <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium flex-wrap">
+                                               <span>Thời gian: {t.durationMinutes} phút</span>
+                                               {node.testKind === 'PLACEMENT' && (node.placementYeuMax != null || node.placementTbMax != null) ? (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span className="normal-case">
+                                                      Phân mức: Yếu ≤ {node.placementYeuMax}% · TB ≤ {node.placementTbMax}% · Khá &gt; {node.placementTbMax}%
+                                                    </span>
+                                                  </>
+                                                ) : node.testKind === 'GATE' ? null : (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span>Yêu cầu đạt: {t.passingPercentage}%</span>
+                                                  </>
+                                                )}
+                                               {node.testKind === 'GATE' && (node.gateUpMin != null || node.gateDownMax != null) && (
+                                                 <>
+                                                   <span>•</span>
+                                                   <span className="text-emerald-600 dark:text-emerald-400 font-bold">Lên Level khi ≥ {node.gateUpMin ?? '—'}%</span>
+                                                   <span>•</span>
+                                                   <span className="text-rose-600 dark:text-rose-455 font-bold">Hạ Level khi &lt; {node.gateDownMax ?? '—'}%</span>
+                                                 </>
+                                               )}
+                                             </div>
                                           </div>
                                           {node.studentStatus === 'COMPLETED' ? (
                                             <Button
@@ -608,7 +648,7 @@ export function StudentDashboardPage() {
                                   </div>
                                 )}
 
-                                {/* Empty state for content */}
+                                {}
                                 {(!nodeContents[node.nodeId]?.materials || nodeContents[node.nodeId].materials.length === 0) &&
                                  (!nodeContents[node.nodeId]?.tests || nodeContents[node.nodeId].tests.length === 0) && (
                                   <div className="text-center py-6 text-muted-foreground italic">
@@ -628,7 +668,7 @@ export function StudentDashboardPage() {
           </div>
 
           <DialogFooter className="p-4 border-t border-border shrink-0 sm:justify-end">
-            <Button type="button" onClick={() => setIsRoadmapOpen(false)} className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl text-xs py-2 px-4 shadow-sm">
+            <Button type="button" onClick={() => setIsRoadmapOpen(false)} className="font-semibold bg-primary text-primary-foreground">
               Đóng
             </Button>
           </DialogFooter>

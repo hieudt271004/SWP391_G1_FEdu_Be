@@ -45,7 +45,7 @@ export function CTASection() {
     <section className="bg-background py-16 text-foreground font-sans border-t border-border">
       <div className="max-w-5xl mx-auto px-6">
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card px-8 py-12 md:px-16 md:py-14 shadow-xs">
-          {/* Decorative backdrop light glow */}
+          {}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
           
           <div className="relative space-y-6 text-center">

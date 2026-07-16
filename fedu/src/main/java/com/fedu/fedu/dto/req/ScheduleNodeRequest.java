@@ -10,6 +10,6 @@ public class ScheduleNodeRequest {
     private LocalDate studyDate;
     private Long slotId;
     private boolean force;
-    // Lưu ý: node ON_CLASS không mang deadline (deadline chỉ dành cho node Tự học,
-    // đặt qua update node) — request xếp lịch không nhận deadline nữa.
+    
+    
 }

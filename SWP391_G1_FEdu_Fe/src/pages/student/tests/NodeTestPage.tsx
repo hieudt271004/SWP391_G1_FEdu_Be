@@ -19,7 +19,7 @@ export function NodeTestPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // csId (tuỳ chọn) để quay lại đồ thị lớp-môn; khi quay lại view đó sẽ tự fetch lại.
+  
   const csId = searchParams.get('csId');
   const id = Number(testId);
 
@@ -40,8 +40,8 @@ export function NodeTestPage() {
       .getTestDetails(id)
       .then((data) => {
         if (!active) return;
-        // Đề phát trong buổi live có hạn nộp CHUNG cả lớp: vào trễ thì đồng hồ chỉ còn
-        // phần thời gian tới hạn chung (BE vẫn là nguồn chân lý khi nộp).
+        
+        
         if (data.releaseEndsAt && data.durationMinutes) {
           const remainMin = Math.floor((new Date(data.releaseEndsAt).getTime() - Date.now()) / 60000);
           data = { ...data, durationMinutes: Math.max(1, Math.min(data.durationMinutes, remainMin)) };
@@ -77,7 +77,7 @@ export function NodeTestPage() {
     try {
       const res = await studentService.submitAttempt(id, attemptId, body);
       setResult(res);
-      // Đồ thị tiến độ sẽ được refetch khi học sinh quay lại view lớp-môn (mount lại).
+      
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Nộp bài thất bại');
     } finally {
@@ -85,7 +85,7 @@ export function NodeTestPage() {
     }
   };
 
-  // Rời tab khi đang làm bài → ghi nhận về BE (chống gian lận) + cảnh báo khi quay lại.
+  
   const handleTabOut = useCallback(async () => {
     if (attemptId == null) return;
     try {
@@ -94,13 +94,32 @@ export function NodeTestPage() {
         duration: 8000,
       });
     } catch {
-      // Không chặn việc làm bài nếu ghi nhận thất bại
+      
     }
   }, [id, attemptId]);
 
   const goBack = () => {
-    if (csId) navigate(`/student/classroom-subjects/${csId}/learning-path`);
-    else navigate('/student/courses');
+    const from = searchParams.get('from');
+    const nodeId = searchParams.get('nodeId');
+    const mode = searchParams.get('mode');
+    const itemId = searchParams.get('itemId');
+
+    if (from === 'live' && csId && nodeId) {
+      const params = new URLSearchParams(searchParams);
+      params.delete('from');
+      params.delete('nodeId');
+      params.delete('csId');
+      const suffix = params.toString() ? `?${params.toString()}` : '';
+      navigate(`/student/classroom-subjects/${csId}/live/${nodeId}${suffix}`);
+    } else if (csId) {
+      if (mode === 'learn' && itemId) {
+        navigate(`/student/classroom-subjects/${csId}/learning-path?mode=learn&itemId=${itemId}&itemType=test`);
+      } else {
+        navigate(`/student/classroom-subjects/${csId}/learning-path`);
+      }
+    } else {
+      navigate('/student/courses');
+    }
   };
 
   if (loading) {
@@ -129,34 +148,58 @@ export function NodeTestPage() {
   if (!details) return null;
 
   if (result) {
+    
+    if (result.pendingManualGrading) {
+      return (
+        <div className="mx-auto max-w-2xl">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle2 className="size-6 text-sky-600" />
+                Đã nộp bài
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Alert className="border-sky-200 bg-sky-50/50">
+                <AlertTitle>Bài của bạn đang chờ giáo viên chấm</AlertTitle>
+                <AlertDescription className="text-sm">
+                  Đề có câu tự luận nên cần giáo viên chấm tay. Điểm và kết quả đạt/chưa đạt
+                  sẽ hiển thị sau khi giáo viên chấm xong — bạn không cần làm lại bài.
+                </AlertDescription>
+              </Alert>
+              <Button onClick={goBack}>
+                <ArrowLeft className="size-4" /> Quay lại khóa học
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    const isGateOrPlacement = details.testKind === 'GATE' || details.testKind === 'PLACEMENT' || result.testKind === 'GATE' || result.testKind === 'PLACEMENT';
     const passed = result.passed;
     return (
       <div className="mx-auto max-w-2xl">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {passed ? (
+              {isGateOrPlacement || passed ? (
                 <CheckCircle2 className="size-6 text-green-600" />
               ) : (
                 <XCircle className="size-6 text-red-600" />
               )}
-              {passed ? 'Chúc mừng, bạn đã đạt!' : 'Chưa đạt'}
+              {isGateOrPlacement ? 'Đã hoàn thành' : passed ? 'Chúc mừng, bạn đã đạt!' : 'Chưa đạt'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="text-3xl font-bold">{result.score}%</div>
-            <p className="text-sm text-muted-foreground">
-              Điểm đạt yêu cầu: {result.passingPercentage}%
-            </p>
+            {!isGateOrPlacement && result.passingPercentage != null && result.passingPercentage > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Điểm đạt yêu cầu: {result.passingPercentage}%
+              </p>
+            )}
             {result.newLevel != null && (
-              <div className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                passed
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                  : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
-              }`}>
-                {passed
-                  ? `Bạn đã được chuyển sang nhánh ${getLevelLabel(result.newLevel)} — lộ trình đã mở các bài học của nhánh mới.`
-                  : `Bài chưa đạt, nhưng bạn đã chủ động chuyển xuống nhánh ${getLevelLabel(result.newLevel)} — lộ trình đã mở các bài học của nhánh mới cho bạn.`}
+              <div className="rounded-xl border px-3 py-2.5 text-sm font-semibold bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
+                Bạn đã được chuyển sang nhánh {getLevelLabel(result.newLevel)} — lộ trình đã mở các bài học của nhánh mới.
               </div>
             )}
             <Button onClick={goBack}>

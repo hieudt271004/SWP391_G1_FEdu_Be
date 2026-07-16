@@ -16,15 +16,7 @@ import type { Subject } from "../../types/subject";
 import type { AdminUserResponse } from "../../services/admin.service";
 import { useConfirm } from "../../context/ConfirmContext";
 import { toast } from "sonner";
-
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "active": return { label: "Đang hoạt động", bg: "#d1fae5", color: "#065f46" };
-    case "inactive": return { label: "Chưa bắt đầu", bg: "#fef3c7", color: "#92400e" };
-    case "completed": return { label: "Đã hoàn thành", bg: "#e0e7ff", color: "#3730a3" };
-    default: return { label: "Chưa bắt đầu", bg: "#fef3c7", color: "#92400e" };
-  }
-};
+import { getClassroomStatusMeta, formatSemester } from "../../utils/classroom";
 
 export function ClassDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -39,18 +31,18 @@ export function ClassDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  // Danh mục dùng cho modal
+  
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<AdminUserResponse[]>([]);
 
-  // Thêm môn vào lớp
+  
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [newSubjectId, setNewSubjectId] = useState(0);
   const [newLecturerId, setNewLecturerId] = useState(0);
   const [addSubjectLoading, setAddSubjectLoading] = useState(false);
   const [addSubjectError, setAddSubjectError] = useState<string | null>(null);
 
-  // Đổi giảng viên inline
+  
   const [editingLecturerCsId, setEditingLecturerCsId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -73,7 +65,7 @@ export function ClassDetailPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Tải danh mục subject + teacher cho các modal
+  
   useEffect(() => {
     const load = async () => {
       try {
@@ -90,7 +82,7 @@ export function ClassDetailPage() {
     load();
   }, []);
 
-  // Mở modal thêm môn nếu vừa tạo lớp xong (?addSubject=true)
+  
   useEffect(() => {
     if (searchParams.get("addSubject") === "true") {
       setShowAddSubject(true);
@@ -159,10 +151,14 @@ export function ClassDetailPage() {
 
   const handleUpdateStatus = async (newStatus: string) => {
     if (!classroom) return;
-    const actionText = newStatus === "active" ? "bắt đầu" : "kết thúc";
+    const actionText = newStatus === "completed"
+      ? "kết thúc"
+      : classroom.status === "completed" ? "mở lại" : "bắt đầu";
     const isConfirmed = await confirm({
       title: `Xác nhận ${actionText} lớp học`,
-      message: `Bạn có chắc chắn muốn ${actionText} lớp học này không? Hành động này sẽ thay đổi trạng thái hoạt động của lớp.`,
+      message: newStatus === "completed"
+        ? "Bạn có chắc chắn muốn kết thúc lớp học này không? Sau khi kết thúc, giảng viên và sinh viên chỉ có thể xem, không thể thao tác."
+        : `Bạn có chắc chắn muốn ${actionText} lớp học này không? Lớp sẽ chuyển sang trạng thái đang hoạt động.`,
       confirmText: "Xác nhận",
       cancelText: "Hủy",
       type: newStatus === "active" ? "info" : "warning"
@@ -170,12 +166,7 @@ export function ClassDetailPage() {
     if (!isConfirmed) return;
     try {
       setUpdatingStatus(true);
-      await classroomService.update(classroomId, {
-        className: classroom.className,
-        semester: classroom.semester || "",
-        description: classroom.description || "",
-        status: newStatus,
-      });
+      await classroomService.updateStatus(classroomId, newStatus as "active" | "inactive" | "completed");
       setClassroom(await classroomService.getById(classroomId));
       toast.success(`Đã ${actionText} lớp học "${classroom.className}" thành công.`);
     } catch (e: unknown) {
@@ -202,7 +193,7 @@ export function ClassDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
@@ -212,29 +203,39 @@ export function ClassDetailPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">{classroom?.className}</h1>
               {classroom?.status && (() => {
-                const badge = getStatusBadge(classroom.status);
+                const badge = getClassroomStatusMeta(classroom.status);
                 return (
-                  <Badge variant="outline" className="px-2.5 py-1 rounded-full text-xs font-semibold border-transparent" style={{ backgroundColor: badge.bg, color: badge.color }}>
+                  <Badge variant="outline" className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${badge.badgeClass}`}>
                     {badge.label}
                   </Badge>
                 );
               })()}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              {subjects.length} môn học{classroom?.semester ? ` · Học kỳ: ${classroom.semester}` : ""}
+              {subjects.length} môn học{(classroom?.term || classroom?.semesterLabel) ? ` · Học kỳ: ${formatSemester(classroom?.term, classroom?.academicYear, classroom?.semesterLabel)}` : ""}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {classroom?.status === "inactive" && (
+            <Button onClick={() => handleUpdateStatus("active")} disabled={updatingStatus} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+              {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />} Bắt đầu lớp học
+            </Button>
+          )}
           {classroom?.status === "active" && (
             <Button onClick={() => handleUpdateStatus("completed")} disabled={updatingStatus} className="gap-1.5">
               {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />} Kết thúc lớp học
             </Button>
           )}
+          {classroom?.status === "completed" && (
+            <Button variant="outline" onClick={() => handleUpdateStatus("active")} disabled={updatingStatus} className="gap-1.5">
+              {updatingStatus && <Loader2 className="w-4 h-4 animate-spin" />} Mở lại lớp học
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Danh sách lớp-môn */}
+      {}
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-5">
@@ -309,7 +310,7 @@ export function ClassDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Modal thêm môn */}
+      {}
       {showAddSubject && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddSubject(false)}>
           <div className="rounded-xl w-full max-w-md overflow-hidden border bg-background text-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>

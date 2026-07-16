@@ -36,7 +36,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
     private final NodeContentService nodeContentService;
     private final LearningPathService learningPathService;
 
-    // Không readOnly: getNodeContent có thể ghi (khởi tạo order_index cho item cũ)
+    
     @Override
     @Transactional
     public LiveSessionStateResponse getTeacherState(Long classroomSubjectId, Long nodeId, Long teacherId) {
@@ -63,6 +63,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
     public LiveSessionStateResponse startSession(Long classroomSubjectId, Long nodeId, Long teacherId) {
         assertTeacherOwns(classroomSubjectId, teacherId);
         LearningNode node = loadOnClassNode(classroomSubjectId, nodeId);
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
 
         LocalDateTime windowStart = windowStart(node);
         LocalDateTime windowEnd = windowEnd(node);
@@ -83,7 +84,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         node.setSessionEndedAt(null);
         learningNodeRepository.save(node);
 
-        // Mở khóa node cho cả lớp (node OPEN + mở progress của từng học sinh đủ điều kiện)
+        
         int opened = learningPathService.unlockOnClassNode(classroomSubjectId, nodeId);
         log.info("Live session started: node {} (cs {}), unlocked for {} students", nodeId, classroomSubjectId, opened);
 
@@ -108,6 +109,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
     public LiveSessionStateResponse releaseTest(Long classroomSubjectId, Long nodeId, Long testId, Long teacherId) {
         assertTeacherOwns(classroomSubjectId, teacherId);
         LearningNode node = loadOnClassNode(classroomSubjectId, nodeId);
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
 
         LocalDateTime now = LocalDateTime.now();
         if (!isLive(node, now)) {
@@ -135,7 +137,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         return buildState(node, false);
     }
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+    
 
     private void assertTeacherOwns(Long classroomSubjectId, Long teacherId) {
         if (!classroomSubjectRepository.existsByIdAndLecturerUserId(classroomSubjectId, teacherId)) {
@@ -166,7 +168,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         return node.getStudyDate().atTime(node.getSlot().getEndTime());
     }
 
-    /** Đang diễn ra = đã bắt đầu, chưa bấm kết thúc, và chưa quá giờ kết thúc slot (tự đóng). */
+    
     private boolean isLive(LearningNode node, LocalDateTime now) {
         LocalDateTime end = windowEnd(node);
         return node.getSessionStartedAt() != null

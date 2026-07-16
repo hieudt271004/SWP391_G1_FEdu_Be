@@ -41,7 +41,7 @@ public class PopQuizServiceImpl implements PopQuizService {
     private final TestAssignmentStudentRepository testAssignmentStudentRepository;
     private final StudentTestService studentTestService;
 
-    // ==================== Teacher side ====================
+    
 
     @Override
     @Transactional
@@ -55,6 +55,7 @@ public class PopQuizServiceImpl implements PopQuizService {
         if (cs == null) {
             throw new InvalidDataException("Buổi học này thuộc lộ trình mẫu, không thể giao pop quiz");
         }
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(cs);
         if (cs.getLecturer().getUserId() != teacherId) {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
         }
@@ -231,7 +232,7 @@ public class PopQuizServiceImpl implements PopQuizService {
         List<PopQuizResultsResponse.StudentResult> results = new ArrayList<>();
         for (TestAssignmentStudent row : rows) {
             if (row.getStatus() == PopQuizStudentStatus.IN_PROGRESS) {
-                // Khóa row (cùng session -> cùng managed instance) trước khi finalize để không giẫm submit đang bay.
+                
                 testAssignmentStudentRepository.findByIdForUpdate(row.getId());
                 finalizeIfExpired(row);
             }
@@ -264,7 +265,7 @@ public class PopQuizServiceImpl implements PopQuizService {
 
         StudentTestAttempt attempt = row.getAttempt();
         if (attempt != null) {
-            // Giữ attempt CANCELLED trong DB làm audit trail — không xóa.
+            
             attempt.setStatus(AttemptStatus.CANCELLED);
             studentTestAttemptRepository.save(attempt);
         }
@@ -290,7 +291,7 @@ public class PopQuizServiceImpl implements PopQuizService {
         return assignment;
     }
 
-    // ==================== Student side ====================
+    
 
     @Override
     @Transactional
@@ -416,9 +417,9 @@ public class PopQuizServiceImpl implements PopQuizService {
                 .build();
     }
 
-    // ==================== Shared helpers ====================
+    
 
-    /** true nếu vừa finalize (hết giờ chưa nộp -> 0 điểm, EXPIRED). Idempotent: no-op nếu không IN_PROGRESS hoặc chưa hết hạn. */
+    
     private boolean finalizeIfExpired(TestAssignmentStudent row) {
         if (row.getStatus() != PopQuizStudentStatus.IN_PROGRESS) {
             return false;
@@ -461,7 +462,7 @@ public class PopQuizServiceImpl implements PopQuizService {
         return Math.max(secs, 0);
     }
 
-    /** Tráo thứ tự câu hỏi/đáp án seed theo attemptId — sort theo id trước để input deterministic. */
+    
     private PopQuizPaperResponse buildPaper(TestAssignment assignment, StudentTestAttempt attempt) {
         Test test = assignment.getTest();
         List<TestQuestion> questions = new ArrayList<>(testQuestionRepository.findByTestTestId(test.getTestId()));

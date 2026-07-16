@@ -4,7 +4,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-/** Câu trả lời của giảng viên dưới một câu hỏi. */
+
 @Data
 @Builder
 @NoArgsConstructor

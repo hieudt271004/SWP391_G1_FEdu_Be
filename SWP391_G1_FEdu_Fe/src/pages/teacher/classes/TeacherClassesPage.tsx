@@ -11,19 +11,7 @@ import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Input } from '../../../components/ui/input';
 import { Card, CardContent } from '../../../components/ui/card';
-
-const getStatusDetails = (status?: string) => {
-  switch (status) {
-    case 'active':
-      return { label: 'Đang hoạt động', bg: '#d1fae5', color: '#065f46' };
-    case 'inactive':
-      return { label: 'Chưa bắt đầu', bg: '#fef3c7', color: '#92400e' };
-    case 'completed':
-      return { label: 'Đã hoàn thành', bg: '#e0e7ff', color: '#3730a3' };
-    default:
-      return { label: 'Chưa bắt đầu', bg: '#fef3c7', color: '#92400e' };
-  }
-};
+import { getClassroomStatusMeta, formatSemester } from '../../../utils/classroom';
 
 export function TeacherClassesPage() {
   const navigate = useNavigate();
@@ -36,7 +24,7 @@ export function TeacherClassesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'inactive' | 'active' | 'completed'>('all');
 
-  // Debounce search input to avoid expensive list re-renders on typing
+  
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       setSearchQuery(searchInput);
@@ -64,9 +52,10 @@ export function TeacherClassesPage() {
           classroomName: c.className,
           subjectId: c.subjectId,
           teacherId: c.lecturerId ?? 0,
-          semester: 'Summer 2026',
-          year: new Date().getFullYear(),
-          status: 'active',
+          term: c.term,
+          academicYear: c.academicYear,
+          semesterLabel: c.semesterLabel,
+          status: c.status,
           subjectCode: c.subjectCode,
           subjectName: c.subjectName,
           studentCount: c.studentCount,
@@ -111,12 +100,12 @@ export function TeacherClassesPage() {
     );
   }
 
-  // Summary Metrics
+  
   const totalClasses = classrooms.length;
   const activeClassesCount = classrooms.filter((c) => c.status === 'active').length;
   const completedClassesCount = classrooms.filter((c) => c.status === 'completed').length;
 
-  // Filter classrooms by Search Query and Status Tabs
+  
   const filteredClassrooms = classrooms.filter((c) => {
     const matchesSearch =
       searchQuery === '' ||
@@ -133,7 +122,7 @@ export function TeacherClassesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Title */}
+      {}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-muted text-primary border border-border">
@@ -146,7 +135,7 @@ export function TeacherClassesPage() {
         </div>
       </div>
 
-      {/* Stats Summary Grid */}
+      {}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <Card className="shadow-none">
           <CardContent className="p-5 flex items-center justify-between">
@@ -183,9 +172,9 @@ export function TeacherClassesPage() {
         </Card>
       </div>
 
-      {/* Search & Filter Bar */}
+      {}
       <div className="rounded-lg p-4 bg-card border border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Search Input */}
+        {}
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -197,7 +186,7 @@ export function TeacherClassesPage() {
           />
         </div>
 
-        {/* Filter Tabs */}
+        {}
         <div className="flex flex-wrap items-center gap-1.5 p-1 bg-muted rounded-lg border border-border w-full sm:w-auto">
           {(
             [
@@ -222,7 +211,7 @@ export function TeacherClassesPage() {
         </div>
       </div>
 
-      {/* Classrooms Grid */}
+      {}
       {filteredClassrooms.length === 0 ? (
         <div className="text-center py-20 bg-card rounded-lg border border-border space-y-3">
           <GraduationCap className="w-12 h-12 text-muted-foreground/40 mx-auto animate-pulse" />
@@ -231,7 +220,7 @@ export function TeacherClassesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredClassrooms.map((classroom) => {
-            const statusBadge = getStatusDetails(classroom.status);
+            const statusBadge = getClassroomStatusMeta(classroom.status);
             const subjectInitials = (classroom.subjectCode || 'CL').slice(0, 2).toUpperCase();
 
             return (
@@ -239,7 +228,7 @@ export function TeacherClassesPage() {
                 key={classroom.classroomSubjectId || classroom.classroomId}
                 className="group rounded-lg bg-card border border-border hover:border-primary/30 transition-all duration-200 flex flex-col overflow-hidden text-card-foreground"
               >
-                {/* Card Top / Header */}
+                {}
                 <div className="p-6 flex-1 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -250,16 +239,15 @@ export function TeacherClassesPage() {
                         {classroom.classroomName}
                       </h3>
                     </div>
-                    {/* Status Badge */}
+                    {}
                     <span
-                      className="px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide border border-border bg-background"
-                      style={{ backgroundColor: statusBadge.bg, color: statusBadge.color, borderColor: 'transparent' }}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wide border ${statusBadge.badgeClass}`}
                     >
                       {statusBadge.label}
                     </span>
                   </div>
 
-                  {/* Course Details */}
+                  {}
                   <div className="space-y-1">
                     <p className="text-xs font-bold text-foreground tracking-wider uppercase">
                       {classroom.subjectCode || '—'}
@@ -269,12 +257,12 @@ export function TeacherClassesPage() {
                     </p>
                   </div>
 
-                  {/* Metadata Info */}
+                  {}
                   <div className="pt-3 flex flex-col gap-2 border-t border-border text-xs text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5" />
                       <span>
-                        Học kỳ: <span className="font-semibold text-foreground">{classroom.semester || '—'}</span>
+                        Học kỳ: <span className="font-semibold text-foreground">{formatSemester(classroom.term, classroom.academicYear, classroom.semesterLabel)}</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -286,7 +274,7 @@ export function TeacherClassesPage() {
                   </div>
                 </div>
 
-                {/* Card Action Button */}
+                {}
                 <div className="px-6 pb-6 pt-0 mt-auto">
                   <Button
                     onClick={() => handleEnterClass(classroom.classroomSubjectId || classroom.classroomId)}

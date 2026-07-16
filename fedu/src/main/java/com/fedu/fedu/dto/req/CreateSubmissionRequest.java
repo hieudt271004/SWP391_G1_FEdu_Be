@@ -8,4 +8,5 @@ import lombok.*;
 @AllArgsConstructor
 public class CreateSubmissionRequest {
     private String content;
+    private String fileUrl;
 }

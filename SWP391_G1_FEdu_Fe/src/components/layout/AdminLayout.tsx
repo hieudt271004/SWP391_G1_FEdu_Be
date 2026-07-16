@@ -12,9 +12,9 @@ import {
   UserCircle,
   LogOut,
   Clock,
-  Search,
   Sun,
   Moon,
+  Calendar,
 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
@@ -41,9 +41,10 @@ export function AdminLayout() {
     { icon: BookOpen, label: "Quản lý Môn học", path: "/admin/subjects" },
     { icon: GraduationCap, label: "Quản lý Lớp học", path: "/admin/classes" },
     { icon: Clock, label: "Quản lý Ca học", path: "/admin/slots" },
+    { icon: Calendar, label: "Quản lý Học kỳ", path: "/admin/semesters" },
   ];
 
-  // Close dropdown when clicking outside
+  
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -59,8 +60,10 @@ export function AdminLayout() {
 
   const handleLogout = () => {
     setDropdownOpen(false);
-    logout();
-    window.location.href = "/";
+    navigate("/");
+    setTimeout(() => {
+      logout();
+    }, 0);
   };
   const isActive = (path: string) => {
     if (path === "/admin/users") {
@@ -71,7 +74,7 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen flex bg-background text-foreground overflow-hidden relative">
-      {/* Mobile overlay */}
+      {}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
@@ -79,7 +82,7 @@ export function AdminLayout() {
         />
       )}
 
-      {/* Sidebar */}
+      {}
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50 w-64
@@ -88,7 +91,7 @@ export function AdminLayout() {
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        {/* Logo */}
+        {}
         <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={logo} alt="FEdu Logo" className="w-10 h-10 rounded-lg object-cover" />
@@ -99,7 +102,7 @@ export function AdminLayout() {
               <div className="text-[10px] text-sidebar-foreground/60">Admin Portal</div>
             </div>
           </div>
-          {/* Close button for mobile */}
+          {}
           <Button
             variant="ghost"
             size="icon"
@@ -110,7 +113,7 @@ export function AdminLayout() {
           </Button>
         </div>
 
-        {/* Navigation */}
+        {}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <div className="px-3 mb-3 lg:block hidden">
             <span className="text-[10px] font-bold text-sidebar-foreground/40 tracking-wider">
@@ -141,12 +144,12 @@ export function AdminLayout() {
         </nav>
       </aside>
 
-      {/* Main Content Wrapper */}
+      {}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
-        {/* Topbar */}
+        {}
         <header className="shrink-0 px-6 py-4 bg-background border-b border-border z-30">
           <div className="flex items-center justify-between gap-4">
-            {/* Left side: Hamburger menu + Search */}
+            {}
             <div className="flex items-center gap-3 flex-1">
               <Button
                 variant="ghost"
@@ -157,19 +160,12 @@ export function AdminLayout() {
                 <Menu className="w-5 h-5" />
               </Button>
 
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-muted text-muted-foreground focus-within:ring-2 focus-within:ring-ring focus-within:bg-background border border-input max-w-md flex-1 rounded-md">
-                <Search className="w-4 h-4 shrink-0 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm..."
-                  className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
+
             </div>
 
-            {/* Right side: Notifications + Avatar Dropdown */}
+            {}
             <div className="flex items-center gap-3">
-              {/* Theme Toggle */}
+              {}
               <Button
                 variant="ghost"
                 size="icon"
@@ -180,7 +176,7 @@ export function AdminLayout() {
                 {theme === "dark" ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
               </Button>
 
-              {/* Notifications Bell */}
+              {}
               <div className="relative" ref={notiRef}>
                 <Button
                   variant="ghost"
@@ -194,7 +190,7 @@ export function AdminLayout() {
                   )}
                 </Button>
 
-                {/* Notifications Dropdown */}
+                {}
                 {notiOpen && (
                   <div className="absolute right-0 top-full mt-2 w-80 shadow-xl bg-popover text-popover-foreground border border-border overflow-hidden z-50 rounded-lg">
                     <div className="p-3 border-b border-border flex items-center justify-between bg-accent/30">
@@ -262,7 +258,7 @@ export function AdminLayout() {
                 )}
               </div>
 
-              {/* User Dropdown */}
+              {}
               <div className="relative pl-3 border-l border-border" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -290,10 +286,10 @@ export function AdminLayout() {
                   />
                 </button>
 
-                {/* Dropdown Menu Overlay */}
+                {}
                 {dropdownOpen && (
                   <div className="absolute right-0 top-full mt-2 w-64 shadow-xl bg-popover text-popover-foreground border border-border rounded-xl overflow-hidden z-50">
-                    {/* User Info Header */}
+                    {}
                     <div className="p-4 border-b border-border bg-popover">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 overflow-hidden bg-primary text-primary-foreground">
@@ -320,7 +316,7 @@ export function AdminLayout() {
                       </div>
                     </div>
 
-                    {/* Actions Menu */}
+                    {}
                     <div className="py-1.5 bg-popover">
                       <button
                         onClick={() => {
@@ -347,7 +343,7 @@ export function AdminLayout() {
           </div>
         </header>
 
-        {/* Page Content */}
+        {}
         <main className="flex-1 overflow-auto bg-background text-foreground border-l border-border">
           <div className="max-w-7xl mx-auto p-6">
             <Outlet />

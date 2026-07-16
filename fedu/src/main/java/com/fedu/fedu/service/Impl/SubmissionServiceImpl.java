@@ -44,11 +44,14 @@ public class SubmissionServiceImpl implements SubmissionService {
     public SubmissionResponse submit(Long exerciseId, Long studentId, CreateSubmissionRequest request, MultipartFile file) {
         NodeExercise exercise = getExercise(exerciseId);
         LearningNode node = exercise.getLearningNode();
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
         assertStudentEnrolledInNode(node, studentId);
 
         String text = request != null ? request.getContent() : null;
         boolean hasText = text != null && !text.trim().isEmpty();
-        boolean hasFile = file != null && !file.isEmpty();
+        boolean hasMultipart = file != null && !file.isEmpty();
+        boolean hasCloudinary = request != null && request.getFileUrl() != null && !request.getFileUrl().trim().isEmpty();
+        boolean hasFile = hasMultipart || hasCloudinary;
 
         if (!hasText && !hasFile) {
             throw new InvalidDataException("Bài nộp phải có nội dung tự luận hoặc file đính kèm.");
@@ -60,7 +63,7 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new InvalidDataException("Bài tập này không cho phép nộp file.");
         }
 
-        // Nộp lại = cập nhật bài nộp cũ (mỗi học sinh 1 bài nộp / bài tập).
+        
         Submission submission = submissionRepository
                 .findByNodeExerciseExerciseIdAndStudentUserIdAndIsDeletedFalse(exerciseId, studentId)
                 .orElseGet(() -> Submission.builder()
@@ -72,10 +75,18 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         submission.setTitle(exercise.getTitle());
         submission.setContent(hasText ? text : null);
-        submission.setFileUrl(hasFile ? storeFile(file) : null);
+        
+        if (hasMultipart) {
+            submission.setFileUrl(storeFile(file));
+        } else if (hasCloudinary) {
+            submission.setFileUrl(request.getFileUrl().trim());
+        } else {
+            submission.setFileUrl(null);
+        }
+        
         submission.setStatus(SubmissionStatus.SUBMITTED);
         submission.setSubmittedAt(LocalDateTime.now());
-        // Nộp lại → cần chấm lại, xóa kết quả chấm cũ.
+        
         submission.setGrade(null);
         submission.setFeedback(null);
         submission.setGradedBy(null);
@@ -94,6 +105,16 @@ public class SubmissionServiceImpl implements SubmissionService {
                 .findByNodeExerciseExerciseIdAndStudentUserIdAndIsDeletedFalse(exerciseId, studentId)
                 .map(this::mapSubmission)
                 .orElse(null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> getMySubmissionsForClassroomSubject(Long classroomSubjectId, Long studentId) {
+        return submissionRepository
+                .findByStudentAndClassroomSubject(studentId, classroomSubjectId)
+                .stream()
+                .map(this::mapSubmission)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -127,7 +148,7 @@ public class SubmissionServiceImpl implements SubmissionService {
         return mapSubmission(submission);
     }
 
-    // ===================== Helpers =====================
+    
 
     private NodeExercise getExercise(Long exerciseId) {
         NodeExercise exercise = nodeExerciseRepository.findById(exerciseId)

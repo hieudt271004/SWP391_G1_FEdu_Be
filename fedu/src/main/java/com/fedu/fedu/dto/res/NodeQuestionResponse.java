@@ -5,7 +5,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** Một câu hỏi của học sinh trên node, kèm các câu trả lời bên dưới (forum công khai trong lớp-môn). */
+
 @Data
 @Builder
 @NoArgsConstructor

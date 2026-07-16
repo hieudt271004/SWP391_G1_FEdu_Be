@@ -90,7 +90,7 @@ public class SubjectServiceImpl implements SubjectService {
         subject.setSubjectName(request.getSubjectName().trim());
         subject.setDescription(request.getDescription());
         subject.setLearningpathLength(request.getLearningpathLength());
-        // status chỉ đổi qua publish/unpublish (có guard kiểm tra lộ trình), không sửa ở đây
+        
 
         return SubjectResponse.from(subjectRepository.save(subject));
     }
@@ -113,11 +113,11 @@ public class SubjectServiceImpl implements SubjectService {
         boolean hasValidPath = false;
         for (LearningPath path : paths) {
             List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
-            if (nodes.isEmpty()) continue; // bản nháp thì bỏ qua, không throw
+            if (nodes.isEmpty()) continue; 
             try {
                 validateStageDifferentiation(path, nodes);
             }catch (InvalidDataException e){
-                continue; // thiếu mức -> bỏ qua  không throw
+                continue; 
             }
             hasValidPath = true;
             int stageCount = (int) nodes.stream()

@@ -17,13 +17,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Student endpoints cho support ticket.
- * Nằm dưới /student/** nên Spring Security đã kiểm role=STUDENT.
- * Phân quyền chi tiết (ghi danh lớp-môn, cờ isSubmentor, assignment) được kiểm trong service layer.
- *
- * Lưu ý: route /student/sub-mentor/** đã được gỡ khỏi AppConfig (không còn dùng).
- */
+
+
+
+
+
+
+
 @Slf4j
 @RestController
 @RequestMapping("/student/support-tickets")
@@ -33,7 +33,7 @@ public class StudentSupportTicketController {
 
     private final SupportTicketService supportTicketService;
 
-    // ─── Student ──────────────────────────────────────────────────────────────
+    
 
     @Operation(summary = "Học sinh tạo ticket hỗ trợ trong lớp-môn đã ghi danh")
     @PostMapping
@@ -54,7 +54,7 @@ public class StudentSupportTicketController {
                 supportTicketService.listMyTickets(currentUser.getUserId(), classroomSubjectId));
     }
 
-    // ─── Sub-mentor ───────────────────────────────────────────────────────────
+    
 
     @Operation(summary = "Sub-mentor xem danh sách ticket cần xử lý trong lớp-môn")
     @GetMapping("/assigned")

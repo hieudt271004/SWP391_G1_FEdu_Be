@@ -1,6 +1,7 @@
 import { http } from './http';
 import { apiClient } from './api.client';
 import type { ClassroomResponse, ClassroomRequest } from '../types/classroom';
+import type { ClassroomStatus } from '../utils/classroom';
 import type {
   ClassroomSubjectResponse,
   AddClassroomSubjectRequest,
@@ -9,7 +10,7 @@ import type {
 import type { StudentInClass, AddStudentRequest, ImportStudentsResult } from '../types/student';
 
 export const classroomService = {
-  // ─── Classroom CRUD (ADMIN) ────────────────────────────────────────────────
+  
   getAll: () => http.get<ClassroomResponse[]>('/classrooms'),
 
   getById: (id: number) => http.get<ClassroomResponse>(`/classrooms/${id}`),
@@ -23,28 +24,32 @@ export const classroomService = {
   getByStudent: (studentId: number) =>
     http.get<ClassroomResponse[]>(`/classrooms/student/${studentId}`),
 
-  // Tạo lớp = chỉ container (không kèm môn/GV). Gán môn qua addSubject().
+  
   create: (req: ClassroomRequest) =>
     http.post<ClassroomResponse>('/classrooms', req),
 
   update: (id: number, req: ClassroomRequest) =>
     http.put<ClassroomResponse>(`/classrooms/${id}`, req),
 
+  // Đổi riêng trạng thái (bắt đầu/kết thúc) — không cần gửi lại toàn bộ thông tin lớp.
+  updateStatus: (id: number, status: ClassroomStatus) =>
+    http.patch<ClassroomResponse>(`/classrooms/${id}/status`, { status }),
+
   delete: (id: number) => http.delete<void>(`/classrooms/${id}`),
 
-  // ─── Lớp-môn (ClassroomSubject) ──────────────────────────────────────────────
+  
   getSubjectsOfClassroom: (classroomId: number) =>
     http.get<ClassroomSubjectResponse[]>(`/classrooms/${classroomId}/subjects`),
 
-  // Danh sách lớp-môn đang mở 1 môn (theo subjectId)
+  
   getClassroomsBySubject: (subjectId: number) =>
     http.get<ClassroomSubjectResponse[]>(`/classrooms/subjects/by-subject/${subjectId}`),
 
-  // Danh sách lớp-môn mà 1 sinh viên đang học (theo studentId)
+  
   getClassroomSubjectsByStudent: (studentId: number) =>
     http.get<ClassroomSubjectResponse[]>(`/classrooms/subjects/by-student/${studentId}`),
 
-  // Danh sách lớp-môn mà 1 giảng viên đang dạy (theo lecturerId)
+  
   getClassroomSubjectsByLecturer: (lecturerId: number) =>
     http.get<ClassroomSubjectResponse[]>(`/classrooms/subjects/by-lecturer/${lecturerId}`),
 
@@ -60,7 +65,7 @@ export const classroomService = {
   removeSubject: (classroomSubjectId: number) =>
     http.delete<void>(`/classrooms/subjects/${classroomSubjectId}`),
 
-  // ─── Roster theo lớp-môn (classroomSubjectId, KHÔNG phải classroomId) ────────
+  
   getStudents: (classroomSubjectId: number) =>
     http.get<StudentInClass[]>(`/classroom-subjects/${classroomSubjectId}/students`),
 
@@ -70,7 +75,7 @@ export const classroomService = {
   removeStudent: (classroomSubjectId: number, studentId: number) =>
     http.delete<void>(`/classroom-subjects/${classroomSubjectId}/students/${studentId}`),
 
-  // ─── Import sinh viên bằng Excel ─────────────────────────────────────────────
+  
   importStudents: (classroomSubjectId: number, file: File) => {
     const form = new FormData();
     form.append('file', file);

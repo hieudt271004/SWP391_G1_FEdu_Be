@@ -32,7 +32,7 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
     private final LearningPathRepository learningPathRepository;
     private final TestRepository testRepository;
 
-    /** Ngưỡng mặc định khi node PLACEMENT không cấu hình (khớp band mặc định FE: 0-40-70-100). */
+    
     private static final BigDecimal DEFAULT_YEU_MAX = BigDecimal.valueOf(40);
     private static final BigDecimal DEFAULT_TB_MAX = BigDecimal.valueOf(70);
 
@@ -48,26 +48,30 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
             }
         }
 
-        // Thiết kế mới: bài test năng lực được tạo trên node PLACEMENT của lộ trình, ngưỡng nằm
-        // ngay trên node (placementYeuMax/placementTbMax) chứ không có QuizScoreBand → dùng ngưỡng node.
+        
+
         Test test = testRepository.findById(testId).orElse(null);
         LearningNode node = test != null ? test.getLearningNode() : null;
         if (node != null && node.getTestKind() == NodeTestKind.PLACEMENT) {
-            BigDecimal yeuMax = node.getPlacementYeuMax() != null ? node.getPlacementYeuMax() : DEFAULT_YEU_MAX;
-            BigDecimal tbMax = node.getPlacementTbMax() != null ? node.getPlacementTbMax() : DEFAULT_TB_MAX;
-            if (node.getPlacementYeuMax() == null || node.getPlacementTbMax() == null) {
-                log.warn("Node PLACEMENT {} thiếu ngưỡng phân mức — dùng mặc định {}/{}.",
-                        node.getNodeId(), DEFAULT_YEU_MAX, DEFAULT_TB_MAX);
-            }
-            if (percentage.compareTo(yeuMax) <= 0) {
-                return LearningLevels.WEAK;
-            }
-            if (percentage.compareTo(tbMax) <= 0) {
-                return LearningLevels.MEDIUM;
-            }
-            return LearningLevels.GOOD;
+            return resolveByPlacementThresholds(node, percentage);
         }
         return null;
+    }
+
+    private Integer resolveByPlacementThresholds(LearningNode node, BigDecimal percentage) {
+        BigDecimal yeuMax = node.getPlacementYeuMax() != null ? node.getPlacementYeuMax() : DEFAULT_YEU_MAX;
+        BigDecimal tbMax = node.getPlacementTbMax() != null ? node.getPlacementTbMax() : DEFAULT_TB_MAX;
+        if (node.getPlacementYeuMax() == null || node.getPlacementTbMax() == null) {
+            log.warn("Node PLACEMENT {} thiếu ngưỡng phân mức — dùng mặc định {}/{}.",
+                    node.getNodeId(), DEFAULT_YEU_MAX, DEFAULT_TB_MAX);
+        }
+        if (percentage.compareTo(yeuMax) <= 0) {
+            return LearningLevels.WEAK;
+        }
+        if (percentage.compareTo(tbMax) <= 0) {
+            return LearningLevels.MEDIUM;
+        }
+        return LearningLevels.GOOD;
     }
 
     @Override
@@ -87,7 +91,7 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
     @Transactional
     public void applyGateRouting(Long classroomSubjectId, LearningNode gateNode, Long studentId, BigDecimal percentage) {
         if (gateNode == null || gateNode.getTestKind() != NodeTestKind.GATE) {
-            return; // chỉ áp dụng cho node cổng phân luồng
+            return; 
         }
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
@@ -97,12 +101,12 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         }
         Integer current = css.getCurrentLevel();
         if (current == null) {
-            return; // chưa phân loại thì cổng không định tuyến được
+            return; 
         }
 
         Set<Integer> applies = parseApplies(gateNode.getAppliesLevels());
         if (!applies.isEmpty() && !applies.contains(current)) {
-            return; // cổng này không phụ trách mức của học sinh → giữ nguyên
+            return; 
         }
         int minA = applies.isEmpty() ? LearningLevels.MIN : Collections.min(applies);
         int maxA = applies.isEmpty() ? LearningLevels.MAX : Collections.max(applies);
@@ -111,14 +115,14 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         BigDecimal up = gateNode.getGateUpMin();
         BigDecimal down = gateNode.getGateDownMax();
         if (up != null && percentage != null && percentage.compareTo(up) >= 0) {
-            newLevel = Math.min(current + 1, maxA); // lên 1 bậc, chặn trong applies_levels
+            newLevel = Math.min(current + 1, maxA); 
         } else if (down != null && percentage != null && percentage.compareTo(down) <= 0) {
-            newLevel = Math.max(current - 1, minA); // xuống 1 bậc, chặn trong applies_levels
+            newLevel = Math.max(current - 1, minA); 
         }
-        // điểm ở giữa (hoặc thiếu ngưỡng) → giữ nguyên mức
+        
 
         if (current == newLevel) {
-            return; // không đổi mức, không ghi lịch sử
+            return; 
         }
         css.setCurrentLevel(newLevel);
         classroomSubjectStudentRepository.save(css);
@@ -130,11 +134,11 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
     @Transactional
     public void applyFreeChoiceRouting(Long classroomSubjectId, LearningNode freeChoiceNode, Long studentId) {
         if (freeChoiceNode == null || freeChoiceNode.getTestKind() != NodeTestKind.FREE_CHOICE) {
-            return; // chỉ áp dụng cho node test tự do chọn
+            return; 
         }
         Integer target = freeChoiceNode.getLevel();
         if (!LearningLevels.isValid(target)) {
-            return; // node free-choice phải gắn mức đích hợp lệ (1/2/3)
+            return; 
         }
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
@@ -144,12 +148,48 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         }
         Integer current = css.getCurrentLevel();
         if (Objects.equals(current, target)) {
-            return; // đã đúng mức, không cần đổi
+            return; 
         }
         css.setCurrentLevel(target);
         classroomSubjectStudentRepository.save(css);
         writeHistory(css, current, target, LevelChangeReason.FREE_CHOICE);
         reopenBranchNodesForLevel(classroomSubjectId, studentId, target);
+    }
+
+    @Override
+    @Transactional
+    public void applyPlacementRetakeRouting(Long classroomSubjectId, LearningNode placementNode, Long studentId,
+                                            Long testId, BigDecimal percentage) {
+        if (placementNode == null || placementNode.getTestKind() != NodeTestKind.PLACEMENT || percentage == null) {
+            return;
+        }
+        ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
+                .orElse(null);
+        if (css == null) {
+            return;
+        }
+        Integer current = css.getCurrentLevel();
+        if (current == null) {
+            return;
+        }
+
+        Set<Integer> applies = parseApplies(placementNode.getAppliesLevels());
+        if (!applies.isEmpty() && !applies.contains(current)) {
+            return;
+        }
+
+        Integer newLevel = testId != null ? resolveLevel(testId, percentage) : null;
+        if (newLevel == null) {
+            newLevel = resolveByPlacementThresholds(placementNode, percentage);
+        }
+        if (newLevel == null || current.equals(newLevel)) {
+            return;
+        }
+        css.setCurrentLevel(newLevel);
+        classroomSubjectStudentRepository.save(css);
+        writeHistory(css, current, newLevel, LevelChangeReason.RETAKE);
+        reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel);
     }
 
     private static Set<Integer> parseApplies(String s) {
@@ -164,7 +204,7 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
                     out.add(v);
                 }
             } catch (NumberFormatException ignored) {
-                // bỏ qua phần không phải số
+                
             }
         }
         return out;
@@ -183,26 +223,40 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
                 .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(),
                         StudentNodeProgress::getStatus, (a, b) -> a));
 
+
+        Set<Integer> stagesDoneAtOtherLevel = list.stream()
+                .filter(p -> p.getStatus() == StudentProgressStatus.COMPLETED)
+                .map(StudentNodeProgress::getLearningNode)
+                .filter(n -> (n.getTestKind() == null || n.getTestKind() == NodeTestKind.NONE)
+                        && n.getLevel() != null && !n.getLevel().equals(newLevel)
+                        && n.getStageOrder() != null)
+                .map(LearningNode::getStageOrder)
+                .collect(Collectors.toSet());
+
         for (StudentNodeProgress p : list) {
             LearningNode node = p.getLearningNode();
             if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
-                continue; // node test — mở theo tiên quyết, không theo mức
+                continue;
             }
             if (node.getLevel() == null) {
-                continue; // node học chung
+                continue;
             }
             if (p.getStatus() == StudentProgressStatus.COMPLETED) {
-                continue; // giữ lịch sử đã học
+                continue;
             }
             if (node.getLevel().equals(newLevel)) {
-                List<NodeEdge> incoming = nodeEdgeRepository.findByToNodeNodeId(node.getNodeId());
-                boolean prereqMet = NodeRoutingUtils.incomingPrereqMet(incoming, statusByNode, newLevel);
+
+                if (stagesDoneAtOtherLevel.contains(node.getStageOrder())) {
+                    continue;
+                }
+                boolean prereqMet = NodeRoutingUtils.prereqMetThroughOnClass(
+                        node.getNodeId(), nodeEdgeRepository::findByToNodeNodeId, statusByNode, newLevel, list);
                 if (p.getStatus() == StudentProgressStatus.LOCKED && prereqMet) {
                     p.setStatus(StudentProgressStatus.OPEN);
                     p.setUnlockedAt(LocalDateTime.now());
                 }
             } else if (p.getStatus() != StudentProgressStatus.LOCKED) {
-                // node nhánh khác mức, chưa hoàn thành → khóa lại
+
                 p.setStatus(StudentProgressStatus.LOCKED);
             }
         }

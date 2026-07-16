@@ -1,7 +1,8 @@
 import { http } from './http';
 import type { ClassroomGraphResponse, NodeContentResponse, LiveSessionState } from './learningPath.service';
+import { uploadService } from './upload.service';
 
-// ── Test-taking types (khớp DTO backend) ─────────────────────────────────────
+
 
 export type QuestionType =
   | 'MULTIPLE_CHOICE'
@@ -10,13 +11,13 @@ export type QuestionType =
   | 'SHORT_ANSWER'
   | 'ESSAY';
 
-// AnswerResponse — backend ẩn isCorrect với học sinh nên không khai báo ở đây.
+
 export interface Answer {
   answerId: number;
   answerContent: string;
 }
 
-// QuestionResponse
+
 export interface Question {
   questionId: number;
   questionContent: string;
@@ -25,64 +26,70 @@ export interface Question {
   answers: Answer[];
 }
 
-// StudentTestDetailsResponse — dùng chung cho node test và placement quiz
+
 export interface StudentTestDetails {
   testId: number;
   title: string;
   description?: string;
   durationMinutes?: number;
   passingPercentage?: number;
-  /** Hạn nộp CHUNG cả lớp của đề phát trong buổi live; null = chỉ tính giờ theo durationMinutes. */
+  
   releaseEndsAt?: string | null;
   questions: Question[];
 }
 
-// Một câu trả lời trong payload nộp bài
+
 export interface QuestionSubmission {
   questionId: number;
   selectedAnswerIds?: number[];
   responseText?: string;
 }
 
-// AttemptSubmissionRequest
+
 export interface AttemptSubmission {
   submissions: QuestionSubmission[];
 }
 
-// StudentTestAttempt (response khi start) — chỉ cần attemptId để nộp bài
+
 export interface StudentTestAttempt {
   attemptId: number;
 }
 
-// AttemptSubmissionResultResponse — kết quả chấm node test
+
 export interface AttemptResult {
   attemptId: number;
-  score: number;
-  passed: boolean;
+  
+  score: number | null;
+  passed: boolean | null;
   startedAt: string;
   submittedAt: string;
   passingPercentage: number;
-  /** Mức mới nếu bài này làm đổi mức (gate/free-choice); null = không đổi. */
+  
   newLevel?: number | null;
+  
+  pendingManualGrading?: boolean | null;
 }
 
-// PlacementResultResponse — kết quả phân loại
+
 export interface PlacementResult {
   testId: number;
-  score: number;
-  assignedLevel: number; // 1=yếu, 2=trung bình, 3=khá
+  
+  score: number | null;
+  assignedLevel: number | null; 
+  
+  pendingManualGrading?: boolean | null;
 }
 
-// StudentLevelHistoryResponse
+
 export interface LevelHistoryEntry {
   id: number;
   oldLevel: number | null;
   newLevel: number;
-  reason: string; // PLACEMENT | GATE
+  reason: string; 
   changedAt: string;
 }
 
-// ── Pop Quiz types ──────────────────────────────────────────────────────────
+
 export interface PopQuizPendingResponse {
   assignmentId: number;
   title: string;
@@ -124,34 +131,35 @@ export interface StudentTestAttemptHistoryResponse {
   classroomSubjectName: string;
   testTitle: string;
   testDescription: string;
-  score: number;
+  
+  score: number | null;
   submittedAt: string;
 }
 
 export const studentService = {
-  // Đồ thị lộ trình của một lớp-môn (kèm tiến độ học của SV hiện tại)
+  
   getClassroomSubjectGraph: (classroomSubjectId: number) =>
     http.get<ClassroomGraphResponse>(
       `/student/classroom-subjects/${classroomSubjectId}/graph`
     ),
 
-  // Nội dung 1 node (chỉ xem được node đã mở khóa)
+  
   getNodeContent: (nodeId: number) =>
     http.get<NodeContentResponse>(`/student/learning-nodes/${nodeId}/content`),
 
-  // Đánh dấu hoàn thành một node không có bài test
+  
   completeNode: (nodeId: number) =>
     http.post<void>(`/student/learning-nodes/${nodeId}/complete`, {}),
 
-  // Đánh dấu hoàn thành một học liệu
+  
   completeMaterial: (materialId: number) =>
     http.post<void>(`/student/learning-materials/${materialId}/complete`, {}),
 
-  // Lấy danh sách ID các học liệu đã hoàn thành
+  
   getCompletedMaterials: () =>
     http.get<number[]>('/student/learning-materials/completed'),
 
-  // ── Node test ──────────────────────────────────────────────────────────
+  
   getTestDetails: (testId: number) =>
     http.get<StudentTestDetails>(`/student/tests/${testId}`),
 
@@ -164,18 +172,18 @@ export const studentService = {
       body
     ),
 
-  // Chống gian lận: ghi nhận 1 lần rời tab khi đang làm bài; trả về tổng số lần của lượt thi.
+  
   recordTabOut: (testId: number, attemptId: number) =>
     http.patch<number>(`/student/tests/${testId}/attempts/${attemptId}/tab-out`),
 
   getTestHistory: () =>
     http.get<StudentTestAttemptHistoryResponse[]>('/student/tests/attempts/history'),
 
-  // Buổi học live: polling trạng thái ~5s (tài liệu mới, đề đang phát + hạn nộp chung)
+  
   getLiveState: (csId: number, nodeId: number) =>
     http.get<LiveSessionState>(`/student/classroom-subjects/${csId}/learning-nodes/${nodeId}/live-state`),
 
-  // ── Placement quiz (thi phân loại đầu vào) ───────────────────────────────
+  
   getPlacementQuiz: (csId: number) =>
     http.get<StudentTestDetails>(
       `/student/classroom-subjects/${csId}/placement-quiz`
@@ -197,7 +205,7 @@ export const studentService = {
       `/student/classroom-subjects/${csId}/level-history`
     ),
 
-  // ── Sub-mentor Support Q&A ───────────────────────────────
+  
   listAssignedTickets: (csId: number) =>
     http.get<any[]>(
       `/student/support-tickets/assigned?classroomSubjectId=${csId}`
@@ -226,32 +234,39 @@ export const studentService = {
       `/student/support-tickets?classroomSubjectId=${csId}`
     ),
 
-  submitExercise: (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
+  
+  
+  
+  submitExercise: async (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
+    const multipartHeaders = { 'Content-Type': 'multipart/form-data' };
     if (contentOrFormData instanceof FormData) {
-      return http.post<SubmissionResponse>(
-        `/student/exercises/${exerciseId}/submissions`,
-        contentOrFormData,
-        { 'Content-Type': 'multipart/form-data' }
-      );
+      const fileInForm = contentOrFormData.get('file');
+      if (fileInForm instanceof File) {
+        const uploaded = await uploadService.uploadToCloudinary(fileInForm, 'submissions');
+        contentOrFormData.delete('file');
+        contentOrFormData.append('fileUrl', uploaded.url);
+      }
+      return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, contentOrFormData, multipartHeaders);
     }
     const formData = new FormData();
     if (contentOrFormData) {
       formData.append('content', contentOrFormData);
     }
     if (file) {
-      formData.append('file', file);
+      const uploaded = await uploadService.uploadToCloudinary(file, 'submissions');
+      formData.append('fileUrl', uploaded.url);
     }
-    return http.post<SubmissionResponse>(
-      `/student/exercises/${exerciseId}/submissions`,
-      formData,
-      { 'Content-Type': 'multipart/form-data' }
-    );
+    return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData, multipartHeaders);
   },
 
   getMyExerciseSubmission: (exerciseId: number) =>
     http.get<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions/me`),
 
-  // ── Pop Quiz ──────────────────────────────────────────────────────────
+
+  getMySubmissionsForClassroomSubject: (classroomSubjectId: number) =>
+    http.get<SubmissionResponse[]>(`/student/classroom-subjects/${classroomSubjectId}/my-submissions`),
+
+  
   getPendingPopQuiz: (nodeId: number) =>
     http.get<PopQuizPendingResponse>(`/student/on-class/${nodeId}/pop-quiz/pending`),
 

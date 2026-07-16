@@ -61,7 +61,7 @@ public class QuestionManagementIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        // Clear all database tables via direct SQL to avoid flush order and FK constraint issues in shared DB
+        
         jdbcTemplate.execute("DELETE FROM ticket_comments");
         jdbcTemplate.execute("DELETE FROM support_tickets");
         jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
@@ -95,8 +95,8 @@ public class QuestionManagementIntegrationTest {
                 .orElseGet(() -> subjectRepository.save(Subject.builder()
                         .subjectCode("SWP391")
                         .subjectName("Software Development Project")
-                        // Môn phải ở trạng thái draft thì admin mới được sửa câu hỏi của template
-                        // (môn published ⇒ TemplateEditGuard khóa mọi chỉnh sửa template của khoa)
+                        
+                        
                         .status("draft")
                         .isDeleted(false)
                         .build()));

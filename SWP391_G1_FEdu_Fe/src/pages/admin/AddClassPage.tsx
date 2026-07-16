@@ -7,12 +7,24 @@ import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import { toast } from "sonner";
+import type { ClassroomRequest } from "../../types/classroom";
+import { semesterService } from "../../services/semester.service";
+import type { SemesterResponse } from "../../types/semester";
+import { type Term } from "../../utils/classroom";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
+
 
 interface ClassForm {
   className: string;
-  semester: string;
+  term: string;
+  academicYear: string;
   description: string;
-  status?: string;
 }
 
 export function AddClassPage() {
@@ -22,37 +34,59 @@ export function AddClassPage() {
 
   const [form, setForm] = useState<ClassForm>({
     className: "",
-    semester: "",
+    term: "",
+    academicYear: "",
     description: "",
-    status: "inactive",
   });
 
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
+  const [semesters, setSemesters] = useState<SemesterResponse[]>([]);
 
   useEffect(() => {
-    if (!isEdit) return;
     const fetchData = async () => {
       try {
-        const data = await classroomService.getById(Number(id));
-        setForm({
-          className: data.className || "",
-          semester: data.semester || "",
-          description: data.description || "",
-          status: data.status || "inactive",
-        });
+        setLoading(true);
+        setError(null);
+
+        const semData = await semesterService.getAll();
+        setSemesters(semData || []);
+
+        if (isEdit) {
+          const data = await classroomService.getById(Number(id));
+          setForm({
+            className: data.className || "",
+            term: data.term || "",
+            academicYear: data.academicYear != null ? String(data.academicYear) : "",
+            description: data.description || "",
+          });
+        }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Tải dữ liệu thất bại");
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
   }, [id, isEdit]);
 
   const handleChange = (field: keyof ClassForm, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSemesterChange = (selectedValue: string) => {
+    if (!selectedValue) {
+      setForm(prev => ({ ...prev, term: "", academicYear: "" }));
+      return;
+    }
+    const [termVal, yearVal] = selectedValue.split("|");
+    setForm(prev => ({
+      ...prev,
+      term: termVal,
+      academicYear: yearVal,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,12 +97,18 @@ export function AddClassPage() {
     try {
       setSubmitting(true);
       setError(null);
+      const payload: ClassroomRequest = {
+        className: form.className.trim(),
+        term: form.term ? (form.term as Term) : null,
+        academicYear: form.academicYear ? Number(form.academicYear) : null,
+        description: form.description,
+      };
       if (isEdit) {
-        await classroomService.update(Number(id), form);
+        await classroomService.update(Number(id), payload);
         toast.success(`Đã cập nhật lớp học "${form.className.trim()}" thành công.`);
         navigate("/admin/classes");
       } else {
-        const newClass = await classroomService.create(form);
+        const newClass = await classroomService.create(payload);
         toast.success(`Đã tạo lớp học "${form.className.trim()}" thành công.`);
         navigate(`/admin/classes/${newClass.classroomId}?addSubject=true`);
       }
@@ -89,7 +129,7 @@ export function AddClassPage() {
 
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* Header & Breadcrumb */}
+      {}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -124,7 +164,7 @@ export function AddClassPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Tên lớp học */}
+              {}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
                   Tên lớp học <span className="text-destructive">*</span>
@@ -138,39 +178,45 @@ export function AddClassPage() {
                 />
               </div>
 
-              {/* Học kỳ */}
+              {}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
-                  Học kỳ
+                  Học kỳ <span className="text-destructive">*</span>
+                </label>
+                <Select
+                  value={form.term && form.academicYear ? `${form.term}|${form.academicYear}` : ""}
+                  onValueChange={(val) => handleSemesterChange(val)}
+                >
+                  <SelectTrigger className="w-full bg-input-background text-foreground border-input">
+                    <SelectValue placeholder="— Chọn học kỳ đã cấu hình —" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover text-popover-foreground border-border">
+                    {semesters.map((sem) => (
+                      <SelectItem
+                        key={sem.semesterId}
+                        value={`${sem.term}|${sem.academicYear}`}
+                      >
+                        {sem.semesterLabel}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground">
+                  Năm học
                 </label>
                 <Input
-                  type="text"
-                  value={form.semester}
-                  onChange={(e) => handleChange("semester", e.target.value)}
-                  placeholder="VD: Fall 2024"
+                  type="number"
+                  value={form.academicYear}
+                  readOnly
+                  placeholder="Tự động điền theo học kỳ"
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
                 />
               </div>
 
-              {/* Trạng thái lớp học (Chỉ hiển thị ở chế độ Edit) */}
-              {isEdit && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-foreground">
-                    Trạng thái lớp học
-                  </label>
-                  <select
-                    value={form.status || "inactive"}
-                    onChange={(e) => handleChange("status", e.target.value)}
-                    disabled={form.status === "inactive"}
-                    className="flex h-9 w-full rounded-md border border-input bg-input-background px-3 py-1 text-sm shadow-sm transition-colors cursor-pointer outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
-                  >
-                    <option value="inactive">Chưa bắt đầu (Giảng viên sẽ kích hoạt)</option>
-                    <option value="active">Đang hoạt động</option>
-                    <option value="completed">Đã hoàn thành</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Mô tả */}
+              {}
               <div className="md:col-span-2 space-y-2">
                 <label className="block text-sm font-semibold text-foreground">
                   Mô tả
@@ -186,7 +232,7 @@ export function AddClassPage() {
           </CardContent>
         </Card>
 
-        {/* Actions */}
+        {}
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={submitting} className="px-8">
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}

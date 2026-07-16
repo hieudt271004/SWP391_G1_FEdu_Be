@@ -20,14 +20,14 @@ export function SubjectDetailPage() {
   const navigate = useNavigate();
   const subjectId = Number(id);
 
-  // Subject and classroom data
+  
   const [subject, setSubject] = useState<Subject | null>(null);
   const [classroomSubjects, setClassroomSubjects] = useState<ClassroomSubjectResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
-  // Modal "Thêm lớp" (gán môn này vào 1 lớp active có sẵn)
+  
   const [showAddClass, setShowAddClass] = useState(false);
   const [allClassrooms, setAllClassrooms] = useState<ClassroomResponse[]>([]);
   const [teachers, setTeachers] = useState<AdminUserResponse[]>([]);
@@ -36,7 +36,7 @@ export function SubjectDetailPage() {
   const [addClassLoading, setAddClassLoading] = useState(false);
   const [addClassError, setAddClassError] = useState<string | null>(null);
 
-  // Fetch all core page data
+  
   const fetchData = useCallback(async () => {
     if (!subjectId) return;
     try {
@@ -59,7 +59,7 @@ export function SubjectDetailPage() {
     fetchData();
   }, [fetchData]);
 
-  // Danh mục lớp active + giảng viên cho modal "Thêm lớp"
+  
   useEffect(() => {
     const loadCatalog = async () => {
       try {
@@ -150,7 +150,7 @@ export function SubjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {}
       <div className="flex items-center gap-4 flex-wrap">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-lg">
           <ArrowLeft className="w-5 h-5 text-foreground" />
@@ -173,7 +173,7 @@ export function SubjectDetailPage() {
             <p className="text-sm text-muted-foreground">{subject.description}</p>
           )}
         </div>
-        {/* Stats */}
+        {}
         <div className="flex items-center gap-3 flex-wrap">
           <Badge variant="outline" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border-transparent"
             style={{ backgroundColor: "#eef2ff", color: "#3730a3" }}>
@@ -197,7 +197,7 @@ export function SubjectDetailPage() {
         </div>
       </div>
 
-      {/* Classrooms List Section */}
+      {}
       <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -253,7 +253,7 @@ export function SubjectDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Learning path (single differentiated path) */}
+      {}
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-foreground flex items-center gap-2 pl-1">
           <Map className="w-5 h-5 text-foreground" />
@@ -262,7 +262,7 @@ export function SubjectDetailPage() {
         <LearningPathManager subjectId={subjectId} subjectPublished={subject?.status === "published"} />
       </div>
 
-      {/* MODAL THÊM LỚP */}
+      {}
       {showAddClass && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAddClass(false)}>
           <div className="rounded-xl w-full max-w-md overflow-hidden border bg-background text-foreground shadow-lg" onClick={(e) => e.stopPropagation()}>
@@ -291,7 +291,7 @@ export function SubjectDetailPage() {
                       <SelectItem value="none" disabled>(Không còn lớp đang hoạt động nào chưa học môn này)</SelectItem>
                     ) : availableClassrooms.map((c) => (
                       <SelectItem key={c.classroomId} value={String(c.classroomId)}>
-                        {c.className}{c.semester ? ` · ${c.semester}` : ""}
+                        {c.className}{c.semesterLabel ? ` · ${c.semesterLabel}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

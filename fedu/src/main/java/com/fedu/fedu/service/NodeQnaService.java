@@ -7,13 +7,13 @@ import com.fedu.fedu.dto.res.QuestionAnswerResponse;
 
 import java.util.List;
 
-/**
- * Q&A công khai trong phạm vi lớp-môn trên một node: học sinh đặt câu hỏi,
- * giảng viên (lecturer của lớp-môn) trả lời bên dưới.
- */
+
+
+
+
 public interface NodeQnaService {
 
-    // ----- Học sinh -----
+    
     List<NodeQuestionResponse> getQuestionsForStudent(Long nodeId, Long studentId);
 
     NodeQuestionResponse askQuestion(Long nodeId, Long studentId, CreateNodeQuestionRequest request);
@@ -22,7 +22,7 @@ public interface NodeQnaService {
 
     void deleteQuestion(Long questionId, Long studentId);
 
-    // ----- Giảng viên -----
+    
     List<NodeQuestionResponse> getQuestionsForTeacher(Long nodeId, Long teacherId);
 
     QuestionAnswerResponse answerQuestion(Long questionId, Long teacherId, CreateQuestionAnswerRequest request);

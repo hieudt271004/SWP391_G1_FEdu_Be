@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { classroomService } from '../../services/classroom.service';
+import { getClassroomStatusMeta } from '../../utils/classroom';
 import { studentService, type SubmissionResponse } from '../../services/student.service';
 import { MaterialPreview, resolveAssetUrl } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
@@ -80,11 +81,13 @@ export function StudentCoursesPage() {
   const [subjects, setSubjects] = useState<ClassroomSubjectResponse[]>([]);
   const [subjectLevels, setSubjectLevels] = useState<Record<number, number | null>>({});
   const [subjectProgress, setSubjectProgress] = useState<Record<number, { completed: number; total: number }>>({});
+  
+  const [pendingPlacements, setPendingPlacements] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Roadmap Modal State
+  
   const [isRoadmapOpen, setIsRoadmapOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
@@ -95,7 +98,7 @@ export function StudentCoursesPage() {
   const [activeTabs, setActiveTabs] = useState<Record<number, string>>({});
   const [discussionCounts, setDiscussionCounts] = useState<Record<number, number>>({});
 
-  // Exercise states
+  
   const [exerciseSubmissions, setExerciseSubmissions] = useState<Record<number, SubmissionResponse | null>>({});
   const [selectedExercise, setSelectedExercise] = useState<any | null>(null);
   const [exerciseText, setExerciseText] = useState('');
@@ -103,7 +106,7 @@ export function StudentCoursesPage() {
   const [submittingExercise, setSubmittingExercise] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState<SubmissionResponse | null>(null);
 
-  // Sub-mentor Support Modal State
+  
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [subMentorSubject, setSubMentorSubject] = useState<ClassroomSubjectResponse | null>(null);
 
@@ -112,7 +115,7 @@ export function StudentCoursesPage() {
     setIsSupportModalOpen(true);
   };
 
-  // Student Support Ticket creation State
+  
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
   const [ticketSubject, setTicketSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [ticketQuestion, setTicketQuestion] = useState('');
@@ -175,17 +178,18 @@ export function StudentCoursesPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch enrolled classroom subjects
+        
         const enrolledSubjects = await classroomService.getClassroomSubjectsByStudent(user.userId);
         setSubjects(enrolledSubjects || []);
 
-        // Load level history and graph progress for each subject in parallel
+        
         const levelsMap: Record<number, number | null> = {};
         const progressMap: Record<number, { completed: number; total: number }> = {};
+        const pendingMap: Record<number, boolean> = {};
 
         await Promise.all(
           (enrolledSubjects || []).map(async (s) => {
-            // Fetch level history
+            
             try {
               const history = await studentService.getLevelHistory(s.classroomSubjectId);
               if (history && history.length > 0) {
@@ -198,9 +202,10 @@ export function StudentCoursesPage() {
               levelsMap[s.classroomSubjectId] = null;
             }
 
-            // Fetch graph to calculate node progress
+            
             try {
               const graph = await studentService.getClassroomSubjectGraph(s.classroomSubjectId);
+              pendingMap[s.classroomSubjectId] = graph?.state === 'PLACEMENT_PENDING';
               if (graph && graph.nodes && graph.nodes.length > 0) {
                 const completedCount = graph.nodes.filter(n => n.studentStatus === 'COMPLETED').length;
                 progressMap[s.classroomSubjectId] = {
@@ -218,6 +223,7 @@ export function StudentCoursesPage() {
 
         setSubjectLevels(levelsMap);
         setSubjectProgress(progressMap);
+        setPendingPlacements(pendingMap);
       } catch (err: any) {
         console.error('Error fetching student courses:', err);
         setError(err.response?.data?.message || 'Không thể tải danh sách khóa học. Vui lòng thử lại sau.');
@@ -257,7 +263,7 @@ export function StudentCoursesPage() {
 
     const alreadyLoaded = !!nodeContents[nodeId];
     if (alreadyLoaded) {
-      // Refresh submissions
+      
       const content = nodeContents[nodeId];
       if (content.exercises && content.exercises.length > 0) {
         content.exercises.forEach(async (ex) => {
@@ -381,7 +387,7 @@ export function StudentCoursesPage() {
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Header and Search */}
+      {}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -392,7 +398,7 @@ export function StudentCoursesPage() {
           </p>
         </div>
         
-        {/* Search bar */}
+        {}
         <div className="relative w-full sm:w-64">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
             <Search className="size-4" />
@@ -407,7 +413,7 @@ export function StudentCoursesPage() {
         </div>
       </div>
 
-      {/* Courses Cards Grid */}
+      {}
       {filteredSubjects.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
           <BookOpen className="size-12 text-slate-400 mx-auto mb-3" />
@@ -439,15 +445,25 @@ export function StudentCoursesPage() {
 
             return (
               <Card key={c.classroomSubjectId} className="bg-card border border-border shadow-xs rounded-2xl hover:shadow-md transition-all flex flex-col justify-between overflow-hidden">
-                {/* Visual Accent Header */}
+                {}
                 <div className="h-2 bg-gradient-to-r from-primary to-primary/80" />
                 
                 <div className="p-5 space-y-4">
-                  {/* Subject details */}
+                  {}
                   <div>
                     <div className="flex justify-between items-start">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Lớp: {c.className}</span>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                        Lớp: {c.className}{c.semesterLabel ? ` · ${c.semesterLabel}` : ''}
+                      </span>
                       <div className="flex items-center gap-1.5">
+                        {(() => {
+                          const statusMeta = getClassroomStatusMeta(c.status);
+                          return (
+                            <Badge variant="outline" className={`text-[9px] font-extrabold border rounded-[6px] px-2 py-0.5 ${statusMeta.badgeClass}`}>
+                              {statusMeta.label}
+                            </Badge>
+                          );
+                        })()}
                         {c.isSubmentor && (
                           <Badge className="text-[9px] font-extrabold bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 hover:bg-teal-500/20 rounded-[6px] px-2 py-0.5 shadow-none">
                             Trợ giảng
@@ -466,10 +482,10 @@ export function StudentCoursesPage() {
                     </p>
                   </div>
 
-                  {/* Divider */}
+                  {}
                   <div className="border-t border-border" />
 
-                  {/* Progress section (Only shown if classified) */}
+                  {}
                   {currentLevel !== null && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs">
@@ -485,7 +501,7 @@ export function StudentCoursesPage() {
                     </div>
                   )}
 
-                  {/* Teacher Info */}
+                  {}
                   <div className="flex items-center gap-2.5 p-3 rounded-xl border border-border bg-muted/30 text-xs">
                     <div className="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold border border-primary/20 shrink-0">
                       {c.lecturerName ? c.lecturerName.split(' ').pop()?.charAt(0).toUpperCase() : 'GV'}
@@ -497,21 +513,32 @@ export function StudentCoursesPage() {
                   </div>
                 </div>
 
-                {/* Card Actions Footer */}
+                {}
                 <CardFooter className="bg-muted/30 p-4 border-t border-border flex flex-col gap-3">
                   {currentLevel === null ? (
                     <div className="w-full space-y-2">
-                      <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
-                        <p className="text-[10.5px] leading-relaxed text-amber-600 dark:text-amber-400 font-medium">
-                          Môn học này yêu cầu làm bài kiểm tra phân loại đầu vào để nhận lộ trình cá nhân hóa.
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/placement`)}
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs"
-                      >
-                        <Play className="size-3.5 fill-current" /> Bắt đầu kiểm tra phân loại
-                      </Button>
+                      {pendingPlacements[c.classroomSubjectId] ? (
+                        <div className="p-2.5 bg-sky-500/10 border border-sky-500/20 rounded-xl text-center">
+                          <p className="text-[10.5px] leading-relaxed text-sky-600 dark:text-sky-400 font-medium">
+                            Bài phân loại của bạn có câu tự luận, đang chờ giáo viên chấm.
+                            Kết quả và lộ trình sẽ hiện sau khi chấm xong.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
+                            <p className="text-[10.5px] leading-relaxed text-amber-600 dark:text-amber-400 font-medium">
+                              Môn học này yêu cầu làm bài kiểm tra phân loại đầu vào để nhận lộ trình cá nhân hóa.
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => navigate(`/student/classroom-subjects/${c.classroomSubjectId}/placement`)}
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs"
+                          >
+                            <Play className="size-3.5 fill-current" /> Bắt đầu kiểm tra phân loại
+                          </Button>
+                        </>
+                      )}
                       <Button
                         onClick={() => handleOpenCreateTicket(c)}
                         variant="outline"
@@ -573,7 +600,7 @@ export function StudentCoursesPage() {
         </div>
       )}
 
-      {/* Roadmap Graph Modal */}
+      {}
       <Dialog open={isRoadmapOpen} onOpenChange={setIsRoadmapOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-card text-foreground">
           <DialogHeader className="p-6 pb-4 border-b border-border shrink-0">
@@ -607,7 +634,7 @@ export function StudentCoursesPage() {
 
                   return (
                     <div key={node.nodeId} className="relative">
-                      {/* Timeline Dot Indicator */}
+                      {}
                       <span className={`absolute -left-[35px] top-1.5 flex h-6 w-6 items-center justify-center rounded-full border ring-4 ring-background shrink-0 z-10 transition-colors ${
                         isCompleted 
                           ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -624,7 +651,7 @@ export function StudentCoursesPage() {
                         )}
                       </span>
 
-                      {/* Content Card */}
+                      {}
                       <Card className={`border transition-all ${
                         isOpen 
                           ? 'border-blue-500/30 shadow-sm bg-blue-500/5' 
@@ -638,13 +665,29 @@ export function StudentCoursesPage() {
                         >
                           <div className="flex-1 space-y-1 pr-4">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
-                                node.nodeType === 'AT_HOME' 
-                                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' 
-                                  : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
-                              }`}>
-                                {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
-                              </Badge>
+                              {node.testKind && node.testKind !== 'NONE' ? (
+                                <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
+                                  node.testKind === 'PLACEMENT'
+                                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                                    : node.testKind === 'GATE'
+                                    ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                                    : 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400'
+                                }`}>
+                                  {node.testKind === 'PLACEMENT'
+                                    ? 'Test năng lực'
+                                    : node.testKind === 'GATE'
+                                    ? 'Test phân luồng'
+                                    : 'Test tự chọn'}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
+                                  node.nodeType === 'AT_HOME' 
+                                    ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' 
+                                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                                }`}>
+                                  {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
+                                </Badge>
+                              )}
                               {node.isRequired && (
                                 <Badge variant="outline" className="text-[9px] font-bold px-1.5 rounded-[4px] bg-muted border-border text-muted-foreground">
                                   Bắt buộc
@@ -668,7 +711,7 @@ export function StudentCoursesPage() {
                               </p>
                             )}
                           </div>
-                          {/* Right side: Slot details & status (for ON_CLASS nodes) */}
+                          {}
                           <div className="flex flex-col items-end gap-1.5 text-right shrink-0">
                             {node.nodeType === 'ON_CLASS' && (
                               <>
@@ -702,7 +745,7 @@ export function StudentCoursesPage() {
                           </div>
                         </div>
 
-                        {/* Expanded details (Materials and tests) */}
+                        {}
                         {isExpanded && !isLocked && (
                           <div className="p-4 pt-0 border-t border-border bg-card/50 rounded-b-xl space-y-4 text-xs">
                             {loadingNodeContent[node.nodeId] ? (
@@ -729,7 +772,7 @@ export function StudentCoursesPage() {
                                 </TabsList>
 
                                 <TabsContent value="content" className="space-y-4 pt-1 divide-y divide-border mt-0">
-                                  {/* Materials */}
+                                  {}
                                   {nodeContents[node.nodeId]?.materials && nodeContents[node.nodeId].materials.length > 0 && (
                                     <div className="space-y-2">
                                       <h5 className="font-bold text-foreground flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -753,7 +796,7 @@ export function StudentCoursesPage() {
                                     </div>
                                   )}
 
-                                  {/* Tests */}
+                                  {}
                                   {nodeContents[node.nodeId]?.tests && nodeContents[node.nodeId].tests.length > 0 && (
                                     <div className="space-y-2 pt-4">
                                       <h5 className="font-bold text-foreground flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -764,10 +807,29 @@ export function StudentCoursesPage() {
                                           <div key={t.testId} className="flex items-center justify-between p-2.5 border border-border bg-background rounded-xl gap-4">
                                             <div className="flex-1 space-y-0.5">
                                               <span className="font-bold text-foreground block">{t.title}</span>
-                                              <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
+                                              <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium flex-wrap">
                                                 <span>Thời gian: {t.durationMinutes} phút</span>
-                                                <span>•</span>
-                                                <span>Yêu cầu đạt: {t.passingPercentage}%</span>
+                                                 {node.testKind === 'PLACEMENT' && (node.placementYeuMax != null || node.placementTbMax != null) ? (
+                                                    <>
+                                                      <span>•</span>
+                                                      <span className="normal-case">
+                                                        Phân mức: Yếu ≤ {node.placementYeuMax}% · TB ≤ {node.placementTbMax}% · Khá &gt; {node.placementTbMax}%
+                                                      </span>
+                                                    </>
+                                                  ) : node.testKind === 'GATE' ? null : (
+                                                    <>
+                                                      <span>•</span>
+                                                      <span>Yêu cầu đạt: {t.passingPercentage}%</span>
+                                                    </>
+                                                  )}
+                                                {node.testKind === 'GATE' && (node.gateUpMin != null || node.gateDownMax != null) && (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Lên Level khi ≥ {node.gateUpMin ?? '—'}%</span>
+                                                    <span>•</span>
+                                                    <span className="text-rose-600 dark:text-rose-450 font-bold">Hạ Level khi &lt; {node.gateDownMax ?? '—'}%</span>
+                                                  </>
+                                                )}
                                               </div>
                                             </div>
                                             {node.studentStatus === 'COMPLETED' ? (
@@ -791,7 +853,7 @@ export function StudentCoursesPage() {
                                     </div>
                                   )}
 
-                                  {/* Exercises */}
+                                  {}
                                   {(() => {
                                     const content = nodeContents[node.nodeId];
                                     if (!content) return null;
@@ -849,7 +911,7 @@ export function StudentCoursesPage() {
                                           </div>
                                         )}
 
-                                        {/* Empty state for content */}
+                                        {}
                                         {materials.length === 0 && tests.length === 0 && exercises.length === 0 && (
                                           <div className="text-center py-6 text-muted-foreground italic">
                                             Bài học này chưa có nội dung tài liệu, bài kiểm tra hoặc bài thực hành.
@@ -887,14 +949,14 @@ export function StudentCoursesPage() {
           </div>
 
           <DialogFooter className="p-4 border-t border-border shrink-0 sm:justify-end">
-            <Button type="button" onClick={() => setIsRoadmapOpen(false)} className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl text-xs py-2 px-4 shadow-sm">
+            <Button type="button" onClick={() => setIsRoadmapOpen(false)} className="font-semibold bg-primary text-primary-foreground">
               Đóng
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Exercise Submission Modal */}
+      {}
       {selectedExercise && (
         <Dialog open={!!selectedExercise} onOpenChange={() => handleCloseExerciseModal()}>
           <DialogContent className="sm:max-w-lg bg-card text-foreground">
@@ -982,7 +1044,7 @@ export function StudentCoursesPage() {
         </Dialog>
       )}
 
-      {/* Exercise Feedback View Modal */}
+      {}
       {showFeedbackModal && (
         <Dialog open={!!showFeedbackModal} onOpenChange={() => setShowFeedbackModal(null)}>
           <DialogContent className="sm:max-w-md bg-card text-foreground">
@@ -1028,14 +1090,14 @@ export function StudentCoursesPage() {
         </Dialog>
       )}
 
-      {/* Sub-mentor Support Modal */}
+      {}
       <SubMentorSupportModal
         isOpen={isSupportModalOpen}
         onClose={() => setIsSupportModalOpen(false)}
         subject={subMentorSubject}
       />
 
-      {/* Ask Support Ticket Modal */}
+      {}
       <Dialog open={isCreateTicketOpen} onOpenChange={setIsCreateTicketOpen}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col p-0 overflow-hidden bg-card text-foreground">
           <DialogHeader className="p-6 pb-4 border-b border-border bg-card shrink-0">
@@ -1047,7 +1109,7 @@ export function StudentCoursesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Tabs Group */}
+          {}
           <div className="flex border-b border-border bg-muted/30 p-1 gap-1 shrink-0">
             <button
               type="button"
@@ -1306,7 +1368,7 @@ export function SubMentorSupportModal({ isOpen, onClose, subject }: SubMentorSup
                         {ticket.messageStudent}
                       </div>
 
-                      {/* Answering layout directly visible */}
+                      {}
                       <div className="space-y-3 pt-1">
                         <textarea
                           value={currentResponse}
