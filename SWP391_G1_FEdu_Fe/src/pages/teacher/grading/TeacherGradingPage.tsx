@@ -18,7 +18,9 @@ import {
   Download, 
   FileCode, 
   Activity, 
-  Loader 
+  Loader,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -68,6 +70,17 @@ export function TeacherGradingPage() {
   // Search & Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'GRADED'>('ALL');
+
+  // Pagination states
+  const [currentPageSub, setCurrentPageSub] = useState(1);
+  const [currentPageAtt, setCurrentPageAtt] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPageSub(1);
+    setCurrentPageAtt(1);
+  }, [selectedClass, searchQuery, statusFilter, activeTab]);
 
   // Exercise Grading Modal
   const [gradingSubmission, setGradingSubmission] = useState<SubmissionResponse | null>(null);
@@ -242,6 +255,12 @@ export function TeacherGradingPage() {
     return true;
   });
 
+  const totalPagesSub = Math.ceil(filteredSubmissions.length / itemsPerPage);
+  const paginatedSubmissions = filteredSubmissions.slice(
+    (currentPageSub - 1) * itemsPerPage,
+    currentPageSub * itemsPerPage
+  );
+
   const filteredAttempts = attempts.filter(att => {
     const matchesSearch = (att.studentName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (att.testTitle || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -250,6 +269,12 @@ export function TeacherGradingPage() {
     if (statusFilter === 'GRADED') return att.status === 'SUBMITTED';
     return true;
   });
+
+  const totalPagesAtt = Math.ceil(filteredAttempts.length / itemsPerPage);
+  const paginatedAttempts = filteredAttempts.slice(
+    (currentPageAtt - 1) * itemsPerPage,
+    currentPageAtt * itemsPerPage
+  );
 
   return (
     <div className="flex-1 min-h-0 bg-background/50 overflow-y-auto p-6 font-sans">
@@ -374,7 +399,8 @@ export function TeacherGradingPage() {
                 
                 {/* Tab 1: Exercise Submissions */}
                 {activeTab === 'exercise' && (
-                  <div className="overflow-x-auto">
+                  <>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm border-collapse text-left">
                       <thead>
                         <tr className="bg-muted/40 border-b border-border text-xs text-muted-foreground font-bold uppercase tracking-wider">
@@ -388,7 +414,7 @@ export function TeacherGradingPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredSubmissions.map(sub => (
+                        {paginatedSubmissions.map(sub => (
                           <tr key={sub.submissionId} className="border-b border-border hover:bg-muted/10 transition-colors">
                             <td className="p-4">
                               <p className="font-semibold text-foreground">{sub.studentName}</p>
@@ -457,11 +483,50 @@ export function TeacherGradingPage() {
                       </tbody>
                     </table>
                   </div>
+                  {filteredSubmissions.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-card/30">
+                      <div className="text-xs text-muted-foreground">
+                        Hiển thị {filteredSubmissions.length > 0 ? (currentPageSub - 1) * itemsPerPage + 1 : 0} – {Math.min(currentPageSub * itemsPerPage, filteredSubmissions.length)} trong tổng số {filteredSubmissions.length} bài nộp
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => setCurrentPageSub((p) => Math.max(1, p - 1))}
+                          disabled={currentPageSub === 1}
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </Button>
+                        {Array.from({ length: totalPagesSub }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant={currentPageSub === page ? "default" : "outline"}
+                            onClick={() => setCurrentPageSub(page)}
+                            className="w-7 h-7 text-[10px]"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => setCurrentPageSub((p) => Math.min(totalPagesSub, p + 1))}
+                          disabled={currentPageSub === totalPagesSub}
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 )}
 
                 {/* Tab 2: Test attempts */}
                 {activeTab === 'test' && (
-                  <div className="overflow-x-auto">
+                  <>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm border-collapse text-left">
                       <thead>
                         <tr className="bg-muted/40 border-b border-border text-xs text-muted-foreground font-bold uppercase tracking-wider">
@@ -474,7 +539,7 @@ export function TeacherGradingPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAttempts.map(att => (
+                        {paginatedAttempts.map(att => (
                           <tr key={att.attemptId} className="border-b border-border hover:bg-muted/10 transition-colors">
                             <td className="p-4">
                               <p className="font-semibold text-foreground">{att.studentName}</p>
@@ -511,7 +576,7 @@ export function TeacherGradingPage() {
                                 size="sm"
                                 variant="outline"
                                 className="h-7 text-xs"
-                                disabled={loadingAttemptDetail || att.status === 'SUBMITTED'}
+                                disabled={loadingAttemptDetail}
                                 onClick={() => openEssayGrading(att.attemptId)}
                               >
                                 {att.status === 'SUBMITTED' ? 'Xem lại' : 'Chấm tự luận'}
@@ -529,6 +594,44 @@ export function TeacherGradingPage() {
                       </tbody>
                     </table>
                   </div>
+                  {filteredAttempts.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-card/30">
+                      <div className="text-xs text-muted-foreground">
+                        Hiển thị {filteredAttempts.length > 0 ? (currentPageAtt - 1) * itemsPerPage + 1 : 0} – {Math.min(currentPageAtt * itemsPerPage, filteredAttempts.length)} trong tổng số {filteredAttempts.length} lượt thi
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => setCurrentPageAtt((p) => Math.max(1, p - 1))}
+                          disabled={currentPageAtt === 1}
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </Button>
+                        {Array.from({ length: totalPagesAtt }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant={currentPageAtt === page ? "default" : "outline"}
+                            onClick={() => setCurrentPageAtt(page)}
+                            className="w-7 h-7 text-[10px]"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => setCurrentPageAtt((p) => Math.min(totalPagesAtt, p + 1))}
+                          disabled={currentPageAtt === totalPagesAtt}
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 )}
 
               </div>
