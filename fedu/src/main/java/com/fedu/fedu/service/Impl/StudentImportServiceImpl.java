@@ -20,6 +20,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -28,6 +30,7 @@ import java.util.regex.Pattern;
 public class StudentImportServiceImpl implements StudentImportService {
 
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^[0-9]{10,11}$");
 
     private final ClassroomSubjectRepository classroomSubjectRepository;
     private final ClassroomEnrollmentService enrollmentService;
@@ -52,10 +55,14 @@ public class StudentImportServiceImpl implements StudentImportService {
         ImportStudentsResult result = ImportStudentsResult.builder().build();
         DataFormatter fmt = new DataFormatter();
 
+        // ── Phase 1: Parse & validate ALL rows first ──
+        List<StudentImportRow> validatedRows = new ArrayList<>();
+        List<Integer> rowNumbers = new ArrayList<>();
+
         try (Workbook wb = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
             int lastRow = sheet.getLastRowNum();
-            for (int i = 1; i <= lastRow; i++) { 
+            for (int i = 1; i <= lastRow; i++) {
                 Row r = sheet.getRow(i);
                 if (r == null) continue;
 
@@ -63,12 +70,13 @@ public class StudentImportServiceImpl implements StudentImportService {
                 String lastName = str(r, 1, fmt);
                 String firstName = str(r, 2, fmt);
 
-                
+                // skip completely blank rows
                 if (isBlank(email) && isBlank(lastName) && isBlank(firstName)) continue;
 
-                int rowNo = i + 1; 
+                int rowNo = i + 1;
                 result.setTotalRows(result.getTotalRows() + 1);
 
+                // ── Validate required fields ──
                 if (isBlank(email) || !EMAIL.matcher(email).matches()) {
                     addError(result, rowNo, email, "Email trống hoặc sai định dạng");
                     continue;
@@ -78,40 +86,79 @@ public class StudentImportServiceImpl implements StudentImportService {
                     continue;
                 }
 
+                // ── Validate optional fields ──
+                Gender gender;
+                try {
+                    gender = parseGender(str(r, 3, fmt));
+                } catch (IllegalArgumentException e) {
+                    addError(result, rowNo, email, e.getMessage());
+                    continue;
+                }
+
+                LocalDate dob;
+                try {
+                    dob = parseDob(r, 4, fmt);
+                } catch (IllegalArgumentException e) {
+                    addError(result, rowNo, email, e.getMessage());
+                    continue;
+                }
+
+                String phone = str(r, 5, fmt);
+                if (phone != null) {
+                    String cleanPhone = phone.replaceAll("[\\s\\-\\.]", "");
+                    if (!cleanPhone.isEmpty() && !PHONE_PATTERN.matcher(cleanPhone).matches()) {
+                        addError(result, rowNo, email, "Số điện thoại không hợp lệ (yêu cầu 10-11 chữ số)");
+                        continue;
+                    }
+                    phone = cleanPhone;
+                }
+
                 StudentImportRow row = StudentImportRow.builder()
                         .email(email.toLowerCase())
                         .lastName(lastName)
                         .firstName(firstName)
-                        .gender(parseGender(str(r, 3, fmt)))
-                        .dob(parseDob(r, 4, fmt))
-                        .phone(str(r, 5, fmt))
+                        .gender(gender)
+                        .dob(dob)
+                        .phone(phone)
                         .build();
 
-                try {
-                    ClassroomEnrollmentService.ImportRowResult outcome =
-                            enrollmentService.enrollByImport(classroomSubjectId, row);
-
-                    if (outcome.alreadyEnrolled()) {
-                        result.setSkipped(result.getSkipped() + 1);
-                    } else {
-                        result.setEnrolled(result.getEnrolled() + 1);
-                        if (outcome.newAccount()) {
-                            result.setCreated(result.getCreated() + 1);
-                        }
-                        
-                        String fullName = (lastName + " " + firstName).trim();
-                        mailService.sendClassEnrollmentEmailAsync(
-                                row.getEmail(), fullName, classLabel,
-                                outcome.newAccount(), ClassroomEnrollmentService.DEFAULT_STUDENT_PASSWORD);
-                    }
-                } catch (Exception e) {
-                    addError(result, rowNo, email, rootMessage(e));
-                }
+                validatedRows.add(row);
+                rowNumbers.add(rowNo);
             }
         } catch (InvalidDataException e) {
             throw e;
         } catch (Exception e) {
             throw new InvalidDataException("Không đọc được file Excel: " + e.getMessage());
+        }
+
+        // ── If ANY validation errors exist, stop here — do NOT import anything ──
+        if (result.getFailed() > 0) {
+            return result;
+        }
+
+        // ── Phase 2: All rows valid → actually enroll ──
+        for (int idx = 0; idx < validatedRows.size(); idx++) {
+            StudentImportRow row = validatedRows.get(idx);
+            int rowNo = rowNumbers.get(idx);
+            try {
+                ClassroomEnrollmentService.ImportRowResult outcome =
+                        enrollmentService.enrollByImport(classroomSubjectId, row);
+
+                if (outcome.alreadyEnrolled()) {
+                    result.setSkipped(result.getSkipped() + 1);
+                } else {
+                    result.setEnrolled(result.getEnrolled() + 1);
+                    if (outcome.newAccount()) {
+                        result.setCreated(result.getCreated() + 1);
+                    }
+                    String fullName = (row.getLastName() + " " + row.getFirstName()).trim();
+                    mailService.sendClassEnrollmentEmailAsync(
+                            row.getEmail(), fullName, classLabel,
+                            outcome.newAccount(), ClassroomEnrollmentService.DEFAULT_STUDENT_PASSWORD);
+                }
+            } catch (Exception e) {
+                addError(result, rowNo, row.getEmail(), rootMessage(e));
+            }
         }
 
         return result;
@@ -173,7 +220,7 @@ public class StudentImportServiceImpl implements StudentImportService {
         if (v.equals("male") || v.equals("nam") || v.equals("m")) return Gender.MALE;
         if (v.equals("female") || v.equals("nữ") || v.equals("nu") || v.equals("f")) return Gender.FEMALE;
         if (v.equals("other") || v.equals("khác") || v.equals("khac")) return Gender.OTHER;
-        return null;
+        throw new IllegalArgumentException("Giới tính không hợp lệ (hỗ trợ: Nam, Nữ, Khác)");
     }
 
     private LocalDate parseDob(Row r, int c, DataFormatter fmt) {
@@ -185,9 +232,17 @@ public class StudentImportServiceImpl implements StudentImportService {
             }
             String s = fmt.formatCellValue(cell).trim();
             if (s.isEmpty()) return null;
-            return LocalDate.parse(s); 
+            try {
+                return LocalDate.parse(s);
+            } catch (Exception ex) {
+                try {
+                    return LocalDate.parse(s, java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                } catch (Exception ex2) {
+                    return LocalDate.parse(s, java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                }
+            }
         } catch (Exception e) {
-            return null; 
+            throw new IllegalArgumentException("Ngày sinh không hợp lệ (hỗ trợ yyyy-MM-dd hoặc dd/MM/yyyy)");
         }
     }
 
