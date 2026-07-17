@@ -289,8 +289,22 @@ public class NodeContentServiceImpl implements NodeContentService {
         exercise.setIsDeleted(true);
         nodeExerciseRepository.save(exercise);
     }
+    @Override
+    @Transactional
+    public NodeExerciseResponse updateExercise(Long exerciseId, CreateNodeExerciseRequest request) {
+        NodeExercise exercise = nodeExerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + exerciseId));
+        templateEditGuard.assertNodeEditable(exercise.getLearningNode());
 
-    
+        exercise.setTitle(request.getTitle());
+        exercise.setInstructions(request.getInstructions());
+        exercise.setAllowText(request.getAllowText() != null ? request.getAllowText() : true);
+        exercise.setAllowFile(request.getAllowFile() != null ? request.getAllowFile() : true);
+
+        nodeExerciseRepository.save(exercise);
+        return mapToExerciseResponse(exercise);
+    }
+
     private NodeMaterialResponse mapToMaterialResponse(NodeMaterial m) {
         VideoResponse videoRes = null;
         List<Video> videos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(m.getMaterialId());
@@ -474,6 +488,46 @@ public class NodeContentServiceImpl implements NodeContentService {
                             .submittedAt(attempt.getSubmittedAt())
                             .status(attempt.getStatus() != null ? attempt.getStatus().name() : null)
                             .tabOutCount(attempt.getTabOutCount() != null ? attempt.getTabOutCount() : 0)
+                            .testId(attempt.getTest().getTestId())
+                            .testTitle(attempt.getTest().getTitle())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<StudentAttemptResponse> getClassroomSubjectAttempts(Long csId) {
+        List<StudentTestAttempt> attempts = studentTestAttemptRepository.findAllByClassroomSubject(csId);
+        return attempts.stream()
+                .map(attempt -> {
+                    String studentName = "";
+                    String studentEmail = "";
+                    if (attempt.getStudent() != null) {
+                        studentEmail = attempt.getStudent().getEmail();
+                        String firstName = attempt.getStudent().getFirstName() != null ? attempt.getStudent().getFirstName() : "";
+                        String lastName = attempt.getStudent().getLastName() != null ? attempt.getStudent().getLastName() : "";
+                        studentName = (firstName + " " + lastName).trim();
+                    }
+
+                    Boolean passed = null;
+                    BigDecimal passingPercentage = attempt.getTest().getPassingPercentage() != null ? attempt.getTest().getPassingPercentage() : BigDecimal.ZERO;
+                    if (attempt.getScore() != null) {
+                        passed = attempt.getScore().compareTo(passingPercentage) >= 0;
+                    }
+
+                    return StudentAttemptResponse.builder()
+                            .attemptId(attempt.getAttemptId())
+                            .studentId(attempt.getStudent() != null ? attempt.getStudent().getUserId() : null)
+                            .studentName(studentName)
+                            .studentEmail(studentEmail)
+                            .score(attempt.getScore())
+                            .passed(passed)
+                            .startedAt(attempt.getStartedAt())
+                            .submittedAt(attempt.getSubmittedAt())
+                            .status(attempt.getStatus() != null ? attempt.getStatus().name() : null)
+                            .tabOutCount(attempt.getTabOutCount() != null ? attempt.getTabOutCount() : 0)
+                            .testId(attempt.getTest().getTestId())
+                            .testTitle(attempt.getTest().getTitle())
                             .build();
                 })
                 .collect(Collectors.toList());

@@ -223,7 +223,16 @@ public class SubmissionServiceImpl implements SubmissionService {
                 .gradedByName(fullName(grader))
                 .submittedAt(s.getSubmittedAt())
                 .gradedAt(s.getGradedAt())
+                .exerciseTitle(ex != null ? ex.getTitle() : null)
                 .build();
+    }
+
+    @Override
+    public List<SubmissionResponse> getClassroomSubjectSubmissions(Long csId) {
+        List<Submission> submissions = submissionRepository.findAllByClassroomSubject(csId);
+        return submissions.stream()
+                .map(this::mapSubmission)
+                .collect(Collectors.toList());
     }
 
     private String fullName(UserAccount u) {

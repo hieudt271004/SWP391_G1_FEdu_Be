@@ -202,6 +202,18 @@ public class TeacherNodeContentController {
         return new ResponseData<>(HttpStatus.OK.value(), "Exercise deleted successfully");
     }
 
+    @Operation(summary = "Update practice exercise in a node as teacher")
+    @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+    @PutMapping("/exercises/{exerciseId}")
+    public ResponseData<NodeExerciseResponse> updateExercise(
+            @PathVariable Long exerciseId,
+            @Valid @RequestBody CreateNodeExerciseRequest request) {
+        log.info("Teacher updating exercise ID: {}, title: {}", exerciseId, request.getTitle());
+        validateTeacherOwnershipOfExercise(exerciseId);
+        return new ResponseData<>(HttpStatus.OK.value(), "Exercise updated successfully",
+                nodeContentService.updateExercise(exerciseId, request));
+    }
+
     @Operation(summary = "Reorder materials, tests and exercises inside a learning node as teacher")
     @PreAuthorize("hasAuthority('ROLE_TEACHER')")
     @PostMapping("/learning-nodes/{nodeId}/reorder-content")

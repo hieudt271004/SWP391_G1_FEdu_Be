@@ -44,6 +44,7 @@ import { ClassManagementPage } from '../pages/teacher/classes/ClassManagementPag
 import { TeacherLiveSessionPage } from '../pages/teacher/classes/TeacherLiveSessionPage';
 import { StudentDetailsPage } from '../pages/teacher/students/StudentDetailsPage';
 import { TeacherTicketsPage } from '../pages/teacher/tickets/TeacherTicketsPage';
+import { TeacherGradingPage } from '../pages/teacher/grading/TeacherGradingPage';
 
 
 import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
@@ -122,6 +123,7 @@ export function AppRoutes() {
                 <Route path="/teacher/classroom-subjects/:classroomSubjectId/live/:nodeId" element={<TeacherLiveSessionPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />
                 <Route path="/teacher/tickets" element={<TeacherTicketsPage />} />
+                <Route path="/teacher/grading" element={<TeacherGradingPage />} />
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
             </Route>
 
