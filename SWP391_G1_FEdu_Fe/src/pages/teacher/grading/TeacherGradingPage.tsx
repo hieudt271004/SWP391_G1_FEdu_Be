@@ -89,6 +89,7 @@ export function TeacherGradingPage() {
   const [savingGrade, setSavingGrade] = useState(false);
 
   // Test Essay Grading Modal
+  const [essayGradingOpen, setEssayGradingOpen] = useState(false);
   const [gradingAttempt, setGradingAttempt] = useState<AttemptGradingDetail | null>(null);
   const [essayMarks, setEssayMarks] = useState<Record<number, boolean>>({});
   const [savingEssayGrades, setSavingEssayGrades] = useState(false);
@@ -184,6 +185,8 @@ export function TeacherGradingPage() {
 
   // Test grading handlers
   const openEssayGrading = async (attemptId: number) => {
+    setEssayGradingOpen(true);
+    setGradingAttempt(null);
     try {
       setLoadingAttemptDetail(true);
       const detail = await learningPathService.getAttemptGrading(attemptId);
@@ -202,6 +205,7 @@ export function TeacherGradingPage() {
     } catch (err) {
       console.error('Failed to load attempt details:', err);
       toast.error('Không thể tải chi tiết bài làm');
+      setEssayGradingOpen(false);
     } finally {
       if (isMountedRef.current) setLoadingAttemptDetail(false);
     }
@@ -229,6 +233,7 @@ export function TeacherGradingPage() {
       await learningPathService.gradeEssayAttempt(gradingAttempt.attemptId, grades);
       toast.success('Chấm bài tự luận thành công!');
       setGradingAttempt(null);
+      setEssayGradingOpen(false);
       fetchGradingData();
     } catch (err) {
       console.error('Failed to save essay grades:', err);
@@ -736,89 +741,98 @@ export function TeacherGradingPage() {
       </Dialog>
 
       {/* MODAL 2: Chấm tự luận bài Test */}
-      <Dialog open={!!gradingAttempt} onOpenChange={(open) => { if (!open) setGradingAttempt(null); }}>
+      <Dialog open={essayGradingOpen} onOpenChange={(open) => { if (!open) { setEssayGradingOpen(false); setGradingAttempt(null); } }}>
         <DialogContent className="sm:max-w-2xl bg-background border-border text-xs shadow-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
               <Activity className="size-5 text-primary" />
-              Chấm câu tự luận — {gradingAttempt?.studentName}
+              Chấm câu tự luận {gradingAttempt ? `— ${gradingAttempt.studentName}` : ''}
             </DialogTitle>
             <DialogDescription className="text-[10px] text-muted-foreground">
-              Bài thi: {gradingAttempt?.testTitle} · Trắc nghiệm đã được chấm tự động
+              {gradingAttempt ? `Bài thi: ${gradingAttempt.testTitle} · Trắc nghiệm đã được chấm tự động` : 'Vui lòng chờ trong giây lát'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
-            {(gradingAttempt?.responses ?? []).map((r, idx) => {
-              const isEssay = r.questionType === 'ESSAY';
-              const pendingEssay = isEssay && r.isCorrect == null;
-              const mark = essayMarks[r.responseId];
-              return (
-                <div key={r.responseId} className="border border-border rounded-xl p-3 space-y-2 bg-muted/10">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-semibold text-foreground text-[11.5px] leading-snug">
-                      Câu {idx + 1}. {r.questionContent}
-                    </p>
-                    <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full border uppercase ${
-                      isEssay
-                        ? 'bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400'
-                        : 'bg-muted border-border text-muted-foreground'
-                    }`}>
-                      {isEssay ? 'Tự luận' : 'Trắc nghiệm'}
-                    </span>
-                  </div>
-
-                  <div className="bg-muted border border-border rounded-lg p-2 text-[11px] text-foreground whitespace-pre-wrap break-words">
-                    {isEssay
-                      ? (r.responseText?.trim() ? r.responseText : <span className="italic text-muted-foreground">Học sinh không trả lời</span>)
-                      : (r.selectedAnswers && r.selectedAnswers.length > 0
-                          ? r.selectedAnswers.join(', ')
-                          : <span className="italic text-muted-foreground">Không chọn đáp án</span>)}
-                  </div>
-
-                  {pendingEssay ? (
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Giáo viên chấm:</span>
-                      <button
-                        onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: true }))}
-                        className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
-                          mark === true
-                            ? 'bg-emerald-600 border-emerald-600 text-white'
-                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 hover:bg-emerald-500/20'
-                        }`}
-                      >
-                        Đạt (+{r.maxScore} điểm)
-                      </button>
-                      <button
-                        onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: false }))}
-                        className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
-                          mark === false
-                            ? 'bg-rose-600 border-rose-600 text-white'
-                            : 'bg-rose-500/10 border-rose-500/20 text-rose-700 hover:bg-rose-500/20'
-                        }`}
-                      >
-                        Không đạt (0 điểm)
-                      </button>
+          {loadingAttemptDetail ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <Loader className="w-8 h-8 text-primary animate-spin" />
+              <p className="text-xs text-muted-foreground">Đang tải câu hỏi và bài làm...</p>
+            </div>
+          ) : gradingAttempt ? (
+            <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
+              {(gradingAttempt.responses ?? []).map((r, idx) => {
+                const isEssay = r.questionType === 'ESSAY';
+                const pendingEssay = isEssay && r.isCorrect == null;
+                const mark = essayMarks[r.responseId];
+                return (
+                  <div key={r.responseId} className="border border-border rounded-xl p-3 space-y-2 bg-muted/10">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold text-foreground text-[11.5px] leading-snug">
+                        Câu {idx + 1}. {r.questionContent}
+                      </p>
+                      <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full border uppercase ${
+                        isEssay
+                          ? 'bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400'
+                          : 'bg-muted border-border text-muted-foreground'
+                      }`}>
+                        {isEssay ? 'Tự luận' : 'Trắc nghiệm'}
+                      </span>
                     </div>
-                  ) : (
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      r.isCorrect
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700'
-                        : 'bg-rose-500/10 border-rose-500/20 text-rose-700'
-                    }`}>
-                      {r.isCorrect ? `Đạt · +${r.maxScore} điểm` : 'Không đạt · 0 điểm'}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+
+                    <div className="bg-muted border border-border rounded-lg p-2 text-[11px] text-foreground whitespace-pre-wrap break-words">
+                      {isEssay
+                        ? (r.responseText?.trim() ? r.responseText : <span className="italic text-muted-foreground">Học sinh không trả lời</span>)
+                        : (r.selectedAnswers && r.selectedAnswers.length > 0
+                            ? r.selectedAnswers.join(', ')
+                            : <span className="italic text-muted-foreground">Không chọn đáp án</span>)}
+                    </div>
+
+                    {pendingEssay ? (
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Giáo viên chấm:</span>
+                        <button
+                          onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: true }))}
+                          className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
+                            mark === true
+                              ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 hover:bg-emerald-500/20'
+                          }`}
+                        >
+                          Đạt (+{r.maxScore} điểm)
+                        </button>
+                        <button
+                          onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: false }))}
+                          className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
+                            mark === false
+                              ? 'bg-rose-600 border-rose-600 text-white'
+                              : 'bg-rose-500/10 border-rose-500/20 text-rose-700 hover:bg-rose-500/20'
+                          }`}
+                        >
+                          Không đạt (0 điểm)
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        r.isCorrect
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700'
+                          : 'bg-rose-500/10 border-rose-500/20 text-rose-700'
+                      }`}>
+                        {r.isCorrect ? `Đạt · +${r.maxScore} điểm` : 'Không đạt · 0 điểm'}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-10 text-center text-muted-foreground italic">Không có dữ liệu bài làm</div>
+          )}
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setGradingAttempt(null)}>
+            <Button variant="outline" size="sm" onClick={() => { setEssayGradingOpen(false); setGradingAttempt(null); }}>
               Đóng
             </Button>
-            {gradingAttempt?.status === 'PENDING_REVIEW' && (
+            {!loadingAttemptDetail && gradingAttempt?.status === 'PENDING_REVIEW' && (
               <Button size="sm" onClick={handleSaveEssayGrades} disabled={savingEssayGrades}>
                 {savingEssayGrades ? <Loader className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
                 Lưu kết quả chấm
