@@ -25,7 +25,7 @@ import { toast } from 'sonner';
 interface ClassroomSubjectResponse {
   classroomSubjectId: number;
   classroomId: number;
-  classroomName: string;
+  className: string;
   subjectId: number;
   subjectName: string;
   subjectCode: string;
@@ -284,7 +284,7 @@ export function TeacherGradingPage() {
               >
                 {classrooms.map(c => (
                   <option key={c.classroomSubjectId} value={c.classroomSubjectId}>
-                    {c.classroomName} · {c.subjectName} ({c.subjectCode})
+                    {c.subjectName} ({c.subjectCode}) - {c.className}
                   </option>
                 ))}
                 {classrooms.length === 0 && <option value="">Chưa có lớp học</option>}
