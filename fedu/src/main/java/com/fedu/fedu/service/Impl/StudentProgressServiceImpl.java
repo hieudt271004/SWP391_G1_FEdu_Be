@@ -113,45 +113,69 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .collect(Collectors.toList());
 
         if (!incompletePlacements.isEmpty()) {
-            Set<Long> placementNodeIds = incompletePlacements.stream()
-                    .map(p -> p.getLearningNode().getNodeId())
-                    .collect(Collectors.toSet());
-
             for (StudentNodeProgress p : incompletePlacements) {
                 p.setStatus(StudentProgressStatus.COMPLETED);
                 p.setCompletedAt(java.time.LocalDateTime.now());
                 studentNodeProgressRepository.save(p);
                 healed = true;
             }
+        }
 
+        // Run fixed-point graph unlocking propagation to unlock all reachable nodes whose prerequisites are completed.
+        List<NodeEdge> pathEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
+        Map<Long, List<NodeEdge>> incomingByNode = new HashMap<>();
+        for (NodeEdge e : pathEdges) {
+            incomingByNode.computeIfAbsent(e.getToNode().getNodeId(), k -> new ArrayList<>()).add(e);
+        }
 
-            List<NodeEdge> pathEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
+        boolean progressChanged = true;
+        while (progressChanged) {
+            progressChanged = false;
+            Map<Long, StudentProgressStatus> currentStatusMap = progressList.stream()
+                    .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(), StudentNodeProgress::getStatus, (a, b) -> a));
+            Set<Integer> stagesDoneAtOtherLevel =
+                    com.fedu.fedu.utils.NodeRoutingUtils.stagesClearedAtOtherLevel(progressList, level);
+            int floorStage = com.fedu.fedu.utils.NodeRoutingUtils.maxCompletedAtHomeStage(progressList);
+            Set<Integer> fcChosenStages =
+                    com.fedu.fedu.utils.NodeRoutingUtils.stagesWithChosenFreeChoice(progressList);
+
             for (StudentNodeProgress p : progressList) {
                 if (p.getStatus() == StudentProgressStatus.LOCKED) {
                     LearningNode node = p.getLearningNode();
-                    boolean levelOk = node.getLevel() == null || node.getLevel().equals(level)
-                            || node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE;
+                    if (!com.fedu.fedu.utils.NodeRoutingUtils.unlockableAtLevel(node, level)) continue;
 
-                    List<Long> incomingNodeIds = pathEdges.stream()
-                            .filter(e -> e.getToNode().getNodeId().equals(node.getNodeId()))
-                            .map(e -> e.getFromNode().getNodeId())
-                            .collect(Collectors.toList());
+                    if (node.getTestKind() != com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE
+                            && node.getStageOrder() != null && node.getStageOrder() < floorStage) {
+                        continue;
+                    }
 
-                    boolean isPrereqMet = !incomingNodeIds.isEmpty() && placementNodeIds.containsAll(incomingNodeIds);
+                    if (node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE
+                            && node.getStageOrder() != null && fcChosenStages.contains(node.getStageOrder())) {
+                        continue;
+                    }
 
-                    if (isPrereqMet && levelOk && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN)) {
+                    if (com.fedu.fedu.utils.NodeRoutingUtils.alreadyClearedAtOtherLevel(node, stagesDoneAtOtherLevel)) {
+                        continue;
+                    }
+
+                    boolean prereqMet = com.fedu.fedu.utils.NodeRoutingUtils.prereqMetThroughOnClass(
+                            node.getNodeId(),
+                            id -> incomingByNode.getOrDefault(id, Collections.emptyList()),
+                            currentStatusMap, level, progressList);
+
+                    if (prereqMet && (node.getNodeType() != NodeType.ON_CLASS || node.getStatus() == NodeStatus.OPEN)) {
                         p.setStatus(StudentProgressStatus.OPEN);
                         p.setUnlockedAt(java.time.LocalDateTime.now());
                         studentNodeProgressRepository.save(p);
                         healed = true;
+                        progressChanged = true;
                     }
                 }
             }
+        }
 
-
-            if (healed) {
-                progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
-            }
+        if (healed) {
+            progressList = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
         }
 
         Map<Long, StudentNodeProgress> progressMap = progressList.stream()
@@ -264,23 +288,6 @@ public class StudentProgressServiceImpl implements StudentProgressService {
 
 
 
-    private static boolean appliesToStudentLevel(LearningNode node, Integer studentLevel) {
-        String csv = node.getAppliesLevels();
-        if (csv == null || csv.isBlank()) {
-            return true;
-        }
-        for (String part : csv.split(",")) {
-            try {
-                if (studentLevel != null && Integer.parseInt(part.trim()) == studentLevel) {
-                    return true;
-                }
-            } catch (NumberFormatException ignored) {
-
-            }
-        }
-        return false;
-    }
-
     private void healOnClassBlockedNodes(LearningPath path, Integer level, List<StudentNodeProgress> progressList) {
         List<NodeEdge> allEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
         Map<Long, List<NodeEdge>> incomingByNode = new HashMap<>();
@@ -291,13 +298,31 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(),
                         StudentNodeProgress::getStatus, (a, b) -> a));
 
+        Set<Integer> stagesDoneAtOtherLevel =
+                com.fedu.fedu.utils.NodeRoutingUtils.stagesClearedAtOtherLevel(progressList, level);
+        int floorStage = com.fedu.fedu.utils.NodeRoutingUtils.maxCompletedAtHomeStage(progressList);
+        Set<Integer> fcChosenStages =
+                com.fedu.fedu.utils.NodeRoutingUtils.stagesWithChosenFreeChoice(progressList);
+
         for (StudentNodeProgress p : progressList) {
             LearningNode n = p.getLearningNode();
             if (p.getStatus() != StudentProgressStatus.LOCKED) continue;
             if (n.getNodeType() == NodeType.ON_CLASS) continue;
-            boolean levelOk = n.getLevel() == null || n.getLevel().equals(level)
-                    || n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE;
-            if (!levelOk) continue;
+            if (!com.fedu.fedu.utils.NodeRoutingUtils.unlockableAtLevel(n, level)) continue;
+
+            if (n.getTestKind() != com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE
+                    && n.getStageOrder() != null && n.getStageOrder() < floorStage) {
+                continue;
+            }
+
+            if (n.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE
+                    && n.getStageOrder() != null && fcChosenStages.contains(n.getStageOrder())) {
+                continue;
+            }
+
+            if (com.fedu.fedu.utils.NodeRoutingUtils.alreadyClearedAtOtherLevel(n, stagesDoneAtOtherLevel)) {
+                continue;
+            }
 
 
             boolean hasOnClassParent = incomingByNode.getOrDefault(n.getNodeId(), Collections.emptyList())

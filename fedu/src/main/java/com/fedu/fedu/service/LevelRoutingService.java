@@ -23,4 +23,7 @@ public interface LevelRoutingService {
 
     void applyPlacementRetakeRouting(Long classroomSubjectId, LearningNode placementNode, Long studentId,
                                      Long testId, BigDecimal percentage);
+
+
+    void reopenBranchNodesForLevel(Long classroomSubjectId, Long studentId, Integer newLevel, Integer fromStage);
 }

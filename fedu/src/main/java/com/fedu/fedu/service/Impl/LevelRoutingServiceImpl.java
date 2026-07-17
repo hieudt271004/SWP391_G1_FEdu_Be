@@ -127,7 +127,7 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         css.setCurrentLevel(newLevel);
         classroomSubjectStudentRepository.save(css);
         writeHistory(css, current, newLevel, LevelChangeReason.GATE);
-        reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel);
+        reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel, gateNode.getStageOrder());
     }
 
     @Override
@@ -153,7 +153,7 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         css.setCurrentLevel(target);
         classroomSubjectStudentRepository.save(css);
         writeHistory(css, current, target, LevelChangeReason.FREE_CHOICE);
-        reopenBranchNodesForLevel(classroomSubjectId, studentId, target);
+        reopenBranchNodesForLevel(classroomSubjectId, studentId, target, freeChoiceNode.getStageOrder());
     }
 
     @Override
@@ -189,28 +189,16 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         css.setCurrentLevel(newLevel);
         classroomSubjectStudentRepository.save(css);
         writeHistory(css, current, newLevel, LevelChangeReason.RETAKE);
-        reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel);
+        reopenBranchNodesForLevel(classroomSubjectId, studentId, newLevel, placementNode.getStageOrder());
     }
 
     private static Set<Integer> parseApplies(String s) {
-        Set<Integer> out = new LinkedHashSet<>();
-        if (s == null || s.isBlank()) {
-            return out;
-        }
-        for (String part : s.split(",")) {
-            try {
-                int v = Integer.parseInt(part.trim());
-                if (v >= LearningLevels.MIN && v <= LearningLevels.MAX) {
-                    out.add(v);
-                }
-            } catch (NumberFormatException ignored) {
-                
-            }
-        }
-        return out;
+        return NodeRoutingUtils.parseAppliesLevels(s);
     }
 
-    private void reopenBranchNodesForLevel(Long classroomSubjectId, Long studentId, Integer newLevel) {
+    @Override
+    @Transactional
+    public void reopenBranchNodesForLevel(Long classroomSubjectId, Long studentId, Integer newLevel, Integer fromStage) {
         LearningPath path = learningPathRepository
                 .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
                 .orElse(null);
@@ -219,45 +207,74 @@ public class LevelRoutingServiceImpl implements LevelRoutingService {
         }
         List<StudentNodeProgress> list = studentNodeProgressRepository
                 .findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
-        Map<Long, StudentProgressStatus> statusByNode = list.stream()
-                .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(),
-                        StudentNodeProgress::getStatus, (a, b) -> a));
 
+        Set<Integer> stagesDoneAtOtherLevel = NodeRoutingUtils.stagesClearedAtOtherLevel(list, newLevel);
+        Set<Integer> fcChosenStages = NodeRoutingUtils.stagesWithChosenFreeChoice(list);
 
-        Set<Integer> stagesDoneAtOtherLevel = list.stream()
-                .filter(p -> p.getStatus() == StudentProgressStatus.COMPLETED)
-                .map(StudentNodeProgress::getLearningNode)
-                .filter(n -> (n.getTestKind() == null || n.getTestKind() == NodeTestKind.NONE)
-                        && n.getLevel() != null && !n.getLevel().equals(newLevel)
-                        && n.getStageOrder() != null)
-                .map(LearningNode::getStageOrder)
-                .collect(Collectors.toSet());
+        // Chốt vị trí: không mở node ở chặng phía sau lưng học sinh (nhánh mới tiếp tục từ chỗ đang đứng).
+        int floorStage = NodeRoutingUtils.maxCompletedAtHomeStage(list);
+        if (fromStage != null && fromStage > floorStage) {
+            floorStage = fromStage;
+        }
+
 
         for (StudentNodeProgress p : list) {
             LearningNode node = p.getLearningNode();
-            if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
+            if (node.getLevel() == null
+                    || node.getLevel().equals(newLevel)
+                    || node.getTestKind() == NodeTestKind.FREE_CHOICE
+                    || p.getStatus() == StudentProgressStatus.COMPLETED) {
                 continue;
             }
-            if (node.getLevel() == null) {
-                continue;
-            }
-            if (p.getStatus() == StudentProgressStatus.COMPLETED) {
-                continue;
-            }
-            if (node.getLevel().equals(newLevel)) {
-
-                if (stagesDoneAtOtherLevel.contains(node.getStageOrder())) {
-                    continue;
-                }
-                boolean prereqMet = NodeRoutingUtils.prereqMetThroughOnClass(
-                        node.getNodeId(), nodeEdgeRepository::findByToNodeNodeId, statusByNode, newLevel, list);
-                if (p.getStatus() == StudentProgressStatus.LOCKED && prereqMet) {
-                    p.setStatus(StudentProgressStatus.OPEN);
-                    p.setUnlockedAt(LocalDateTime.now());
-                }
-            } else if (p.getStatus() != StudentProgressStatus.LOCKED) {
-
+            if (p.getStatus() != StudentProgressStatus.LOCKED) {
                 p.setStatus(StudentProgressStatus.LOCKED);
+            }
+        }
+
+        // Run fixed-point graph unlocking propagation to unlock the new level's starting frontier
+        List<NodeEdge> pathEdges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
+        Map<Long, List<NodeEdge>> incomingByNode = new HashMap<>();
+        for (NodeEdge e : pathEdges) {
+            incomingByNode.computeIfAbsent(e.getToNode().getNodeId(), k -> new ArrayList<>()).add(e);
+        }
+
+        boolean progressChanged = true;
+        while (progressChanged) {
+            progressChanged = false;
+            Map<Long, StudentProgressStatus> currentStatusMap = list.stream()
+                    .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(), StudentNodeProgress::getStatus, (a, b) -> a));
+
+            for (StudentNodeProgress p : list) {
+                if (p.getStatus() == StudentProgressStatus.LOCKED) {
+                    LearningNode node = p.getLearningNode();
+                    if (!NodeRoutingUtils.unlockableAtLevel(node, newLevel)) continue;
+
+                    if (node.getTestKind() != NodeTestKind.FREE_CHOICE
+                            && node.getStageOrder() != null && node.getStageOrder() < floorStage) {
+                        continue;
+                    }
+
+                    // Đã chọn một bài tự chọn ở chặng này thì các bài tự chọn còn lại đóng hẳn.
+                    if (node.getTestKind() == NodeTestKind.FREE_CHOICE
+                            && node.getStageOrder() != null && fcChosenStages.contains(node.getStageOrder())) {
+                        continue;
+                    }
+
+                    if (NodeRoutingUtils.alreadyClearedAtOtherLevel(node, stagesDoneAtOtherLevel)) {
+                        continue;
+                    }
+
+                    boolean prereqMet = NodeRoutingUtils.prereqMetThroughOnClass(
+                            node.getNodeId(),
+                            id -> incomingByNode.getOrDefault(id, Collections.emptyList()),
+                            currentStatusMap, newLevel, list);
+
+                    if (prereqMet && (node.getNodeType() != com.fedu.fedu.utils.enums.NodeType.ON_CLASS || node.getStatus() == com.fedu.fedu.utils.enums.NodeStatus.OPEN)) {
+                        p.setStatus(StudentProgressStatus.OPEN);
+                        p.setUnlockedAt(LocalDateTime.now());
+                        progressChanged = true;
+                    }
+                }
             }
         }
         studentNodeProgressRepository.saveAll(list);

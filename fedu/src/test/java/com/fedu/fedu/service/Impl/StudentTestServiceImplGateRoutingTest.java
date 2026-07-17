@@ -150,6 +150,55 @@ class StudentTestServiceImplGateRoutingTest {
         assertEquals(StudentProgressStatus.LOCKED, targetProg.getStatus());
     }
 
+    private LearningNode singleLevelGate(LearningPath path) {
+        return LearningNode.builder()
+                .nodeId(GATE_ID)
+                .testKind(NodeTestKind.GATE)
+                .nodeType(NodeType.AT_HOME)
+                .level(3)
+                .appliesLevels("3")
+                .gateUpMin(bd(80))
+                .learningPath(path)
+                .build();
+    }
+
+    @Test
+    void gate_singleLevel_belowUpMin_doesNotComplete_norOpenBranch() {
+        ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
+        LearningPath path = path(cs);
+        LearningNode gate = singleLevelGate(path);
+
+        service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(50));
+
+        verifyNoInteractions(studentNodeProgressRepository);
+        verifyNoInteractions(levelRoutingService);
+    }
+
+    @Test
+    void gate_singleLevel_meetsUpMin_completesAndOpensBranch() {
+        ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
+        LearningPath path = path(cs);
+        LearningNode gate = singleLevelGate(path);
+        LearningNode target = branch(path, 3);
+        NodeEdge edge = NodeEdge.builder().fromNode(gate).toNode(target).build();
+
+        StudentNodeProgress gateProg = progress(gate, path, StudentProgressStatus.IN_PROGRESS);
+        StudentNodeProgress targetProg = progress(target, path, StudentProgressStatus.LOCKED);
+        List<StudentNodeProgress> all = new ArrayList<>(List.of(gateProg, targetProg));
+
+        when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(STUDENT_ID, PATH_ID))
+                .thenReturn(all);
+        when(nodeEdgeRepository.findByFromNodeNodeId(GATE_ID)).thenReturn(List.of(edge));
+        when(nodeEdgeRepository.findByToNodeNodeId(TARGET_ID)).thenReturn(List.of(edge));
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
+                .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(3).build()));
+
+        service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(80));
+
+        assertEquals(StudentProgressStatus.COMPLETED, gateProg.getStatus());
+        assertEquals(StudentProgressStatus.OPEN, targetProg.getStatus());
+    }
+
     @Test
     void gate_notPassed_sameLevel_stillCompletesNode_butDoesNotOpenBranch() {
         ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
@@ -246,7 +295,6 @@ class StudentTestServiceImplGateRoutingTest {
         when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(STUDENT_ID, PATH_ID))
                 .thenReturn(all);
         when(nodeEdgeRepository.findByFromNodeNodeId(301L)).thenReturn(List.of(edge));
-        when(nodeEdgeRepository.findByToNodeNodeId(TARGET_ID)).thenReturn(List.of(edge));
         when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
                 .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(3).build()));
 

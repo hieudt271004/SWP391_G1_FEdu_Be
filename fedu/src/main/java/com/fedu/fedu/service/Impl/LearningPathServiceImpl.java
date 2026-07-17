@@ -47,6 +47,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final NodeExerciseRepository nodeExerciseRepository;
     private final SlotRepository slotRepository;
     private final TemplateEditGuard templateEditGuard;
+    private final com.fedu.fedu.service.LevelRoutingService levelRoutingService;
 
     @Override
     @Transactional(readOnly = true)
@@ -611,25 +612,11 @@ public class LearningPathServiceImpl implements LearningPathService {
             node.setDeadlineAt(null);
             node.setLevel(null);
         }
-        
-        
-        if (node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.GATE
-                && countAppliesLevels(node.getAppliesLevels()) == 1) {
-            node.setGateUpMin(null);
-            node.setGateDownMax(null);
-        }
 
+        // Gate 1 mức GIỮ gateUpMin: nó chính là "ngưỡng đạt" để mở chặng dưới (spec 2026-07-17),
+        // không tự xoá như trước nữa.
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
-    }
-
-    
-    private int countAppliesLevels(String appliesLevels) {
-        if (appliesLevels == null || appliesLevels.isBlank()) return 0;
-        return (int) java.util.Arrays.stream(appliesLevels.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .count();
     }
 
     @Override
@@ -1155,11 +1142,16 @@ public class LearningPathServiceImpl implements LearningPathService {
             return;
         }
 
-        if (!studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()).isEmpty()) {
+        Integer level = css.getCurrentLevel();
+
+        List<StudentNodeProgress> existingProgress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+        if (!existingProgress.isEmpty()) {
+
+
+            levelRoutingService.reopenBranchNodesForLevel(classroomSubjectId, studentId, level, null);
             return;
         }
 
-        Integer level = css.getCurrentLevel();
         List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
 
@@ -1177,8 +1169,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
 
-            boolean levelOk = node.getLevel() == null || node.getLevel().equals(level)
-                    || node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE;
+            boolean levelOk = NodeRoutingUtils.unlockableAtLevel(node, level);
 
 
             boolean isAfterPlacement = nodesAfterPlacement.contains(node.getNodeId());
@@ -1293,6 +1284,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
         if (path.getClassroomSubject() != null) {
             assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
+            ClassroomGuards.assertOpen(path.getClassroomSubject());
             return;
         }
         UserAccount actor = userAccountRepository.findByEmail(auth.getName()).orElse(null);
@@ -1459,8 +1451,9 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
 
         assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
+        ClassroomGuards.assertOpen(path.getClassroomSubject());
 
-        
+
         if (node.getStudyDate() != null && node.getSlot() != null) {
             LocalDateTime existingStart = LocalDateTime.of(node.getStudyDate(), node.getSlot().getStartTime());
             if (existingStart.isBefore(LocalDateTime.now())) {

@@ -56,7 +56,7 @@ import {
   teacherService
 } from '../../../services/teacher.service';
 import { resolveAssetUrl } from '../../../components/learningPath/MaterialPreview';
-import type { SubmissionResponse } from '../../../services/student.service';
+import type { SubmissionResponse, RetakeRequestResponse } from '../../../services/student.service';
 import { classroomService } from '../../../services/classroom.service';
 import {
   learningPathService,
@@ -315,7 +315,7 @@ export function ClassOverviewPage() {
   };
 
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support' | 'retake'>('roadmap');
 
   
   const [progressReport, setProgressReport] = useState<Record<number, StudentProgressReportResponse>>({});
@@ -342,6 +342,39 @@ export function ClassOverviewPage() {
       cancelled = true;
     };
   }, [activeTab, classroomSubjectId]);
+
+  const [pendingRetakeRequests, setPendingRetakeRequests] = useState<RetakeRequestResponse[]>([]);
+  const [loadingRetakes, setLoadingRetakes] = useState(false);
+
+  const fetchPendingRetakeRequests = async () => {
+    if (!classroomSubjectId) return;
+    try {
+      setLoadingRetakes(true);
+      const res = await teacherService.getPendingRetakeRequests(Number(classroomSubjectId));
+      setPendingRetakeRequests(res || []);
+    } catch (err) {
+      console.error("Failed to load retake requests:", err);
+    } finally {
+      setLoadingRetakes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'retake') {
+      fetchPendingRetakeRequests();
+    }
+  }, [activeTab, classroomSubjectId]);
+
+  const handleResolveRetakeRequest = async (requestId: number, status: 'APPROVED' | 'REJECTED', rejectReason?: string) => {
+    try {
+      await teacherService.resolveRetakeRequest(requestId, { status, rejectReason });
+      toast.success(status === 'APPROVED' ? "Đã duyệt yêu cầu thi lại!" : "Đã từ chối yêu cầu thi lại!");
+      await fetchPendingRetakeRequests();
+      fetchClassroomData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Xử lý yêu cầu thất bại.");
+    }
+  };
 
   
   const [monitorTest, setMonitorTest] = useState<{ testId: number; title: string } | null>(null);
@@ -487,7 +520,7 @@ export function ClassOverviewPage() {
   
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'placement' || tabParam === 'students' || tabParam === 'support' || tabParam === 'roadmap') {
+    if (tabParam === 'placement' || tabParam === 'students' || tabParam === 'support' || tabParam === 'roadmap' || tabParam === 'retake') {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -532,7 +565,6 @@ export function ClassOverviewPage() {
   const [detailTab, setDetailTab] = useState<'info' | 'history' | 'roadmap'>('info');
   const [studentGraph, setStudentGraph] = useState<ClassroomGraphResponse | null>(null);
   const [studentGraphLoading, setStudentGraphLoading] = useState(false);
-  const [resettingPlacement, setResettingPlacement] = useState(false);
 
   const studentProgressPercent = useMemo(() => {
     if (!studentGraph || !studentGraph.nodes || studentGraph.nodes.length === 0) return 0;
@@ -591,27 +623,6 @@ export function ClassOverviewPage() {
   const [selectedSubMentor, setSelectedSubMentor] = useState<Student | null>(null);
   const [selectedStudentsToAssign, setSelectedStudentsToAssign] = useState<number[]>([]);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
-
-  const handleResetPlacement = async (studentId: number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn hủy kết quả phân lớp của học sinh này? Toàn bộ tiến độ học tập trên lộ trình cũ của học sinh sẽ bị xóa và không thể khôi phục.")) {
-      return;
-    }
-    setResettingPlacement(true);
-    try {
-      await teacherService.cancelStudentPlacement(Number(classroomSubjectId), studentId);
-      if (isMounted.current) {
-        toast.success("Đã hủy kết quả phân lớp học sinh thành công.");
-        setIsDetailOpen(false);
-      }
-      fetchClassroomData();
-    } catch (err: any) {
-      toast.error(err?.message || "Hủy kết quả thất bại");
-    } finally {
-      if (isMounted.current) {
-        setResettingPlacement(false);
-      }
-    }
-  };
 
   const fetchSupportData = useCallback(async () => {
     if (!classroomSubjectId) return;
@@ -1848,6 +1859,16 @@ export function ClassOverviewPage() {
           }`}
         >
           Trợ giảng & Hỏi đáp
+        </button>
+        <button
+          onClick={() => setActiveTab('retake')}
+          className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'retake'
+              ? 'border-primary text-foreground font-bold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Yêu cầu thi lại
         </button>
       </div>
 
@@ -3110,20 +3131,6 @@ export function ClassOverviewPage() {
                         Học sinh đang học theo nhánh riêng biệt của mức năng lực <span className="font-semibold text-foreground">{selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại'}</span>. Tiến độ sẽ tự động tăng khi học sinh làm bài test cổng phụ hoặc hoàn thành bài học.
                       </p>
                     </div>
-                    {selectedStudent.currentLevel != null && (
-                      <div className="pt-2">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          onClick={() => handleResetPlacement(selectedStudent.rawUserId)}
-                          disabled={resettingPlacement}
-                          className="w-full font-semibold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
-                        >
-                          {resettingPlacement ? <Loader className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
-                          Hủy kết quả phân lớp & Cho phép thi lại
-                        </Button>
-                      </div>
-                    )}
                   </TabsContent>
 
                   <TabsContent value="history" className="mt-0 space-y-4">
@@ -3403,6 +3410,132 @@ export function ClassOverviewPage() {
               </div>
             </Card>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'retake' && (
+        <div className="space-y-6">
+          <Card className="border border-border shadow-sm rounded-2xl bg-card text-card-foreground">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <Undo2 className="w-5 h-5 text-amber-500" />
+                <span>Yêu cầu thi lại đang chờ duyệt ({pendingRetakeRequests.filter(r => r.status === 'PENDING').length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {loadingRetakes ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : pendingRetakeRequests.filter(r => r.status === 'PENDING').length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/20">
+                  <Undo2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs font-semibold">Không có yêu cầu thi lại nào đang chờ duyệt.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+                  {pendingRetakeRequests.filter(r => r.status === 'PENDING').map(req => (
+                    <div key={req.id} className="p-4 flex items-start justify-between flex-wrap gap-4 bg-muted/10 hover:bg-muted/20 transition-colors">
+                      <div className="space-y-1.5 flex-1 min-w-[280px]">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-foreground text-sm">{req.studentName}</span>
+                          <span className="text-xs text-muted-foreground">•</span>
+                          <span className="text-xs font-bold text-amber-600 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md uppercase">
+                            {req.testTitle}
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground bg-card border border-border p-3 rounded-lg leading-relaxed">
+                          <span className="font-bold text-muted-foreground block mb-0.5 text-[10px] uppercase">Lý do xin thi lại:</span>
+                          &ldquo;{req.requestReason}&rdquo;
+                        </p>
+                        <span className="text-[10px] text-muted-foreground font-bold block">
+                          Gửi lúc: {new Date(req.requestedAt).toLocaleString('vi-VN')}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-center shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={() => handleResolveRetakeRequest(req.id, 'APPROVED')}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs px-4"
+                        >
+                          Duyệt
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => {
+                            const reason = window.prompt("Nhập lý do từ chối yêu cầu thi lại:");
+                            if (reason !== null) {
+                              handleResolveRetakeRequest(req.id, 'REJECTED', reason.trim());
+                            }
+                          }}
+                          className="font-bold rounded-xl text-xs px-4"
+                        >
+                          Từ chối
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Lịch sử xử lý yêu cầu */}
+          <Card className="border border-border shadow-sm rounded-2xl bg-card text-card-foreground">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-base font-bold text-muted-foreground flex items-center gap-2">
+                <span>Lịch sử yêu cầu đã xử lý ({pendingRetakeRequests.filter(r => r.status !== 'PENDING').length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {pendingRetakeRequests.filter(r => r.status !== 'PENDING').length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-xs italic">
+                  Chưa có yêu cầu nào được xử lý.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground font-extrabold uppercase">
+                        <th className="pb-2">Học sinh</th>
+                        <th className="pb-2">Bài thi</th>
+                        <th className="pb-2">Lý do yêu cầu</th>
+                        <th className="pb-2">Trạng thái</th>
+                        <th className="pb-2">Phản hồi của GV</th>
+                        <th className="pb-2">Thời gian</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {pendingRetakeRequests.filter(r => r.status !== 'PENDING').map(req => (
+                        <tr key={req.id} className="hover:bg-muted/10">
+                          <td className="py-3 pr-2 font-bold text-foreground">{req.studentName}</td>
+                          <td className="py-3 pr-2 font-semibold text-muted-foreground">{req.testTitle}</td>
+                          <td className="py-3 pr-2 italic max-w-xs truncate" title={req.requestReason}>&ldquo;{req.requestReason}&rdquo;</td>
+                          <td className="py-3 pr-2">
+                            <span className={`px-2 py-0.5 rounded-sm font-bold text-[10px] uppercase border ${
+                              req.status === 'APPROVED'
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+                            }`}>
+                              {req.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-2 text-rose-600 dark:text-rose-455 font-medium">
+                            {req.rejectReason || '—'}
+                          </td>
+                          <td className="py-3 text-muted-foreground text-[10px] font-semibold">
+                            {new Date(req.resolvedAt || req.requestedAt).toLocaleString('vi-VN')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 

@@ -13,7 +13,7 @@ import { Progress } from '../../components/ui/progress';
 import { Badge } from '../../components/ui/badge';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
-import type { SubmissionResponse, StudentTestAttemptHistoryResponse } from '../../services/student.service';
+import type { SubmissionResponse, StudentTestAttemptHistoryResponse, RetakeRequestResponse } from '../../services/student.service';
 
 export interface LearningPathItem {
   id: number;
@@ -43,6 +43,8 @@ interface StudentSyllabusViewProps {
   ensureNodeContent: (nodeId: number) => Promise<any>;
   completedMaterials: Record<string, boolean>;
   userId: number | undefined;
+  retakeRequests: RetakeRequestResponse[];
+  fetchRetakeRequests: () => Promise<void>;
 }
 
 export function StudentSyllabusView({
@@ -57,7 +59,9 @@ export function StudentSyllabusView({
   setActiveItem,
   ensureNodeContent,
   completedMaterials,
-  userId
+  userId,
+  retakeRequests,
+  fetchRetakeRequests
 }: StudentSyllabusViewProps) {
   const navigate = useNavigate();
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
@@ -300,7 +304,7 @@ export function StudentSyllabusView({
                           }
                           if (itm.type === 'test') {
                             const history = testHistory.filter(h => h.testId === itm.id);
-                            return history.some(h => h.score >= itm.data.passingPercentage);
+                            return history.some(h => h.score !== null && h.score >= itm.data.passingPercentage);
                           }
                           if (itm.type === 'exercise') {
                             const sub = exerciseSubmissions[itm.id];
@@ -384,6 +388,29 @@ export function StudentSyllabusView({
                                       </>
                                     )}
                                   </p>
+                                  {isTest && (() => {
+                                    const latestReq = retakeRequests.find(r => r.testId === item.id);
+                                    if (!latestReq) return null;
+                                    return (
+                                      <div className="flex gap-2 mt-1.5 flex-wrap">
+                                        {latestReq.status === 'PENDING' && (
+                                          <Badge className="bg-amber-500/10 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[8px] font-bold px-1.5 py-0.5 rounded-sm">
+                                            Chờ duyệt thi lại
+                                          </Badge>
+                                        )}
+                                        {latestReq.status === 'APPROVED' && (
+                                          <Badge className="bg-emerald-500/10 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[8px] font-bold px-1.5 py-0.5 rounded-sm">
+                                            Đã duyệt thi lại
+                                          </Badge>
+                                        )}
+                                        {latestReq.status === 'REJECTED' && (
+                                          <Badge className="bg-rose-500/10 hover:bg-rose-500/10 text-rose-600 dark:text-rose-450 border border-rose-500/20 text-[8px] font-bold px-1.5 py-0.5 rounded-sm" title={latestReq.rejectReason}>
+                                            Thi lại bị từ chối
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </div>
 

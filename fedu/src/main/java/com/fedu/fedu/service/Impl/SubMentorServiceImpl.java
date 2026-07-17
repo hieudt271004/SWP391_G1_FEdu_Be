@@ -11,6 +11,7 @@ import com.fedu.fedu.repository.ClassroomSubjectRepository;
 import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
 import com.fedu.fedu.repository.SubMentorStudentAssignmentRepository;
 import com.fedu.fedu.service.SubMentorService;
+import com.fedu.fedu.utils.ClassroomGuards;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
@@ -58,7 +59,7 @@ public class SubMentorServiceImpl implements SubMentorService {
     @Override
     @Transactional
     public void enableSubMentor(Long classroomSubjectId, Long classroomSubjectStudentId, Long lecturerId) {
-        requireLecturerOwnership(classroomSubjectId, lecturerId);
+        ClassroomGuards.assertOpen(requireLecturerOwnership(classroomSubjectId, lecturerId));
         ClassroomSubjectStudent css = requireCssInClassroomSubject(classroomSubjectStudentId, classroomSubjectId);
         css.setIsSubmentor(true);
         classroomSubjectStudentRepository.save(css);
@@ -70,7 +71,7 @@ public class SubMentorServiceImpl implements SubMentorService {
     @Override
     @Transactional
     public void disableSubMentor(Long classroomSubjectId, Long classroomSubjectStudentId, Long lecturerId) {
-        requireLecturerOwnership(classroomSubjectId, lecturerId);
+        ClassroomGuards.assertOpen(requireLecturerOwnership(classroomSubjectId, lecturerId));
         ClassroomSubjectStudent css = requireCssInClassroomSubject(classroomSubjectStudentId, classroomSubjectId);
         css.setIsSubmentor(false);
         classroomSubjectStudentRepository.save(css);
@@ -88,7 +89,7 @@ public class SubMentorServiceImpl implements SubMentorService {
     public SubMentorStudentAssignmentResponse createAssignment(Long classroomSubjectId,
                                                                SubMentorStudentAssignmentRequest request,
                                                                Long lecturerId) {
-        requireLecturerOwnership(classroomSubjectId, lecturerId);
+        ClassroomGuards.assertOpen(requireLecturerOwnership(classroomSubjectId, lecturerId));
 
         ClassroomSubjectStudent subMentorCss = requireCssInClassroomSubject(
                 request.getSubMentorCssId(), classroomSubjectId);
@@ -132,7 +133,7 @@ public class SubMentorServiceImpl implements SubMentorService {
     @Override
     @Transactional
     public void deleteAssignment(Long classroomSubjectId, Long assignmentId, Long lecturerId) {
-        requireLecturerOwnership(classroomSubjectId, lecturerId);
+        ClassroomGuards.assertOpen(requireLecturerOwnership(classroomSubjectId, lecturerId));
         SubMentorStudentAssignment assignment = assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy assignment id: " + assignmentId));
         

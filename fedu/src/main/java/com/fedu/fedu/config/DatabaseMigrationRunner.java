@@ -464,6 +464,33 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                     log.info("Migration successful: created 'student_material_progress' table.");
                 }
             }
+
+            boolean hasRetakeRequestsTable = false;
+            try (ResultSet resultSet = metaData.getTables(null, null, "retake_requests", null)) {
+                if (resultSet.next()) {
+                    hasRetakeRequestsTable = true;
+                }
+            }
+            if (!hasRetakeRequestsTable) {
+                log.info("Table 'retake_requests' does not exist. Creating table...");
+                try (Statement statement = connection.createStatement()) {
+                    statement.execute(
+                        "CREATE TABLE retake_requests (" +
+                        "    id BIGSERIAL PRIMARY KEY," +
+                        "    student_id BIGINT NOT NULL REFERENCES user_account(user_id) ON DELETE CASCADE," +
+                        "    classroom_subject_id BIGINT NOT NULL REFERENCES classroom_subjects(id) ON DELETE CASCADE," +
+                        "    test_id BIGINT NOT NULL REFERENCES tests(test_id) ON DELETE CASCADE," +
+                        "    status VARCHAR(50) NOT NULL," +
+                        "    request_reason TEXT," +
+                        "    reject_reason TEXT," +
+                        "    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                        "    resolved_at TIMESTAMP," +
+                        "    resolved_by BIGINT REFERENCES user_account(user_id) ON DELETE SET NULL" +
+                        ")"
+                    );
+                    log.info("Migration successful: created 'retake_requests' table.");
+                }
+            }
         } catch (Exception e) {
             log.error("Failed to run database migration: {}", e.getMessage(), e);
         }

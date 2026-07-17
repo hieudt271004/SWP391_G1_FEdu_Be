@@ -30,7 +30,8 @@ import { useAuth } from '../../context/AuthContext';
 import {
   studentService,
   type SubmissionResponse,
-  type StudentTestAttemptHistoryResponse
+  type StudentTestAttemptHistoryResponse,
+  type RetakeRequestResponse
 } from '../../services/student.service';
 import { classroomService } from '../../services/classroom.service';
 import { resolveAssetUrl, MaterialPreview } from '../../components/learningPath/MaterialPreview';
@@ -102,8 +103,23 @@ export function StudentLearningPathPage() {
 
   
   const [completedMaterials, setCompletedMaterials] = useState<Record<string, boolean>>({});
+  const [retakeRequests, setRetakeRequests] = useState<RetakeRequestResponse[]>([]);
+  const [isRetakeModalOpen, setIsRetakeModalOpen] = useState(false);
+  const [retakeReason, setRetakeReason] = useState('');
+  const [submittingRetake, setSubmittingRetake] = useState(false);
+  const [targetTestId, setTargetTestId] = useState<number | null>(null);
 
 
+
+  const fetchRetakeRequests = async () => {
+    if (!classroomSubjectId) return;
+    try {
+      const res = await studentService.getRetakeRequests(classroomSubjectId);
+      setRetakeRequests(res || []);
+    } catch (err) {
+      console.error("Failed to fetch retake requests:", err);
+    }
+  };
 
   const refreshProgressData = async () => {
     if (!user?.userId || !classroomSubjectId) return null;
@@ -148,6 +164,12 @@ export function StudentLearningPathPage() {
       setExerciseSubmissions(submissionMap);
     } catch (sErr) {
       console.error("Failed to load exercise submissions:", sErr);
+    }
+
+    try {
+      await fetchRetakeRequests();
+    } catch (rErr) {
+      console.error("Failed to fetch retake requests:", rErr);
     }
 
     return sortedNodes;
@@ -507,7 +529,6 @@ export function StudentLearningPathPage() {
     try {
       setCompletingNodeId(activeNode.nodeId);
       
-      
       await studentService.completeMaterial(activeItem.id);
       
       const key = `${user.userId}-${activeItem.id}`;
@@ -516,14 +537,12 @@ export function StudentLearningPathPage() {
       
       toast.success("Đã đánh dấu hoàn thành bài học!");
 
-
       const completed = await maybeCompleteNode(activeNode.nodeId, updatedMaterials, exerciseSubmissions);
       if (completed) {
         toast.success("Chúc mừng! Bạn đã hoàn thành tất cả các bài học trong chương này.");
       } else {
         await refreshProgressData();
       }
-
 
       if (currentItemIndex < allItems.length - 1) {
         setActiveItem(allItems[currentItemIndex + 1]);
@@ -533,6 +552,32 @@ export function StudentLearningPathPage() {
       toast.error("Không thể đánh dấu hoàn thành bài học. Vui lòng thử lại.");
     } finally {
       setCompletingNodeId(null);
+    }
+  };
+
+  const handleOpenRetakeModal = (testId: number) => {
+    setTargetTestId(testId);
+    setRetakeReason('');
+    setIsRetakeModalOpen(true);
+  };
+
+  const handleConfirmRetakeRequest = async () => {
+    if (!targetTestId || !classroomSubjectId) return;
+    try {
+      setSubmittingRetake(true);
+      await studentService.createRetakeRequest({
+        classroomSubjectId,
+        testId: targetTestId,
+        requestReason: retakeReason.trim()
+      });
+      toast.success("Gửi yêu cầu thi lại thành công! Đang chờ giáo viên phê duyệt.");
+      setIsRetakeModalOpen(false);
+      await fetchRetakeRequests();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Gửi yêu cầu thi lại thất bại.");
+    } finally {
+      setSubmittingRetake(false);
     }
   };
 
@@ -627,6 +672,8 @@ export function StudentLearningPathPage() {
         ensureNodeContent={ensureNodeContent}
         completedMaterials={completedMaterials}
         userId={user?.userId}
+        retakeRequests={retakeRequests}
+        fetchRetakeRequests={fetchRetakeRequests}
       />
     );
   }
@@ -1065,25 +1112,89 @@ export function StudentLearningPathPage() {
                         </div>
                       )}
 
-                      <div className="border-t border-border pt-5 flex justify-end">
-                        <Button
-                          onClick={() => {
-                            const params = new URLSearchParams(searchParams);
-                            params.set('csId', String(classroomSubjectId));
-                            navigate(`/student/tests/${activeItem.id}?${params.toString()}`);
-                          }}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
-                        >
-                          <span>
-                            {attemptsForTest.length > 0 
-                              ? (highestAttempt && (highestAttempt.score ?? 0) >= (activeItem.data.passingPercentage || 0) 
-                                ? 'Làm lại bài thi (Cải thiện điểm)' 
-                                : 'Làm lại bài thi') 
-                              : 'Bắt đầu làm bài thi'}
-                          </span>
-                          <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
-                        </Button>
-                      </div>
+                      {(() => {
+                        const latestReq = retakeRequests.find(r => r.testId === activeItem.id);
+                        const hasAttempts = attemptsForTest.length > 0;
+
+                        if (hasAttempts) {
+                          if (!latestReq) {
+                            return (
+                              <div className="border-t border-border pt-5 flex justify-end">
+                                <Button
+                                  onClick={() => handleOpenRetakeModal(activeItem.id)}
+                                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
+                                >
+                                  <span>Yêu cầu thi lại</span>
+                                  <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
+                                </Button>
+                              </div>
+                            );
+                          } else if (latestReq.status === 'PENDING') {
+                            return (
+                              <div className="border-t border-border pt-5 flex flex-col items-end gap-2">
+                                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-bold px-3 py-1 border-transparent">
+                                  Yêu cầu thi lại đang chờ duyệt
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground italic">
+                                  Lý do: &ldquo;{latestReq.requestReason}&rdquo;
+                                </span>
+                              </div>
+                            );
+                          } else if (latestReq.status === 'APPROVED') {
+                            return (
+                              <div className="border-t border-border pt-5 flex flex-col items-end gap-3 w-full">
+                                <div className="flex justify-between items-center w-full">
+                                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold px-3 py-1 border-transparent">
+                                    Đã được duyệt làm lại
+                                  </Badge>
+                                  <Button
+                                    onClick={() => {
+                                      const params = new URLSearchParams(searchParams);
+                                      params.set('csId', String(classroomSubjectId));
+                                      navigate(`/student/tests/${activeItem.id}?${params.toString()}`);
+                                    }}
+                                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
+                                  >
+                                    <span>Bắt đầu làm lại bài thi</span>
+                                    <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          } else if (latestReq.status === 'REJECTED') {
+                            return (
+                              <div className="border-t border-border pt-5 flex flex-col items-end gap-3 w-full">
+                                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 rounded-lg text-xs leading-relaxed w-full">
+                                  <span className="font-bold">Yêu cầu thi lại bị từ chối:</span> {latestReq.rejectReason || 'Không có lý do'}
+                                </div>
+                                <Button
+                                  onClick={() => handleOpenRetakeModal(activeItem.id)}
+                                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
+                                >
+                                  <span>Gửi yêu cầu thi lại mới</span>
+                                  <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
+                                </Button>
+                              </div>
+                            );
+                          }
+                        }
+
+                        return (
+                          <div className="border-t border-border pt-5 flex justify-end">
+                            <Button
+                              onClick={() => {
+                                const params = new URLSearchParams(searchParams);
+                                params.set('csId', String(classroomSubjectId));
+                                navigate(`/student/tests/${activeItem.id}?${params.toString()}`);
+                              }}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
+                            >
+                              <span>Bắt đầu làm bài thi</span>
+                              <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
+                            </Button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -1365,9 +1476,63 @@ export function StudentLearningPathPage() {
             </Button>
           </div>
         )}
+      {/* Dialog yêu cầu thi lại */}
+      <Dialog open={isRetakeModalOpen} onOpenChange={setIsRetakeModalOpen}>
+        <DialogContent className="sm:max-w-[500px] rounded-3xl p-6 bg-card text-foreground border-border">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-extrabold text-foreground">Yêu cầu thi lại</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Gửi yêu cầu tới giảng viên để làm lại bài kiểm tra này.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Hộp Cảnh báo */}
+          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 p-4 rounded-xl text-xs space-y-2 font-bold leading-relaxed my-3">
+            <p className="flex items-center gap-1.5 uppercase tracking-wide text-amber-700 dark:text-amber-400">
+              ⚠️ CẢNH BÁO QUAN TRỌNG
+            </p>
+            <p>
+              Nếu yêu cầu thi lại được duyệt và bạn bắt đầu thi lại, hệ thống sẽ:
+            </p>
+            <ul className="list-disc pl-4 space-y-1 normal-case">
+              <li>Khóa toàn bộ bài học chuyên biệt của cấp độ cũ mà bạn đã học ở các chặng trước.</li>
+              <li>Mở các bài học chuyên biệt của cấp độ mới để bạn học lại từ đầu (đối với chặng đã qua).</li>
+              <li>Giữ nguyên trạng thái hoàn thành của các bài học chung (level = null).</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2 mt-2">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Lý do xin thi lại</label>
+            <Textarea
+              value={retakeReason}
+              onChange={(e) => setRetakeReason(e.target.value)}
+              placeholder="Nhập lý do ví dụ: mất mạng lúc đang làm bài, muốn cải thiện điểm số..."
+              rows={4}
+              className="rounded-xl text-xs border-border"
+            />
+          </div>
+
+          <DialogFooter className="mt-6 flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              disabled={submittingRetake}
+              onClick={() => setIsRetakeModalOpen(false)}
+              className="rounded-xl text-xs font-bold border-border"
+            >
+              Hủy
+            </Button>
+            <Button
+              disabled={submittingRetake || !retakeReason.trim()}
+              onClick={handleConfirmRetakeRequest}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs px-5 h-9"
+            >
+              {submittingRetake ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : null}
+              Gửi yêu cầu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
-
-
     </div>
   );
 }

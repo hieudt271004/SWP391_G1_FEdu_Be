@@ -281,7 +281,36 @@ export const studentService = {
 
   getStudentSchedule: () =>
     http.get<StudentScheduleEntry[]>('/student/schedule'),
+
+  createRetakeRequest: (body: RetakeRequestPayload) =>
+    http.post<RetakeRequestResponse>('/student/retake-requests', body),
+
+  getRetakeRequests: (csId: number) =>
+    http.get<RetakeRequestResponse[]>(`/student/classroom-subjects/${csId}/retake-requests`),
 };
+
+export interface RetakeRequestResponse {
+  id: number;
+  studentId: number;
+  studentEmail: string;
+  studentName: string;
+  classroomSubjectId: number;
+  classroomSubjectName: string;
+  testId: number;
+  testTitle: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestReason?: string;
+  rejectReason?: string;
+  requestedAt: string;
+  resolvedAt?: string;
+  resolvedByName?: string;
+}
+
+export interface RetakeRequestPayload {
+  classroomSubjectId: number;
+  testId: number;
+  requestReason?: string;
+}
 
 export interface StudentScheduleEntry {
   nodeId: number;

@@ -710,6 +710,15 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (target.getLevel() != null
                 && target.getTestKind() != NodeTestKind.FREE_CHOICE
                 && !matchesStudentLevel(studentId, target)) return;
+        if (target.getLevel() == null
+                && (target.getTestKind() == NodeTestKind.GATE || target.getTestKind() == NodeTestKind.PLACEMENT)
+                && !NodeRoutingUtils.appliesToLevel(target, currentLevelOf(
+                        target.getLearningPath().getClassroomSubject(), studentId))) return;
+        if (target.getTestKind() == NodeTestKind.FREE_CHOICE && target.getStageOrder() != null) {
+            List<StudentNodeProgress> all = studentNodeProgressRepository
+                    .findByStudentUserIdAndLearningPathPathId(studentId, pathId);
+            if (NodeRoutingUtils.stagesWithChosenFreeChoice(all).contains(target.getStageOrder())) return;
+        }
         if (!checkIncomingPrerequisites(studentId, target, pathId)) return;
         openNode(studentId, target, pathId);
     }
@@ -753,6 +762,13 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage) {
+        // Gate 1 mức = bài chặn đường: "ngưỡng lên" chính là ngưỡng đạt.
+        // Chưa đạt thì node không hoàn thành, chặng dưới giữ khóa — làm lại tự do.
+        if (NodeRoutingUtils.isSingleLevelGate(gateNode) && gateNode.getGateUpMin() != null
+                && (percentage == null || percentage.compareTo(gateNode.getGateUpMin()) < 0)) {
+            return;
+        }
+
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
@@ -891,6 +907,10 @@ public class StudentTestServiceImpl implements StudentTestService {
 
         return attempts.stream()
                 .filter(a -> a.getTest().getTestKind() != com.fedu.fedu.utils.enums.TestKind.POP_QUIZ)
+                // Lịch sử "lần nộp" chỉ gồm bài đã thực nộp: loại attempt đang làm dở (IN_PROGRESS)
+                // và attempt bị hủy khi duyệt thi lại (CANCELLED) — hiển thị chúng thành "lần nộp" epoch-1970 là rác.
+                .filter(a -> a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED
+                        || a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW)
                 .map(a -> {
             com.fedu.fedu.entity.Test t = a.getTest();
             String csName = "N/A";

@@ -96,16 +96,4 @@ public class TeacherPlacementController {
         return new ResponseData<>(HttpStatus.OK.value(), "Lấy chi tiết bài test phân loại thành công", response);
     }
 
-    @Operation(summary = "Hủy kết quả phân lớp của học sinh (để xếp lớp lại/thi lại)")
-    @PreAuthorize("hasRole('TEACHER')")
-    @PostMapping("/classroom-subjects/{csId}/students/{studentId}/placement/cancel")
-    public ResponseData<Void> cancelStudentPlacement(
-            @PathVariable Long csId,
-            @PathVariable Long studentId,
-            @AuthenticationPrincipal UserAccount currentUser) {
-        log.info("Teacher {} cancelling placement for student ID: {} in classroom-subject: {}",
-                currentUser.getUserId(), studentId, csId);
-        placementService.cancelPlacementAttemptForTeacher(csId, studentId, currentUser.getUserId());
-        return new ResponseData<>(HttpStatus.OK.value(), "Hủy kết quả phân lớp học sinh thành công", null);
-    }
 }
