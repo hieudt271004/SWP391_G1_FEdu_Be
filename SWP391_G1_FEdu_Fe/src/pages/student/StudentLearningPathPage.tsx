@@ -36,7 +36,7 @@ import {
 import { classroomService } from '../../services/classroom.service';
 import { resolveAssetUrl, MaterialPreview } from '../../components/learningPath/MaterialPreview';
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
-import type { LearningNodeResponse, NodeContentResponse } from '../../services/learningPath.service';
+import type { LearningNodeResponse, NodeContentResponse, NodeEdgeResponse } from '../../services/learningPath.service';
 import { NodeDiscussion } from '../../components/learningPath/NodeDiscussion';
 
 import {
@@ -72,6 +72,8 @@ export function StudentLearningPathPage() {
   
   const [subject, setSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
+  const [edges, setEdges] = useState<NodeEdgeResponse[]>([]);
+  const [currentLevel, setCurrentLevel] = useState<number | null>(null);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [totalMaterials, setTotalMaterials] = useState<number>(0);
   const [totalCompleted, setTotalCompleted] = useState<number>(0);
@@ -124,6 +126,10 @@ export function StudentLearningPathPage() {
   const refreshProgressData = async () => {
     if (!user?.userId || !classroomSubjectId) return null;
     const graph = await studentService.getClassroomSubjectGraph(classroomSubjectId);
+    
+    // Save graph edges
+    setEdges(graph.edges || []);
+
     const sortedNodes = (graph.nodes || []).sort((a, b) => {
       const sA = a.stageOrder ?? 0;
       const sB = b.stageOrder ?? 0;
@@ -133,6 +139,19 @@ export function StudentLearningPathPage() {
     setNodes(sortedNodes);
     setTotalMaterials(graph.totalMaterials || 0);
     setTotalCompleted(graph.completedMaterials || 0);
+
+    // Fetch current level of the student
+    try {
+      const levelHistory = await studentService.getLevelHistory(classroomSubjectId);
+      if (levelHistory && levelHistory.length > 0) {
+        setCurrentLevel(levelHistory[levelHistory.length - 1].newLevel);
+      } else {
+        setCurrentLevel(null);
+      }
+    } catch (lvlErr) {
+      console.error("Failed to load level history:", lvlErr);
+      setCurrentLevel(null);
+    }
 
     try {
       const history = await studentService.getTestHistory();
@@ -662,6 +681,8 @@ export function StudentLearningPathPage() {
       <StudentSyllabusView
         subject={subject}
         nodes={nodes}
+        edges={edges}
+        currentLevel={currentLevel}
         nodeContents={nodeContents}
         loadingNodeContent={loadingNodeContent}
         testHistory={testHistory}
@@ -674,6 +695,7 @@ export function StudentLearningPathPage() {
         userId={user?.userId}
         retakeRequests={retakeRequests}
         fetchRetakeRequests={fetchRetakeRequests}
+        classroomSubjectId={classroomSubjectId}
       />
     );
   }
