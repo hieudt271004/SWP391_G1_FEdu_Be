@@ -73,6 +73,7 @@ export function StudentLearningPathPage() {
   const [subject, setSubject] = useState<ClassroomSubjectResponse | null>(null);
   const [nodes, setNodes] = useState<LearningNodeResponse[]>([]);
   const [edges, setEdges] = useState<NodeEdgeResponse[]>([]);
+  const [graphState, setGraphState] = useState<string | null>(null);
   const [currentLevel, setCurrentLevel] = useState<number | null>(null);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
   const [totalMaterials, setTotalMaterials] = useState<number>(0);
@@ -126,7 +127,8 @@ export function StudentLearningPathPage() {
   const refreshProgressData = async () => {
     if (!user?.userId || !classroomSubjectId) return null;
     const graph = await studentService.getClassroomSubjectGraph(classroomSubjectId);
-    
+    setGraphState(graph.state ?? null);
+
     // Save graph edges
     setEdges(graph.edges || []);
 
@@ -672,6 +674,42 @@ export function StudentLearningPathPage() {
         <Button onClick={() => navigate('/student/courses')} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-6">
           Quay lại khóa học
         </Button>
+      </div>
+    );
+  }
+
+  // currentLevel đã bị reset (vd. teacher duyệt thi lại bài phân loại) → graph không có node;
+  // phải đưa học sinh quay lại bài phân loại thay vì hiển thị lộ trình rỗng.
+  if (graphState === 'NEED_PLACEMENT' || graphState === 'PLACEMENT_PENDING') {
+    const isPendingReview = graphState === 'PLACEMENT_PENDING';
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 max-w-md mx-auto text-center">
+        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+          <Award className="w-8 h-8 text-primary" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-foreground">
+            {isPendingReview ? 'Bài phân loại đang chờ chấm' : 'Cần làm bài kiểm tra phân loại'}
+          </h3>
+          <p className="text-sm text-muted-foreground mt-2">
+            {isPendingReview
+              ? 'Bài phân loại của bạn có câu tự luận, đang chờ giáo viên chấm. Lộ trình sẽ hiển thị sau khi chấm xong.'
+              : 'Bạn cần hoàn thành bài kiểm tra phân loại đầu vào để nhận lộ trình cá nhân hóa. Nếu bạn vừa được duyệt thi lại, hãy làm lại bài phân loại để mở lại lộ trình.'}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {!isPendingReview && (
+            <Button
+              onClick={() => navigate(`/student/classroom-subjects/${classroomSubjectId}/placement`)}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-6"
+            >
+              <Play className="size-4 fill-current mr-1" /> Làm bài phân loại
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => navigate('/student/courses')} className="font-bold rounded-xl px-6">
+            Quay lại khóa học
+          </Button>
+        </div>
       </div>
     );
   }

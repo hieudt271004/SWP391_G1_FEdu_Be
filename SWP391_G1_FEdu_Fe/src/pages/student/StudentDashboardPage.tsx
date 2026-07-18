@@ -120,6 +120,11 @@ export function StudentDashboardPage() {
             try {
               
               const graph = await studentService.getClassroomSubjectGraph(s.classroomSubjectId);
+              // Graph state là nguồn chuẩn: NEED_PLACEMENT nghĩa là currentLevel đã bị reset
+              // (vd. được duyệt thi lại bài phân loại) dù level history vẫn còn bản ghi cũ.
+              if (graph?.state === 'NEED_PLACEMENT' || graph?.state === 'PLACEMENT_PENDING') {
+                levelsMap[s.classroomSubjectId] = null;
+              }
               if (graph && graph.state !== 'NEED_PLACEMENT' && graph.state !== 'NO_PATH') {
                 pathsMap[s.classroomSubjectId] = graph.state === 'PUBLISHED' ? 'Lộ trình chính thức' : 'Bản nháp';
               } else {

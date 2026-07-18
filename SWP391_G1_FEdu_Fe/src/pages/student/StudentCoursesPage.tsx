@@ -206,6 +206,11 @@ export function StudentCoursesPage() {
             try {
               const graph = await studentService.getClassroomSubjectGraph(s.classroomSubjectId);
               pendingMap[s.classroomSubjectId] = graph?.state === 'PLACEMENT_PENDING';
+              // Graph state là nguồn chuẩn: NEED_PLACEMENT nghĩa là currentLevel đã bị reset
+              // (vd. được duyệt thi lại bài phân loại) dù level history vẫn còn bản ghi cũ.
+              if (graph?.state === 'NEED_PLACEMENT' || graph?.state === 'PLACEMENT_PENDING') {
+                levelsMap[s.classroomSubjectId] = null;
+              }
               if (graph && graph.nodes && graph.nodes.length > 0) {
                 const completedCount = graph.nodes.filter(n => n.studentStatus === 'COMPLETED').length;
                 progressMap[s.classroomSubjectId] = {
