@@ -18,14 +18,16 @@ import {
   Download, 
   FileCode, 
   Activity, 
-  Loader 
+  Loader,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ClassroomSubjectResponse {
   classroomSubjectId: number;
   classroomId: number;
-  classroomName: string;
+  className: string;
   subjectId: number;
   subjectName: string;
   subjectCode: string;
@@ -69,6 +71,17 @@ export function TeacherGradingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'GRADED'>('ALL');
 
+  // Pagination states
+  const [currentPageSub, setCurrentPageSub] = useState(1);
+  const [currentPageAtt, setCurrentPageAtt] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPageSub(1);
+    setCurrentPageAtt(1);
+  }, [selectedClass, searchQuery, statusFilter, activeTab]);
+
   // Exercise Grading Modal
   const [gradingSubmission, setGradingSubmission] = useState<SubmissionResponse | null>(null);
   const [gradeValue, setGradeValue] = useState('');
@@ -76,6 +89,7 @@ export function TeacherGradingPage() {
   const [savingGrade, setSavingGrade] = useState(false);
 
   // Test Essay Grading Modal
+  const [essayGradingOpen, setEssayGradingOpen] = useState(false);
   const [gradingAttempt, setGradingAttempt] = useState<AttemptGradingDetail | null>(null);
   const [essayMarks, setEssayMarks] = useState<Record<number, boolean>>({});
   const [savingEssayGrades, setSavingEssayGrades] = useState(false);
@@ -171,6 +185,8 @@ export function TeacherGradingPage() {
 
   // Test grading handlers
   const openEssayGrading = async (attemptId: number) => {
+    setEssayGradingOpen(true);
+    setGradingAttempt(null);
     try {
       setLoadingAttemptDetail(true);
       const detail = await learningPathService.getAttemptGrading(attemptId);
@@ -189,6 +205,7 @@ export function TeacherGradingPage() {
     } catch (err) {
       console.error('Failed to load attempt details:', err);
       toast.error('Không thể tải chi tiết bài làm');
+      setEssayGradingOpen(false);
     } finally {
       if (isMountedRef.current) setLoadingAttemptDetail(false);
     }
@@ -216,6 +233,7 @@ export function TeacherGradingPage() {
       await learningPathService.gradeEssayAttempt(gradingAttempt.attemptId, grades);
       toast.success('Chấm bài tự luận thành công!');
       setGradingAttempt(null);
+      setEssayGradingOpen(false);
       fetchGradingData();
     } catch (err) {
       console.error('Failed to save essay grades:', err);
@@ -242,6 +260,12 @@ export function TeacherGradingPage() {
     return true;
   });
 
+  const totalPagesSub = Math.ceil(filteredSubmissions.length / itemsPerPage);
+  const paginatedSubmissions = filteredSubmissions.slice(
+    (currentPageSub - 1) * itemsPerPage,
+    currentPageSub * itemsPerPage
+  );
+
   const filteredAttempts = attempts.filter(att => {
     const matchesSearch = (att.studentName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (att.testTitle || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -250,6 +274,12 @@ export function TeacherGradingPage() {
     if (statusFilter === 'GRADED') return att.status === 'SUBMITTED';
     return true;
   });
+
+  const totalPagesAtt = Math.ceil(filteredAttempts.length / itemsPerPage);
+  const paginatedAttempts = filteredAttempts.slice(
+    (currentPageAtt - 1) * itemsPerPage,
+    currentPageAtt * itemsPerPage
+  );
 
   return (
     <div className="flex-1 min-h-0 bg-background/50 overflow-y-auto p-6 font-sans">
@@ -284,7 +314,7 @@ export function TeacherGradingPage() {
               >
                 {classrooms.map(c => (
                   <option key={c.classroomSubjectId} value={c.classroomSubjectId}>
-                    {c.classroomName} · {c.subjectName} ({c.subjectCode})
+                    {c.subjectName} ({c.subjectCode}) - {c.className}
                   </option>
                 ))}
                 {classrooms.length === 0 && <option value="">Chưa có lớp học</option>}
@@ -374,7 +404,8 @@ export function TeacherGradingPage() {
                 
                 {/* Tab 1: Exercise Submissions */}
                 {activeTab === 'exercise' && (
-                  <div className="overflow-x-auto">
+                  <>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm border-collapse text-left">
                       <thead>
                         <tr className="bg-muted/40 border-b border-border text-xs text-muted-foreground font-bold uppercase tracking-wider">
@@ -388,7 +419,7 @@ export function TeacherGradingPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredSubmissions.map(sub => (
+                        {paginatedSubmissions.map(sub => (
                           <tr key={sub.submissionId} className="border-b border-border hover:bg-muted/10 transition-colors">
                             <td className="p-4">
                               <p className="font-semibold text-foreground">{sub.studentName}</p>
@@ -457,11 +488,50 @@ export function TeacherGradingPage() {
                       </tbody>
                     </table>
                   </div>
+                  {filteredSubmissions.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-card/30">
+                      <div className="text-xs text-muted-foreground">
+                        Hiển thị {filteredSubmissions.length > 0 ? (currentPageSub - 1) * itemsPerPage + 1 : 0} – {Math.min(currentPageSub * itemsPerPage, filteredSubmissions.length)} trong tổng số {filteredSubmissions.length} bài nộp
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => setCurrentPageSub((p) => Math.max(1, p - 1))}
+                          disabled={currentPageSub === 1}
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </Button>
+                        {Array.from({ length: totalPagesSub }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant={currentPageSub === page ? "default" : "outline"}
+                            onClick={() => setCurrentPageSub(page)}
+                            className="w-7 h-7 text-[10px]"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => setCurrentPageSub((p) => Math.min(totalPagesSub, p + 1))}
+                          disabled={currentPageSub === totalPagesSub}
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 )}
 
                 {/* Tab 2: Test attempts */}
                 {activeTab === 'test' && (
-                  <div className="overflow-x-auto">
+                  <>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm border-collapse text-left">
                       <thead>
                         <tr className="bg-muted/40 border-b border-border text-xs text-muted-foreground font-bold uppercase tracking-wider">
@@ -474,7 +544,7 @@ export function TeacherGradingPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAttempts.map(att => (
+                        {paginatedAttempts.map(att => (
                           <tr key={att.attemptId} className="border-b border-border hover:bg-muted/10 transition-colors">
                             <td className="p-4">
                               <p className="font-semibold text-foreground">{att.studentName}</p>
@@ -511,7 +581,7 @@ export function TeacherGradingPage() {
                                 size="sm"
                                 variant="outline"
                                 className="h-7 text-xs"
-                                disabled={loadingAttemptDetail || att.status === 'SUBMITTED'}
+                                disabled={loadingAttemptDetail}
                                 onClick={() => openEssayGrading(att.attemptId)}
                               >
                                 {att.status === 'SUBMITTED' ? 'Xem lại' : 'Chấm tự luận'}
@@ -529,6 +599,44 @@ export function TeacherGradingPage() {
                       </tbody>
                     </table>
                   </div>
+                  {filteredAttempts.length > 0 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-card/30">
+                      <div className="text-xs text-muted-foreground">
+                        Hiển thị {filteredAttempts.length > 0 ? (currentPageAtt - 1) * itemsPerPage + 1 : 0} – {Math.min(currentPageAtt * itemsPerPage, filteredAttempts.length)} trong tổng số {filteredAttempts.length} lượt thi
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => setCurrentPageAtt((p) => Math.max(1, p - 1))}
+                          disabled={currentPageAtt === 1}
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </Button>
+                        {Array.from({ length: totalPagesAtt }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant={currentPageAtt === page ? "default" : "outline"}
+                            onClick={() => setCurrentPageAtt(page)}
+                            className="w-7 h-7 text-[10px]"
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="w-7 h-7"
+                          onClick={() => setCurrentPageAtt((p) => Math.min(totalPagesAtt, p + 1))}
+                          disabled={currentPageAtt === totalPagesAtt}
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 )}
 
               </div>
@@ -633,89 +741,98 @@ export function TeacherGradingPage() {
       </Dialog>
 
       {/* MODAL 2: Chấm tự luận bài Test */}
-      <Dialog open={!!gradingAttempt} onOpenChange={(open) => { if (!open) setGradingAttempt(null); }}>
+      <Dialog open={essayGradingOpen} onOpenChange={(open) => { if (!open) { setEssayGradingOpen(false); setGradingAttempt(null); } }}>
         <DialogContent className="sm:max-w-2xl bg-background border-border text-xs shadow-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
               <Activity className="size-5 text-primary" />
-              Chấm câu tự luận — {gradingAttempt?.studentName}
+              Chấm câu tự luận {gradingAttempt ? `— ${gradingAttempt.studentName}` : ''}
             </DialogTitle>
             <DialogDescription className="text-[10px] text-muted-foreground">
-              Bài thi: {gradingAttempt?.testTitle} · Trắc nghiệm đã được chấm tự động
+              {gradingAttempt ? `Bài thi: ${gradingAttempt.testTitle} · Trắc nghiệm đã được chấm tự động` : 'Vui lòng chờ trong giây lát'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
-            {(gradingAttempt?.responses ?? []).map((r, idx) => {
-              const isEssay = r.questionType === 'ESSAY';
-              const pendingEssay = isEssay && r.isCorrect == null;
-              const mark = essayMarks[r.responseId];
-              return (
-                <div key={r.responseId} className="border border-border rounded-xl p-3 space-y-2 bg-muted/10">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-semibold text-foreground text-[11.5px] leading-snug">
-                      Câu {idx + 1}. {r.questionContent}
-                    </p>
-                    <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full border uppercase ${
-                      isEssay
-                        ? 'bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400'
-                        : 'bg-muted border-border text-muted-foreground'
-                    }`}>
-                      {isEssay ? 'Tự luận' : 'Trắc nghiệm'}
-                    </span>
-                  </div>
-
-                  <div className="bg-muted border border-border rounded-lg p-2 text-[11px] text-foreground whitespace-pre-wrap break-words">
-                    {isEssay
-                      ? (r.responseText?.trim() ? r.responseText : <span className="italic text-muted-foreground">Học sinh không trả lời</span>)
-                      : (r.selectedAnswers && r.selectedAnswers.length > 0
-                          ? r.selectedAnswers.join(', ')
-                          : <span className="italic text-muted-foreground">Không chọn đáp án</span>)}
-                  </div>
-
-                  {pendingEssay ? (
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Giáo viên chấm:</span>
-                      <button
-                        onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: true }))}
-                        className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
-                          mark === true
-                            ? 'bg-emerald-600 border-emerald-600 text-white'
-                            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 hover:bg-emerald-500/20'
-                        }`}
-                      >
-                        Đạt (+{r.maxScore} điểm)
-                      </button>
-                      <button
-                        onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: false }))}
-                        className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
-                          mark === false
-                            ? 'bg-rose-600 border-rose-600 text-white'
-                            : 'bg-rose-500/10 border-rose-500/20 text-rose-700 hover:bg-rose-500/20'
-                        }`}
-                      >
-                        Không đạt (0 điểm)
-                      </button>
+          {loadingAttemptDetail ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <Loader className="w-8 h-8 text-primary animate-spin" />
+              <p className="text-xs text-muted-foreground">Đang tải câu hỏi và bài làm...</p>
+            </div>
+          ) : gradingAttempt ? (
+            <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
+              {(gradingAttempt.responses ?? []).map((r, idx) => {
+                const isEssay = r.questionType === 'ESSAY';
+                const pendingEssay = isEssay && r.isCorrect == null;
+                const mark = essayMarks[r.responseId];
+                return (
+                  <div key={r.responseId} className="border border-border rounded-xl p-3 space-y-2 bg-muted/10">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold text-foreground text-[11.5px] leading-snug">
+                        Câu {idx + 1}. {r.questionContent}
+                      </p>
+                      <span className={`shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full border uppercase ${
+                        isEssay
+                          ? 'bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400'
+                          : 'bg-muted border-border text-muted-foreground'
+                      }`}>
+                        {isEssay ? 'Tự luận' : 'Trắc nghiệm'}
+                      </span>
                     </div>
-                  ) : (
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      r.isCorrect
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700'
-                        : 'bg-rose-500/10 border-rose-500/20 text-rose-700'
-                    }`}>
-                      {r.isCorrect ? `Đạt · +${r.maxScore} điểm` : 'Không đạt · 0 điểm'}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+
+                    <div className="bg-muted border border-border rounded-lg p-2 text-[11px] text-foreground whitespace-pre-wrap break-words">
+                      {isEssay
+                        ? (r.responseText?.trim() ? r.responseText : <span className="italic text-muted-foreground">Học sinh không trả lời</span>)
+                        : (r.selectedAnswers && r.selectedAnswers.length > 0
+                            ? r.selectedAnswers.join(', ')
+                            : <span className="italic text-muted-foreground">Không chọn đáp án</span>)}
+                    </div>
+
+                    {pendingEssay ? (
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Giáo viên chấm:</span>
+                        <button
+                          onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: true }))}
+                          className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
+                            mark === true
+                              ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 hover:bg-emerald-500/20'
+                          }`}
+                        >
+                          Đạt (+{r.maxScore} điểm)
+                        </button>
+                        <button
+                          onClick={() => setEssayMarks((prev) => ({ ...prev, [r.responseId]: false }))}
+                          className={`px-3 py-1 rounded-lg text-[10.5px] font-bold border transition-colors ${
+                            mark === false
+                              ? 'bg-rose-600 border-rose-600 text-white'
+                              : 'bg-rose-500/10 border-rose-500/20 text-rose-700 hover:bg-rose-500/20'
+                          }`}
+                        >
+                          Không đạt (0 điểm)
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        r.isCorrect
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700'
+                          : 'bg-rose-500/10 border-rose-500/20 text-rose-700'
+                      }`}>
+                        {r.isCorrect ? `Đạt · +${r.maxScore} điểm` : 'Không đạt · 0 điểm'}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-10 text-center text-muted-foreground italic">Không có dữ liệu bài làm</div>
+          )}
 
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setGradingAttempt(null)}>
+            <Button variant="outline" size="sm" onClick={() => { setEssayGradingOpen(false); setGradingAttempt(null); }}>
               Đóng
             </Button>
-            {gradingAttempt?.status === 'PENDING_REVIEW' && (
+            {!loadingAttemptDetail && gradingAttempt?.status === 'PENDING_REVIEW' && (
               <Button size="sm" onClick={handleSaveEssayGrades} disabled={savingEssayGrades}>
                 {savingEssayGrades ? <Loader className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
                 Lưu kết quả chấm
