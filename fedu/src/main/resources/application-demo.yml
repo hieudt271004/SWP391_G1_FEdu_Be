@@ -1,0 +1,33 @@
+# =====================================================================
+# Profile DEMO — chạy hệ thống với database PostgreSQL local trên máy.
+# File này ĐƯỢC commit (không chứa secret thật) — dùng cho giáo viên/demo.
+#
+# Chuẩn bị (1 lần): cài PostgreSQL và tạo database trống:
+#   CREATE DATABASE fedudb;
+# Schema + dữ liệu demo sẽ được Flyway tự dựng ở lần chạy đầu tiên.
+#
+# Chạy:  .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=demo"
+#   (hoặc IntelliJ: Run Config -> Active profiles = demo)
+# Nếu mật khẩu user postgres trên máy khác '123': set biến DB_PASSWORD
+# trước khi chạy, hoặc sửa trực tiếp dòng password bên dưới.
+#
+# Ghi chú: profile này KHÔNG cấu hình mật khẩu mail và Cloudinary (secret
+# không được commit) — tính năng gửi email / upload tài liệu sẽ không hoạt
+# động trừ khi set thêm biến MAIL_PASSWORD / CLOUDINARY_* khi chạy.
+# =====================================================================
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fedudb
+    username: postgres
+    password: ${DB_PASSWORD:123}
+
+  # Ngoài migration schema, profile demo nạp thêm dữ liệu demo (db/demo).
+  # Seed chỉ chạy khi database còn trống (được guard trong file seed).
+  flyway:
+    locations: classpath:db/migration,classpath:db/demo
+
+# JWT dùng key test (giống .env.example) — chỉ cho demo, KHÔNG dùng cho prod
+jwt:
+  accessKey: dGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLWFjY2Vzcy10b2tlbi1rZXktZm9yLWZlZHU=
+  refreshKey: dGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLXJlZnJlc2gtdG9rZW4ta2V5LWZvci1mZWR1
+  resetKey: dGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLXJlc2V0LXRva2VuLWtleS1mb3ItZmVkdQ==
