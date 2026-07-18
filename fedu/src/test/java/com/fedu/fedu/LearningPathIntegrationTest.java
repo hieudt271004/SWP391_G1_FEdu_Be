@@ -97,7 +97,6 @@ public class LearningPathIntegrationTest {
         transactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         transactionTemplate.execute(status -> {
             
-            jdbcTemplate.execute("DELETE FROM ticket_comments");
             jdbcTemplate.execute("DELETE FROM support_tickets");
             jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
             jdbcTemplate.execute("DELETE FROM classroom_subject_students");

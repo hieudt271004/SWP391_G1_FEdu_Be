@@ -62,7 +62,6 @@ public class QuestionManagementIntegrationTest {
     @BeforeEach
     void setUp() {
         
-        jdbcTemplate.execute("DELETE FROM ticket_comments");
         jdbcTemplate.execute("DELETE FROM support_tickets");
         jdbcTemplate.execute("DELETE FROM classroom_sub_mentor");
         jdbcTemplate.execute("DELETE FROM classroom_subject_students");
