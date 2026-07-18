@@ -41,8 +41,8 @@
 
 ### 🗄️ Database
 
-- **Database Engine**: PostgreSQL (Deploy trên cloud Neon.tech)
-- **Quản lý Schema**: Khởi tạo thủ công thông qua tệp tin SQL script `fedudb_script.sql` (Hibernate `ddl-auto` cấu hình là `none`).
+- **Database Engine**: PostgreSQL (cloud Neon.tech cho team dev, hoặc PostgreSQL local cho demo)
+- **Quản lý Schema**: Flyway migrations trong `fedu/src/main/resources/db/migration/` — app tự dựng/cập nhật schema khi khởi động (Hibernate `ddl-auto` cấu hình là `none`).
 
 ---
 
@@ -52,8 +52,7 @@
 SWP391_G1_FEdu_Be/
 ├── fedu/                     # Thư mục chứa mã nguồn Backend (Spring Boot Project)
 │   ├── src/main/java/        # Mã nguồn Java (Controllers, Services, Repositories, DTOs, Entities...)
-│   ├── src/main/resources/   # Cấu hình ứng dụng (application.yml, static templates...)
-│   ├── fedudb_script.sql     # Script khởi tạo cơ sở dữ liệu PostgreSQL
+│   ├── src/main/resources/   # Cấu hình ứng dụng (application.yml, db/migration - Flyway...)
 │   ├── mvnw / mvnw.cmd       # Maven wrapper khởi chạy dự án
 │   └── pom.xml               # Khai báo dependencies của Maven
 ├── SWP391_G1_FEdu_Fe/        # Thư mục chứa mã nguồn Frontend (React + Vite Project)
@@ -70,8 +69,8 @@ SWP391_G1_FEdu_Be/
 ### 1. Chuẩn bị Cơ sở dữ liệu (Database)
 
 1. Cài đặt PostgreSQL (hoặc sử dụng dịch vụ đám mây như Neon, Supabase).
-2. Tạo cơ sở dữ liệu mới (ví dụ đặt tên là `fedu_db`).
-3. Chạy toàn bộ file script `/fedu/fedudb_script.sql` trong cơ sở dữ liệu vừa tạo để dựng schema và dữ liệu mẫu (Roles...).
+2. Tạo cơ sở dữ liệu trống mới (ví dụ đặt tên là `fedudb`).
+3. Không cần chạy script tay — **Flyway tự dựng schema + dữ liệu tham chiếu** (roles, học kỳ, slots) khi ứng dụng khởi động lần đầu. Chạy với profile `demo` sẽ nạp thêm bộ dữ liệu demo (tài khoản mẫu, môn học, lộ trình mẫu — xem `DEPLOYMENT.md`).
 
 ### 2. Cấu hình Biến môi trường (Environment Variables)
 
