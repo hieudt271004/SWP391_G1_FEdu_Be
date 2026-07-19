@@ -18,10 +18,10 @@ import {
 import { TestRunner } from '../../pages/student/tests/components/TestRunner';
 
 export interface StudentPopQuizRunnerProps {
-  nodeId: number;
+  classroomSubjectId: number;
 }
 
-export function StudentPopQuizRunner({ nodeId }: StudentPopQuizRunnerProps) {
+export function StudentPopQuizRunner({ classroomSubjectId }: StudentPopQuizRunnerProps) {
   const [activePopQuiz, setActivePopQuiz] = useState<PopQuizPendingResponse | null>(null);
   const [popQuizPaper, setPopQuizPaper] = useState<PopQuizPaperResponse | null>(null);
   const [startingPopQuiz, setStartingPopQuiz] = useState(false);
@@ -33,9 +33,10 @@ export function StudentPopQuizRunner({ nodeId }: StudentPopQuizRunnerProps) {
 
   // Poll for pending pop quiz
   useEffect(() => {
+    if (!classroomSubjectId) return;
     const poll = async () => {
       try {
-        const res = await studentService.getPendingPopQuiz(nodeId);
+        const res = await studentService.getPendingPopQuizBySubject(classroomSubjectId);
         if (res) {
           setActivePopQuiz(res);
           if (res.status === 'PENDING') {
@@ -68,7 +69,7 @@ export function StudentPopQuizRunner({ nodeId }: StudentPopQuizRunnerProps) {
     poll();
     const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
-  }, [nodeId, popQuizPaper, showPopQuizRunner]);
+  }, [classroomSubjectId, popQuizPaper, showPopQuizRunner]);
 
 
 
@@ -234,7 +235,7 @@ export function StudentPopQuizRunner({ nodeId }: StudentPopQuizRunnerProps) {
           </DialogHeader>
           <div className="flex flex-col items-center justify-center p-6 space-y-4">
             <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-4xl border border-emerald-200 font-bold">
-              {activePopQuiz?.score != null ? `${activePopQuiz.score}%` : '---'}
+              {activePopQuiz?.score != null ? `${(activePopQuiz.score / 10).toFixed(1)}đ` : '---'}
             </div>
             <p className="text-sm text-zinc-500 font-medium text-center">
               {activePopQuiz?.status === 'EXPIRED' 

@@ -216,7 +216,6 @@ export function StudentLiveSessionPage() {
           )}
         </>
       )}
-      {nid && <StudentPopQuizRunner nodeId={nid} />}
     </div>
   );
 }

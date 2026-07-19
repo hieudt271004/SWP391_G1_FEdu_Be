@@ -38,6 +38,16 @@ public class StudentPopQuizController {
         return new ResponseData<>(HttpStatus.OK.value(), "Trạng thái pop quiz", response);
     }
 
+    @Operation(summary = "Poll bài pop quiz được giao trong toàn bộ môn học")
+    @PreAuthorize("hasRole('STUDENT')")
+    @GetMapping("/classroom-subjects/{id}/pop-quiz/pending")
+    public ResponseData<PopQuizPendingResponse> getPendingByClassroomSubject(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        PopQuizPendingResponse response = popQuizService.getPendingByClassroomSubject(id, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Trạng thái pop quiz", response);
+    }
+
     @Operation(summary = "Bắt đầu làm pop quiz (đúng 1 lượt)")
     @PreAuthorize("hasRole('STUDENT')")
     @ResponseStatus(HttpStatus.CREATED)

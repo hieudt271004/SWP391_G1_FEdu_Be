@@ -298,6 +298,18 @@ public class PopQuizServiceImpl implements PopQuizService {
     public PopQuizPendingResponse getPending(Long nodeId, Long studentId) {
         List<TestAssignmentStudent> candidates = testAssignmentStudentRepository
                 .findByNodeIdAndStudentIdOrderByAssignmentCreatedAtDesc(nodeId, studentId);
+        return processPendingCandidate(candidates);
+    }
+
+    @Override
+    @Transactional
+    public PopQuizPendingResponse getPendingByClassroomSubject(Long classroomSubjectId, Long studentId) {
+        List<TestAssignmentStudent> candidates = testAssignmentStudentRepository
+                .findByClassroomSubjectIdAndStudentIdOrderByAssignmentCreatedAtDesc(classroomSubjectId, studentId);
+        return processPendingCandidate(candidates);
+    }
+
+    private PopQuizPendingResponse processPendingCandidate(List<TestAssignmentStudent> candidates) {
         if (candidates.isEmpty()) {
             return null;
         }

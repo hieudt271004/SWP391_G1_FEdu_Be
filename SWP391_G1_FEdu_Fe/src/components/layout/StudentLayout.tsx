@@ -7,6 +7,7 @@ import { getFullName, getInitials } from '../../utils/userHelpers';
 import logo from '../../assets/logo.png';
 import { Sheet, SheetContent, SheetTitle } from '../ui/sheet';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
+import { StudentPopQuizRunner } from '../popQuiz/StudentPopQuizRunner';
 
 interface SidebarContentProps {
   menuItems: Array<{
@@ -199,6 +200,15 @@ export function StudentLayout() {
           )}
         </ErrorBoundary>
       </main>
+      
+      {/* Global Pop Quiz Watcher for Classroom Subject */}
+      {(() => {
+        const match = location.pathname.match(/\/student\/classroom-subjects\/(\d+)/);
+        if (match && match[1]) {
+          return <StudentPopQuizRunner classroomSubjectId={parseInt(match[1], 10)} />;
+        }
+        return null;
+      })()}
     </div>
   );
 }

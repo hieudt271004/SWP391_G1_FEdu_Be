@@ -273,6 +273,9 @@ export const studentService = {
   getPendingPopQuiz: (nodeId: number) =>
     http.get<PopQuizPendingResponse>(`/student/on-class/${nodeId}/pop-quiz/pending`),
 
+  getPendingPopQuizBySubject: (csId: number) =>
+    http.get<PopQuizPendingResponse>(`/student/classroom-subjects/${csId}/pop-quiz/pending`),
+
   startPopQuizAttempt: (assignmentId: number) =>
     http.post<PopQuizPaperResponse>(`/student/pop-quiz/${assignmentId}/start`),
 

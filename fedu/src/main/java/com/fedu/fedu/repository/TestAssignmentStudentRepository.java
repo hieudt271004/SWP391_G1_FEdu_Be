@@ -26,6 +26,14 @@ public interface TestAssignmentStudentRepository extends JpaRepository<TestAssig
     List<TestAssignmentStudent> findByNodeIdAndStudentIdOrderByAssignmentCreatedAtDesc(
             @Param("nodeId") Long nodeId, @Param("studentId") Long studentId);
 
+    @Query("SELECT tas FROM TestAssignmentStudent tas " +
+           "JOIN tas.assignment a " +
+           "JOIN tas.classroomSubjectStudent css " +
+           "WHERE a.classroomSubject.id = :classroomSubjectId AND css.student.userId = :studentId AND tas.isDeleted = false " +
+           "ORDER BY a.createdAt DESC")
+    List<TestAssignmentStudent> findByClassroomSubjectIdAndStudentIdOrderByAssignmentCreatedAtDesc(
+            @Param("classroomSubjectId") Long classroomSubjectId, @Param("studentId") Long studentId);
+
     
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT tas FROM TestAssignmentStudent tas JOIN tas.classroomSubjectStudent css " +
