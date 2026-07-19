@@ -6,22 +6,6 @@ import lombok.*;
 import java.util.ArrayList;
 import java.util.List;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @Getter
 @Setter
 @Entity
@@ -45,10 +29,6 @@ public class StudentTestResponse extends AbstractEntity<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_id", nullable = false)
     private TestQuestion testQuestion;
-
-    
-
-
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "selected_answer_id")
