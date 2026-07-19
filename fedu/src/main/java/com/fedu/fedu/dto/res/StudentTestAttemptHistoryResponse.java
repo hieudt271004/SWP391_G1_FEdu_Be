@@ -19,6 +19,8 @@ public class StudentTestAttemptHistoryResponse {
     private String testTitle;
     private String testDescription;
     private BigDecimal score;
+    // AttemptStatus name — CANCELLED = lần nộp cũ bị hủy khi duyệt thi lại (chỉ hiển thị tham khảo)
+    private String status;
     private LocalDateTime submittedAt;
     private Integer tabOutCount;
 }

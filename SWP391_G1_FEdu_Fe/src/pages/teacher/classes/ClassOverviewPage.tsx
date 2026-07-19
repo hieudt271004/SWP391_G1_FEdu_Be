@@ -3517,9 +3517,11 @@ export function ClassOverviewPage() {
                             <span className={`px-2 py-0.5 rounded-sm font-bold text-[10px] uppercase border ${
                               req.status === 'APPROVED'
                                 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : req.status === 'COMPLETED'
+                                ? 'bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400'
                                 : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
                             }`}>
-                              {req.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
+                              {req.status === 'APPROVED' ? 'Đã duyệt' : req.status === 'COMPLETED' ? 'Đã thi lại' : 'Từ chối'}
                             </span>
                           </td>
                           <td className="py-3 pr-2 text-rose-600 dark:text-rose-455 font-medium">

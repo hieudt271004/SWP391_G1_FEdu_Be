@@ -35,6 +35,7 @@ public class RetakeRequestServiceImpl implements RetakeRequestService {
     private final NodeEdgeRepository nodeEdgeRepository;
     private final TestRepository testRepository;
     private final UserAccountRepository userAccountRepository;
+    private final StudentMaterialProgressRepository studentMaterialProgressRepository;
 
     @Override
     @Transactional
@@ -133,6 +134,7 @@ public class RetakeRequestServiceImpl implements RetakeRequestService {
             if (path != null) {
                 List<StudentNodeProgress> progressList = studentNodeProgressRepository
                         .findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+                Set<Long> resetNodeIds = new HashSet<>();
                 for (StudentNodeProgress p : progressList) {
                     LearningNode n = p.getLearningNode();
                     if (n.getNodeType() == com.fedu.fedu.utils.enums.NodeType.ON_CLASS) continue;
@@ -143,8 +145,10 @@ public class RetakeRequestServiceImpl implements RetakeRequestService {
                     p.setStatus(StudentProgressStatus.LOCKED);
                     p.setCompletedAt(null);
                     p.setUnlockedAt(null);
+                    resetNodeIds.add(n.getNodeId());
                 }
                 studentNodeProgressRepository.saveAll(progressList);
+                resetNodeItemProgress(studentId, resetNodeIds);
             }
         } else {
             // Learning path node test retake
@@ -196,6 +200,7 @@ public class RetakeRequestServiceImpl implements RetakeRequestService {
         visited.add(startNode.getNodeId());
 
         boolean first = true;
+        Set<Long> resetNodeIds = new HashSet<>();
         while (!queue.isEmpty()) {
             Long currId = queue.poll();
             if (!first) {
@@ -207,6 +212,7 @@ public class RetakeRequestServiceImpl implements RetakeRequestService {
                         p.setStatus(StudentProgressStatus.LOCKED);
                         p.setCompletedAt(null);
                         studentNodeProgressRepository.save(p);
+                        resetNodeIds.add(n.getNodeId());
                     }
                 }
             }
@@ -217,6 +223,33 @@ public class RetakeRequestServiceImpl implements RetakeRequestService {
                     queue.add(edge.getToNode().getNodeId());
                 }
             }
+        }
+        resetNodeItemProgress(studentId, resetNodeIds);
+    }
+
+    /**
+     * Reset tiến độ NỘI DUNG bên trong các node vừa bị khóa lại để học sinh học lại được:
+     * xóa đánh dấu hoàn thành học liệu và hủy các lượt thi của test thuộc node đó.
+     * Nếu không reset, mọi item trong node vẫn "đã xong" → không còn sự kiện hoàn thành nào
+     * để node tự COMPLETED lại → lộ trình kẹt vĩnh viễn. Bài nộp exercise được GIỮ
+     * (chứa bài làm + điểm giáo viên chấm) — exercise không phải làm lại.
+     */
+    private void resetNodeItemProgress(Long studentId, Set<Long> nodeIds) {
+        if (nodeIds.isEmpty()) return;
+
+        studentMaterialProgressRepository.deleteByStudentAndNodeIds(studentId, nodeIds);
+
+        List<StudentTestAttempt> attempts = studentTestAttemptRepository
+                .findByStudentUserIdAndTestLearningNodeNodeIdIn(studentId, nodeIds);
+        List<StudentTestAttempt> toCancel = new ArrayList<>();
+        for (StudentTestAttempt att : attempts) {
+            if (att.getStatus() != AttemptStatus.CANCELLED) {
+                att.setStatus(AttemptStatus.CANCELLED);
+                toCancel.add(att);
+            }
+        }
+        if (!toCancel.isEmpty()) {
+            studentTestAttemptRepository.saveAll(toCancel);
         }
     }
 
@@ -237,8 +270,10 @@ public class RetakeRequestServiceImpl implements RetakeRequestService {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
         }
 
+        // Trả về mọi trạng thái: FE tách danh sách chờ duyệt (PENDING) và lịch sử đã xử lý
+        // (APPROVED/REJECTED/COMPLETED) từ cùng một nguồn.
         return retakeRequestRepository
-                .findByClassroomSubjectIdAndStatusOrderByRequestedAtAsc(classroomSubjectId, RetakeRequestStatus.PENDING)
+                .findByClassroomSubjectIdOrderByRequestedAtAsc(classroomSubjectId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());

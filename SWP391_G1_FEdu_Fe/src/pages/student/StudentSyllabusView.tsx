@@ -333,7 +333,12 @@ export function StudentSyllabusView({
                             </h4>
                             <div className="space-y-2">
                               {tests.map((t) => {
-                                const isItemCompleted = isCompleted || testHistory.filter(h => h.testId === t.testId).some(h => h.score !== null && h.score >= (t.passingPercentage ?? 0));
+                                // Gate/placement chỉ "đạt" khi node được routing hoàn thành (gate hay có
+                                // passingPercentage = 0 nên điểm thấp sẽ bị coi nhầm là đạt).
+                                const isItemCompleted = isCompleted || (
+                                  activeNode.testKind !== 'GATE' && activeNode.testKind !== 'PLACEMENT'
+                                  && testHistory.filter(h => h.testId === t.testId && h.status !== 'CANCELLED').some(h => h.score !== null && h.score >= (t.passingPercentage ?? 0))
+                                );
                                 return (
                                   <div key={t.testId} className="border border-border rounded-2xl p-4 bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
                                     <div className="space-y-1">

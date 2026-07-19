@@ -55,6 +55,7 @@ class StudentTestServiceImplGateRoutingTest {
     @Mock private UserAccountRepository userAccountRepository;
     @Mock private LevelRoutingService levelRoutingService;
     @Mock private com.fedu.fedu.repository.LearningNodeRepository learningNodeRepository;
+    @Mock private com.fedu.fedu.repository.RetakeRequestRepository retakeRequestRepository;
 
     @InjectMocks private StudentTestServiceImpl service;
 

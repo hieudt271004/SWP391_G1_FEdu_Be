@@ -213,11 +213,19 @@ public final class NodeRoutingUtils {
                 }
             } else {
                 boolean isCompleted = statusByNode.get(from.getNodeId()) == StudentProgressStatus.COMPLETED;
-                if (!isCompleted && from.getLevel() != null && from.getStageOrder() != null && progressList != null) {
+                // "Đã hoàn thành chặng này ở mức khác" chỉ áp dụng cho node HỌC (testKind NONE):
+                // node test/gate là chốt bắt buộc, không được coi là đã qua chỉ vì có node HỌC
+                // cùng chặng ở MỨC KHÁC đã xong. Nếu không, node dưới gate mở ra dù chưa làm gate.
+                boolean fromIsContent = from.getTestKind() == null || from.getTestKind() == NodeTestKind.NONE;
+                if (!isCompleted && fromIsContent && from.getLevel() != null
+                        && from.getStageOrder() != null && progressList != null) {
                     for (StudentNodeProgress p : progressList) {
                         LearningNode n = p.getLearningNode();
-                        if (n.getStageOrder() != null && n.getStageOrder().equals(from.getStageOrder())
+                        boolean nIsContent = n.getTestKind() == null || n.getTestKind() == NodeTestKind.NONE;
+                        if (nIsContent && n.getStageOrder() != null
+                                && n.getStageOrder().equals(from.getStageOrder())
                                 && n.getLevel() != null
+                                && !n.getLevel().equals(from.getLevel())
                                 && p.getStatus() == StudentProgressStatus.COMPLETED) {
                             isCompleted = true;
                             break;

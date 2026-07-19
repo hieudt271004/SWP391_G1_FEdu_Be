@@ -132,8 +132,10 @@ export interface StudentTestAttemptHistoryResponse {
   classroomSubjectName: string;
   testTitle: string;
   testDescription: string;
-  
+
   score: number | null;
+  // CANCELLED = lần nộp cũ bị hủy khi duyệt thi lại — chỉ hiển thị tham khảo, không tính đạt/hoàn thành
+  status?: 'SUBMITTED' | 'PENDING_REVIEW' | 'CANCELLED';
   submittedAt: string;
 }
 
@@ -299,7 +301,7 @@ export interface RetakeRequestResponse {
   classroomSubjectName: string;
   testId: number;
   testTitle: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
   requestReason?: string;
   rejectReason?: string;
   requestedAt: string;

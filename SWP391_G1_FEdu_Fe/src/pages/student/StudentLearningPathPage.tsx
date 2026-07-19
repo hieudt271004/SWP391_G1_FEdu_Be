@@ -404,7 +404,7 @@ export function StudentLearningPathPage() {
 
     const allMaterialsDone = materials.every(m => !!materialsMap[`${user.userId}-${m.materialId}`]);
     const allTestsDone = tests.every(t => {
-      const history = testHistory.filter(h => h.testId === t.testId);
+      const history = testHistory.filter(h => h.testId === t.testId && h.status !== 'CANCELLED');
       return history.some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0));
     });
     const allExercisesDone = exercises.every(e => {
@@ -474,10 +474,16 @@ export function StudentLearningPathPage() {
     return testHistory.filter(h => h.testId === activeItem.id);
   }, [activeItem, testHistory]);
 
+  // Attempt CANCELLED (bị hủy khi duyệt thi lại) chỉ để xem lịch sử — không tính vào trạng thái đạt
+  const validAttemptsForTest = useMemo(
+    () => attemptsForTest.filter(h => h.status !== 'CANCELLED'),
+    [attemptsForTest]
+  );
+
   const highestAttempt = useMemo(() => {
-    if (attemptsForTest.length === 0) return null;
-    return attemptsForTest.reduce((max, curr) => (curr.score ?? 0) > (max.score ?? 0) ? curr : max, attemptsForTest[0]);
-  }, [attemptsForTest]);
+    if (validAttemptsForTest.length === 0) return null;
+    return validAttemptsForTest.reduce((max, curr) => (curr.score ?? 0) > (max.score ?? 0) ? curr : max, validAttemptsForTest[0]);
+  }, [validAttemptsForTest]);
 
   
   const currentItemIndex = useMemo(() => {
@@ -525,7 +531,24 @@ export function StudentLearningPathPage() {
 
   const isNodeCompleted = activeNode?.studentStatus === 'COMPLETED';
 
-  
+  // Gate 1 mức = node có level cụ thể hoặc appliesLevels đúng 1 mức. "Đạt" = điểm >= ngưỡng lên level.
+  const isSingleLevelGate = useMemo(() => {
+    if (activeNode?.testKind !== 'GATE') return false;
+    if (activeNode.level != null) return true;
+    const applies = (activeNode.appliesLevels ?? '')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => !Number.isNaN(n));
+    return applies.length === 1;
+  }, [activeNode]);
+
+  // Gate chưa hoàn thành (chưa đạt ngưỡng) vẫn giữ node OPEN → cho làm lại tự do, không cần xin phép GV.
+  const isRetryableGate = activeNode?.testKind === 'GATE' && !isNodeCompleted;
+
+  const singleGatePasses = (score: number | null | undefined) =>
+    score != null && (activeNode?.gateUpMin != null ? score >= activeNode.gateUpMin : score > 0);
+
+
   const isItemCompleted = useMemo(() => {
     if (!activeItem || !activeNode) return false;
     if (activeNode.studentStatus === 'COMPLETED') return true;
@@ -533,7 +556,12 @@ export function StudentLearningPathPage() {
       return !!completedMaterials[`${user?.userId}-${activeItem.id}`];
     }
     if (activeItem.type === 'test') {
-      const history = testHistory.filter(h => h.testId === activeItem.id);
+      // Gate/placement chỉ "xong" khi node được routing hoàn thành, không dựa vào passingPercentage
+      // (gate thường có passingPercentage = 0 nên điểm 0% sẽ bị coi nhầm là đạt).
+      if (activeNode.testKind === 'GATE' || activeNode.testKind === 'PLACEMENT') {
+        return activeNode.studentStatus === 'COMPLETED';
+      }
+      const history = testHistory.filter(h => h.testId === activeItem.id && h.status !== 'CANCELLED');
       return history.some(h => (h.score ?? 0) >= activeItem.data.passingPercentage);
     }
     if (activeItem.type === 'exercise') {
@@ -926,7 +954,7 @@ export function StudentLearningPathPage() {
                                   <Award className={`size-3.5 shrink-0 ${isItemActive ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
                                   <span className="truncate">{t.title}</span>
                                 </div>
-                                {(isCompleted || testHistory.filter(h => h.testId === t.testId).some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0))) && (
+                                {(isCompleted || (node.testKind !== 'GATE' && node.testKind !== 'PLACEMENT' && testHistory.filter(h => h.testId === t.testId && h.status !== 'CANCELLED').some(h => (h.score ?? 0) >= (t.passingPercentage ?? 0)))) && (
                                   <CheckCircle2 className={`size-3.5 shrink-0 ${isItemActive ? 'text-primary-foreground' : 'text-emerald-600 dark:text-emerald-450'}`} />
                                 )}
                               </button>
@@ -1117,6 +1145,12 @@ export function StudentLearningPathPage() {
                             {highestAttempt ? (
                               highestAttempt.score == null ? (
                                 <span className="text-sky-600 dark:text-sky-400 font-bold">Chờ giáo viên chấm</span>
+                              ) : isSingleLevelGate ? (
+                                singleGatePasses(highestAttempt.score) ? (
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Đạt ({highestAttempt.score}%)</span>
+                                ) : (
+                                  <span className="text-red-600 dark:text-red-400 font-bold">Chưa đạt ({highestAttempt.score}%)</span>
+                                )
                               ) : (activeNode?.testKind === 'PLACEMENT' || activeNode?.testKind === 'GATE') ? (
                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">Đã làm ({highestAttempt.score}%)</span>
                               ) : highestAttempt.score >= (activeItem.data.passingPercentage || 0) ? (
@@ -1144,10 +1178,16 @@ export function StudentLearningPathPage() {
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">Lịch sử làm bài thi</span>
                           <div className="space-y-2">
                             {attemptsForTest.map((att, idx) => {
-                              const isPending = att.score == null;
-                              const isPassed = !isPending && (activeNode?.testKind === 'PLACEMENT' || activeNode?.testKind === 'GATE' || (att.score ?? 0) >= (activeItem.data.passingPercentage || 0));
+                              const isCancelled = att.status === 'CANCELLED';
+                              const isPending = !isCancelled && att.score == null;
+                              const isPassed = !isCancelled && !isPending && (
+                                isSingleLevelGate
+                                  ? singleGatePasses(att.score)
+                                  : (activeNode?.testKind === 'PLACEMENT' || activeNode?.testKind === 'GATE'
+                                      || (att.score ?? 0) >= (activeItem.data.passingPercentage || 0))
+                              );
                               return (
-                                <div key={att.attemptId} className="flex justify-between items-center p-3 border border-border bg-muted/20 rounded-md text-xs">
+                                <div key={att.attemptId} className={`flex justify-between items-center p-3 border border-border bg-muted/20 rounded-md text-xs ${isCancelled ? 'opacity-60' : ''}`}>
                                   <span className="font-bold text-foreground">Lần nộp {attemptsForTest.length - idx}</span>
                                   <div className="flex items-center gap-3">
                                     <span className="text-muted-foreground font-semibold text-[11px]">
@@ -1155,14 +1195,18 @@ export function StudentLearningPathPage() {
                                     </span>
                                     <Badge
                                       className={`text-[9px] rounded-sm font-bold border-transparent ${
-                                        isPending
+                                        isCancelled
+                                          ? 'bg-muted text-muted-foreground line-through hover:bg-muted/80'
+                                          : isPending
                                           ? 'bg-sky-500/15 text-sky-700 dark:text-sky-400 hover:bg-sky-500/20'
                                           : isPassed
                                           ? 'bg-emerald-500 text-white hover:bg-emerald-600'
                                           : 'bg-muted text-muted-foreground hover:bg-muted/80'
                                       }`}
                                     >
-                                      {isPending ? 'Chờ giáo viên chấm tự luận' : `Điểm: ${att.score}% - ${isPassed ? 'Đạt' : 'Chưa đạt'}`}
+                                      {isCancelled
+                                        ? `Điểm cũ: ${att.score ?? '—'}% (đã hủy khi thi lại)`
+                                        : isPending ? 'Chờ giáo viên chấm tự luận' : `Điểm: ${att.score}% - ${isPassed ? 'Đạt' : 'Chưa đạt'}`}
                                     </Badge>
                                   </div>
                                 </div>
@@ -1174,7 +1218,48 @@ export function StudentLearningPathPage() {
 
                       {(() => {
                         const latestReq = retakeRequests.find(r => r.testId === activeItem.id);
-                        const hasAttempts = attemptsForTest.length > 0;
+                        // Chỉ tính các lần nộp còn hiệu lực. Nếu node vừa bị reset khi duyệt thi lại
+                        // (mọi attempt = CANCELLED), coi như chưa làm → cho làm lại trực tiếp,
+                        // không cần gửi yêu cầu thi lại.
+                        const hasAttempts = validAttemptsForTest.length > 0;
+                        const hasPendingAttempt = validAttemptsForTest.some(a => a.score == null);
+
+                        const startTest = () => {
+                          const params = new URLSearchParams(searchParams);
+                          params.set('csId', String(classroomSubjectId));
+                          navigate(`/student/tests/${activeItem.id}?${params.toString()}`);
+                        };
+
+                        // Đang chờ giáo viên chấm tự luận → không thao tác, chờ kết quả.
+                        if (hasPendingAttempt) {
+                          return (
+                            <div className="border-t border-border pt-5 flex justify-end">
+                              <Badge className="bg-sky-500/15 text-sky-700 dark:text-sky-400 hover:bg-sky-500/20 text-xs font-bold px-3 py-1 border-transparent">
+                                Đang chờ giáo viên chấm
+                              </Badge>
+                            </div>
+                          );
+                        }
+
+                        // Gate chưa đạt: node vẫn OPEN → cho làm lại trực tiếp, KHÔNG cần xin phép giáo viên.
+                        if (isRetryableGate) {
+                          return (
+                            <div className="border-t border-border pt-5 flex flex-col items-end gap-2">
+                              {hasAttempts && (
+                                <span className="text-[11px] text-muted-foreground font-medium">
+                                  Chưa đạt ngưỡng — bạn có thể làm lại ngay.
+                                </span>
+                              )}
+                              <Button
+                                onClick={startTest}
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
+                              >
+                                <span>{hasAttempts ? 'Làm lại bài kiểm tra' : 'Bắt đầu làm bài thi'}</span>
+                                <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
+                              </Button>
+                            </div>
+                          );
+                        }
 
                         if (hasAttempts) {
                           if (!latestReq) {
@@ -1232,6 +1317,22 @@ export function StudentLearningPathPage() {
                                   className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
                                 >
                                   <span>Gửi yêu cầu thi lại mới</span>
+                                  <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
+                                </Button>
+                              </div>
+                            );
+                          } else if (latestReq.status === 'COMPLETED') {
+                            // Lượt thi lại đã dùng xong → cho phép gửi yêu cầu thi lại mới
+                            return (
+                              <div className="border-t border-border pt-5 flex flex-col items-end gap-2">
+                                <Badge className="bg-muted text-muted-foreground hover:bg-muted/80 text-xs font-bold px-3 py-1 border-transparent">
+                                  Bạn đã hoàn thành lượt thi lại được duyệt
+                                </Badge>
+                                <Button
+                                  onClick={() => handleOpenRetakeModal(activeItem.id)}
+                                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-sm px-6 h-9 flex items-center gap-2 group transition-all border-none outline-none"
+                                >
+                                  <span>Yêu cầu thi lại</span>
                                   <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
                                 </Button>
                               </div>

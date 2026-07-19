@@ -44,6 +44,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     private final ClassroomSubjectRepository classroomSubjectRepository;
     private final StudentLevelHistoryRepository studentLevelHistoryRepository;
     private final com.fedu.fedu.service.LearningPathService learningPathService;
+    private final RetakeRequestRepository retakeRequestRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -622,6 +623,10 @@ public class StudentTestServiceImpl implements StudentTestService {
 
         attempt.setSubmittedAt(LocalDateTime.now());
 
+        // Học sinh đã nộp bài làm lại → lượt thi lại được duyệt coi như đã sử dụng,
+        // để UI quay về trạng thái "Yêu cầu thi lại" cho lần sau.
+        consumeApprovedRetakeRequests(attempt.getStudent().getUserId(), test.getTestId());
+
         if (hasEssay) {
             
             attempt.setScore(null);
@@ -640,6 +645,18 @@ public class StudentTestServiceImpl implements StudentTestService {
         studentTestAttemptRepository.save(attempt);
 
         return finalPercentage;
+    }
+
+    private void consumeApprovedRetakeRequests(Long studentId, Long testId) {
+        List<RetakeRequest> approved = retakeRequestRepository
+                .findByStudentUserIdAndTestTestIdAndStatus(studentId, testId,
+                        com.fedu.fedu.utils.enums.RetakeRequestStatus.APPROVED);
+        for (RetakeRequest r : approved) {
+            r.setStatus(com.fedu.fedu.utils.enums.RetakeRequestStatus.COMPLETED);
+        }
+        if (!approved.isEmpty()) {
+            retakeRequestRepository.saveAll(approved);
+        }
     }
 
     
@@ -696,7 +713,10 @@ public class StudentTestServiceImpl implements StudentTestService {
         for (com.fedu.fedu.entity.Test t : nodeTests) {
             List<StudentTestAttempt> attempts =
                     studentTestAttemptRepository.findByStudentUserIdAndTestTestId(studentId, t.getTestId());
+            // Attempt CANCELLED (bị hủy khi duyệt thi lại) không được tính là đã đạt —
+            // nếu tính, node test sau khi reset vẫn "đạt" và học sinh không phải làm lại.
             boolean passedTest = attempts.stream()
+                    .filter(att -> att.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED)
                     .anyMatch(att -> att.getScore() != null
                             && att.getScore().compareTo(t.getPassingPercentage()) >= 0);
             if (!passedTest) return false;
@@ -941,10 +961,13 @@ public class StudentTestServiceImpl implements StudentTestService {
 
         return attempts.stream()
                 .filter(a -> a.getTest().getTestKind() != com.fedu.fedu.utils.enums.TestKind.POP_QUIZ)
-                // Lịch sử "lần nộp" chỉ gồm bài đã thực nộp: loại attempt đang làm dở (IN_PROGRESS)
-                // và attempt bị hủy khi duyệt thi lại (CANCELLED) — hiển thị chúng thành "lần nộp" epoch-1970 là rác.
+                // Lịch sử "lần nộp" gồm bài đã thực nộp (SUBMITTED/PENDING_REVIEW) và cả bài đã nộp
+                // nhưng bị hủy khi duyệt thi lại (CANCELLED có submittedAt) — FE hiển thị kèm nhãn hủy.
+                // Loại attempt đang làm dở / bị hủy khi chưa nộp (submittedAt null → "lần nộp" epoch-1970 là rác).
                 .filter(a -> a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED
-                        || a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW)
+                        || a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW
+                        || (a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.CANCELLED
+                                && a.getSubmittedAt() != null))
                 .map(a -> {
             com.fedu.fedu.entity.Test t = a.getTest();
             String csName = "N/A";
@@ -970,6 +993,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                     .testTitle(t.getTitle())
                     .testDescription(t.getDescription())
                     .score(a.getScore())
+                    .status(a.getStatus() != null ? a.getStatus().name() : null)
                     .submittedAt(a.getSubmittedAt())
                     .tabOutCount(a.getTabOutCount())
                     .build();

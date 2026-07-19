@@ -17,6 +17,11 @@ public interface RetakeRequestRepository extends JpaRepository<RetakeRequest, Lo
     List<RetakeRequest> findByClassroomSubjectIdAndStatusOrderByRequestedAtAsc(
             Long classroomSubjectId, RetakeRequestStatus status);
 
+    List<RetakeRequest> findByClassroomSubjectIdOrderByRequestedAtAsc(Long classroomSubjectId);
+
     Optional<RetakeRequest> findFirstByStudentUserIdAndTestTestIdAndStatus(
+            Long studentId, Long testId, RetakeRequestStatus status);
+
+    List<RetakeRequest> findByStudentUserIdAndTestTestIdAndStatus(
             Long studentId, Long testId, RetakeRequestStatus status);
 }

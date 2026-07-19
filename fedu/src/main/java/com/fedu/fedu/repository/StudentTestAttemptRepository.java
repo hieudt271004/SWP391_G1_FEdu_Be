@@ -18,10 +18,14 @@ public interface StudentTestAttemptRepository extends JpaRepository<StudentTestA
            "WHERE a.student.userId = :studentId " +
            "AND a.test.learningNode.nodeId IN :nodeIds " +
            "AND a.test.isDeleted = false " +
+           "AND a.status = com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED " +
            "AND a.score >= COALESCE(a.test.passingPercentage, 0)")
     int countCompletedTestsByStudentAndNodeIds(
             @org.springframework.data.repository.query.Param("studentId") Long studentId,
             @org.springframework.data.repository.query.Param("nodeIds") java.util.Collection<Long> nodeIds);
+
+    List<StudentTestAttempt> findByStudentUserIdAndTestLearningNodeNodeIdIn(
+            Long studentId, java.util.Collection<Long> nodeIds);
 
     @org.springframework.data.jpa.repository.Query("SELECT a FROM StudentTestAttempt a " +
            "WHERE a.test.learningNode.learningPath.classroomSubject.id = :classroomSubjectId " +
