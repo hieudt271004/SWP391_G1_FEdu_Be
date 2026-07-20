@@ -86,7 +86,7 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public List<SubjectResponse> getLibrarySubjectsForCurrentTeacher() {
