@@ -64,7 +64,6 @@ public class LearningPathServiceImpl implements LearningPathService {
             return getTemplatesVisibleToTeacher(subjectId);
         }
         
-        
         return learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId)
                 .stream()
@@ -78,8 +77,6 @@ public class LearningPathServiceImpl implements LearningPathService {
     public List<LearningPathResponse> getTemplatesVisibleToTeacher(Long subjectId) {
         assertTeacherTeachesSubject(subjectId);
         
-        
-        
         UserAccount actor = currentUser();
         return learningPathRepository
                 .findBySubjectSubjectIdAndClassroomSubjectIsNullAndIsDeletedFalse(subjectId)
@@ -90,7 +87,6 @@ public class LearningPathServiceImpl implements LearningPathService {
                 .collect(Collectors.toList());
     }
 
-    
     @Override
     @Transactional(readOnly = true)
     public List<SubjectResponse> getLibrarySubjectsForCurrentTeacher() {
