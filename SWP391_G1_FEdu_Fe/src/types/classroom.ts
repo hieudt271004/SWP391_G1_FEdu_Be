@@ -3,7 +3,8 @@ import type { ClassroomStatus, Term } from '../utils/classroom';
 export interface ClassroomResponse {
   classroomId: number;
   className: string;
-  // "Kì học" tách cấu trúc + nhãn dựng sẵn từ backend.
+  // "Kì học": id học kỳ đã liên kết (FK) + term/academicYear/nhãn suy ra từ nó.
+  semesterId?: number;
   term?: Term;
   academicYear?: number;
   semesterLabel?: string;
@@ -29,7 +30,7 @@ export interface ClassroomResponse {
 // Trạng thái vòng đời KHÔNG gửi qua đây — chỉ đổi qua classroomService.updateStatus (admin).
 export interface ClassroomRequest {
   className: string;
-  term?: Term | null;
-  academicYear?: number | null;
+  // "Kì học": chỉ gửi id học kỳ đã cấu hình (thay cho term + academicYear).
+  semesterId?: number | null;
   description?: string;
 }

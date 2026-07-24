@@ -5,6 +5,7 @@ import com.fedu.fedu.dto.res.SemesterResponse;
 import com.fedu.fedu.entity.Semester;
 import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ResourceNotFoundException;
+import com.fedu.fedu.repository.ClassroomRepository;
 import com.fedu.fedu.repository.SemesterRepository;
 import com.fedu.fedu.service.SemesterService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class SemesterServiceImpl implements SemesterService {
 
     private final SemesterRepository semesterRepository;
+    private final ClassroomRepository classroomRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -86,6 +88,9 @@ public class SemesterServiceImpl implements SemesterService {
     public void deleteSemester(Long id) {
         Semester semester = semesterRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học kỳ với ID: " + id));
+        if (classroomRepository.existsBySemester_SemesterId(id)) {
+            throw new InvalidDataException("Không thể xóa học kỳ đang được lớp học sử dụng.");
+        }
         semesterRepository.delete(semester);
         log.info("Deleted semester ID: {}", id);
     }

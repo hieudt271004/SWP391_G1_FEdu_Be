@@ -13,6 +13,8 @@ public interface ClassroomRepository extends JpaRepository<Classroom, Long> {
 
     Optional<Classroom> findByClassroomIdAndIsDeletedFalse(Long classroomId);
 
+    boolean existsBySemester_SemesterId(Long semesterId);
+
     @Query("SELECT c FROM Classroom c WHERE c.isDeleted = false ORDER BY c.createdAt DESC")
     List<Classroom> findAllActive();
 
