@@ -946,12 +946,19 @@ public class StudentTestServiceImpl implements StudentTestService {
         com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
         verifyStudentAccess(node, studentId);
 
-        
+
         if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Node kiểm tra được hoàn thành thông qua việc nộp bài test.");
         }
-        
+        // Node học trên lớp hoàn thành theo thời gian buổi học (sessionEndedAt / qua giờ), không phải
+        // do học xong tài liệu chuẩn bị trước buổi — nếu không sẽ mở chặng sau và ẩn link vào buổi
+        // live trước khi buổi học diễn ra.
+        if (node.getNodeType() == NodeType.ON_CLASS) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Node học trên lớp tự hoàn thành khi buổi học kết thúc, không hoàn thành bằng việc học tài liệu.");
+        }
+
         if (!allNodeTestsPassed(studentId, node)) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài học này có bài kiểm tra — bạn cần đạt bài kiểm tra để hoàn thành.");

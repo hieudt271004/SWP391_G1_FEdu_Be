@@ -397,6 +397,11 @@ export function StudentLearningPathPage() {
 
     if (node?.testKind && node.testKind !== 'NONE') return false;
 
+    // Node học trên lớp tự hoàn thành theo giờ buổi học (backend), không phải do học xong tài liệu
+    // chuẩn bị. Nếu tự complete ở đây sẽ mở chặng sau và ẩn link "Vào buổi học trực tiếp" trước khi
+    // buổi live diễn ra.
+    if (node?.nodeType === 'ON_CLASS') return false;
+
     const materials = content.materials || [];
     const tests = content.tests || [];
     const exercises = content.exercises || [];
