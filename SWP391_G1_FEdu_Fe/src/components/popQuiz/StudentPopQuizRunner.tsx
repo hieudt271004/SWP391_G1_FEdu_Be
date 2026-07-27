@@ -190,12 +190,12 @@ export function StudentPopQuizRunner({ classroomSubjectId }: StudentPopQuizRunne
       <Dialog open={showPopQuizRunner} onOpenChange={() => {}}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-3 mb-4">
-            <div className="flex justify-between items-center pr-6">
-              <DialogTitle className="text-lg font-bold">Pop Quiz: {popQuizPaper?.title}</DialogTitle>
-              <div className="flex items-center gap-2 bg-amber-55 border border-amber-200 px-3 py-1.5 rounded-lg text-amber-700 font-extrabold text-sm animate-pulse">
+            <div className="flex justify-between items-center gap-3 pr-6">
+              <DialogTitle className="text-lg font-bold truncate min-w-0">Pop Quiz: {popQuizPaper?.title}</DialogTitle>
+              <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg text-amber-700 font-extrabold text-sm animate-pulse shrink-0 whitespace-nowrap tabular-nums">
                 <span>⏱️ Còn lại:</span>
                 <span>
-                  {Math.floor(popQuizSecondsLeft / 60)}m {popQuizSecondsLeft % 60}s
+                  {Math.floor(popQuizSecondsLeft / 60)}m {String(popQuizSecondsLeft % 60).padStart(2, '0')}s
                 </span>
               </div>
             </div>
