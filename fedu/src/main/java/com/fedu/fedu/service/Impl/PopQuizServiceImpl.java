@@ -208,9 +208,55 @@ public class PopQuizServiceImpl implements PopQuizService {
     }
 
     private void requireAutoGradable(QuestionType type) {
-        if (type != QuestionType.MULTIPLE_CHOICE && type != QuestionType.TRUE_FALSE && type != QuestionType.MULTIPLE_SELECT) {
+        if (!isAutoGradable(type)) {
             throw new InvalidDataException("Pop quiz chỉ nhận câu hỏi trắc nghiệm/đúng-sai, không nhận tự luận/trả lời ngắn");
         }
+    }
+
+    private boolean isAutoGradable(QuestionType type) {
+        return type == QuestionType.MULTIPLE_CHOICE
+                || type == QuestionType.TRUE_FALSE
+                || type == QuestionType.MULTIPLE_SELECT;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AssignablePopQuizTestResponse> getAssignableTests(Long nodeId, Long teacherId) {
+        LearningNode node = learningNodeRepository.findById(nodeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học"));
+        ClassroomSubject cs = node.getLearningPath() != null ? node.getLearningPath().getClassroomSubject() : null;
+        if (cs == null) {
+            throw new InvalidDataException("Buổi học này thuộc lộ trình mẫu, không có đề để chọn");
+        }
+        if (cs.getLecturer().getUserId() != teacherId) {
+            throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
+        }
+
+        List<AssignablePopQuizTestResponse> result = new ArrayList<>();
+        for (Test test : testRepository.findByClassroomSubjectId(cs.getId())) {
+            // Cùng điều kiện với resolveExistingTest: đề nào lọt qua đây đều giao được ngay.
+            if (test.getDurationMinutes() == null) {
+                continue;
+            }
+            List<TestQuestion> questions = testQuestionRepository.findByTestTestId(test.getTestId());
+            if (questions.isEmpty()
+                    || !questions.stream().allMatch(q -> isAutoGradable(q.getQuestionType()))) {
+                continue;
+            }
+            LearningNode src = test.getLearningNode();
+            result.add(AssignablePopQuizTestResponse.builder()
+                    .testId(test.getTestId())
+                    .title(test.getTitle())
+                    .durationMinutes(test.getDurationMinutes())
+                    .questionCount(questions.size())
+                    .sourceNodeTitle(src != null ? src.getTitle() : null)
+                    .stageOrder(src != null ? src.getStageOrder() : null)
+                    .build());
+        }
+        result.sort(Comparator
+                .comparing((AssignablePopQuizTestResponse t) -> t.getStageOrder() != null ? t.getStageOrder() : Integer.MAX_VALUE)
+                .thenComparing(t -> t.getTitle() != null ? t.getTitle() : ""));
+        return result;
     }
 
     private void validateAnswerComposition(CreatePopQuizRequest.QuestionInput q) {

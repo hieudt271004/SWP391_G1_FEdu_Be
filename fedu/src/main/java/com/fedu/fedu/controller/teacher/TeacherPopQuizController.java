@@ -1,9 +1,11 @@
 package com.fedu.fedu.controller.teacher;
 
 import com.fedu.fedu.dto.req.CreatePopQuizRequest;
+import com.fedu.fedu.dto.res.AssignablePopQuizTestResponse;
 import com.fedu.fedu.dto.res.PopQuizAssignmentResponse;
 import com.fedu.fedu.dto.res.PopQuizResultsResponse;
 import com.fedu.fedu.dto.res.ResponseData;
+import java.util.List;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.service.PopQuizService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,6 +40,16 @@ public class TeacherPopQuizController {
         log.info("Teacher {} assigns pop quiz on node {}", currentUser.getUserId(), nodeId);
         PopQuizAssignmentResponse response = popQuizService.createAndAssign(nodeId, request, currentUser.getUserId());
         return new ResponseData<>(HttpStatus.CREATED.value(), "Đã giao pop quiz", response);
+    }
+
+    @Operation(summary = "Danh sách đề trong lộ trình lớp-môn có thể giao làm pop quiz")
+    @PreAuthorize("hasRole('TEACHER')")
+    @GetMapping("/on-class/{nodeId}/pop-quiz/assignable-tests")
+    public ResponseData<List<AssignablePopQuizTestResponse>> getAssignableTests(
+            @PathVariable Long nodeId,
+            @AuthenticationPrincipal UserAccount currentUser) {
+        List<AssignablePopQuizTestResponse> tests = popQuizService.getAssignableTests(nodeId, currentUser.getUserId());
+        return new ResponseData<>(HttpStatus.OK.value(), "Danh sách đề có thể giao", tests);
     }
 
     @Operation(summary = "Lấy assignment pop quiz đang hoạt động tại node")

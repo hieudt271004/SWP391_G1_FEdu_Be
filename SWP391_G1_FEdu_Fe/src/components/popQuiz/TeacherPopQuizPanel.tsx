@@ -19,10 +19,11 @@ import {
   TableHeader, 
   TableRow 
 } from '../ui/table';
-import { 
-  teacherService, 
-  type CreatePopQuizRequest, 
-  type PopQuizResultsResponse 
+import {
+  teacherService,
+  type CreatePopQuizRequest,
+  type PopQuizResultsResponse,
+  type AssignablePopQuizTest
 } from '../../services/teacher.service';
 import { type StudentInClassResponse } from '../../services/learningPath.service';
 
@@ -31,10 +32,9 @@ export interface TeacherPopQuizPanelProps {
   students: StudentInClassResponse[];
   live: boolean;
   pollTick: number;
-  tests?: any[];
 }
 
-export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = [] }: TeacherPopQuizPanelProps) {
+export function TeacherPopQuizPanel({ nodeId, students, live, pollTick }: TeacherPopQuizPanelProps) {
   const [activePQAssignment, setActivePQAssignment] = useState<PopQuizResultsResponse | null>(null);
   const [loadingPQResults, setLoadingPQResults] = useState(false);
   const [submittingCreatePQ, setSubmittingCreatePQ] = useState(false);
@@ -46,6 +46,8 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
   const [pqExistingTestId, setPqExistingTestId] = useState<number | undefined>(undefined);
   const [pqTargetStudentIds, setPqTargetStudentIds] = useState<number[]>([]);
   const [pqQuestions, setPqQuestions] = useState<any[]>([]);
+  // Nguồn "chọn bài có sẵn": mọi đề tái dùng được trong lộ trình lớp-môn (backend đã lọc).
+  const [assignableTests, setAssignableTests] = useState<AssignablePopQuizTest[]>([]);
 
   const isFirstMount = useRef(true);
 
@@ -83,6 +85,15 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
     // Initialize target students
     setPqTargetStudentIds(students.map(s => s.userId));
   }, [nodeId, studentsHash]);
+
+  // Tải danh sách đề có sẵn để chọn (một lần theo node).
+  useEffect(() => {
+    let alive = true;
+    teacherService.getAssignablePopQuizTests(nodeId)
+      .then(list => { if (alive) setAssignableTests(list ?? []); })
+      .catch(() => { if (alive) setAssignableTests([]); });
+    return () => { alive = false; };
+  }, [nodeId]);
 
   // Refetch on pollTick
   useEffect(() => {
@@ -551,18 +562,24 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
         ) : (
           <div className="space-y-1.5 border-t border-border/60 pt-3">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Chọn bài kiểm tra có sẵn</label>
-            <select
-              value={pqExistingTestId || ""}
-              onChange={(e) => setPqExistingTestId(e.target.value ? Number(e.target.value) : undefined)}
-              className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
-            >
-              <option value="">-- Chọn bài test --</option>
-              {tests?.map((test) => (
-                <option key={test.testId} value={test.testId}>
-                  {test.title} ({test.durationMinutes} phút)
-                </option>
-              ))}
-            </select>
+            {assignableTests.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground italic py-1">
+                Lộ trình lớp-môn này chưa có đề nào dùng lại được (đề cần có thời lượng, có câu hỏi và toàn câu trắc nghiệm/đúng-sai).
+              </p>
+            ) : (
+              <select
+                value={pqExistingTestId || ""}
+                onChange={(e) => setPqExistingTestId(e.target.value ? Number(e.target.value) : undefined)}
+                className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
+              >
+                <option value="">-- Chọn bài test --</option>
+                {assignableTests.map((test) => (
+                  <option key={test.testId} value={test.testId}>
+                    {test.stageOrder != null ? `Chặng ${test.stageOrder} · ` : ''}{test.title} ({test.durationMinutes} phút · {test.questionCount} câu)
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         )}
 
