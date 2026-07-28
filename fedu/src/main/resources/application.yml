@@ -7,13 +7,13 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: ${MAX_UPLOAD_SIZE:10MB}
-      max-request-size: ${MAX_UPLOAD_SIZE:10MB}
+      max-file-size: 10MB
+      max-request-size: 10MB
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://ep-square-rain-aonmzhf3-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&prepareThreshold=0}
+    url: jdbc:postgresql://ep-square-rain-aonmzhf3-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&prepareThreshold=0
     username: neondb_owner
-    password: ${DB_PASSWORD:}
+    password: npg_gBDcJXUtp03r
     driver-class-name: org.postgresql.Driver
     hikari:
       max-lifetime: 270000
@@ -33,7 +33,7 @@ spring:
     host: smtp.gmail.com
     port: 587
     username: hieudtfptu@gmail.com
-    password: ${MAIL_PASSWORD:}
+    password: wujjktxbhemhwxas
     from: hieudtfptu@gmail.com
     properties:
       mail:
@@ -60,18 +60,17 @@ jwt:
   expiryMinute: 15
   expiryHour: 1
   expiryDay: 30
-  accessKey: ${JWT_ACCESS_KEY}
-  refreshKey: ${JWT_REFRESH_KEY}
-  resetKey: ${JWT_RESET_KEY}
+  accessKey: dGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLWFjY2Vzcy10b2tlbi1rZXktZm9yLWZlZHU=
+  refreshKey: dGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLXJlZnJlc2gtdG9rZW4ta2V5LWZvci1mZWR1
+  resetKey: dGhpcy1pcy1hLXZlcnktc2VjdXJlLWFuZC1sb25nLXJlc2V0LXRva2VuLWtleS1mb3ItZmVkdQ==
 
 app:
   frontend-url: http://localhost:5173
   cors:
-    allowed-origins: ${ALLOWED_ORIGINS:http://localhost,http://127.0.0.1,http://localhost:5173,http://localhost:3000,http://localhost:5174,http://localhost:5175}
+    allowed-origins: http://localhost,http://127.0.0.1,http://localhost:5173,http://localhost:3000,http://localhost:5174,http://localhost:5175,http://localhost:80,http://0.0.0.0,http://0.0.0.0:80
 
 cloudinary:
-  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
-  api-key: ${CLOUDINARY_API_KEY:}
-  api-secret: ${CLOUDINARY_API_SECRET:}
-  folder: ${CLOUDINARY_FOLDER:fedu}
-
+  cloud-name: dedcoa75c
+  api-key: "492737673732146"
+  api-secret: TYP57zCgIKKElpp9ILpZ-ayV0Sk
+  folder: fedu
