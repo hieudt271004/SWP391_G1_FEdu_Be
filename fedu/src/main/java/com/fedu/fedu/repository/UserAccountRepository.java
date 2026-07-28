@@ -5,6 +5,7 @@ import com.fedu.fedu.utils.enums.UserStatus;
 import com.fedu.fedu.utils.enums.UserRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,11 +14,17 @@ import java.util.Optional;
 @Repository
 public interface UserAccountRepository extends JpaRepository<UserAccount, Long> {
 
-    boolean existsByEmail(String email);
-    boolean existsByPhone(String phone);
-    boolean existsByPhoneAndUserIdNot(String phone, long userId);
+    @Query("SELECT COUNT(u) > 0 FROM UserAccount u WHERE u.email = :email AND u.isDeleted = false")
+    boolean existsByEmail(@Param("email") String email);
 
-    Optional<UserAccount> findByEmail(String email);
+    @Query("SELECT COUNT(u) > 0 FROM UserAccount u WHERE u.phone = :phone AND u.isDeleted = false")
+    boolean existsByPhone(@Param("phone") String phone);
+
+    @Query("SELECT COUNT(u) > 0 FROM UserAccount u WHERE u.phone = :phone AND u.userId <> :userId AND u.isDeleted = false")
+    boolean existsByPhoneAndUserIdNot(@Param("phone") String phone, @Param("userId") long userId);
+
+    @Query("SELECT u FROM UserAccount u WHERE u.email = :email AND u.isDeleted = false")
+    Optional<UserAccount> findByEmail(@Param("email") String email);
 
     @Query("select ur.role.roleName from UserRole ur where ur.userAccount.userId = :userId")
     List<UserRole> findAllRoleByUserId(long userId);
@@ -25,7 +32,7 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
     List<UserAccount> findAll();
 
     
-    @Query("select distinct u from UserAccount u left join fetch u.userRoles ur left join fetch ur.role")
+    @Query("select distinct u from UserAccount u left join fetch u.userRoles ur left join fetch ur.role where u.isDeleted = false")
     List<UserAccount> findAllWithRoles();
 
     List<UserAccount> findAllByStatus(UserStatus status);

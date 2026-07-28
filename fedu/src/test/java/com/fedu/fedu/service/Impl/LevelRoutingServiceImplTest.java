@@ -193,7 +193,6 @@ class LevelRoutingServiceImplTest {
                 StudentProgressStatus.OPEN);                                                
         when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(STUDENT_ID, pathId))
                 .thenReturn(new ArrayList<>(List.of(pTb, pYeu, pFcKha)));
-        when(nodeEdgeRepository.findByToNodeNodeId(201L)).thenReturn(List.of()); 
 
         service.applyGateRouting(CS_ID, gate("1,2", bd(80), bd(40)), STUDENT_ID, bd(85));
 

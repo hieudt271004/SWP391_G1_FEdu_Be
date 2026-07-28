@@ -1,6 +1,7 @@
 import { http } from './http';
 import { apiClient } from './api.client';
 import type { ClassroomResponse, ClassroomRequest } from '../types/classroom';
+import type { ClassroomStatus } from '../utils/classroom';
 import type {
   ClassroomSubjectResponse,
   AddClassroomSubjectRequest,
@@ -29,6 +30,10 @@ export const classroomService = {
 
   update: (id: number, req: ClassroomRequest) =>
     http.put<ClassroomResponse>(`/classrooms/${id}`, req),
+
+  // Đổi riêng trạng thái (bắt đầu/kết thúc) — không cần gửi lại toàn bộ thông tin lớp.
+  updateStatus: (id: number, status: ClassroomStatus) =>
+    http.patch<ClassroomResponse>(`/classrooms/${id}/status`, { status }),
 
   delete: (id: number) => http.delete<void>(`/classrooms/${id}`),
 

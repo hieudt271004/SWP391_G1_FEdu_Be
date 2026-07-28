@@ -32,6 +32,7 @@ import { ClassDetailPage } from '../pages/admin/ClassDetailPage';
 import { ClassroomSubjectDetailPage } from '../pages/admin/ClassroomSubjectDetailPage';
 import { AddClassPage } from '../pages/admin/AddClassPage';
 import { SlotManagementPage } from '../pages/admin/SlotManagementPage';
+import { SemesterManagementPage } from '../pages/admin/SemesterManagementPage';
 
 
 import { TeacherDashboardPage } from '../pages/teacher/TeacherDashboardPage';
@@ -43,6 +44,7 @@ import { ClassManagementPage } from '../pages/teacher/classes/ClassManagementPag
 import { TeacherLiveSessionPage } from '../pages/teacher/classes/TeacherLiveSessionPage';
 import { StudentDetailsPage } from '../pages/teacher/students/StudentDetailsPage';
 import { TeacherTicketsPage } from '../pages/teacher/tickets/TeacherTicketsPage';
+import { TeacherGradingPage } from '../pages/teacher/grading/TeacherGradingPage';
 
 
 import { ProfileEditPage } from '../pages/profile/ProfileEditPage';
@@ -121,6 +123,7 @@ export function AppRoutes() {
                 <Route path="/teacher/classroom-subjects/:classroomSubjectId/live/:nodeId" element={<TeacherLiveSessionPage />} />
                 <Route path="/teacher/students/:studentId" element={<StudentDetailsPage />} />
                 <Route path="/teacher/tickets" element={<TeacherTicketsPage />} />
+                <Route path="/teacher/grading" element={<TeacherGradingPage />} />
                 <Route path="/teacher/profile" element={<ProfileEditPage />} />
             </Route>
 
@@ -140,6 +143,9 @@ export function AppRoutes() {
 
                 {}
                 <Route path="/admin/slots" element={<SlotManagementPage />} />
+
+                {}
+                <Route path="/admin/semesters" element={<SemesterManagementPage />} />
 
                 {}
                 <Route path="/admin/profile" element={<ProfileEditPage />} />

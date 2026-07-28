@@ -17,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fedu.fedu.service.StudentProgressService;
 import java.util.List;
 
 @Slf4j
@@ -31,6 +32,7 @@ public class LearningPathManagementController {
         private final NodeContentService nodeContentService;
         private final NodeEdgeService nodeEdgeService;
         private final com.fedu.fedu.service.StudentTestService studentTestService;
+        private final StudentProgressService studentProgressService;
 
         @Operation(summary = "Create learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
@@ -181,6 +183,17 @@ public class LearningPathManagementController {
                     learningPathService.getClassroomGraph(classroomSubjectId));
         }
 
+        @Operation(summary = "Get specific student's classroom graph with their progress")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/classroom-subjects/{classroomSubjectId}/students/{studentId}/graph")
+        public ResponseData<ClassroomGraphResponse> getStudentClassroomGraphForTeacher(
+                @PathVariable Long classroomSubjectId,
+                @PathVariable Long studentId) {
+            log.info("Teacher requests graph of student {} for classroom-subject id: {}", studentId, classroomSubjectId);
+            ClassroomGraphResponse graph = studentProgressService.getStudentClassroomGraph(classroomSubjectId, studentId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved roadmap graph for student successfully", graph);
+        }
+
         @Operation(summary = "Publish classroom learning path")
         @PreAuthorize("hasAuthority('ROLE_TEACHER')")
         @PostMapping("/classroom-subjects/{classroomSubjectId}/learning-paths/{pathId}/publish")
@@ -224,6 +237,15 @@ public class LearningPathManagementController {
             log.info("Teacher fetching student attempts for test ID: {}", testId);
             return new ResponseData<>(HttpStatus.OK.value(), "Retrieved student attempts successfully",
                     nodeContentService.getTestAttempts(testId));
+        }
+
+        @Operation(summary = "Get list of student attempts for a classroom subject")
+        @PreAuthorize("hasAuthority('ROLE_TEACHER')")
+        @GetMapping("/classroom-subjects/{csId}/attempts")
+        public ResponseData<List<StudentAttemptResponse>> getClassroomSubjectAttempts(@PathVariable Long csId) {
+            log.info("Teacher fetching student attempts for classroom subject ID: {}", csId);
+            return new ResponseData<>(HttpStatus.OK.value(), "Retrieved student attempts successfully",
+                    nodeContentService.getClassroomSubjectAttempts(csId));
         }
 
         @Operation(summary = "Chi tiết bài làm của học sinh để chấm tay câu tự luận")

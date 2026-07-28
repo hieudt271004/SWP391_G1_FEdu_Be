@@ -12,6 +12,7 @@ import com.fedu.fedu.exception.InvalidDataException;
 import com.fedu.fedu.exception.ScheduleConflictException;
 import com.fedu.fedu.repository.*;
 import com.fedu.fedu.service.LearningPathService;
+import com.fedu.fedu.utils.ClassroomGuards;
 import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.NodeStatus;
 import com.fedu.fedu.utils.enums.NodeType;
@@ -46,6 +47,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     private final NodeExerciseRepository nodeExerciseRepository;
     private final SlotRepository slotRepository;
     private final TemplateEditGuard templateEditGuard;
+    private final com.fedu.fedu.service.LevelRoutingService levelRoutingService;
 
     @Override
     @Transactional(readOnly = true)
@@ -173,6 +175,7 @@ public class LearningPathServiceImpl implements LearningPathService {
 
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
+        ClassroomGuards.assertOpen(cs);
 
         List<LearningPath> existingPaths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (!existingPaths.isEmpty()) {
@@ -198,8 +201,9 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found"));
+        ClassroomGuards.assertOpen(cs);
 
-        
+
         LearningPath template = resolveTemplateForClone(cs, templatePathId);
 
         
@@ -608,25 +612,11 @@ public class LearningPathServiceImpl implements LearningPathService {
             node.setDeadlineAt(null);
             node.setLevel(null);
         }
-        
-        
-        if (node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.GATE
-                && countAppliesLevels(node.getAppliesLevels()) == 1) {
-            node.setGateUpMin(null);
-            node.setGateDownMax(null);
-        }
 
+        // Gate 1 mức GIỮ gateUpMin: nó chính là "ngưỡng đạt" để mở chặng dưới (spec 2026-07-17),
+        // không tự xoá như trước nữa.
         learningNodeRepository.save(node);
         return mapToLearningNodeResponse(node);
-    }
-
-    
-    private int countAppliesLevels(String appliesLevels) {
-        if (appliesLevels == null || appliesLevels.isBlank()) return 0;
-        return (int) java.util.Arrays.stream(appliesLevels.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .count();
     }
 
     @Override
@@ -906,6 +896,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         assertTeacherOwnsClassroomSubject(classroomSubjectId);
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lớp-môn học không tồn tại"));
+        ClassroomGuards.assertActive(cs);
         if (cs.getQuizStart() == null) {
             throw new InvalidDataException("Vui lòng khởi tạo và cấu hình bài test phân loại đầu vào trước khi xuất bản lộ trình.");
         }
@@ -1072,6 +1063,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public void unpublishClassroomPath(Long classroomSubjectId, Long pathId) {
         assertTeacherOwnsClassroomSubject(classroomSubjectId);
+        ClassroomGuards.assertOpen(classroomSubjectRepository.findById(classroomSubjectId).orElse(null));
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (paths.isEmpty()) {
             throw new ResourceNotFoundException("No learning paths found for this classroom subject");
@@ -1099,6 +1091,7 @@ public class LearningPathServiceImpl implements LearningPathService {
     @Transactional
     public void deleteDraftPath(Long classroomSubjectId, Long pathId) {
         assertTeacherOwnsClassroomSubject(classroomSubjectId);
+        ClassroomGuards.assertOpen(classroomSubjectRepository.findById(classroomSubjectId).orElse(null));
         List<LearningPath> paths = learningPathRepository.findAllByClassroomSubjectIdAndIsDeletedFalse(classroomSubjectId);
         if (paths.isEmpty()) {
             throw new ResourceNotFoundException("No learning paths found for this classroom subject");
@@ -1149,11 +1142,16 @@ public class LearningPathServiceImpl implements LearningPathService {
             return;
         }
 
-        if (!studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()).isEmpty()) {
+        Integer level = css.getCurrentLevel();
+
+        List<StudentNodeProgress> existingProgress = studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
+        if (!existingProgress.isEmpty()) {
+
+
+            levelRoutingService.reopenBranchNodesForLevel(classroomSubjectId, studentId, level, null);
             return;
         }
 
-        Integer level = css.getCurrentLevel();
         List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
         List<NodeEdge> edges = nodeEdgeRepository.findByFromNodeLearningPathPathId(path.getPathId());
 
@@ -1171,8 +1169,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         List<StudentNodeProgress> progressList = new ArrayList<>();
         for (LearningNode node : nodes) {
 
-            boolean levelOk = node.getLevel() == null || node.getLevel().equals(level)
-                    || node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE;
+            boolean levelOk = NodeRoutingUtils.unlockableAtLevel(node, level);
 
 
             boolean isAfterPlacement = nodesAfterPlacement.contains(node.getNodeId());
@@ -1287,6 +1284,7 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
         if (path.getClassroomSubject() != null) {
             assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
+            ClassroomGuards.assertOpen(path.getClassroomSubject());
             return;
         }
         UserAccount actor = userAccountRepository.findByEmail(auth.getName()).orElse(null);
@@ -1453,8 +1451,9 @@ public class LearningPathServiceImpl implements LearningPathService {
         }
 
         assertTeacherOwnsClassroomSubject(path.getClassroomSubject().getId());
+        ClassroomGuards.assertOpen(path.getClassroomSubject());
 
-        
+
         if (node.getStudyDate() != null && node.getSlot() != null) {
             LocalDateTime existingStart = LocalDateTime.of(node.getStudyDate(), node.getSlot().getStartTime());
             if (existingStart.isBefore(LocalDateTime.now())) {

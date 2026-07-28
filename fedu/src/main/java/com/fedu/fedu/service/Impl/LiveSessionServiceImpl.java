@@ -63,6 +63,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
     public LiveSessionStateResponse startSession(Long classroomSubjectId, Long nodeId, Long teacherId) {
         assertTeacherOwns(classroomSubjectId, teacherId);
         LearningNode node = loadOnClassNode(classroomSubjectId, nodeId);
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
 
         LocalDateTime windowStart = windowStart(node);
         LocalDateTime windowEnd = windowEnd(node);
@@ -108,6 +109,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
     public LiveSessionStateResponse releaseTest(Long classroomSubjectId, Long nodeId, Long testId, Long teacherId) {
         assertTeacherOwns(classroomSubjectId, teacherId);
         LearningNode node = loadOnClassNode(classroomSubjectId, nodeId);
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
 
         LocalDateTime now = LocalDateTime.now();
         if (!isLive(node, now)) {

@@ -114,15 +114,15 @@ export function NodeContentReadOnlyPanel({
 
   const chevron = (opened: boolean) =>
     opened ? (
-      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
     ) : (
-      <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
     );
 
   const renderContent = () => {
     if (materials.length === 0 && tests.length === 0 && exercises.length === 0) {
       return (
-        <div className="py-10 text-center text-sm text-slate-400">
+        <div className="py-10 text-center text-sm text-muted-foreground">
           Bài học này chưa có tài liệu, bài test hoặc bài tập.
         </div>
       );
@@ -133,7 +133,7 @@ export function NodeContentReadOnlyPanel({
         {}
         {materials.length > 0 && (
           <section className="space-y-1.5">
-            <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               <FileText className="h-3.5 w-3.5" /> Tài liệu học tập
             </h5>
             <div className="space-y-1.5">
@@ -142,18 +142,18 @@ export function NodeContentReadOnlyPanel({
                 const opened = open.has(key);
                 const mins = m.video?.durationSeconds ? Math.round(m.video.durationSeconds / 60) : null;
                 return (
-                  <div key={key} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <div key={key} className="overflow-hidden rounded-lg border border-border bg-card shadow-2xs">
                     <button
                       type="button"
                       onClick={() => toggle(key)}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
                     >
                       {chevron(opened)}
-                      <span className="flex-1 truncate text-sm font-semibold text-slate-700">{m.title}</span>
-                      {mins != null && <span className="shrink-0 text-[11px] text-slate-400">{mins} phút</span>}
+                      <span className="flex-1 truncate text-sm font-semibold text-foreground">{m.title}</span>
+                      {mins != null && <span className="shrink-0 text-[11px] text-muted-foreground">{mins} phút</span>}
                     </button>
                     {opened && (
-                      <div className="border-t border-slate-100 px-3 pb-3">
+                      <div className="border-t border-border px-3 pb-3">
                         <MaterialPreview material={m} />
                       </div>
                     )}
@@ -167,7 +167,7 @@ export function NodeContentReadOnlyPanel({
         {}
         {tests.length > 0 && (
           <section className="space-y-1.5">
-            <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               <ClipboardCheck className="h-3.5 w-3.5" /> Bài kiểm tra
             </h5>
             <div className="space-y-1.5">
@@ -177,33 +177,33 @@ export function NodeContentReadOnlyPanel({
                 const qs = questionsByTest[t.testId];
                 const qLoading = loadingTest.has(t.testId);
                 return (
-                  <div key={key} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <div key={key} className="overflow-hidden rounded-lg border border-border bg-card shadow-2xs">
                     <button
                       type="button"
                       onClick={() => toggle(key, t.testId)}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
                     >
                       {chevron(opened)}
-                      <span className="flex-1 truncate text-sm font-semibold text-slate-700">{t.title}</span>
-                      <span className="shrink-0 text-[11px] text-slate-400">
+                      <span className="flex-1 truncate text-sm font-semibold text-foreground">{t.title}</span>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
                         {t.durationMinutes ? `${t.durationMinutes}′` : ""}
                         {t.passingPercentage != null ? ` · đạt ${t.passingPercentage}%` : ""}
                       </span>
                     </button>
                     {opened && (
-                      <div className="space-y-2 border-t border-slate-100 px-3 py-3">
+                      <div className="space-y-2 border-t border-border px-3 py-3">
                         {qLoading ? (
-                          <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải câu hỏi…
                           </div>
                         ) : !qs || qs.length === 0 ? (
-                          <p className="text-xs italic text-slate-400">Bài test này chưa có câu hỏi.</p>
+                          <p className="text-xs italic text-muted-foreground">Bài test này chưa có câu hỏi.</p>
                         ) : (
                           qs.map((q, qi) => (
-                            <div key={q.questionId} className="rounded-md bg-slate-50 p-2.5">
+                            <div key={q.questionId} className="rounded-md bg-muted/30 border border-border/30 p-2.5">
                               <div className="mb-1.5 flex items-start justify-between gap-2">
-                                <p className="text-sm font-medium text-slate-700">
-                                  <span className="text-slate-400">Câu {qi + 1}. </span>
+                                <p className="text-sm font-medium text-foreground">
+                                  <span className="text-muted-foreground">Câu {qi + 1}. </span>
                                   {q.questionContent}
                                 </p>
                                 <Badge variant="secondary" className="shrink-0 text-[10px] font-medium">
@@ -212,7 +212,7 @@ export function NodeContentReadOnlyPanel({
                               </div>
                               {isEssay(q.questionType) ? (
                                 q.answers[0]?.answerContent ? (
-                                  <p className="text-xs text-slate-500">
+                                  <p className="text-xs text-muted-foreground font-medium mt-1">
                                     <span className="font-semibold">Gợi ý chấm: </span>
                                     {q.answers[0].answerContent}
                                   </p>
@@ -223,7 +223,7 @@ export function NodeContentReadOnlyPanel({
                                     <li
                                       key={a.answerId}
                                       className={`flex items-center gap-1.5 text-xs ${
-                                        a.isCorrect ? "font-semibold text-emerald-600" : "text-slate-600"
+                                        a.isCorrect ? "font-semibold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
                                       }`}
                                     >
                                       {a.isCorrect ? (
@@ -251,7 +251,7 @@ export function NodeContentReadOnlyPanel({
         {}
         {exercises.length > 0 && (
           <section className="space-y-1.5">
-            <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <h5 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               <PenLine className="h-3.5 w-3.5" /> Bài tập thực hành
             </h5>
             <div className="space-y-1.5">
@@ -259,14 +259,14 @@ export function NodeContentReadOnlyPanel({
                 const key = `ex${ex.exerciseId}`;
                 const opened = open.has(key);
                 return (
-                  <div key={key} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <div key={key} className="overflow-hidden rounded-lg border border-border bg-card shadow-2xs">
                     <button
                       type="button"
                       onClick={() => toggle(key)}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-50"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
                     >
                       {chevron(opened)}
-                      <span className="flex-1 truncate text-sm font-semibold text-slate-700">{ex.title}</span>
+                      <span className="flex-1 truncate text-sm font-semibold text-foreground">{ex.title}</span>
                       <span className="flex shrink-0 gap-1">
                         {ex.allowText && (
                           <Badge variant="outline" className="px-1.5 py-0.5 text-[10px] font-medium border-transparent bg-secondary text-secondary-foreground">Tự luận</Badge>
@@ -277,11 +277,11 @@ export function NodeContentReadOnlyPanel({
                       </span>
                     </button>
                     {opened && (
-                      <div className="border-t border-slate-100 px-3 py-3">
+                      <div className="border-t border-border px-3 py-3">
                         {ex.instructions ? (
-                          <p className="whitespace-pre-wrap text-sm text-slate-600">{ex.instructions}</p>
+                          <p className="whitespace-pre-wrap text-sm text-foreground">{ex.instructions}</p>
                         ) : (
-                          <p className="text-xs italic text-slate-400">Chưa có đề bài.</p>
+                          <p className="text-xs italic text-muted-foreground">Chưa có đề bài.</p>
                         )}
                       </div>
                     )}
@@ -301,7 +301,7 @@ export function NodeContentReadOnlyPanel({
 
   return (
     <Tabs defaultValue="content" className="w-full font-sans">
-      <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-lg h-9 mb-4">
+      <TabsList className="grid w-full grid-cols-2 bg-muted p-1 rounded-lg h-9 mb-4">
         <TabsTrigger value="content" className="text-xs py-1.5 font-semibold rounded-md">
           Nội dung
         </TabsTrigger>

@@ -120,6 +120,11 @@ export function StudentDashboardPage() {
             try {
               
               const graph = await studentService.getClassroomSubjectGraph(s.classroomSubjectId);
+              // Graph state là nguồn chuẩn: NEED_PLACEMENT nghĩa là currentLevel đã bị reset
+              // (vd. được duyệt thi lại bài phân loại) dù level history vẫn còn bản ghi cũ.
+              if (graph?.state === 'NEED_PLACEMENT' || graph?.state === 'PLACEMENT_PENDING') {
+                levelsMap[s.classroomSubjectId] = null;
+              }
               if (graph && graph.state !== 'NEED_PLACEMENT' && graph.state !== 'NO_PATH') {
                 pathsMap[s.classroomSubjectId] = graph.state === 'PUBLISHED' ? 'Lộ trình chính thức' : 'Bản nháp';
               } else {
@@ -477,13 +482,29 @@ export function StudentDashboardPage() {
                         >
                           <div className="flex-1 space-y-1 pr-4">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
-                                node.nodeType === 'AT_HOME' 
-                                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' 
-                                  : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-650 dark:text-indigo-400'
-                              }`}>
-                                {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
-                              </Badge>
+                              {node.testKind && node.testKind !== 'NONE' ? (
+                                <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
+                                  node.testKind === 'PLACEMENT'
+                                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                                    : node.testKind === 'GATE'
+                                    ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-650 dark:text-indigo-400'
+                                    : 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400'
+                                }`}>
+                                  {node.testKind === 'PLACEMENT'
+                                    ? 'Test năng lực'
+                                    : node.testKind === 'GATE'
+                                    ? 'Test phân luồng'
+                                    : 'Test tự chọn'}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className={`text-[9px] font-bold px-1.5 rounded-[4px] ${
+                                  node.nodeType === 'AT_HOME' 
+                                    ? 'bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400' 
+                                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-650 dark:text-indigo-400'
+                                }`}>
+                                  {node.nodeType === 'AT_HOME' ? 'Tự học' : 'Lên lớp'}
+                                </Badge>
+                              )}
                               {node.isRequired && (
                                 <Badge variant="outline" className="text-[9px] font-bold px-1.5 rounded-[4px] bg-muted border-border text-muted-foreground">
                                   Bắt buộc
@@ -586,11 +607,30 @@ export function StudentDashboardPage() {
                                         <div key={t.testId} className="flex items-center justify-between p-2.5 border border-border bg-background rounded-xl gap-4">
                                           <div className="flex-1 space-y-0.5">
                                             <span className="font-bold text-foreground block">{t.title}</span>
-                                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
-                                              <span>Thời gian: {t.durationMinutes} phút</span>
-                                              <span>•</span>
-                                              <span>Yêu cầu đạt: {t.passingPercentage}%</span>
-                                            </div>
+                                             <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium flex-wrap">
+                                               <span>Thời gian: {t.durationMinutes} phút</span>
+                                               {node.testKind === 'PLACEMENT' && (node.placementYeuMax != null || node.placementTbMax != null) ? (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span className="normal-case">
+                                                      Phân mức: Yếu ≤ {node.placementYeuMax}% · TB ≤ {node.placementTbMax}% · Khá &gt; {node.placementTbMax}%
+                                                    </span>
+                                                  </>
+                                                ) : node.testKind === 'GATE' ? null : (
+                                                  <>
+                                                    <span>•</span>
+                                                    <span>Yêu cầu đạt: {t.passingPercentage}%</span>
+                                                  </>
+                                                )}
+                                               {node.testKind === 'GATE' && (node.gateUpMin != null || node.gateDownMax != null) && (
+                                                 <>
+                                                   <span>•</span>
+                                                   <span className="text-emerald-600 dark:text-emerald-400 font-bold">Lên Level khi ≥ {node.gateUpMin ?? '—'}%</span>
+                                                   <span>•</span>
+                                                   <span className="text-rose-600 dark:text-rose-455 font-bold">Hạ Level khi &lt; {node.gateDownMax ?? '—'}%</span>
+                                                 </>
+                                               )}
+                                             </div>
                                           </div>
                                           {node.studentStatus === 'COMPLETED' ? (
                                             <Button

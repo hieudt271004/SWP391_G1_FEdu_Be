@@ -55,6 +55,7 @@ public class PopQuizServiceImpl implements PopQuizService {
         if (cs == null) {
             throw new InvalidDataException("Buổi học này thuộc lộ trình mẫu, không thể giao pop quiz");
         }
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(cs);
         if (cs.getLecturer().getUserId() != teacherId) {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn này");
         }
@@ -297,6 +298,18 @@ public class PopQuizServiceImpl implements PopQuizService {
     public PopQuizPendingResponse getPending(Long nodeId, Long studentId) {
         List<TestAssignmentStudent> candidates = testAssignmentStudentRepository
                 .findByNodeIdAndStudentIdOrderByAssignmentCreatedAtDesc(nodeId, studentId);
+        return processPendingCandidate(candidates);
+    }
+
+    @Override
+    @Transactional
+    public PopQuizPendingResponse getPendingByClassroomSubject(Long classroomSubjectId, Long studentId) {
+        List<TestAssignmentStudent> candidates = testAssignmentStudentRepository
+                .findByClassroomSubjectIdAndStudentIdOrderByAssignmentCreatedAtDesc(classroomSubjectId, studentId);
+        return processPendingCandidate(candidates);
+    }
+
+    private PopQuizPendingResponse processPendingCandidate(List<TestAssignmentStudent> candidates) {
         if (candidates.isEmpty()) {
             return null;
         }

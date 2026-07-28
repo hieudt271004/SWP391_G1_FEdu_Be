@@ -44,11 +44,14 @@ public class SubmissionServiceImpl implements SubmissionService {
     public SubmissionResponse submit(Long exerciseId, Long studentId, CreateSubmissionRequest request, MultipartFile file) {
         NodeExercise exercise = getExercise(exerciseId);
         LearningNode node = exercise.getLearningNode();
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
         assertStudentEnrolledInNode(node, studentId);
 
         String text = request != null ? request.getContent() : null;
         boolean hasText = text != null && !text.trim().isEmpty();
-        boolean hasFile = file != null && !file.isEmpty();
+        boolean hasMultipart = file != null && !file.isEmpty();
+        boolean hasCloudinary = request != null && request.getFileUrl() != null && !request.getFileUrl().trim().isEmpty();
+        boolean hasFile = hasMultipart || hasCloudinary;
 
         if (!hasText && !hasFile) {
             throw new InvalidDataException("Bài nộp phải có nội dung tự luận hoặc file đính kèm.");
@@ -72,7 +75,15 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         submission.setTitle(exercise.getTitle());
         submission.setContent(hasText ? text : null);
-        submission.setFileUrl(hasFile ? storeFile(file) : null);
+        
+        if (hasMultipart) {
+            submission.setFileUrl(storeFile(file));
+        } else if (hasCloudinary) {
+            submission.setFileUrl(request.getFileUrl().trim());
+        } else {
+            submission.setFileUrl(null);
+        }
+        
         submission.setStatus(SubmissionStatus.SUBMITTED);
         submission.setSubmittedAt(LocalDateTime.now());
         
@@ -212,7 +223,16 @@ public class SubmissionServiceImpl implements SubmissionService {
                 .gradedByName(fullName(grader))
                 .submittedAt(s.getSubmittedAt())
                 .gradedAt(s.getGradedAt())
+                .exerciseTitle(ex != null ? ex.getTitle() : null)
                 .build();
+    }
+
+    @Override
+    public List<SubmissionResponse> getClassroomSubjectSubmissions(Long csId) {
+        List<Submission> submissions = submissionRepository.findAllByClassroomSubject(csId);
+        return submissions.stream()
+                .map(this::mapSubmission)
+                .collect(Collectors.toList());
     }
 
     private String fullName(UserAccount u) {

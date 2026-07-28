@@ -184,12 +184,14 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         NodeReview comment = nodeReviewRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Thảo luận không tồn tại với id: " + commentId));
 
-        
-        if (comment.getAuthor() == null || !Long.valueOf(authorId).equals(comment.getAuthor().getUserId())) {
+        UserAccount user = getUser(authorId);
+        boolean isAdmin = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+
+        if (!isAdmin && (comment.getAuthor() == null || !Long.valueOf(authorId).equals(comment.getAuthor().getUserId()))) {
             throw new AccessDeniedException("Bạn không có quyền xóa thảo luận này.");
         }
 
-        
         if (comment.getParentReview() != null) {
             throw new InvalidDataException("Đây là phản hồi, vui lòng dùng chức năng xóa phản hồi.");
         }
@@ -208,12 +210,14 @@ public class NodeReviewServiceImpl implements NodeReviewService {
         NodeReview reply = nodeReviewRepository.findById(replyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Phản hồi không tồn tại với id: " + replyId));
 
-        
-        if (reply.getAuthor() == null || !Long.valueOf(authorId).equals(reply.getAuthor().getUserId())) {
+        UserAccount user = getUser(authorId);
+        boolean isAdmin = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+
+        if (!isAdmin && (reply.getAuthor() == null || !Long.valueOf(authorId).equals(reply.getAuthor().getUserId()))) {
             throw new AccessDeniedException("Bạn không có quyền xóa phản hồi này.");
         }
 
-        
         if (reply.getParentReview() == null) {
             throw new InvalidDataException("Đây là thảo luận gốc, vui lòng dùng chức năng xóa thảo luận.");
         }
@@ -324,6 +328,12 @@ public class NodeReviewServiceImpl implements NodeReviewService {
 
     private void assertTeacherOwnsNode(LearningNode node, Long teacherId) {
         ClassroomSubject cs = resolveClassroomSubject(node);
+        UserAccount user = getUser(teacherId);
+        boolean isAdmin = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+        if (isAdmin) {
+            return;
+        }
         if (cs.getLecturer() == null || cs.getLecturer().getUserId() != teacherId) {
             throw new AccessDeniedException("Bạn không phụ trách lớp-môn này.");
         }
@@ -331,6 +341,12 @@ public class NodeReviewServiceImpl implements NodeReviewService {
 
     private void assertCanParticipate(LearningNode node, Long userId) {
         ClassroomSubject cs = resolveClassroomSubject(node);
+        UserAccount user = getUser(userId);
+        boolean isAdmin = user.getUserRoles() != null && user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && ur.getRole().getRoleName() == com.fedu.fedu.utils.enums.UserRole.ADMIN);
+        if (isAdmin) {
+            return;
+        }
         boolean isStudent = classroomSubjectStudentRepository.existsByClassroomSubject_IdAndStudent_UserId(cs.getId(), userId);
         boolean isTeacher = cs.getLecturer() != null && cs.getLecturer().getUserId() == userId;
         if (!isStudent && !isTeacher) {

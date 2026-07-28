@@ -53,6 +53,8 @@ public class PlacementServiceImpl implements PlacementService {
     @Override
     @Transactional
     public StudentTestAttempt startPlacementAttempt(Long classroomSubjectId, Long studentId) {
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(
+                classroomSubjectRepository.findById(classroomSubjectId).orElse(null));
         requireNotPlacedYet(classroomSubjectId, studentId);
         requirePublishedPath(classroomSubjectId);
         Test quiz = requirePlacementQuiz(classroomSubjectId);
@@ -69,6 +71,7 @@ public class PlacementServiceImpl implements PlacementService {
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubjectIdAndStudentIdForUpdate(classroomSubjectId, studentId)
                 .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(css.getClassroomSubject());
 
         if (css.getCurrentLevel() != null) {
             throw new InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
@@ -132,47 +135,6 @@ public class PlacementServiceImpl implements PlacementService {
                 .toList();
     }
 
-    @Override
-    @Transactional
-    public void cancelPlacementAttempt(Long classroomSubjectId, Long studentId) {
-        ClassroomSubjectStudent css = classroomSubjectStudentRepository
-                .findByClassroomSubjectIdAndStudentIdForUpdate(classroomSubjectId, studentId)
-                .orElseThrow(() -> new AccessDeniedException("Học sinh không thuộc lớp-môn này"));
-
-        learningPathRepository
-                .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(classroomSubjectId)
-                .ifPresent(path -> studentNodeProgressRepository
-                        .deleteByStudentUserIdAndLearningPathPathId(studentId, path.getPathId()));
-
-        css.setCurrentLevel(null);
-        classroomSubjectStudentRepository.save(css);
-
-        studentLevelHistoryRepository.deleteByStudentUserIdAndClassroomSubjectId(studentId, classroomSubjectId);
-
-        
-        Test quiz = requirePlacementQuiz(classroomSubjectId);
-        List<StudentTestAttempt> attempts = studentTestAttemptRepository
-                .findByStudentUserIdAndTestTestId(studentId, quiz.getTestId());
-        for (StudentTestAttempt att : attempts) {
-            if (com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED.equals(att.getStatus())
-                    || com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS.equals(att.getStatus())
-                    || com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(att.getStatus())) {
-                att.setStatus(com.fedu.fedu.utils.enums.AttemptStatus.CANCELLED);
-                studentTestAttemptRepository.save(att);
-            }
-        }
-    }
-
-    @Override
-    @Transactional
-    public void cancelPlacementAttemptForTeacher(Long classroomSubjectId, Long studentId, Long teacherId) {
-        if (!classroomSubjectRepository.existsByIdAndLecturerUserId(classroomSubjectId, teacherId)) {
-            throw new org.springframework.security.access.AccessDeniedException("Bạn không phụ trách lớp-môn này");
-        }
-        cancelPlacementAttempt(classroomSubjectId, studentId);
-    }
-
-    
     private void requireNotPlacedYet(Long classroomSubjectId, Long studentId) {
         ClassroomSubjectStudent css = classroomSubjectStudentRepository
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)

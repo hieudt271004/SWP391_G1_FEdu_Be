@@ -27,4 +27,12 @@ public interface StudentMaterialProgressRepository extends JpaRepository<Student
     int countCompletedMaterialsByStudentAndNodeIds(
             @Param("studentId") Long studentId,
             @Param("nodeIds") java.util.Collection<Long> nodeIds);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM StudentMaterialProgress p " +
+           "WHERE p.classroomSubjectStudent.student.userId = :studentId " +
+           "AND p.material.learningNode.nodeId IN :nodeIds")
+    void deleteByStudentAndNodeIds(
+            @Param("studentId") Long studentId,
+            @Param("nodeIds") java.util.Collection<Long> nodeIds);
 }

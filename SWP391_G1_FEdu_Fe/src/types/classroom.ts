@@ -1,16 +1,21 @@
+import type { ClassroomStatus, Term } from '../utils/classroom';
+
 export interface ClassroomResponse {
   classroomId: number;
   className: string;
-  semester?: string;
+  // "Kì học" tách cấu trúc + nhãn dựng sẵn từ backend.
+  term?: Term;
+  academicYear?: number;
+  semesterLabel?: string;
   description?: string;
   subjectCount?: number;
   studentCount: number;
-  status?: string;
+  status?: ClassroomStatus;
   createdAt?: string;
   updatedAt?: string;
 
-  
-  
+
+
   subjectId?: number;
   subjectCode?: string;
   subjectName?: string;
@@ -21,9 +26,10 @@ export interface ClassroomResponse {
   lecturerLastName?: string;
 }
 
+// Trạng thái vòng đời KHÔNG gửi qua đây — chỉ đổi qua classroomService.updateStatus (admin).
 export interface ClassroomRequest {
   className: string;
-  semester?: string;
+  term?: Term | null;
+  academicYear?: number | null;
   description?: string;
-  status?: string;
 }

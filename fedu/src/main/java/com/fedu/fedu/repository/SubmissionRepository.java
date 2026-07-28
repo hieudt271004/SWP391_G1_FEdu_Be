@@ -32,4 +32,11 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     int countCompletedExercisesByStudentAndNodeIds(
             @org.springframework.data.repository.query.Param("studentId") Long studentId,
             @org.springframework.data.repository.query.Param("nodeIds") java.util.Collection<Long> nodeIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM Submission s " +
+           "WHERE s.nodeExercise.learningNode.learningPath.classroomSubject.id = :classroomSubjectId " +
+           "AND s.isDeleted = false " +
+           "AND s.nodeExercise.isDeleted = false")
+    List<Submission> findAllByClassroomSubject(
+            @org.springframework.data.repository.query.Param("classroomSubjectId") Long classroomSubjectId);
 }

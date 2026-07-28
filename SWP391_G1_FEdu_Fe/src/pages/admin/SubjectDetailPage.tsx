@@ -291,7 +291,7 @@ export function SubjectDetailPage() {
                       <SelectItem value="none" disabled>(Không còn lớp đang hoạt động nào chưa học môn này)</SelectItem>
                     ) : availableClassrooms.map((c) => (
                       <SelectItem key={c.classroomId} value={String(c.classroomId)}>
-                        {c.className}{c.semester ? ` · ${c.semester}` : ""}
+                        {c.className}{c.semesterLabel ? ` · ${c.semesterLabel}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -131,13 +131,6 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
           return;
         }
 
-        const scoreVal = Number(q.score);
-        if (isNaN(scoreVal) || scoreVal <= 0) {
-          toast.error(`Điểm số của câu hỏi ${i + 1} phải lớn hơn 0`);
-          return;
-        }
-        totalScore += scoreVal;
-
         if (q.answers.length < 2) {
           toast.error(`Câu hỏi ${i + 1} phải có ít nhất 2 đáp án`);
           return;
@@ -162,15 +155,12 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
         }
       }
 
-      if (Math.abs(totalScore - 10) > 0.001) {
-        toast.error(`Tổng điểm của các câu hỏi phải bằng chính xác 10. Hiện tại đang là ${totalScore}.`);
-        return;
-      }
+      const scorePerQuestion = 10 / pqQuestions.length;
 
       payload.durationMinutes = durationVal;
       payload.questions = pqQuestions.map(q => ({
         ...q,
-        score: Number(q.score)
+        score: scorePerQuestion
       }));
     } else {
       if (!pqExistingTestId) {
@@ -311,7 +301,7 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
                           </span>
                         </TableCell>
                         <TableCell className="py-2 text-xs font-semibold">
-                          {std.score != null ? `${std.score}%` : '---'}
+                          {std.score != null ? `${(std.score / 10).toFixed(1)}đ` : '---'}
                         </TableCell>
                         <TableCell className="py-2 text-xs text-center text-amber-600 font-semibold">
                           {std.tabOutCount != null ? std.tabOutCount : 0}
@@ -405,7 +395,6 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
                   {
                     questionContent: "",
                     questionType: 'MULTIPLE_CHOICE',
-                    score: 1,
                     answers: [
                       { answerContent: "", isCorrect: false },
                       { answerContent: "", isCorrect: false }
@@ -446,7 +435,7 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       <div className="space-y-1">
                         <span className="text-[9px] font-bold text-muted-foreground uppercase">Loại câu hỏi</span>
                         <select
@@ -479,20 +468,6 @@ export function TeacherPopQuizPanel({ nodeId, students, live, pollTick, tests = 
                           <option value="MULTIPLE_SELECT">Trắc nghiệm nhiều đáp án</option>
                           <option value="TRUE_FALSE">Đúng / Sai</option>
                         </select>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Điểm số</span>
-                        <input
-                          type="number"
-                          value={q.score || ''}
-                          onChange={(e) => setPqQuestions(prev => {
-                            const list = [...prev];
-                            list[qIdx] = { ...list[qIdx], score: e.target.value ? Number(e.target.value) : 0 };
-                            return list;
-                          })}
-                          className="w-full bg-background border border-border rounded px-2 py-0.5 text-xs text-foreground focus-visible:ring-1 focus-visible:ring-primary outline-none"
-                          min={1}
-                        />
                       </div>
                     </div>
 

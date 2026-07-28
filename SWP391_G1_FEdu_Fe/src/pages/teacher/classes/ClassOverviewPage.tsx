@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
@@ -56,7 +56,7 @@ import {
   teacherService
 } from '../../../services/teacher.service';
 import { resolveAssetUrl } from '../../../components/learningPath/MaterialPreview';
-import type { SubmissionResponse } from '../../../services/student.service';
+import type { SubmissionResponse, RetakeRequestResponse } from '../../../services/student.service';
 import { classroomService } from '../../../services/classroom.service';
 import {
   learningPathService,
@@ -71,6 +71,7 @@ import {
   AttemptGradingDetail
 } from '../../../services/learningPath.service';
 import { slotService, SlotResponse } from '../../../services/slot.service';
+import { getClassroomStatusMeta } from '../../../utils/classroom';
 import { LearningPathFlow } from '../../../components/learningPath/LearningPathFlow';
 import { MaterialPreview } from '../../../components/learningPath/MaterialPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -111,7 +112,6 @@ export function ClassOverviewPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [classroomStatus, setClassroomStatus] = useState<string>('inactive');
-  const [parentClassroomId, setParentClassroomId] = useState<number | null>(null);
 
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({});
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
@@ -315,7 +315,7 @@ export function ClassOverviewPage() {
   };
 
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support'>('roadmap');
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'placement' | 'students' | 'support' | 'retake'>('roadmap');
 
   
   const [progressReport, setProgressReport] = useState<Record<number, StudentProgressReportResponse>>({});
@@ -342,6 +342,39 @@ export function ClassOverviewPage() {
       cancelled = true;
     };
   }, [activeTab, classroomSubjectId]);
+
+  const [pendingRetakeRequests, setPendingRetakeRequests] = useState<RetakeRequestResponse[]>([]);
+  const [loadingRetakes, setLoadingRetakes] = useState(false);
+
+  const fetchPendingRetakeRequests = async () => {
+    if (!classroomSubjectId) return;
+    try {
+      setLoadingRetakes(true);
+      const res = await teacherService.getPendingRetakeRequests(Number(classroomSubjectId));
+      setPendingRetakeRequests(res || []);
+    } catch (err) {
+      console.error("Failed to load retake requests:", err);
+    } finally {
+      setLoadingRetakes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'retake') {
+      fetchPendingRetakeRequests();
+    }
+  }, [activeTab, classroomSubjectId]);
+
+  const handleResolveRetakeRequest = async (requestId: number, status: 'APPROVED' | 'REJECTED', rejectReason?: string) => {
+    try {
+      await teacherService.resolveRetakeRequest(requestId, { status, rejectReason });
+      toast.success(status === 'APPROVED' ? "Đã duyệt yêu cầu thi lại!" : "Đã từ chối yêu cầu thi lại!");
+      await fetchPendingRetakeRequests();
+      fetchClassroomData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Xử lý yêu cầu thất bại.");
+    }
+  };
 
   
   const [monitorTest, setMonitorTest] = useState<{ testId: number; title: string } | null>(null);
@@ -487,7 +520,7 @@ export function ClassOverviewPage() {
   
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'placement' || tabParam === 'students' || tabParam === 'support' || tabParam === 'roadmap') {
+    if (tabParam === 'placement' || tabParam === 'students' || tabParam === 'support' || tabParam === 'roadmap' || tabParam === 'retake') {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -529,8 +562,46 @@ export function ClassOverviewPage() {
   
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [detailTab, setDetailTab] = useState<'info' | 'history'>('info');
-  const [resettingPlacement, setResettingPlacement] = useState(false);
+  const [detailTab, setDetailTab] = useState<'info' | 'history' | 'roadmap'>('info');
+  const [studentGraph, setStudentGraph] = useState<ClassroomGraphResponse | null>(null);
+  const [studentGraphLoading, setStudentGraphLoading] = useState(false);
+
+  const studentProgressPercent = useMemo(() => {
+    if (!studentGraph || !studentGraph.nodes || studentGraph.nodes.length === 0) return 0;
+    
+    const visible = studentGraph.nodes.filter((n) => !n.isDeleted);
+    if (visible.length === 0) return 0;
+
+    const activeLevelByStage: Record<number, number> = {};
+    visible.forEach((n) => {
+      const stage = n.stageOrder ?? 0;
+      const isStudyCompletedOrActive = n.studentStatus === 'COMPLETED' || n.studentStatus === 'IN_PROGRESS' || n.studentStatus === 'OPEN';
+      if (isStudyCompletedOrActive && n.level != null) {
+        activeLevelByStage[stage] = n.level;
+      }
+    });
+
+    let totalNodes = 0;
+    let completedNodes = 0;
+
+    visible.forEach((n) => {
+      const stage = n.stageOrder ?? 0;
+      const isCommon = n.level == null;
+      const isActiveLevel = n.level != null && n.level === activeLevelByStage[stage];
+      const isCompleted = n.studentStatus === 'COMPLETED';
+      const isFutureActiveLevel = n.level != null && activeLevelByStage[stage] === undefined && n.level === selectedStudent?.currentLevel;
+
+      if (isCommon || isActiveLevel || isCompleted || isFutureActiveLevel) {
+        totalNodes++;
+        if (isCompleted) {
+          completedNodes++;
+        }
+      }
+    });
+
+    if (totalNodes === 0) return 0;
+    return Math.round((completedNodes / totalNodes) * 100);
+  }, [studentGraph, selectedStudent?.currentLevel]);
 
   const isMounted = useRef(true);
   useEffect(() => {
@@ -552,27 +623,6 @@ export function ClassOverviewPage() {
   const [selectedSubMentor, setSelectedSubMentor] = useState<Student | null>(null);
   const [selectedStudentsToAssign, setSelectedStudentsToAssign] = useState<number[]>([]);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
-
-  const handleResetPlacement = async (studentId: number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn hủy kết quả phân lớp của học sinh này? Toàn bộ tiến độ học tập trên lộ trình cũ của học sinh sẽ bị xóa và không thể khôi phục.")) {
-      return;
-    }
-    setResettingPlacement(true);
-    try {
-      await teacherService.cancelStudentPlacement(Number(classroomSubjectId), studentId);
-      if (isMounted.current) {
-        toast.success("Đã hủy kết quả phân lớp học sinh thành công.");
-        setIsDetailOpen(false);
-      }
-      fetchClassroomData();
-    } catch (err: any) {
-      toast.error(err?.message || "Hủy kết quả thất bại");
-    } finally {
-      if (isMounted.current) {
-        setResettingPlacement(false);
-      }
-    }
-  };
 
   const fetchSupportData = useCallback(async () => {
     if (!classroomSubjectId) return;
@@ -707,11 +757,30 @@ export function ClassOverviewPage() {
     }
   };
 
+  const fetchStudentGraph = async (studentId: number) => {
+    if (!classroomSubjectId) return;
+    try {
+      setStudentGraphLoading(true);
+      const res = await learningPathService.getStudentClassroomGraph(Number(classroomSubjectId), studentId);
+      setStudentGraph(res);
+    } catch (err) {
+      console.error("Failed to load student graph:", err);
+      toast.error("Không thể tải lộ trình chi tiết của học sinh.");
+    } finally {
+      setStudentGraphLoading(false);
+    }
+  };
+
   const handleViewDetail = async (student: Student) => {
     setSelectedStudent(student);
     setDetailTab('info');
     setIsDetailOpen(true);
     setHistoryLoading(true);
+    setStudentGraph(null);
+    
+    // Fetch student graph in parallel
+    fetchStudentGraph(student.rawUserId);
+    
     try {
       const res = await learningPathService.getStudentLevelHistory(Number(classroomSubjectId), student.rawUserId);
       setLevelHistory(res);
@@ -1066,11 +1135,10 @@ export function ClassOverviewPage() {
       setClassInfo({
         classCode: classData.className,
         courseCode: classData.subjectCode,
-        semester: fullClassroom.semester || '',
+        semester: fullClassroom.semesterLabel || '',
         description: fullClassroom.description || '',
       });
       setClassroomStatus(fullClassroom.status || 'inactive');
-      setParentClassroomId(fullClassroom.classroomId);
 
       if (!isMounted.current) return;
       const formatted = (studentsData ?? []).map((item) => ({
@@ -1100,27 +1168,7 @@ export function ClassOverviewPage() {
     }
   };
 
-  const handleUpdateStatus = async (newStatus: string) => {
-    if (!parentClassroomId) return;
-    const actionText = newStatus === 'active' ? 'bắt đầu' : 'kết thúc';
-    if (!confirm(`Bạn có chắc chắn muốn ${actionText} lớp học này không? (Hành động này ảnh hưởng đến toàn bộ môn học trong lớp)`)) return;
-
-    try {
-      setActionState(newStatus === 'active' ? 'publishing' : 'unpublishing');
-      await classroomService.update(parentClassroomId, {
-        className: classInfo.classCode,
-        semester: classInfo.semester || '',
-        description: classInfo.description || '',
-        status: newStatus,
-      });
-      setClassroomStatus(newStatus);
-      toast.success(newStatus === 'active' ? 'Lớp học đã bắt đầu thành công!' : 'Lớp học đã kết thúc!');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Cập nhật trạng thái thất bại');
-    } finally {
-      setActionState('idle');
-    }
-  };
+  // Mở/đóng lớp là quyền của Admin — teacher chỉ xem trạng thái (badge ở header).
 
   useEffect(() => {
     initializedPathsRef.current.clear();
@@ -1680,6 +1728,12 @@ export function ClassOverviewPage() {
   }
 
   const isNonIdle = actionState !== 'idle';
+  const classroomActive = classroomStatus === 'active';
+  const publishBlockedReason = classroomStatus === 'inactive'
+    ? 'Lớp chưa bắt đầu — admin cần bắt đầu lớp trước khi publish lộ trình.'
+    : classroomStatus === 'completed'
+      ? 'Lớp đã kết thúc — chỉ có thể xem.'
+      : null;
 
   return (
     <div className={`space-y-6 ${isNonIdle ? 'pointer-events-none opacity-60' : ''}`} aria-busy={isNonIdle}>
@@ -1691,33 +1745,19 @@ export function ClassOverviewPage() {
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-3">
             Class {classInfo.classCode} - {classInfo.courseCode}
             {(() => {
-              switch (classroomStatus) {
-                case 'active':
-                  return <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">Đang hoạt động</Badge>;
-                case 'completed':
-                  return <Badge className="bg-primary/10 text-primary border-primary/20">Đã hoàn thành</Badge>;
-                default:
-                  return <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">Chưa bắt đầu</Badge>;
-              }
+              const meta = getClassroomStatusMeta(classroomStatus);
+              return <Badge className={`border ${meta.badgeClass}`}>{meta.label}</Badge>;
             })()}
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          {classroomStatus === 'inactive' && (
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
-              onClick={() => handleUpdateStatus('active')}
-              disabled={isNonIdle}
-            >
-              Bắt đầu lớp học
-            </Button>
-          )}
           {}
           {graphData?.state === 'DRAFT' && (
             <Button
               className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl flex items-center gap-1.5"
               onClick={() => setShowPublishConfirm(true)}
-              disabled={isNonIdle}
+              disabled={isNonIdle || !classroomActive}
+              title={publishBlockedReason ?? undefined}
             >
               <Play className="size-4" />
               Publish lộ trình
@@ -1728,7 +1768,8 @@ export function ClassOverviewPage() {
               variant="outline"
               className="text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-200 font-semibold rounded-xl flex items-center gap-1.5"
               onClick={() => setShowUnpublishConfirm(true)}
-              disabled={isNonIdle}
+              disabled={isNonIdle || classroomStatus === 'completed'}
+              title={classroomStatus === 'completed' ? 'Lớp đã kết thúc — chỉ có thể xem.' : undefined}
             >
               <Undo2 className="size-4" />
               Unpublish lộ trình
@@ -1736,6 +1777,13 @@ export function ClassOverviewPage() {
           )}
         </div>
       </div>
+
+      {graphData?.state === 'DRAFT' && publishBlockedReason && (
+        <div className="text-sm text-amber-700 bg-amber-50 py-2 px-3 rounded-md border border-amber-200">
+          {publishBlockedReason}
+          {classroomStatus === 'inactive' && ' Bạn vẫn có thể chuẩn bị và chỉnh sửa lộ trình nháp trước.'}
+        </div>
+      )}
 
       {}
       {graphData?.state === 'NO_PATH' && (
@@ -1812,6 +1860,16 @@ export function ClassOverviewPage() {
         >
           Trợ giảng & Hỏi đáp
         </button>
+        <button
+          onClick={() => setActiveTab('retake')}
+          className={`py-3 px-6 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'retake'
+              ? 'border-primary text-foreground font-bold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Yêu cầu thi lại
+        </button>
       </div>
 
       {}
@@ -1887,7 +1945,8 @@ export function ClassOverviewPage() {
                 </div>
                 <Button
                   onClick={() => (graphData?.state === 'DRAFT' ? setShowApplyTemplateConfirm(true) : handleApplyTemplate())}
-                  disabled={isNonIdle || !selectedTemplateId}
+                  disabled={isNonIdle || !selectedTemplateId || classroomStatus === 'completed'}
+                  title={classroomStatus === 'completed' ? 'Lớp đã kết thúc — chỉ có thể xem.' : undefined}
                   className="shrink-0 rounded-xl font-semibold"
                 >
                   {actionState === 'cloning' ? <Loader className="mr-1.5 size-4 animate-spin" /> : <Play className="mr-1.5 size-4" />}
@@ -2467,17 +2526,16 @@ export function ClassOverviewPage() {
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50 border-border">
                   <TableHead className="font-bold text-muted-foreground w-[12%]">Mã học sinh</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[18%]">Họ và tên</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[16%]">Phân loại năng lực</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[20%]">Lộ trình học tập</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[12%] text-center">Hoàn thành trễ</TableHead>
-                  <TableHead className="font-bold text-muted-foreground w-[22%] text-center">Hành động</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[28%]">Họ và tên</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[18%]">Phân loại năng lực</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[15%] text-center">Hoàn thành trễ</TableHead>
+                  <TableHead className="font-bold text-muted-foreground w-[27%] text-center">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {students.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground italic">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">
                       Chưa có học sinh nào tham gia lớp học này.
                     </TableCell>
                   </TableRow>
@@ -2504,14 +2562,9 @@ export function ClassOverviewPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-[10px] font-bold border rounded-[6px] px-2 py-0.5 ${levelColor}`}>
+                          <Badge variant="outline" className={`text-[10px] font-bold border rounded-[6px] px-2 py-0.5 w-28 justify-center ${levelColor}`}>
                             {levelLabel}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-foreground font-medium text-xs">
-                          {student.assignedPathName || (
-                            <span className="text-muted-foreground italic text-[11px]">Chưa gán lộ trình</span>
-                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           {(() => {
@@ -2946,7 +2999,7 @@ export function ClassOverviewPage() {
 
                   return (
                     <div key={hist.id || idx} className="flex gap-4 items-start p-3 border border-border bg-card rounded-xl">
-                      <div className="flex flex-col items-center justify-center bg-muted text-foreground p-2 rounded-lg font-bold shrink-0 min-w-10 text-center border border-border">
+                      <div className="flex flex-col items-center justify-center bg-muted text-foreground p-2 rounded-lg font-bold shrink-0 w-24 text-center border border-border">
                         <span className="text-[10px] text-muted-foreground block uppercase font-medium">Mức mới</span>
                         <span className="text-sm font-extrabold text-foreground">{getLvlLabel(hist.newLevel)}</span>
                       </div>
@@ -2977,7 +3030,7 @@ export function ClassOverviewPage() {
 
       {}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="sm:max-w-xl bg-background border-border shadow-2xl">
+        <DialogContent className={`${detailTab === 'roadmap' ? 'sm:max-w-3xl' : 'sm:max-w-xl'} bg-background border-border shadow-2xl transition-all duration-300`}>
           <DialogHeader className="pb-3 border-b border-border">
             <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <User className="size-5 text-primary" /> Thông tin chi tiết học sinh
@@ -3009,100 +3062,78 @@ export function ClassOverviewPage() {
                 </div>
               </div>
 
-              {}
-              <div className="flex border-b border-border gap-4 text-xs font-semibold text-muted-foreground">
-                <button
-                  type="button"
-                  onClick={() => setDetailTab('info')}
-                  className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'info' ? 'text-primary border-b-2 border-primary' : 'hover:text-foreground'
-                  }`}
+              <div className="py-4 space-y-4 max-h-[65vh] overflow-y-auto pr-2">
+                <Tabs
+                  value={detailTab}
+                  onValueChange={(val) => {
+                    setDetailTab(val as any);
+                    if (val === 'roadmap' && !studentGraph && selectedStudent) {
+                      fetchStudentGraph(selectedStudent.rawUserId);
+                    }
+                  }}
+                  className="w-full"
                 >
-                  Học lực & Lộ trình
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDetailTab('history')}
-                  className={`pb-2 px-1 relative transition-colors ${
-                    detailTab === 'history' ? 'text-primary border-b-2 border-primary' : 'hover:text-foreground'
-                  }`}
-                >
-                  Lịch sử xếp lớp
-                </button>
-              </div>
+                  <TabsList className="grid w-full grid-cols-3 bg-muted p-1 rounded-xl h-10 mb-5">
+                    <TabsTrigger value="info" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Học lực & Lộ trình
+                    </TabsTrigger>
+                    <TabsTrigger value="history" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Lịch sử xếp lớp
+                    </TabsTrigger>
+                    <TabsTrigger value="roadmap" className="text-xs font-semibold py-1.5 rounded-lg">
+                      Bản đồ lộ trình
+                    </TabsTrigger>
+                  </TabsList>
 
-              {}
-              <div className="min-h-[220px]">
-                {detailTab === 'info' && (
-                  <div className="space-y-4 pt-1">
-                    <div className="grid grid-cols-2 gap-4">
-                      {}
-                      <div className="p-3 border border-border rounded-xl bg-muted/10 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Phân loại học lực</span>
-                        <div className="pt-1">
-                          {(() => {
-                            const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
-                            const badgeColor = selectedStudent.currentLevel === 1
-                              ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
-                              : selectedStudent.currentLevel === 2
-                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                                : selectedStudent.currentLevel === 3
-                                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                                  : 'bg-muted border-border text-muted-foreground';
-                            return (
-                              <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 ${badgeColor}`}>
-                                {label}
-                              </Badge>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      {}
-                      <div className="p-3 border border-border rounded-xl bg-muted/10 space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">Lộ trình học tập</span>
-                        <div className="pt-1 font-semibold text-foreground text-xs">
-                          {selectedStudent.assignedPathName || (
-                            <span className="text-muted-foreground italic font-normal">Chưa gán lộ trình</span>
-                          )}
-                        </div>
+                  <TabsContent value="info" className="mt-0 space-y-4">
+                    {/* Phân loại học lực */}
+                    <div className="p-4 border border-border rounded-xl bg-muted/10 space-y-1.5">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">Phân loại học lực</span>
+                      <div className="pt-0.5">
+                        {(() => {
+                          const label = selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại';
+                          const badgeColor = selectedStudent.currentLevel === 1
+                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
+                            : selectedStudent.currentLevel === 2
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                              : selectedStudent.currentLevel === 3
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-muted border-border text-muted-foreground';
+                          return (
+                            <Badge variant="outline" className={`text-xs font-bold border rounded-[6px] px-2 py-0.5 w-28 justify-center ${badgeColor}`}>
+                              {label}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                     </div>
 
-                    {}
+                    {/* TODO: Tính năng chuyển nhánh lộ trình */}
+                    <div className="p-4 border border-dashed border-amber-500/30 rounded-xl bg-amber-500/5 space-y-1.5">
+                      <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                        <AlertTriangle className="size-3.5 animate-pulse" /> TODO: Tính năng tự chọn nhánh lộ trình
+                      </span>
+                      <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                        Giảng viên xem mức học hiện tại của học sinh và có thể chủ động chuyển học sinh sang nhánh lộ trình khác theo ý muốn (chuyển đổi giữa Yếu, Trung bình, Khá) thay vì dựa hoàn toàn vào bài thi phân lớp tự động.
+                      </p>
+                    </div>
                     <div className="p-4 border border-border rounded-xl bg-muted/5 space-y-3">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-bold text-foreground flex items-center gap-1.5">
                           <TrendingUp className="size-4 text-primary" /> Tiến độ lộ trình
                         </span>
-                        <span className="font-semibold text-foreground">0%</span>
+                        <span className="font-semibold text-foreground">{studentProgressPercent}%</span>
                       </div>
                       <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                        <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: '0%' }} />
+                        <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: `${studentProgressPercent}%` }} />
                       </div>
                       <p className="text-[10.5px] text-muted-foreground leading-relaxed">
                         Học sinh đang học theo nhánh riêng biệt của mức năng lực <span className="font-semibold text-foreground">{selectedStudent.currentLevel === 1 ? 'Yếu' : selectedStudent.currentLevel === 2 ? 'Trung bình' : selectedStudent.currentLevel === 3 ? 'Khá' : 'Chưa phân loại'}</span>. Tiến độ sẽ tự động tăng khi học sinh làm bài test cổng phụ hoặc hoàn thành bài học.
                       </p>
                     </div>
-                    {selectedStudent.currentLevel != null && (
-                      <div className="pt-2">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          onClick={() => handleResetPlacement(selectedStudent.rawUserId)}
-                          disabled={resettingPlacement}
-                          className="w-full font-semibold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
-                        >
-                          {resettingPlacement ? <Loader className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}
-                          Hủy kết quả phân lớp & Cho phép thi lại
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  </TabsContent>
 
-                {detailTab === 'history' && (
-                  <div className="space-y-4 pt-1 text-xs">
+                  <TabsContent value="history" className="mt-0 space-y-4">
                     {historyLoading ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader className="w-8 h-8 animate-spin text-primary" />
@@ -3113,7 +3144,7 @@ export function ClassOverviewPage() {
                         <p className="text-xs">Chưa có lịch sử thay đổi mức năng lực.</p>
                       </div>
                     ) : (
-                      <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+                      <div className="space-y-3">
                         {levelHistory.map((hist, idx) => {
                           const getLvlLabel = (l: number) => l === 1 ? 'Yếu' : l === 2 ? 'Trung bình' : l === 3 ? 'Khá' : 'N/A';
                           const getReasonLabel = (r: string) => {
@@ -3125,7 +3156,7 @@ export function ClassOverviewPage() {
 
                           return (
                             <div key={hist.id || idx} className="flex gap-3 items-start p-2.5 border border-border bg-card rounded-xl">
-                              <div className="flex flex-col items-center justify-center bg-muted text-foreground border border-border p-1.5 rounded-lg font-bold shrink-0 min-w-10 text-center">
+                              <div className="flex flex-col items-center justify-center bg-muted text-foreground border border-border p-1.5 rounded-lg font-bold shrink-0 w-24 text-center">
                                 <span className="text-[9px] text-muted-foreground block uppercase font-medium">Mức mới</span>
                                 <span className="text-xs font-extrabold text-foreground">{getLvlLabel(hist.newLevel)}</span>
                               </div>
@@ -3145,8 +3176,47 @@ export function ClassOverviewPage() {
                         })}
                       </div>
                     )}
-                  </div>
-                )}
+                  </TabsContent>
+
+                  <TabsContent value="roadmap" className="mt-0 space-y-4">
+                    {studentGraphLoading ? (
+                      <div className="flex flex-col items-center justify-center py-16 gap-2">
+                        <Loader className="w-8 h-8 animate-spin text-primary" />
+                        <span className="text-xs text-muted-foreground">Đang tải sơ đồ lộ trình học sinh...</span>
+                      </div>
+                    ) : !studentGraph || !studentGraph.nodes?.length ? (
+                      <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/10">
+                        <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-xs font-semibold">Học sinh này chưa bắt đầu lộ trình.</p>
+                      </div>
+                    ) : (
+                      <div className="border border-border rounded-2xl p-4 bg-muted/5 overflow-x-auto relative">
+                        <div className="flex items-center justify-between text-[11px] mb-4 bg-card border border-border p-3 rounded-xl gap-4">
+                          <span className="font-bold text-foreground">Chú giải ký hiệu:</span>
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="flex items-center gap-1.5 font-medium text-foreground">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 border border-background shadow-xs shrink-0" /> Đã học
+                            </span>
+                            <span className="flex items-center gap-1.5 font-medium text-foreground">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-600 border border-background shadow-xs shrink-0" /> Khóa (Sẽ học)
+                            </span>
+                            <span className="flex items-center gap-1.5 font-medium text-muted-foreground/60">
+                              <span className="w-2.5 h-2.5 rounded-full bg-muted border border-background shadow-xs opacity-60 shrink-0" /> Mức khác (Không học)
+                            </span>
+                          </div>
+                        </div>
+                        <LearningPathFlow
+                          nodes={studentGraph.nodes}
+                          edges={studentGraph.edges || []}
+                          highlightLevel={selectedStudent?.currentLevel}
+                          onNodeClick={(node) => {
+                            toast.info(`Bài học: ${node.title} (${node.studentStatus === 'COMPLETED' ? 'Đã hoàn thành' : node.studentStatus === 'LOCKED' ? 'Đang khóa' : 'Đang học'})`);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
           )}
@@ -3343,6 +3413,134 @@ export function ClassOverviewPage() {
         </div>
       )}
 
+      {activeTab === 'retake' && (
+        <div className="space-y-6">
+          <Card className="border border-border shadow-sm rounded-2xl bg-card text-card-foreground">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <Undo2 className="w-5 h-5 text-amber-500" />
+                <span>Yêu cầu thi lại đang chờ duyệt ({pendingRetakeRequests.filter(r => r.status === 'PENDING').length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {loadingRetakes ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : pendingRetakeRequests.filter(r => r.status === 'PENDING').length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/20">
+                  <Undo2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs font-semibold">Không có yêu cầu thi lại nào đang chờ duyệt.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+                  {pendingRetakeRequests.filter(r => r.status === 'PENDING').map(req => (
+                    <div key={req.id} className="p-4 flex items-start justify-between flex-wrap gap-4 bg-muted/10 hover:bg-muted/20 transition-colors">
+                      <div className="space-y-1.5 flex-1 min-w-[280px]">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-foreground text-sm">{req.studentName}</span>
+                          <span className="text-xs text-muted-foreground">•</span>
+                          <span className="text-xs font-bold text-amber-600 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md uppercase">
+                            {req.testTitle}
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground bg-card border border-border p-3 rounded-lg leading-relaxed">
+                          <span className="font-bold text-muted-foreground block mb-0.5 text-[10px] uppercase">Lý do xin thi lại:</span>
+                          &ldquo;{req.requestReason}&rdquo;
+                        </p>
+                        <span className="text-[10px] text-muted-foreground font-bold block">
+                          Gửi lúc: {new Date(req.requestedAt).toLocaleString('vi-VN')}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-center shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={() => handleResolveRetakeRequest(req.id, 'APPROVED')}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs px-4"
+                        >
+                          Duyệt
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => {
+                            const reason = window.prompt("Nhập lý do từ chối yêu cầu thi lại:");
+                            if (reason !== null) {
+                              handleResolveRetakeRequest(req.id, 'REJECTED', reason.trim());
+                            }
+                          }}
+                          className="font-bold rounded-xl text-xs px-4"
+                        >
+                          Từ chối
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Lịch sử xử lý yêu cầu */}
+          <Card className="border border-border shadow-sm rounded-2xl bg-card text-card-foreground">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-base font-bold text-muted-foreground flex items-center gap-2">
+                <span>Lịch sử yêu cầu đã xử lý ({pendingRetakeRequests.filter(r => r.status !== 'PENDING').length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {pendingRetakeRequests.filter(r => r.status !== 'PENDING').length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-xs italic">
+                  Chưa có yêu cầu nào được xử lý.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground font-extrabold uppercase">
+                        <th className="pb-2">Học sinh</th>
+                        <th className="pb-2">Bài thi</th>
+                        <th className="pb-2">Lý do yêu cầu</th>
+                        <th className="pb-2">Trạng thái</th>
+                        <th className="pb-2">Phản hồi của GV</th>
+                        <th className="pb-2">Thời gian</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {pendingRetakeRequests.filter(r => r.status !== 'PENDING').map(req => (
+                        <tr key={req.id} className="hover:bg-muted/10">
+                          <td className="py-3 pr-2 font-bold text-foreground">{req.studentName}</td>
+                          <td className="py-3 pr-2 font-semibold text-muted-foreground">{req.testTitle}</td>
+                          <td className="py-3 pr-2 italic max-w-xs truncate" title={req.requestReason}>&ldquo;{req.requestReason}&rdquo;</td>
+                          <td className="py-3 pr-2">
+                            <span className={`px-2 py-0.5 rounded-sm font-bold text-[10px] uppercase border ${
+                              req.status === 'APPROVED'
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : req.status === 'COMPLETED'
+                                ? 'bg-sky-500/10 border-sky-500/20 text-sky-600 dark:text-sky-400'
+                                : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+                            }`}>
+                              {req.status === 'APPROVED' ? 'Đã duyệt' : req.status === 'COMPLETED' ? 'Đã thi lại' : 'Từ chối'}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-2 text-rose-600 dark:text-rose-455 font-medium">
+                            {req.rejectReason || '—'}
+                          </td>
+                          <td className="py-3 text-muted-foreground text-[10px] font-semibold">
+                            {new Date(req.resolvedAt || req.requestedAt).toLocaleString('vi-VN')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {}
       <Dialog open={isAssignStudentModalOpen} onOpenChange={setIsAssignStudentModalOpen}>
         <DialogContent className="sm:max-w-md bg-background border-border shadow-2xl">
@@ -3493,26 +3691,26 @@ export function ClassOverviewPage() {
           setSelectedExerciseId(null);
           setGradingSubmission(null);
         }}>
-          <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-            <DialogHeader className="p-6 pb-4 border-b border-slate-100 bg-white shrink-0">
-              <DialogTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
+          <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col p-0 overflow-hidden bg-background border-border shadow-2xl">
+            <DialogHeader className="p-6 pb-4 border-b border-border bg-card shrink-0">
+              <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
                 Chấm bài thực hành: {selectedExerciseTitle}
               </DialogTitle>
             </DialogHeader>
 
             <div className="flex-1 overflow-hidden grid grid-cols-12 min-h-[50vh]">
               {}
-              <div className="col-span-5 border-r border-slate-100 overflow-y-auto p-4 bg-slate-50/50">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Danh sách bài nộp</h4>
+              <div className="col-span-5 border-r border-border overflow-y-auto p-4 bg-muted/20">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Danh sách bài nộp</h4>
                 {loadingSubmissions ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-2">
-                    <Loader className="w-5 h-5 animate-spin text-indigo-600" />
-                    <span className="text-[10px] text-slate-500 font-medium">Đang tải...</span>
+                    <Loader className="w-5 h-5 animate-spin text-primary" />
+                    <span className="text-[10px] text-muted-foreground font-medium">Đang tải...</span>
                   </div>
                 ) : submissionsList.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-white p-4">
-                    <p className="text-[11px] font-medium text-slate-500">Chưa có học sinh nào nộp bài.</p>
+                  <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl bg-card p-4">
+                    <p className="text-[11px] font-medium text-muted-foreground">Chưa có học sinh nào nộp bài.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -3524,25 +3722,25 @@ export function ClassOverviewPage() {
                           onClick={() => handleOpenGrading(sub)}
                           className={`p-3 rounded-xl border transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-indigo-50/40 border-indigo-200 shadow-sm'
-                              : 'bg-white border-slate-100 hover:border-slate-200'
+                              ? 'bg-primary/10 border-primary/30 shadow-sm'
+                              : 'bg-card border-border hover:border-border/80'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-slate-800 text-xs">
+                            <span className="font-bold text-foreground text-xs">
                               {sub.studentName} {sub.status === 'GRADED' ? `(${sub.grade}/10)` : ''}
                             </span>
                             {sub.status === 'GRADED' ? (
-                              <Badge className="text-[8px] font-bold text-emerald-700 bg-emerald-50 border-emerald-150 rounded-[4px] px-1 py-0 border">
+                              <Badge className="text-[8px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/20 rounded-[4px] px-1.5 py-0.5 border">
                                 Đã chấm
                               </Badge>
                             ) : (
-                              <Badge className="text-[8px] font-bold text-amber-700 bg-amber-50 border-amber-150 rounded-[4px] px-1 py-0 border">
+                              <Badge className="text-[8px] font-bold text-amber-600 bg-amber-500/10 border-amber-500/20 rounded-[4px] px-1.5 py-0.5 border">
                                 Chờ chấm
                               </Badge>
                             )}
                           </div>
-                          <div className="text-[9px] text-slate-400 mt-1">
+                          <div className="text-[9px] text-muted-foreground mt-1">
                             Nộp: {new Date(sub.submittedAt).toLocaleString('vi-VN')}
                           </div>
                         </div>
@@ -3553,23 +3751,23 @@ export function ClassOverviewPage() {
               </div>
 
               {}
-              <div className="col-span-7 overflow-y-auto p-6 bg-white flex flex-col">
+              <div className="col-span-7 overflow-y-auto p-6 bg-background flex flex-col">
                 {gradingSubmission ? (
                   <form onSubmit={handleSaveGrade} className="space-y-4 text-xs flex-1 flex flex-col justify-between">
                     <div className="space-y-4">
-                      <div className="border-b border-slate-100 pb-3">
-                        <h3 className="font-bold text-slate-800 text-sm">
+                      <div className="border-b border-border pb-3">
+                        <h3 className="font-bold text-foreground text-sm">
                           Bài làm của: {gradingSubmission.studentName}
                         </h3>
-                        <p className="text-[10px] text-slate-400 mt-1">
+                        <p className="text-[10px] text-muted-foreground mt-1">
                           Trạng thái: {gradingSubmission.status === 'GRADED' ? 'Đã chấm điểm (Khóa chỉnh sửa)' : 'Đang chờ chấm điểm'}
                         </p>
                       </div>
 
                       {gradingSubmission.content && (
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nội dung bài làm</label>
-                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-44 overflow-y-auto whitespace-pre-wrap leading-relaxed text-slate-800">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Nội dung bài làm</label>
+                          <div className="bg-muted/10 p-3 rounded-xl border border-border max-h-44 overflow-y-auto whitespace-pre-wrap leading-relaxed text-foreground">
                             {gradingSubmission.content}
                           </div>
                         </div>
@@ -3577,14 +3775,14 @@ export function ClassOverviewPage() {
 
                       {gradingSubmission.fileUrl && (
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">File đính kèm</label>
-                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between gap-3">
-                            <span className="font-semibold text-slate-650 truncate max-w-xs">{gradingSubmission.fileUrl.split('/').pop()}</span>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">File đính kèm</label>
+                          <div className="p-3 bg-muted/10 rounded-xl border border-border flex items-center justify-between gap-3">
+                            <span className="font-semibold text-foreground truncate max-w-xs">{gradingSubmission.fileUrl.split('/').pop()}</span>
                             <a
                               href={resolveAssetUrl(gradingSubmission.fileUrl)}
                               target="_blank"
                               rel="noreferrer"
-                              className="px-3 py-1 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700 transition-colors text-[10px]"
+                              className="px-3 py-1 bg-primary text-primary-foreground rounded font-bold hover:bg-primary/90 transition-colors text-[10px]"
                             >
                               Tải về / Xem tệp
                             </a>
@@ -3594,7 +3792,7 @@ export function ClassOverviewPage() {
 
                       <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1.5 col-span-1">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Điểm số (0 - 10) *</label>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Điểm số (0 - 10) *</label>
                           <input
                             type="number"
                             step="0.1"
@@ -3603,18 +3801,18 @@ export function ClassOverviewPage() {
                             required
                             disabled={gradingSubmission.status === 'GRADED'}
                             placeholder="VD: 8.5"
-                            className="w-full border border-slate-200 disabled:bg-slate-50 disabled:text-slate-500 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                            className="w-full border border-border disabled:bg-muted/10 disabled:text-muted-foreground rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-primary text-foreground bg-background"
                             value={gradeValue}
                             onChange={(e) => setGradeValue(e.target.value)}
                           />
                         </div>
                         <div className="space-y-1.5 col-span-2">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Nhận xét của giảng viên</label>
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Nhận xét của giảng viên</label>
                           <input
                             type="text"
                             disabled={gradingSubmission.status === 'GRADED'}
                             placeholder={gradingSubmission.status === 'GRADED' ? "Không có nhận xét nào" : "Nhập nhận xét hoặc feedback..."}
-                            className="w-full border border-slate-200 disabled:bg-slate-50 disabled:text-slate-500 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 bg-white"
+                            className="w-full border border-border disabled:bg-muted/10 disabled:text-muted-foreground rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary text-foreground bg-background"
                             value={feedbackValue}
                             onChange={(e) => setFeedbackValue(e.target.value)}
                           />
@@ -3622,7 +3820,7 @@ export function ClassOverviewPage() {
                       </div>
                     </div>
 
-                    <div className="border-t border-slate-100 pt-4 mt-6 flex justify-end gap-2">
+                    <div className="border-t border-border pt-4 mt-6 flex justify-end gap-2">
                       {gradingSubmission.status !== 'GRADED' ? (
                         <Button
                           type="submit"
@@ -3633,22 +3831,22 @@ export function ClassOverviewPage() {
                           Lưu điểm & Khóa bài
                         </Button>
                       ) : (
-                        <span className="text-[10px] text-slate-400 italic py-2">
+                        <span className="text-[10px] text-muted-foreground italic py-2">
                           Bài nộp này đã được chấm và khóa chỉnh sửa.
                         </span>
                       )}
                     </div>
                   </form>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-center gap-2 py-20">
-                    <Users className="w-8 h-8 text-slate-300" />
+                  <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-center gap-2 py-20">
+                    <Users className="w-8 h-8 text-muted-foreground/60" />
                     <p className="text-xs font-medium">Chọn một học sinh từ danh sách bên trái để chấm điểm.</p>
                   </div>
                 )}
               </div>
             </div>
 
-            <DialogFooter className="p-4 border-t border-slate-100 shrink-0 bg-white">
+            <DialogFooter className="p-4 border-t border-border shrink-0 bg-card">
               <Button type="button" onClick={() => {
                 setSelectedExerciseId(null);
                 setGradingSubmission(null);

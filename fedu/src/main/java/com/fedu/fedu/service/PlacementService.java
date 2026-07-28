@@ -18,13 +18,7 @@ public interface PlacementService {
     PlacementResultResponse submitPlacement(Long classroomSubjectId, Long attemptId,
                                             Long studentId, AttemptSubmissionRequest request);
 
-    
+
     java.util.List<com.fedu.fedu.dto.res.StudentLevelHistoryResponse> getLevelHistory(
             Long classroomSubjectId, Long studentId);
-
-    
-    void cancelPlacementAttempt(Long classroomSubjectId, Long studentId);
-
-    
-    void cancelPlacementAttemptForTeacher(Long classroomSubjectId, Long studentId, Long teacherId);
 }

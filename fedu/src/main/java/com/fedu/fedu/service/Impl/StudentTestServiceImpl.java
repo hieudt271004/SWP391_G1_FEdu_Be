@@ -44,6 +44,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     private final ClassroomSubjectRepository classroomSubjectRepository;
     private final StudentLevelHistoryRepository studentLevelHistoryRepository;
     private final com.fedu.fedu.service.LearningPathService learningPathService;
+    private final RetakeRequestRepository retakeRequestRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -54,6 +55,23 @@ public class StudentTestServiceImpl implements StudentTestService {
         rejectPopQuiz(test);
         verifyStudentAccess(test.getLearningNode(), studentId);
         assertTestReleased(test);
+
+        if (test.getLearningNode() != null && test.getLearningNode().getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT && isEntryPlacementTest(test)) {
+            Long csId = test.getLearningNode().getLearningPath().getClassroomSubject().getId();
+            com.fedu.fedu.entity.ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                    .findByClassroomSubject_IdAndStudent_UserId(csId, studentId)
+                    .orElse(null);
+            if (css != null && css.getCurrentLevel() != null) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
+            }
+            boolean pending = studentTestAttemptRepository
+                    .findByStudentUserIdAndTestTestId(studentId, test.getTestId())
+                    .stream()
+                    .anyMatch(a -> com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(a.getStatus()));
+            if (pending) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Bài phân loại của bạn có câu tự luận đang chờ giáo viên chấm. Vui lòng quay lại sau.");
+            }
+        }
 
         List<TestQuestion> questions = testQuestionRepository.findByTestTestId(testId);
         List<QuestionResponse> questionResponses = questions.stream()
@@ -77,12 +95,20 @@ public class StudentTestServiceImpl implements StudentTestService {
                 })
                 .collect(Collectors.toList());
 
+        String testKind = null;
+        if (test.getLearningNode() != null && test.getLearningNode().getTestKind() != null) {
+            testKind = test.getLearningNode().getTestKind().name();
+        } else if (classroomSubjectRepository.findByQuizStartTestId(test.getTestId()).isPresent()) {
+            testKind = "PLACEMENT";
+        }
+
         return StudentTestDetailsResponse.builder()
                 .testId(test.getTestId())
                 .title(test.getTitle())
                 .description(test.getDescription())
                 .durationMinutes(test.getDurationMinutes())
                 .passingPercentage(test.getPassingPercentage())
+                .testKind(testKind)
                 .releaseEndsAt(test.getReleaseEndsAt())
                 .questions(questionResponses)
                 .build();
@@ -124,6 +150,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .description(test.getDescription())
                 .durationMinutes(test.getDurationMinutes())
                 .passingPercentage(test.getPassingPercentage())
+                .testKind("PLACEMENT")
                 .questions(questionResponses)
                 .build();
     }
@@ -135,10 +162,28 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         rejectPopQuiz(test);
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(test.getLearningNode());
         verifyStudentAccess(test.getLearningNode(), studentId);
         assertTestReleased(test);
         assertWithinReleaseWindow(test, 0);
         assertNoPendingReview(testId, studentId);
+
+        if (test.getLearningNode() != null && test.getLearningNode().getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.PLACEMENT && isEntryPlacementTest(test)) {
+            Long csId = test.getLearningNode().getLearningPath().getClassroomSubject().getId();
+            com.fedu.fedu.entity.ClassroomSubjectStudent css = classroomSubjectStudentRepository
+                    .findByClassroomSubject_IdAndStudent_UserId(csId, studentId)
+                    .orElse(null);
+            if (css != null && css.getCurrentLevel() != null) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Bạn đã hoàn thành bài test phân loại cho lớp-môn này.");
+            }
+            boolean pending = studentTestAttemptRepository
+                    .findByStudentUserIdAndTestTestId(studentId, test.getTestId())
+                    .stream()
+                    .anyMatch(a -> com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW.equals(a.getStatus()));
+            if (pending) {
+                throw new com.fedu.fedu.exception.InvalidDataException("Bài phân loại của bạn có câu tự luận đang chờ giáo viên chấm. Vui lòng quay lại sau.");
+            }
+        }
 
         UserAccount student = userAccountRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
@@ -179,6 +224,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     public AttemptSubmissionResultResponse submitTestAttempt(Long testId, Long attemptId, Long studentId, AttemptSubmissionRequest request) {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(test.getLearningNode());
 
         StudentTestAttempt attempt = studentTestAttemptRepository.findById(attemptId)
                 .orElseThrow(() -> new ResourceNotFoundException("Attempt not found with id: " + attemptId));
@@ -211,6 +257,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                     .startedAt(attempt.getStartedAt())
                     .submittedAt(attempt.getSubmittedAt())
                     .passingPercentage(test.getPassingPercentage())
+                    .testKind(test.getLearningNode() != null && test.getLearningNode().getTestKind() != null ? test.getLearningNode().getTestKind().name() : null)
                     .build();
         }
 
@@ -231,6 +278,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .startedAt(attempt.getStartedAt())
                 .submittedAt(attempt.getSubmittedAt())
                 .passingPercentage(test.getPassingPercentage())
+                .testKind(node.getTestKind() != null ? node.getTestKind().name() : null)
                 .newLevel(levelAfter != null && !levelAfter.equals(levelBefore) ? levelAfter : null)
                 .build();
     }
@@ -575,6 +623,10 @@ public class StudentTestServiceImpl implements StudentTestService {
 
         attempt.setSubmittedAt(LocalDateTime.now());
 
+        // Học sinh đã nộp bài làm lại → lượt thi lại được duyệt coi như đã sử dụng,
+        // để UI quay về trạng thái "Yêu cầu thi lại" cho lần sau.
+        consumeApprovedRetakeRequests(attempt.getStudent().getUserId(), test.getTestId());
+
         if (hasEssay) {
             
             attempt.setScore(null);
@@ -593,6 +645,18 @@ public class StudentTestServiceImpl implements StudentTestService {
         studentTestAttemptRepository.save(attempt);
 
         return finalPercentage;
+    }
+
+    private void consumeApprovedRetakeRequests(Long studentId, Long testId) {
+        List<RetakeRequest> approved = retakeRequestRepository
+                .findByStudentUserIdAndTestTestIdAndStatus(studentId, testId,
+                        com.fedu.fedu.utils.enums.RetakeRequestStatus.APPROVED);
+        for (RetakeRequest r : approved) {
+            r.setStatus(com.fedu.fedu.utils.enums.RetakeRequestStatus.COMPLETED);
+        }
+        if (!approved.isEmpty()) {
+            retakeRequestRepository.saveAll(approved);
+        }
     }
 
     
@@ -649,7 +713,10 @@ public class StudentTestServiceImpl implements StudentTestService {
         for (com.fedu.fedu.entity.Test t : nodeTests) {
             List<StudentTestAttempt> attempts =
                     studentTestAttemptRepository.findByStudentUserIdAndTestTestId(studentId, t.getTestId());
+            // Attempt CANCELLED (bị hủy khi duyệt thi lại) không được tính là đã đạt —
+            // nếu tính, node test sau khi reset vẫn "đạt" và học sinh không phải làm lại.
             boolean passedTest = attempts.stream()
+                    .filter(att -> att.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED)
                     .anyMatch(att -> att.getScore() != null
                             && att.getScore().compareTo(t.getPassingPercentage()) >= 0);
             if (!passedTest) return false;
@@ -697,6 +764,15 @@ public class StudentTestServiceImpl implements StudentTestService {
         if (target.getLevel() != null
                 && target.getTestKind() != NodeTestKind.FREE_CHOICE
                 && !matchesStudentLevel(studentId, target)) return;
+        if (target.getLevel() == null
+                && (target.getTestKind() == NodeTestKind.GATE || target.getTestKind() == NodeTestKind.PLACEMENT)
+                && !NodeRoutingUtils.appliesToLevel(target, currentLevelOf(
+                        target.getLearningPath().getClassroomSubject(), studentId))) return;
+        if (target.getTestKind() == NodeTestKind.FREE_CHOICE && target.getStageOrder() != null) {
+            List<StudentNodeProgress> all = studentNodeProgressRepository
+                    .findByStudentUserIdAndLearningPathPathId(studentId, pathId);
+            if (NodeRoutingUtils.stagesWithChosenFreeChoice(all).contains(target.getStageOrder())) return;
+        }
         if (!checkIncomingPrerequisites(studentId, target, pathId)) return;
         openNode(studentId, target, pathId);
     }
@@ -740,6 +816,13 @@ public class StudentTestServiceImpl implements StudentTestService {
     }
 
     void routeGateNode(Long studentId, LearningNode gateNode, Long pathId, BigDecimal percentage) {
+        // Gate 1 mức = bài chặn đường: "ngưỡng lên" chính là ngưỡng đạt.
+        // Chưa đạt thì node không hoàn thành, chặng dưới giữ khóa — làm lại tự do.
+        if (NodeRoutingUtils.isSingleLevelGate(gateNode) && gateNode.getGateUpMin() != null
+                && (percentage == null || percentage.compareTo(gateNode.getGateUpMin()) < 0)) {
+            return;
+        }
+
         StudentNodeProgress gp = getProgress(studentId, pathId, gateNode.getNodeId());
         if (gp != null) {
             if (gp.getStatus() != StudentProgressStatus.COMPLETED) {
@@ -814,6 +897,7 @@ public class StudentTestServiceImpl implements StudentTestService {
     public void completeNode(Long nodeId, Long studentId) {
         LearningNode node = learningNodeRepository.findById(nodeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
         verifyStudentAccess(node, studentId);
 
         
@@ -867,7 +951,7 @@ public class StudentTestServiceImpl implements StudentTestService {
 
 
         return NodeRoutingUtils.prereqMetThroughOnClass(
-                targetNode.getNodeId(), nodeEdgeRepository::findByToNodeNodeId, progressMap, studentLevel);
+                targetNode.getNodeId(), nodeEdgeRepository::findByToNodeNodeId, progressMap, studentLevel, progressList);
     }
 
     @Override
@@ -877,6 +961,13 @@ public class StudentTestServiceImpl implements StudentTestService {
 
         return attempts.stream()
                 .filter(a -> a.getTest().getTestKind() != com.fedu.fedu.utils.enums.TestKind.POP_QUIZ)
+                // Lịch sử "lần nộp" gồm bài đã thực nộp (SUBMITTED/PENDING_REVIEW) và cả bài đã nộp
+                // nhưng bị hủy khi duyệt thi lại (CANCELLED có submittedAt) — FE hiển thị kèm nhãn hủy.
+                // Loại attempt đang làm dở / bị hủy khi chưa nộp (submittedAt null → "lần nộp" epoch-1970 là rác).
+                .filter(a -> a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED
+                        || a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.PENDING_REVIEW
+                        || (a.getStatus() == com.fedu.fedu.utils.enums.AttemptStatus.CANCELLED
+                                && a.getSubmittedAt() != null))
                 .map(a -> {
             com.fedu.fedu.entity.Test t = a.getTest();
             String csName = "N/A";
@@ -902,6 +993,7 @@ public class StudentTestServiceImpl implements StudentTestService {
                     .testTitle(t.getTitle())
                     .testDescription(t.getDescription())
                     .score(a.getScore())
+                    .status(a.getStatus() != null ? a.getStatus().name() : null)
                     .submittedAt(a.getSubmittedAt())
                     .tabOutCount(a.getTabOutCount())
                     .build();

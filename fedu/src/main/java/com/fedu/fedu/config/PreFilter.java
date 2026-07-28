@@ -47,6 +47,12 @@ public class PreFilter extends OncePerRequestFilter {
             final String userName = jwtService.extractUsername(token, TokenType.ACCESS_TOKEN);
             if (StringUtils.isNotEmpty(userName) && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userService.userDetailService().loadUserByUsername(userName);
+                if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"status\":401,\"message\":\"Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động\"}");
+                    return;
+                }
                 if (jwtService.isValid(token, TokenType.ACCESS_TOKEN, userDetails)
                         && tokenService.isAccessTokenActive(userName, token)) {
                     SecurityContext context = SecurityContextHolder.createEmptyContext();

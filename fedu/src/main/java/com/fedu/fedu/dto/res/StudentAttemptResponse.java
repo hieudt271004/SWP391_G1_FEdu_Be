@@ -22,4 +22,7 @@ public class StudentAttemptResponse {
     private String status;
     
     private Integer tabOutCount;
+
+    private Long testId;
+    private String testTitle;
 }

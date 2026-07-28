@@ -19,6 +19,8 @@ services:
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      # Đặt SPRING_PROFILES_ACTIVE=demo trong .env để nạp dữ liệu demo (Flyway db/demo)
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-}
     volumes:
       - ./uploads:/app/uploads
 

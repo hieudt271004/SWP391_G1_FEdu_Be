@@ -36,6 +36,7 @@ function formatRelativeTime(dateStr: string): string {
 export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionProps) {
   const { user } = useAuth();
   const confirm = useConfirm();
+  const isAdmin = user?.roles?.includes('ADMIN');
 
   const onLoadSummaryRef = useRef(onLoadSummary);
   useEffect(() => {
@@ -358,32 +359,34 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
       {}
       <div className="space-y-3">
         <h4 className="text-xs font-bold text-foreground/90 uppercase tracking-wider">Hỏi đáp & Thảo luận</h4>
-        <div className="relative border border-border rounded-lg bg-card p-3 hover:border-border/80 transition-colors focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
-          <Textarea
-            value={newCommentContent}
-            onChange={(e) => setNewCommentContent(e.target.value)}
-            placeholder="Đặt câu hỏi hoặc chia sẻ về bài học này..."
-            className="w-full min-h-[70px] resize-none border-none p-0 focus-visible:ring-0 text-foreground bg-transparent placeholder:text-muted-foreground text-xs shadow-none"
-            maxLength={2000}
-          />
-          <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
-            <span className="text-[10px] text-muted-foreground">
-              {newCommentContent.length}/2000 ký tự
-            </span>
-            <Button
-              onClick={handlePostComment}
-              disabled={!newCommentContent.trim() || submittingComment}
-              className="h-7 px-3.5 bg-primary hover:bg-primary/95 text-primary-foreground text-[11px] font-semibold rounded-md border-none flex items-center gap-1 shrink-0 transition-all outline-none"
-            >
-              {submittingComment ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Send className="w-3 h-3" />
-              )}
-              <span>Gửi bình luận</span>
-            </Button>
+        {!isAdmin && (
+          <div className="relative border border-border rounded-lg bg-card p-3 hover:border-border/80 transition-colors focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary">
+            <Textarea
+              value={newCommentContent}
+              onChange={(e) => setNewCommentContent(e.target.value)}
+              placeholder="Đặt câu hỏi hoặc chia sẻ về bài học này..."
+              className="w-full min-h-[70px] resize-none border-none p-0 focus-visible:ring-0 text-foreground bg-transparent placeholder:text-muted-foreground text-xs shadow-none"
+              maxLength={2000}
+            />
+            <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
+              <span className="text-[10px] text-muted-foreground">
+                {newCommentContent.length}/2000 ký tự
+              </span>
+              <Button
+                onClick={handlePostComment}
+                disabled={!newCommentContent.trim() || submittingComment}
+                className="h-7 px-3.5 bg-primary hover:bg-primary/95 text-primary-foreground text-[11px] font-semibold rounded-md border-none flex items-center gap-1 shrink-0 transition-all outline-none"
+              >
+                {submittingComment ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Send className="w-3 h-3" />
+                )}
+                <span>Gửi bình luận</span>
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {}
@@ -443,7 +446,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                       {}
                       <div className="flex items-center gap-4 pt-1 text-[10px] text-muted-foreground font-bold">
                         {}
-                        {item.parentReviewId == null && (
+                        {item.parentReviewId == null && !isAdmin && (
                           <button
                             type="button"
                             onClick={() => {
@@ -459,7 +462,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                           </button>
                         )}
 
-                        {isOwnEntry && (
+                        {(isOwnEntry || isAdmin) && (
                           <button
                             type="button"
                             onClick={() => handleDeleteEntry(item)}
@@ -505,7 +508,7 @@ export function NodeDiscussion({ nodeId, role, onLoadSummary }: NodeDiscussionPr
                                 {reply.content}
                               </p>
 
-                              {isOwnReply && (
+                              {(isOwnReply || isAdmin) && (
                                 <div className="pt-0.5">
                                   <button
                                     type="button"

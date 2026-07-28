@@ -207,8 +207,18 @@ export function ClassroomSubjectDetailPage() {
       setImportResult(null);
       const result = await classroomService.importStudents(cs.classroomSubjectId, importFile);
       setImportResult(result);
-      toast.success(`Đã import thành công danh sách học sinh.`);
-      await fetchData(); 
+
+      if (result.failed > 0 && result.enrolled === 0 && result.created === 0 && result.skipped === 0) {
+        // All rows failed validation — nothing was imported
+        toast.error(`File có ${result.failed} dòng lỗi. Vui lòng sửa lại file Excel và thử lại.`);
+      } else if (result.failed > 0) {
+        // Some rows imported, some failed (runtime errors during enrollment)
+        toast.warning(`Import hoàn tất nhưng có ${result.failed} dòng bị lỗi.`);
+        await fetchData();
+      } else {
+        toast.success(`Đã import thành công ${result.enrolled} sinh viên vào lớp-môn.`);
+        await fetchData();
+      }
     } catch (e: unknown) {
       const errMsg = e instanceof Error ? e.message : "Import thất bại";
       setImportError(errMsg);

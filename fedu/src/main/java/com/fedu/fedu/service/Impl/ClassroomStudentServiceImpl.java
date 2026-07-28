@@ -35,6 +35,7 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
     public StudentInClassResponse addStudentToClassroomSubject(Long classroomSubjectId, AddStudentRequest request) {
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom-subject not found with id: " + classroomSubjectId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(cs);
 
         UserAccount student = userAccountRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
@@ -74,6 +75,7 @@ public class ClassroomStudentServiceImpl implements ClassroomStudentService {
                 .findByClassroomSubject_IdAndStudent_UserId(classroomSubjectId, studentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Sinh viên " + studentId + " không có trong lớp-môn " + classroomSubjectId));
+        com.fedu.fedu.utils.ClassroomGuards.assertOpen(enrollment.getClassroomSubject());
         classroomSubjectStudentRepository.delete(enrollment);
     }
 

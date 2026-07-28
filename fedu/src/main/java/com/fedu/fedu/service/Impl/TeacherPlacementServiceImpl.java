@@ -14,6 +14,7 @@ import com.fedu.fedu.repository.QuizScoreBandRepository;
 import com.fedu.fedu.repository.TestRepository;
 import com.fedu.fedu.repository.TestQuestionRepository;
 import com.fedu.fedu.service.TeacherPlacementService;
+import com.fedu.fedu.utils.ClassroomGuards;
 import com.fedu.fedu.utils.LearningLevels;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class TeacherPlacementServiceImpl implements TeacherPlacementService {
     private final TestRepository testRepository;
     private final QuizScoreBandRepository quizScoreBandRepository;
     private final TestQuestionRepository testQuestionRepository;
+    private final TemplateEditGuard templateEditGuard;
 
     @Override
     @Transactional
@@ -46,6 +48,7 @@ public class TeacherPlacementServiceImpl implements TeacherPlacementService {
         }
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lớp-môn không tồn tại"));
+        ClassroomGuards.assertOpen(cs);
         Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bài test không tồn tại"));
         cs.setQuizStart(test);
@@ -58,6 +61,7 @@ public class TeacherPlacementServiceImpl implements TeacherPlacementService {
         Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bài test không tồn tại"));
         assertTeacherOwnsTest(test, teacherId);
+        templateEditGuard.assertTestEditable(test);
         validateBands(bands);
 
         quizScoreBandRepository.deleteByTestTestId(testId);
@@ -140,6 +144,7 @@ public class TeacherPlacementServiceImpl implements TeacherPlacementService {
         }
         ClassroomSubject cs = classroomSubjectRepository.findById(classroomSubjectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lớp-môn không tồn tại"));
+        ClassroomGuards.assertOpen(cs);
 
         Test test = cs.getQuizStart();
         if (test == null) {

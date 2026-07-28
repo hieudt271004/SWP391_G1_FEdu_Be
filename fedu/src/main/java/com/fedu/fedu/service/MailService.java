@@ -29,7 +29,7 @@ public class MailService {
 
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-        helper.setFrom(emailFrom, "hieudtfptu@gmail.com");
+        helper.setFrom(emailFrom, "FEdu System");
 
         if (recipients.contains(",")) {
             helper.setTo(InternetAddress.parse(recipients));

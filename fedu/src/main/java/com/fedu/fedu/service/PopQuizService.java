@@ -27,6 +27,8 @@ public interface PopQuizService {
     
     PopQuizPendingResponse getPending(Long nodeId, Long studentId);
 
+    PopQuizPendingResponse getPendingByClassroomSubject(Long classroomSubjectId, Long studentId);
+
     PopQuizPaperResponse startAttempt(Long assignmentId, Long studentId);
 
     PopQuizPaperResponse getPaper(Long assignmentId, Long studentId);

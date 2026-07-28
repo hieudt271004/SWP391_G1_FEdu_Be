@@ -24,4 +24,6 @@ public interface SubmissionService {
     List<SubmissionResponse> listForExercise(Long exerciseId, Long teacherId);
 
     SubmissionResponse grade(Long submissionId, Long teacherId, GradeSubmissionRequest request);
+
+    List<SubmissionResponse> getClassroomSubjectSubmissions(Long csId);
 }

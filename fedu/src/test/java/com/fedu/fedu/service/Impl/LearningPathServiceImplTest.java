@@ -55,8 +55,12 @@ class LearningPathServiceImplTest {
     private TestAnswerRepository testAnswerRepository;
     @Mock
     private NodeExerciseRepository nodeExerciseRepository;
+    @Mock
+    private com.fedu.fedu.repository.SlotRepository slotRepository;
+    @Mock
+    private com.fedu.fedu.service.LevelRoutingService levelRoutingService;
 
-    
+
     @Spy
     @InjectMocks
     private TemplateEditGuard templateEditGuard;
@@ -72,6 +76,10 @@ class LearningPathServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // Mockito không tiêm chuỗi @InjectMocks vào @InjectMocks — gắn guard vào service bằng reflection.
+        org.springframework.test.util.ReflectionTestUtils
+                .setField(learningPathService, "templateEditGuard", templateEditGuard);
+
         lecturer = new UserAccount();
         lecturer.setUserId(1L);
         lecturer.setEmail("teacher@fedu.edu.vn");
@@ -82,6 +90,7 @@ class LearningPathServiceImplTest {
 
         classroom = new Classroom();
         classroom.setClassroomId(100L);
+        classroom.setStatus(com.fedu.fedu.utils.enums.ClassroomStatus.ACTIVE);
 
         classroomSubject = new ClassroomSubject();
         classroomSubject.setId(100L);
@@ -336,6 +345,7 @@ class LearningPathServiceImplTest {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
         when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
         when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
         
         LearningPath path = new LearningPath();
         path.setPathId(300L);
@@ -360,6 +370,7 @@ class LearningPathServiceImplTest {
         mockAuthentication("teacher@fedu.edu.vn", "ROLE_TEACHER");
         when(userAccountRepository.findByEmail("teacher@fedu.edu.vn")).thenReturn(Optional.of(lecturer));
         when(classroomSubjectRepository.existsByIdAndLecturerUserId(100L, 1L)).thenReturn(true);
+        when(classroomSubjectRepository.findById(100L)).thenReturn(Optional.of(classroomSubject));
         
         LearningPath path = new LearningPath();
         path.setPathId(300L);

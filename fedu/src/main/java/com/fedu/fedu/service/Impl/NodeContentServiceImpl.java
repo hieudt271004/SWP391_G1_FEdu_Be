@@ -213,6 +213,8 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Learning node not found with id: " + nodeId));
         templateEditGuard.assertNodeEditable(node);
 
+        assertThresholdConfigured(node, request.getPassingPercentage());
+
         Test test = Test.builder()
                 .learningNode(node)
                 .title(request.getTitle())
@@ -243,7 +245,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public void deleteTest(Long testId) {
         Test test = testRepository.findByTestIdAndIsDeletedFalse(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
-        templateEditGuard.assertNodeEditable(test.getLearningNode());
+        templateEditGuard.assertTestEditable(test);
 
         test.setIsDeleted(true);
         testRepository.save(test);
@@ -287,8 +289,22 @@ public class NodeContentServiceImpl implements NodeContentService {
         exercise.setIsDeleted(true);
         nodeExerciseRepository.save(exercise);
     }
+    @Override
+    @Transactional
+    public NodeExerciseResponse updateExercise(Long exerciseId, CreateNodeExerciseRequest request) {
+        NodeExercise exercise = nodeExerciseRepository.findById(exerciseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Exercise not found with id: " + exerciseId));
+        templateEditGuard.assertNodeEditable(exercise.getLearningNode());
 
-    
+        exercise.setTitle(request.getTitle());
+        exercise.setInstructions(request.getInstructions());
+        exercise.setAllowText(request.getAllowText() != null ? request.getAllowText() : true);
+        exercise.setAllowFile(request.getAllowFile() != null ? request.getAllowFile() : true);
+
+        nodeExerciseRepository.save(exercise);
+        return mapToExerciseResponse(exercise);
+    }
+
     private NodeMaterialResponse mapToMaterialResponse(NodeMaterial m) {
         VideoResponse videoRes = null;
         List<Video> videos = videoRepository.findByNodeMaterialMaterialIdAndIsDeletedFalse(m.getMaterialId());
@@ -406,7 +422,7 @@ public class NodeContentServiceImpl implements NodeContentService {
     public NodeTestResponse updateTest(Long testId, UpdateTestRequest request) {
         Test test = testRepository.findByTestIdAndIsDeletedFalse(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
-        templateEditGuard.assertNodeEditable(test.getLearningNode());
+        templateEditGuard.assertTestEditable(test);
 
         test.setTitle(request.getTitle());
         test.setDescription(request.getDescription());
@@ -414,9 +430,26 @@ public class NodeContentServiceImpl implements NodeContentService {
         if (request.getPassingPercentage() != null) {
             test.setPassingPercentage(request.getPassingPercentage());
         }
+        if (test.getLearningNode() != null) {
+            assertThresholdConfigured(test.getLearningNode(), test.getPassingPercentage());
+        }
 
         testRepository.save(test);
         return mapToTestResponse(test);
+    }
+
+    // Bài FREE_CHOICE/GATE không có ngưỡng đạt thì HS lên/ngang mức trượt vĩnh viễn trong im lặng
+    // (passed luôn false) — bắt buộc giáo viên cấu hình ngay từ lúc tạo/sửa đề.
+    private void assertThresholdConfigured(LearningNode node, java.math.BigDecimal passingPercentage) {
+        com.fedu.fedu.utils.enums.NodeTestKind kind = node.getTestKind();
+        if ((kind == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE
+                || kind == com.fedu.fedu.utils.enums.NodeTestKind.GATE)
+                && passingPercentage == null) {
+            throw new InvalidDataException(
+                    "Bài test thuộc node " + (kind == com.fedu.fedu.utils.enums.NodeTestKind.GATE
+                            ? "phân luồng (GATE)" : "tự chọn (FREE_CHOICE)")
+                            + " bắt buộc phải có ngưỡng đạt (%) — học sinh cần ngưỡng này để được mở bài tiếp theo.");
+        }
     }
 
     @Override
@@ -455,6 +488,46 @@ public class NodeContentServiceImpl implements NodeContentService {
                             .submittedAt(attempt.getSubmittedAt())
                             .status(attempt.getStatus() != null ? attempt.getStatus().name() : null)
                             .tabOutCount(attempt.getTabOutCount() != null ? attempt.getTabOutCount() : 0)
+                            .testId(attempt.getTest().getTestId())
+                            .testTitle(attempt.getTest().getTitle())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<StudentAttemptResponse> getClassroomSubjectAttempts(Long csId) {
+        List<StudentTestAttempt> attempts = studentTestAttemptRepository.findAllByClassroomSubject(csId);
+        return attempts.stream()
+                .map(attempt -> {
+                    String studentName = "";
+                    String studentEmail = "";
+                    if (attempt.getStudent() != null) {
+                        studentEmail = attempt.getStudent().getEmail();
+                        String firstName = attempt.getStudent().getFirstName() != null ? attempt.getStudent().getFirstName() : "";
+                        String lastName = attempt.getStudent().getLastName() != null ? attempt.getStudent().getLastName() : "";
+                        studentName = (firstName + " " + lastName).trim();
+                    }
+
+                    Boolean passed = null;
+                    BigDecimal passingPercentage = attempt.getTest().getPassingPercentage() != null ? attempt.getTest().getPassingPercentage() : BigDecimal.ZERO;
+                    if (attempt.getScore() != null) {
+                        passed = attempt.getScore().compareTo(passingPercentage) >= 0;
+                    }
+
+                    return StudentAttemptResponse.builder()
+                            .attemptId(attempt.getAttemptId())
+                            .studentId(attempt.getStudent() != null ? attempt.getStudent().getUserId() : null)
+                            .studentName(studentName)
+                            .studentEmail(studentEmail)
+                            .score(attempt.getScore())
+                            .passed(passed)
+                            .startedAt(attempt.getStartedAt())
+                            .submittedAt(attempt.getSubmittedAt())
+                            .status(attempt.getStatus() != null ? attempt.getStatus().name() : null)
+                            .tabOutCount(attempt.getTabOutCount() != null ? attempt.getTabOutCount() : 0)
+                            .testId(attempt.getTest().getTestId())
+                            .testTitle(attempt.getTest().getTitle())
                             .build();
                 })
                 .collect(Collectors.toList());

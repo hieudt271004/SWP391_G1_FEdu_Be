@@ -9,7 +9,7 @@ import type {
   SupportTicketResponse,
   RespondTicketRequest,
 } from '../types/submentor';
-import type { SubmissionResponse } from './student.service';
+import type { SubmissionResponse, RetakeRequestResponse } from './student.service';
 
 
 export interface CreatePopQuizRequest {
@@ -65,10 +65,8 @@ export const teacherService = {
     http.get<ClassroomResponse[]>(`/classrooms/subject/${subjectId}`),
   getSubjectById: (subjectId: number) =>
     http.get<Subject>(`/subjects/${subjectId}`),
-  cancelStudentPlacement: (csId: number, studentId: number) =>
-    http.post<void>(`/teacher-manage/classroom-subjects/${csId}/students/${studentId}/placement/cancel`),
 
-  
+
   enableSubMentor: (classroomSubjectId: number, cssId: number) =>
     http.post<void>(`/teacher-manage/classroom-subjects/${classroomSubjectId}/sub-mentors/${cssId}/enable`),
 
@@ -111,4 +109,10 @@ export const teacherService = {
 
   closePopQuiz: (assignmentId: number) =>
     http.post<void>(`/teacher-manage/pop-quiz/${assignmentId}/close`, {}),
+
+  getPendingRetakeRequests: (csId: number) =>
+    http.get<RetakeRequestResponse[]>(`/teacher-manage/classroom-subjects/${csId}/retake-requests`),
+
+  resolveRetakeRequest: (requestId: number, body: { status: 'APPROVED' | 'REJECTED'; rejectReason?: string }) =>
+    http.post<RetakeRequestResponse>(`/teacher-manage/retake-requests/${requestId}/resolve`, body),
 };

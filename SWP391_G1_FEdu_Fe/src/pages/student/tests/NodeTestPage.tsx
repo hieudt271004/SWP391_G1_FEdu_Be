@@ -99,8 +99,27 @@ export function NodeTestPage() {
   }, [id, attemptId]);
 
   const goBack = () => {
-    if (csId) navigate(`/student/classroom-subjects/${csId}/learning-path`);
-    else navigate('/student/courses');
+    const from = searchParams.get('from');
+    const nodeId = searchParams.get('nodeId');
+    const mode = searchParams.get('mode');
+    const itemId = searchParams.get('itemId');
+
+    if (from === 'live' && csId && nodeId) {
+      const params = new URLSearchParams(searchParams);
+      params.delete('from');
+      params.delete('nodeId');
+      params.delete('csId');
+      const suffix = params.toString() ? `?${params.toString()}` : '';
+      navigate(`/student/classroom-subjects/${csId}/live/${nodeId}${suffix}`);
+    } else if (csId) {
+      if (mode === 'learn' && itemId) {
+        navigate(`/student/classroom-subjects/${csId}/learning-path?mode=learn&itemId=${itemId}&itemType=test`);
+      } else {
+        navigate(`/student/classroom-subjects/${csId}/learning-path`);
+      }
+    } else {
+      navigate('/student/courses');
+    }
   };
 
   if (loading) {
@@ -156,34 +175,31 @@ export function NodeTestPage() {
         </div>
       );
     }
+    const isGateOrPlacement = details.testKind === 'GATE' || details.testKind === 'PLACEMENT' || result.testKind === 'GATE' || result.testKind === 'PLACEMENT';
     const passed = result.passed;
     return (
       <div className="mx-auto max-w-2xl">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {passed ? (
+              {isGateOrPlacement || passed ? (
                 <CheckCircle2 className="size-6 text-green-600" />
               ) : (
                 <XCircle className="size-6 text-red-600" />
               )}
-              {passed ? 'Chúc mừng, bạn đã đạt!' : 'Chưa đạt'}
+              {isGateOrPlacement ? 'Đã hoàn thành' : passed ? 'Chúc mừng, bạn đã đạt!' : 'Chưa đạt'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="text-3xl font-bold">{result.score}%</div>
-            <p className="text-sm text-muted-foreground">
-              Điểm đạt yêu cầu: {result.passingPercentage}%
-            </p>
+            {!isGateOrPlacement && result.passingPercentage != null && result.passingPercentage > 0 && (
+              <p className="text-sm text-muted-foreground">
+                Điểm đạt yêu cầu: {result.passingPercentage}%
+              </p>
+            )}
             {result.newLevel != null && (
-              <div className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${
-                passed
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                  : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
-              }`}>
-                {passed
-                  ? `Bạn đã được chuyển sang nhánh ${getLevelLabel(result.newLevel)} — lộ trình đã mở các bài học của nhánh mới.`
-                  : `Bài chưa đạt, nhưng bạn đã chủ động chuyển xuống nhánh ${getLevelLabel(result.newLevel)} — lộ trình đã mở các bài học của nhánh mới cho bạn.`}
+              <div className="rounded-xl border px-3 py-2.5 text-sm font-semibold bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
+                Bạn đã được chuyển sang nhánh {getLevelLabel(result.newLevel)} — lộ trình đã mở các bài học của nhánh mới.
               </div>
             )}
             <Button onClick={goBack}>

@@ -14,6 +14,7 @@ import {
   Clock,
   Sun,
   Moon,
+  Calendar,
 } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
@@ -40,6 +41,7 @@ export function AdminLayout() {
     { icon: BookOpen, label: "Quản lý Môn học", path: "/admin/subjects" },
     { icon: GraduationCap, label: "Quản lý Lớp học", path: "/admin/classes" },
     { icon: Clock, label: "Quản lý Ca học", path: "/admin/slots" },
+    { icon: Calendar, label: "Quản lý Học kỳ", path: "/admin/semesters" },
   ];
 
   

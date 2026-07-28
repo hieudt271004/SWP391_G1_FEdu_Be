@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "../../components/ui/badge";
 import { useConfirm } from "../../context/ConfirmContext";
 import { toast } from "sonner";
+import { getClassroomStatusMeta, type ClassroomStatus } from "../../utils/classroom";
 
 
 interface ClassRecord {
@@ -15,7 +16,7 @@ interface ClassRecord {
   className: string;
   courseName: string;
   students: number;
-  status: "active" | "inactive" | "completed";
+  status: ClassroomStatus;
   thumbnail: string;
 }
 
@@ -26,7 +27,7 @@ function classroomToRecord(c: ClassroomResponse): ClassRecord {
     className: c.className,
     courseName: `${c.subjectCount ?? 0} môn học`,
     students: c.studentCount,
-    status: (c.status as ClassRecord["status"]) || (c.studentCount > 0 ? "active" : "inactive"),
+    status: c.status ?? "inactive",
     thumbnail: initials,
   };
 }
@@ -155,26 +156,12 @@ export function ClassListPage() {
   );
 
   const getStatusBadge = (status: ClassRecord["status"]) => {
-    switch (status) {
-      case "active":
-        return (
-          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-transparent font-semibold">
-            Đang hoạt động
-          </Badge>
-        );
-      case "inactive":
-        return (
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-transparent font-semibold">
-            Chưa bắt đầu
-          </Badge>
-        );
-      case "completed":
-        return (
-          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-transparent font-semibold">
-            Đã hoàn thành
-          </Badge>
-        );
-    }
+    const meta = getClassroomStatusMeta(status);
+    return (
+      <Badge variant="outline" className={`font-semibold ${meta.badgeClass}`}>
+        {meta.label}
+      </Badge>
+    );
   };
 
   return (
@@ -351,9 +338,10 @@ export function ClassListPage() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            disabled={c.status !== "inactive"}
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 disabled:opacity-30"
                             onClick={() => handleDelete(c.id)}
-                            title="Xóa"
+                            title={c.status === "inactive" ? "Xóa" : "Chỉ xóa được lớp chưa bắt đầu"}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -437,8 +425,10 @@ export function ClassListPage() {
                             <Edit2 className="w-4 h-4" /> Chỉnh sửa
                           </button>
                           <button
+                            disabled={c.status !== "inactive"}
                             onClick={() => { handleDelete(c.id); setOpenDropdown(null); }}
-                            className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-destructive/10 text-xs font-medium text-destructive transition-colors border-none bg-transparent cursor-pointer text-left"
+                            title={c.status === "inactive" ? "Xóa" : "Chỉ xóa được lớp chưa bắt đầu"}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-destructive/10 text-xs font-medium text-destructive transition-colors border-none bg-transparent cursor-pointer text-left disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                           >
                             <Trash2 className="w-4 h-4" /> Xóa
                           </button>

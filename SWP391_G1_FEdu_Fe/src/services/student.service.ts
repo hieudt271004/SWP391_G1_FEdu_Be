@@ -1,5 +1,6 @@
 import { http } from './http';
 import type { ClassroomGraphResponse, NodeContentResponse, LiveSessionState } from './learningPath.service';
+import { uploadService } from './upload.service';
 
 
 
@@ -122,6 +123,7 @@ export interface SubmissionResponse {
   gradedByName?: string | null;
   submittedAt: string;
   gradedAt?: string | null;
+  exerciseTitle?: string;
 }
 
 export interface StudentTestAttemptHistoryResponse {
@@ -130,8 +132,10 @@ export interface StudentTestAttemptHistoryResponse {
   classroomSubjectName: string;
   testTitle: string;
   testDescription: string;
-  
+
   score: number | null;
+  // CANCELLED = lần nộp cũ bị hủy khi duyệt thi lại — chỉ hiển thị tham khảo, không tính đạt/hoàn thành
+  status?: 'SUBMITTED' | 'PENDING_REVIEW' | 'CANCELLED';
   submittedAt: string;
 }
 
@@ -236,9 +240,15 @@ export const studentService = {
   
   
   
-  submitExercise: (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
+  submitExercise: async (exerciseId: number, contentOrFormData?: string | FormData, file?: File) => {
     const multipartHeaders = { 'Content-Type': 'multipart/form-data' };
     if (contentOrFormData instanceof FormData) {
+      const fileInForm = contentOrFormData.get('file');
+      if (fileInForm instanceof File) {
+        const uploaded = await uploadService.uploadToCloudinary(fileInForm, 'submissions');
+        contentOrFormData.delete('file');
+        contentOrFormData.append('fileUrl', uploaded.url);
+      }
       return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, contentOrFormData, multipartHeaders);
     }
     const formData = new FormData();
@@ -246,7 +256,8 @@ export const studentService = {
       formData.append('content', contentOrFormData);
     }
     if (file) {
-      formData.append('file', file);
+      const uploaded = await uploadService.uploadToCloudinary(file, 'submissions');
+      formData.append('fileUrl', uploaded.url);
     }
     return http.post<SubmissionResponse>(`/student/exercises/${exerciseId}/submissions`, formData, multipartHeaders);
   },
@@ -262,6 +273,9 @@ export const studentService = {
   getPendingPopQuiz: (nodeId: number) =>
     http.get<PopQuizPendingResponse>(`/student/on-class/${nodeId}/pop-quiz/pending`),
 
+  getPendingPopQuizBySubject: (csId: number) =>
+    http.get<PopQuizPendingResponse>(`/student/classroom-subjects/${csId}/pop-quiz/pending`),
+
   startPopQuizAttempt: (assignmentId: number) =>
     http.post<PopQuizPaperResponse>(`/student/pop-quiz/${assignmentId}/start`),
 
@@ -273,7 +287,36 @@ export const studentService = {
 
   getStudentSchedule: () =>
     http.get<StudentScheduleEntry[]>('/student/schedule'),
+
+  createRetakeRequest: (body: RetakeRequestPayload) =>
+    http.post<RetakeRequestResponse>('/student/retake-requests', body),
+
+  getRetakeRequests: (csId: number) =>
+    http.get<RetakeRequestResponse[]>(`/student/classroom-subjects/${csId}/retake-requests`),
 };
+
+export interface RetakeRequestResponse {
+  id: number;
+  studentId: number;
+  studentEmail: string;
+  studentName: string;
+  classroomSubjectId: number;
+  classroomSubjectName: string;
+  testId: number;
+  testTitle: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+  requestReason?: string;
+  rejectReason?: string;
+  requestedAt: string;
+  resolvedAt?: string;
+  resolvedByName?: string;
+}
+
+export interface RetakeRequestPayload {
+  classroomSubjectId: number;
+  testId: number;
+  requestReason?: string;
+}
 
 export interface StudentScheduleEntry {
   nodeId: number;
