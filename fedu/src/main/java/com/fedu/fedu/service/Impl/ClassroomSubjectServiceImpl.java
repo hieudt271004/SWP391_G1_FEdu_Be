@@ -4,6 +4,10 @@ import com.fedu.fedu.dto.req.AddClassroomSubjectRequest;
 import com.fedu.fedu.dto.res.ClassroomSubjectResponse;
 import com.fedu.fedu.entity.Classroom;
 import com.fedu.fedu.entity.ClassroomSubject;
+import com.fedu.fedu.entity.ClassroomSubjectStudent;
+import com.fedu.fedu.entity.LearningNode;
+import com.fedu.fedu.entity.LearningPath;
+import com.fedu.fedu.entity.StudentNodeProgress;
 import com.fedu.fedu.entity.Subject;
 import com.fedu.fedu.entity.UserAccount;
 import com.fedu.fedu.exception.InvalidDataException;
@@ -11,9 +15,14 @@ import com.fedu.fedu.exception.ResourceNotFoundException;
 import com.fedu.fedu.repository.ClassroomRepository;
 import com.fedu.fedu.repository.ClassroomSubjectRepository;
 import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
+import com.fedu.fedu.repository.LearningNodeRepository;
+import com.fedu.fedu.repository.LearningPathRepository;
+import com.fedu.fedu.repository.StudentNodeProgressRepository;
 import com.fedu.fedu.repository.SubjectRepository;
 import com.fedu.fedu.repository.UserAccountRepository;
 import com.fedu.fedu.service.ClassroomSubjectService;
+import com.fedu.fedu.utils.NodeRoutingUtils;
+import com.fedu.fedu.utils.enums.StudentProgressStatus;
 import com.fedu.fedu.utils.enums.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,6 +43,9 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
     private final UserAccountRepository userAccountRepository;
     private final ClassroomSubjectRepository classroomSubjectRepository;
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
+    private final LearningPathRepository learningPathRepository;
+    private final LearningNodeRepository learningNodeRepository;
+    private final StudentNodeProgressRepository studentNodeProgressRepository;
 
     @Override
     @Transactional
@@ -82,8 +95,34 @@ public class ClassroomSubjectServiceImpl implements ClassroomSubjectService {
                 .stream().map(css -> {
                     ClassroomSubjectResponse res = toResponse(css.getClassroomSubject());
                     res.setIsSubmentor(css.getIsSubmentor());
+                    res.setProgressPercent(computeProgressPercent(css));
                     return res;
                 }).collect(Collectors.toList());
+    }
+
+    /**
+     * % tiến độ lộ trình của học sinh trong một lớp-môn, cùng phép đếm
+     * NodeRoutingUtils.progressCounts với student graph và báo cáo giáo viên.
+     * null khi lớp-môn chưa publish lộ trình — FE ẩn thanh tiến độ thay vì hiện 0% gây hiểu nhầm.
+     */
+    private Integer computeProgressPercent(ClassroomSubjectStudent css) {
+        LearningPath path = learningPathRepository
+                .findFirstByClassroomSubjectIdAndIsDeletedFalseOrderByPathIdAsc(css.getClassroomSubject().getId())
+                .orElse(null);
+        if (path == null || path.getPublishedAt() == null) {
+            return null;
+        }
+        List<LearningNode> nodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
+        Map<Long, StudentProgressStatus> statusByNode = studentNodeProgressRepository
+                .findByStudentUserIdAndLearningPathPathId(css.getStudent().getUserId(), path.getPathId())
+                .stream()
+                .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(), StudentNodeProgress::getStatus,
+                        (a, b) -> a));
+        int[] counts = NodeRoutingUtils.progressCounts(nodes, statusByNode, css.getCurrentLevel());
+        if (counts[1] == 0) {
+            return 0;
+        }
+        return (int) Math.round(counts[0] * 100.0 / counts[1]);
     }
 
     @Override

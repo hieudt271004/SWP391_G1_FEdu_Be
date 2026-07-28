@@ -157,7 +157,7 @@ public class StudentTestServiceImpl implements StudentTestService {
 
     @Override
     @Transactional
-    public StudentTestAttempt startTestAttempt(Long testId, Long studentId) {
+    public AttemptStartResponse startTestAttempt(Long testId, Long studentId) {
         com.fedu.fedu.entity.Test test = testRepository.findById(testId)
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
@@ -195,7 +195,36 @@ public class StudentTestServiceImpl implements StudentTestService {
                 .status(com.fedu.fedu.utils.enums.AttemptStatus.IN_PROGRESS)
                 .build();
 
-        return studentTestAttemptRepository.save(attempt);
+        attempt = studentTestAttemptRepository.save(attempt);
+
+        return AttemptStartResponse.builder()
+                .attemptId(attempt.getAttemptId())
+                .startedAt(attempt.getStartedAt())
+                .durationMinutes(test.getDurationMinutes())
+                .remainingSeconds(remainingSecondsFor(test, attempt))
+                .status(attempt.getStatus() != null ? attempt.getStatus().name() : null)
+                .tabOutCount(attempt.getTabOutCount())
+                .build();
+    }
+
+    /**
+     * Thời gian còn lại của lượt làm bài: hết hạn theo thời lượng đề tính từ lúc bắt đầu,
+     * và không bao giờ vượt quá thời điểm đóng đề (releaseEndsAt) nếu giáo viên có đặt.
+     * Trả về null khi đề không giới hạn thời gian — client sẽ không hiện đồng hồ đếm ngược.
+     */
+    private Long remainingSecondsFor(com.fedu.fedu.entity.Test test, StudentTestAttempt attempt) {
+        LocalDateTime deadline = null;
+        if (test.getDurationMinutes() != null && attempt.getStartedAt() != null) {
+            deadline = attempt.getStartedAt().plusMinutes(test.getDurationMinutes());
+        }
+        if (test.getReleaseEndsAt() != null
+                && (deadline == null || test.getReleaseEndsAt().isBefore(deadline))) {
+            deadline = test.getReleaseEndsAt();
+        }
+        if (deadline == null) {
+            return null;
+        }
+        return Math.max(0L, java.time.Duration.between(LocalDateTime.now(), deadline).getSeconds());
     }
 
     @Override
@@ -261,10 +290,12 @@ public class StudentTestServiceImpl implements StudentTestService {
                     .build();
         }
 
-        boolean passed = test.getPassingPercentage() != null
-                && finalPercentage.compareTo(test.getPassingPercentage()) >= 0;
-
         LearningNode node = test.getLearningNode();
+        BigDecimal passThreshold = node.getTestKind() == NodeTestKind.GATE && node.getGateUpMin() != null
+                ? node.getGateUpMin()
+                : test.getPassingPercentage();
+        boolean passed = passThreshold != null && finalPercentage.compareTo(passThreshold) >= 0;
+
         ClassroomSubject cs = node.getLearningPath().getClassroomSubject();
         
         Integer levelBefore = currentLevelOf(cs, studentId);
@@ -773,8 +804,23 @@ public class StudentTestServiceImpl implements StudentTestService {
                     .findByStudentUserIdAndLearningPathPathId(studentId, pathId);
             if (NodeRoutingUtils.stagesWithChosenFreeChoice(all).contains(target.getStageOrder())) return;
         }
+        // Không mở node theo mức nếu chặng đó học sinh đã hoàn thành ở mức khác — nhất quán với
+        // recompute (StudentProgressServiceImpl) và reopenBranchNodesForLevel. Thiếu guard này,
+        // hoàn thành một node (vd. buổi ON_CLASS) sẽ mở lại nhánh mức hiện tại ở chặng vốn đã qua
+        // ở mức cũ, khiến học sinh học lại chặng đã xong.
+        if (stageClearedAtOtherLevel(studentId, target, pathId)) return;
         if (!checkIncomingPrerequisites(studentId, target, pathId)) return;
         openNode(studentId, target, pathId);
+    }
+
+    /** Node theo mức mà chặng của nó học sinh đã hoàn thành ở một mức khác. */
+    private boolean stageClearedAtOtherLevel(Long studentId, LearningNode target, Long pathId) {
+        if (target.getLevel() == null) return false;
+        Integer level = currentLevelOf(target.getLearningPath().getClassroomSubject(), studentId);
+        List<StudentNodeProgress> list = studentNodeProgressRepository
+                .findByStudentUserIdAndLearningPathPathId(studentId, pathId);
+        Set<Integer> cleared = NodeRoutingUtils.stagesClearedAtOtherLevel(list, level);
+        return NodeRoutingUtils.alreadyClearedAtOtherLevel(target, cleared);
     }
 
     private boolean matchesStudentLevel(Long studentId, LearningNode node) {
@@ -900,12 +946,19 @@ public class StudentTestServiceImpl implements StudentTestService {
         com.fedu.fedu.utils.ClassroomGuards.assertOpenForNode(node);
         verifyStudentAccess(node, studentId);
 
-        
+
         if (node.getTestKind() != null && node.getTestKind() != NodeTestKind.NONE) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Node kiểm tra được hoàn thành thông qua việc nộp bài test.");
         }
-        
+        // Node học trên lớp hoàn thành theo thời gian buổi học (sessionEndedAt / qua giờ), không phải
+        // do học xong tài liệu chuẩn bị trước buổi — nếu không sẽ mở chặng sau và ẩn link vào buổi
+        // live trước khi buổi học diễn ra.
+        if (node.getNodeType() == NodeType.ON_CLASS) {
+            throw new com.fedu.fedu.exception.InvalidDataException(
+                    "Node học trên lớp tự hoàn thành khi buổi học kết thúc, không hoàn thành bằng việc học tài liệu.");
+        }
+
         if (!allNodeTestsPassed(studentId, node)) {
             throw new com.fedu.fedu.exception.InvalidDataException(
                     "Bài học này có bài kiểm tra — bạn cần đạt bài kiểm tra để hoàn thành.");

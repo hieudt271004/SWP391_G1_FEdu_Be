@@ -29,4 +29,10 @@ public class ClassroomSubjectResponse {
     private String term;
     private Integer academicYear;
     private String semesterLabel;
+
+    /**
+     * % tiến độ lộ trình của học sinh trong lớp-môn này (chỉ set ở API by-student, cùng phép đếm
+     * NodeRoutingUtils.progressCounts với mọi thanh tiến độ khác). null = chưa publish lộ trình.
+     */
+    private Integer progressPercent;
 }

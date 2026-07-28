@@ -30,7 +30,6 @@ public class StudentNodeProgress extends AbstractEntity<Long> {
     @Column(name = "progress_id")
     private Long progressId;
 
-    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "classroom_subject_student_id", nullable = false)
     private ClassroomSubjectStudent classroomSubjectStudent;
@@ -39,24 +38,12 @@ public class StudentNodeProgress extends AbstractEntity<Long> {
     @JoinColumn(name = "node_id", nullable = false)
     private LearningNode learningNode;
 
-    
-
-
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "path_id", nullable = false)
     private LearningPath learningPath;
 
-    
-
-
-
     @Column(name = "order_index", nullable = false)
     private Integer orderIndex;
-
-    
-
-
 
     @Builder.Default
     @Enumerated(EnumType.STRING)

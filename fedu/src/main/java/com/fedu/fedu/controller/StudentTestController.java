@@ -1,6 +1,7 @@
 package com.fedu.fedu.controller;
 
 import com.fedu.fedu.dto.req.AttemptSubmissionRequest;
+import com.fedu.fedu.dto.res.AttemptStartResponse;
 import com.fedu.fedu.dto.res.AttemptSubmissionResultResponse;
 import com.fedu.fedu.dto.res.ResponseData;
 import com.fedu.fedu.dto.res.StudentTestDetailsResponse;
@@ -45,11 +46,11 @@ public class StudentTestController {
     @PreAuthorize("hasRole('STUDENT')")
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/tests/{testId}/attempts")
-    public ResponseData<StudentTestAttempt> startTestAttempt(
+    public ResponseData<AttemptStartResponse> startTestAttempt(
             @PathVariable Long testId,
             @AuthenticationPrincipal UserAccount currentUser) {
         log.info("Student ID {} starts attempt for test id: {}", currentUser.getUserId(), testId);
-        StudentTestAttempt attempt = studentTestService.startTestAttempt(testId, currentUser.getUserId());
+        AttemptStartResponse attempt = studentTestService.startTestAttempt(testId, currentUser.getUserId());
         return new ResponseData<>(HttpStatus.CREATED.value(), "Started test attempt successfully", attempt);
     }
 

@@ -2,13 +2,16 @@ package com.fedu.fedu.service.Impl;
 
 import com.fedu.fedu.dto.res.StudentProgressReportResponse;
 import com.fedu.fedu.entity.ClassroomSubjectStudent;
+import com.fedu.fedu.entity.LearningNode;
 import com.fedu.fedu.entity.LearningPath;
 import com.fedu.fedu.entity.StudentNodeProgress;
 import com.fedu.fedu.repository.ClassroomSubjectRepository;
 import com.fedu.fedu.repository.ClassroomSubjectStudentRepository;
+import com.fedu.fedu.repository.LearningNodeRepository;
 import com.fedu.fedu.repository.LearningPathRepository;
 import com.fedu.fedu.repository.StudentNodeProgressRepository;
 import com.fedu.fedu.service.TeacherReportService;
+import com.fedu.fedu.utils.NodeRoutingUtils;
 import com.fedu.fedu.utils.enums.NodeTestKind;
 import com.fedu.fedu.utils.enums.StudentProgressStatus;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +34,7 @@ public class TeacherReportServiceImpl implements TeacherReportService {
     private final ClassroomSubjectStudentRepository classroomSubjectStudentRepository;
     private final LearningPathRepository learningPathRepository;
     private final StudentNodeProgressRepository studentNodeProgressRepository;
+    private final LearningNodeRepository learningNodeRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -52,35 +56,36 @@ public class TeacherReportServiceImpl implements TeacherReportService {
 
         
         Map<Long, List<StudentNodeProgress>> progressByCss;
+        List<LearningNode> pathNodes;
         if (path == null || path.getPublishedAt() == null) {
             progressByCss = Map.of();
+            pathNodes = List.of();
         } else {
             progressByCss = studentNodeProgressRepository.findByLearningPathPathId(path.getPathId())
                     .stream()
                     .collect(Collectors.groupingBy(p -> p.getClassroomSubjectStudent().getId()));
+            pathNodes = learningNodeRepository.findByLearningPathPathIdAndIsDeletedFalse(path.getPathId());
         }
 
         return enrollments.stream()
-                .map(css -> buildRow(css, progressByCss.getOrDefault(css.getId(), List.of())))
+                .map(css -> buildRow(css, progressByCss.getOrDefault(css.getId(), List.of()), pathNodes))
                 .sorted(Comparator.comparing(StudentProgressReportResponse::getFullName,
                         String.CASE_INSENSITIVE_ORDER))
                 .collect(Collectors.toList());
     }
 
-    private StudentProgressReportResponse buildRow(ClassroomSubjectStudent css, List<StudentNodeProgress> rows) {
+    private StudentProgressReportResponse buildRow(ClassroomSubjectStudent css, List<StudentNodeProgress> rows,
+                                                   List<LearningNode> pathNodes) {
         Integer level = css.getCurrentLevel();
 
-        
-        
-        List<StudentNodeProgress> visible = rows.stream()
-                .filter(p -> p.getLearningNode().getTestKind() != NodeTestKind.PLACEMENT)
-                .filter(p -> p.getLearningNode().getLevel() == null
-                        || p.getLearningNode().getLevel().equals(level))
-                .collect(Collectors.toList());
-        int totalNodes = visible.size();
-        int completedNodes = (int) visible.stream()
-                .filter(p -> p.getStatus() == StudentProgressStatus.COMPLETED)
-                .count();
+        // Cùng một phép đếm với student graph (NodeRoutingUtils.progressCounts):
+        // mỗi chặng tính theo nhánh học sinh đã đi, để hai phía luôn ra cùng một con số.
+        Map<Long, StudentProgressStatus> statusByNode = rows.stream()
+                .collect(Collectors.toMap(p -> p.getLearningNode().getNodeId(), StudentNodeProgress::getStatus,
+                        (a, b) -> a));
+        int[] progressCounts = NodeRoutingUtils.progressCounts(pathNodes, statusByNode, level);
+        int completedNodes = progressCounts[0];
+        int totalNodes = progressCounts[1];
 
         List<StudentProgressReportResponse.LateNodeItem> lateNodes = rows.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getCompletedLate()))

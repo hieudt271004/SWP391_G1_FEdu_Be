@@ -86,7 +86,8 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
             code: cs.subjectCode || "",
             title: cs.displayName,
             status: "Đang học",
-            progress: 0,
+            // null = lớp-môn chưa publish lộ trình → không hiện thanh tiến độ
+            progress: cs.progressPercent ?? undefined,
             classroomId: cs.classroomId,
             classroomSubjectId: cs.classroomSubjectId,
           })));
@@ -174,7 +175,14 @@ export function UserDetailPage({ onBack }: UserDetailPageProps) {
                 <div className="w-px h-10 bg-border" />
                 <div className="text-center">
                   <div className="text-foreground text-2xl font-bold">
-                    {isStudent ? "0%" : courses.reduce((sum, c) => sum + (c.students || 0), 0)}
+                    {isStudent
+                      ? (() => {
+                          // Trung bình % các môn đã có lộ trình; chưa môn nào có thì hiện —
+                          const withProgress = courses.filter((c) => c.progress !== undefined);
+                          if (withProgress.length === 0) return '—';
+                          return `${Math.round(withProgress.reduce((sum, c) => sum + (c.progress ?? 0), 0) / withProgress.length)}%`;
+                        })()
+                      : courses.reduce((sum, c) => sum + (c.students || 0), 0)}
                   </div>
                   <div className="text-slate-300 text-xs">{isStudent ? "Hoàn thành" : "Học viên"}</div>
                 </div>

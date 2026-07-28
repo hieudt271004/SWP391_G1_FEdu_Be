@@ -18,6 +18,9 @@ export interface ClassroomSubjectResponse {
   term?: Term;
   academicYear?: number;
   semesterLabel?: string;
+
+  // % tiến độ lộ trình của học sinh (chỉ có ở API by-student). null = chưa publish lộ trình.
+  progressPercent?: number | null;
 }
 
 export interface AddClassroomSubjectRequest {

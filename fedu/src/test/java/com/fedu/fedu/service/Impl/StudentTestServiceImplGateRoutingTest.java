@@ -201,6 +201,39 @@ class StudentTestServiceImplGateRoutingTest {
     }
 
     @Test
+    void gate_doesNotOpenBranchAtStageAlreadyClearedAtOtherLevel() {
+        // Học sinh mức Yếu (1) đã hoàn thành chặng 3 ở mức TB (2). Hoàn thành gate không được mở
+        // lại node Yếu chặng 3 — nếu không, hoàn thành node (vd. ON_CLASS) sẽ bắt học lại chặng đã qua.
+        ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
+        LearningPath path = path(cs);
+        LearningNode gate = gate(path);
+
+        LearningNode yeuStage3 = LearningNode.builder()
+                .nodeId(TARGET_ID).testKind(NodeTestKind.NONE).nodeType(NodeType.AT_HOME)
+                .level(1).stageOrder(3).learningPath(path).build();
+        LearningNode tbStage3 = LearningNode.builder()
+                .nodeId(300L).testKind(NodeTestKind.NONE).nodeType(NodeType.AT_HOME)
+                .level(2).stageOrder(3).learningPath(path).build();
+        NodeEdge edge = NodeEdge.builder().fromNode(gate).toNode(yeuStage3).build();
+
+        StudentNodeProgress gateProg = progress(gate, path, StudentProgressStatus.IN_PROGRESS);
+        StudentNodeProgress yeuProg = progress(yeuStage3, path, StudentProgressStatus.LOCKED);
+        StudentNodeProgress tbProg = progress(tbStage3, path, StudentProgressStatus.COMPLETED);
+        List<StudentNodeProgress> all = new ArrayList<>(List.of(gateProg, yeuProg, tbProg));
+
+        when(studentNodeProgressRepository.findByStudentUserIdAndLearningPathPathId(STUDENT_ID, PATH_ID))
+                .thenReturn(all);
+        when(nodeEdgeRepository.findByFromNodeNodeId(GATE_ID)).thenReturn(List.of(edge));
+        when(classroomSubjectStudentRepository.findByClassroomSubject_IdAndStudent_UserId(CS_ID, STUDENT_ID))
+                .thenReturn(Optional.of(ClassroomSubjectStudent.builder().currentLevel(1).build()));
+
+        service.routeGateNode(STUDENT_ID, gate, PATH_ID, bd(85));
+
+        assertEquals(StudentProgressStatus.COMPLETED, gateProg.getStatus());
+        assertEquals(StudentProgressStatus.LOCKED, yeuProg.getStatus());
+    }
+
+    @Test
     void gate_notPassed_sameLevel_stillCompletesNode_butDoesNotOpenBranch() {
         ClassroomSubject cs = ClassroomSubject.builder().id(CS_ID).build();
         LearningPath path = path(cs);

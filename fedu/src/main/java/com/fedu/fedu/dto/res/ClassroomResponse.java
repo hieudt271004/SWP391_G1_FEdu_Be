@@ -17,7 +17,9 @@ public class ClassroomResponse {
     private Long classroomId;
     private String className;
 
-    /** "Kì học" tách cấu trúc. */
+    /** "Kì học": id học kỳ đã liên kết (để FE prefill dropdown khi sửa). */
+    private Long semesterId;
+    /** term/academicYear/semesterLabel suy ra từ học kỳ đã liên kết — giữ để FE hiển thị. */
     private String term;
     private Integer academicYear;
     /** Nhãn hiển thị dựng sẵn cho FE, ví dụ "Fall 2024" (null nếu chưa đặt). */

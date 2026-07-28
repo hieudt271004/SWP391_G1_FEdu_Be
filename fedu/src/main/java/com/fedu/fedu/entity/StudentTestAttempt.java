@@ -31,7 +31,6 @@ public class StudentTestAttempt extends AbstractEntity<Long> {
     @JoinColumn(name = "student_id", nullable = false)
     private UserAccount student;
 
-    
     @Column(name = "score", precision = 5, scale = 2)
     private BigDecimal score;
 
@@ -41,13 +40,11 @@ public class StudentTestAttempt extends AbstractEntity<Long> {
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 
-    
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private com.fedu.fedu.utils.enums.AttemptStatus status = com.fedu.fedu.utils.enums.AttemptStatus.SUBMITTED;
 
-    
     @Builder.Default
     @Column(name = "tab_out_count")
     private Integer tabOutCount = 0;

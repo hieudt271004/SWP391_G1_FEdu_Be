@@ -33,7 +33,6 @@ public class StudentLevelHistory {
     @JoinColumn(name = "classroom_subject_id", nullable = false)
     private ClassroomSubject classroomSubject;
 
-    
     @Column(name = "old_level")
     private Integer oldLevel;
 

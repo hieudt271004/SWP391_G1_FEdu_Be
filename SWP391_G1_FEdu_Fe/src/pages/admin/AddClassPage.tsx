@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import type { ClassroomRequest } from "../../types/classroom";
 import { semesterService } from "../../services/semester.service";
 import type { SemesterResponse } from "../../types/semester";
-import { type Term } from "../../utils/classroom";
 import {
   Select,
   SelectContent,
@@ -22,8 +21,7 @@ import {
 
 interface ClassForm {
   className: string;
-  term: string;
-  academicYear: string;
+  semesterId: string;
   description: string;
 }
 
@@ -34,8 +32,7 @@ export function AddClassPage() {
 
   const [form, setForm] = useState<ClassForm>({
     className: "",
-    term: "",
-    academicYear: "",
+    semesterId: "",
     description: "",
   });
 
@@ -57,8 +54,7 @@ export function AddClassPage() {
           const data = await classroomService.getById(Number(id));
           setForm({
             className: data.className || "",
-            term: data.term || "",
-            academicYear: data.academicYear != null ? String(data.academicYear) : "",
+            semesterId: data.semesterId != null ? String(data.semesterId) : "",
             description: data.description || "",
           });
         }
@@ -76,17 +72,11 @@ export function AddClassPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSemesterChange = (selectedValue: string) => {
-    if (!selectedValue) {
-      setForm(prev => ({ ...prev, term: "", academicYear: "" }));
-      return;
-    }
-    const [termVal, yearVal] = selectedValue.split("|");
-    setForm(prev => ({
-      ...prev,
-      term: termVal,
-      academicYear: yearVal,
-    }));
+    setForm(prev => ({ ...prev, semesterId: selectedValue || "" }));
   };
+
+  // Năm học hiển thị (readonly) suy ra từ học kỳ đang chọn.
+  const selectedSemester = semesters.find(s => String(s.semesterId) === form.semesterId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,8 +89,7 @@ export function AddClassPage() {
       setError(null);
       const payload: ClassroomRequest = {
         className: form.className.trim(),
-        term: form.term ? (form.term as Term) : null,
-        academicYear: form.academicYear ? Number(form.academicYear) : null,
+        semesterId: form.semesterId ? Number(form.semesterId) : null,
         description: form.description,
       };
       if (isEdit) {
@@ -184,7 +173,7 @@ export function AddClassPage() {
                   Học kỳ <span className="text-destructive">*</span>
                 </label>
                 <Select
-                  value={form.term && form.academicYear ? `${form.term}|${form.academicYear}` : ""}
+                  value={form.semesterId}
                   onValueChange={(val) => handleSemesterChange(val)}
                 >
                   <SelectTrigger className="w-full bg-input-background text-foreground border-input">
@@ -194,7 +183,7 @@ export function AddClassPage() {
                     {semesters.map((sem) => (
                       <SelectItem
                         key={sem.semesterId}
-                        value={`${sem.term}|${sem.academicYear}`}
+                        value={String(sem.semesterId)}
                       >
                         {sem.semesterLabel}
                       </SelectItem>
@@ -209,7 +198,7 @@ export function AddClassPage() {
                 </label>
                 <Input
                   type="number"
-                  value={form.academicYear}
+                  value={selectedSemester?.academicYear ?? ""}
                   readOnly
                   placeholder="Tự động điền theo học kỳ"
                   className="bg-muted text-muted-foreground cursor-not-allowed"

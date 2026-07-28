@@ -566,42 +566,13 @@ export function ClassOverviewPage() {
   const [studentGraph, setStudentGraph] = useState<ClassroomGraphResponse | null>(null);
   const [studentGraphLoading, setStudentGraphLoading] = useState(false);
 
+  // Backend đã đếm tiến độ theo nhánh học sinh đã đi (NodeRoutingUtils.progressCounts) và trả về
+  // totalNodes/completedNodes trong graph — dùng thẳng số đó thay vì tự tính lại ở client, để thanh
+  // tiến độ phía giáo viên và phía học sinh luôn ra cùng một con số.
   const studentProgressPercent = useMemo(() => {
-    if (!studentGraph || !studentGraph.nodes || studentGraph.nodes.length === 0) return 0;
-    
-    const visible = studentGraph.nodes.filter((n) => !n.isDeleted);
-    if (visible.length === 0) return 0;
-
-    const activeLevelByStage: Record<number, number> = {};
-    visible.forEach((n) => {
-      const stage = n.stageOrder ?? 0;
-      const isStudyCompletedOrActive = n.studentStatus === 'COMPLETED' || n.studentStatus === 'IN_PROGRESS' || n.studentStatus === 'OPEN';
-      if (isStudyCompletedOrActive && n.level != null) {
-        activeLevelByStage[stage] = n.level;
-      }
-    });
-
-    let totalNodes = 0;
-    let completedNodes = 0;
-
-    visible.forEach((n) => {
-      const stage = n.stageOrder ?? 0;
-      const isCommon = n.level == null;
-      const isActiveLevel = n.level != null && n.level === activeLevelByStage[stage];
-      const isCompleted = n.studentStatus === 'COMPLETED';
-      const isFutureActiveLevel = n.level != null && activeLevelByStage[stage] === undefined && n.level === selectedStudent?.currentLevel;
-
-      if (isCommon || isActiveLevel || isCompleted || isFutureActiveLevel) {
-        totalNodes++;
-        if (isCompleted) {
-          completedNodes++;
-        }
-      }
-    });
-
-    if (totalNodes === 0) return 0;
-    return Math.round((completedNodes / totalNodes) * 100);
-  }, [studentGraph, selectedStudent?.currentLevel]);
+    if (!studentGraph?.totalNodes) return 0;
+    return Math.round(((studentGraph.completedNodes ?? 0) / studentGraph.totalNodes) * 100);
+  }, [studentGraph]);
 
   const isMounted = useRef(true);
   useEffect(() => {
@@ -3108,15 +3079,6 @@ export function ClassOverviewPage() {
                       </div>
                     </div>
 
-                    {/* TODO: Tính năng chuyển nhánh lộ trình */}
-                    <div className="p-4 border border-dashed border-amber-500/30 rounded-xl bg-amber-500/5 space-y-1.5">
-                      <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                        <AlertTriangle className="size-3.5 animate-pulse" /> TODO: Tính năng tự chọn nhánh lộ trình
-                      </span>
-                      <p className="text-[10.5px] text-muted-foreground leading-relaxed">
-                        Giảng viên xem mức học hiện tại của học sinh và có thể chủ động chuyển học sinh sang nhánh lộ trình khác theo ý muốn (chuyển đổi giữa Yếu, Trung bình, Khá) thay vì dựa hoàn toàn vào bài thi phân lớp tự động.
-                      </p>
-                    </div>
                     <div className="p-4 border border-border rounded-xl bg-muted/5 space-y-3">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-bold text-foreground flex items-center gap-1.5">

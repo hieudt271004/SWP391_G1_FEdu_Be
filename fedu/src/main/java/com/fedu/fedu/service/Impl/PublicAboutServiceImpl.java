@@ -123,9 +123,10 @@ public class PublicAboutServiceImpl implements PublicAboutService {
         ).collect(Collectors.toList());
 
         List<Object[]> classroomsRaw = entityManager.createNativeQuery(
-                "SELECT classroom_id, class_name, term, academic_year " +
-                "FROM classrooms " +
-                "WHERE is_deleted = false OR is_deleted IS NULL").getResultList();
+                "SELECT c.classroom_id, c.class_name, s.term, s.academic_year " +
+                "FROM classrooms c " +
+                "LEFT JOIN semesters s ON c.semester_id = s.semester_id " +
+                "WHERE c.is_deleted = false OR c.is_deleted IS NULL").getResultList();
         List<AboutFeaturesResponse.ClassroomDto> classroomList = classroomsRaw.stream().map(row ->
             AboutFeaturesResponse.ClassroomDto.builder()
                 .classroomId(((Number) row[0]).longValue())

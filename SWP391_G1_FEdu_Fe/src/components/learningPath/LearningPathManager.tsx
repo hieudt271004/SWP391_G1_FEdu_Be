@@ -15,11 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 interface LearningPathManagerProps {
   subjectId: number;
-  
+
   subjectPublished?: boolean;
-  
+
   initialPathId?: number;
-  
+
 
 
 
@@ -64,10 +64,10 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
   const chungLearnAt = (s: number) =>
     (byStage.get(s) ?? []).find((n) => isLearningNode(n) && n.level == null) ?? null;
   const placementAt = (s: number) => (byStage.get(s) ?? []).find(isPlacementNode) ?? null;
-  
+
   const gatesAt = (s: number) => (byStage.get(s) ?? []).filter((n) => n.testKind === "GATE");
   const freeChoiceAt = (s: number) => (byStage.get(s) ?? []).filter((n) => n.testKind === "FREE_CHOICE");
-  
+
   const gateCovering = (s: number, x: Lvl): LearningNodeResponse | null => {
     for (const g of gatesAt(s)) {
       const a = parseApplies(g.appliesLevels);
@@ -75,7 +75,7 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
     }
     return null;
   };
-  
+
   const freeChoiceForLevel = (s: number, x: Lvl): LearningNodeResponse | null =>
     freeChoiceAt(s).find((t) => t.level === x) ?? null;
 
@@ -86,17 +86,17 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
     if (fc) return fc;
     const g = gateCovering(s, x);
     if (g) return g;
-    return learnAt(s, x) ?? chungLearnAt(s); 
+    return learnAt(s, x) ?? chungLearnAt(s);
   };
   const entryForLevel = (s: number, x: Lvl): LearningNodeResponse | null => {
     const pl = placementAt(s);
     if (pl) return pl;
     const learn = learnAt(s, x) ?? chungLearnAt(s);
     if (learn) return learn;
-    
-    
-    
-    
+
+
+
+
     return gateCovering(s, x);
   };
 
@@ -105,29 +105,29 @@ function computeDesiredEdges(allNodes: LearningNodeResponse[]): Array<{ from: nu
     if (from !== to) result.add(`${from}->${to}`);
   };
 
-  
+
   for (const s of stages) {
     const learns = (byStage.get(s) ?? []).filter(isLearningNode);
-    
+
     for (const g of gatesAt(s)) {
       const applies = parseApplies(g.appliesLevels);
       for (const L of learns) {
         if (L.level == null || applies.size === 0 || applies.has(L.level)) add(L.nodeId, g.nodeId);
       }
     }
-    
+
     const fcs = freeChoiceAt(s);
     if (fcs.length) {
       for (const L of learns) for (const t of fcs) add(L.nodeId, t.nodeId);
     }
   }
-  
+
   for (let i = 0; i < stages.length - 1; i++) {
     const s = stages[i];
     const t = stages[i + 1];
-    
-    
-    
+
+
+
     const tFcs = freeChoiceAt(t);
     const tHasLearnable = placementAt(t) != null || (byStage.get(t) ?? []).some(isLearningNode);
     if (tFcs.length > 0 && !tHasLearnable) {
@@ -159,7 +159,7 @@ async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: num
       try {
         await learningPathService.deleteAdminEdge(e.edgeId);
       } catch {
-        
+
       }
     }
   }
@@ -168,7 +168,7 @@ async function syncEdges(current: NodeEdgeResponse[], desired: Array<{ from: num
       try {
         await learningPathService.createAdminEdge({ fromNodeId: e.from, toNodeId: e.to });
       } catch {
-        
+
       }
     }
   }
@@ -198,7 +198,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const [nStage, setNStage] = useState(1);
   const [nKind, setNKind] = useState<"AT_HOME" | "ON_CLASS" | "GATE" | "PLACEMENT" | "FREE_CHOICE">("AT_HOME");
   const [nApplies, setNApplies] = useState<number[]>([]);
-  
+
   const [eUpMin, setEUpMin] = useState("");
   const [eDownMax, setEDownMax] = useState("");
   const [eYeuMax, setEYeuMax] = useState("");
@@ -489,7 +489,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         setTTitle(activeTest.title);
         setTDuration(String(activeTest.durationMinutes || 15));
         setTPass(String(activeTest.passingPercentage || 0));
-        
+
         try {
           const qList = await learningPathService.getAdminTestQuestions(activeTest.testId);
           setNumQuestions(String(qList.length));
@@ -544,9 +544,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       toast.error("Nhập tên node");
       return;
     }
-    
-    
-    const gateEditable = selectedNode.testKind === "GATE" && parseApplies(selectedNode.appliesLevels).size !== 1;
+
+
+    // Gate 1 mức VẪN dùng gateUpMin — nó là ngưỡng đạt để mở node kế tiếp.
+    // Chỉ gate nhiều mức mới có thêm ngưỡng xuống.
+    const isGate = selectedNode.testKind === "GATE";
+    const multiLevelGate = isGate && parseApplies(selectedNode.appliesLevels).size !== 1;
     const isPlacement = selectedNode.testKind === "PLACEMENT";
     isSavingRef.current = true;
     setSaving(true);
@@ -555,8 +558,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         title: eTitle.trim(),
         description: eDesc.trim(),
         nodeType: selectedNode.nodeType,
-        gateUpMin: gateEditable && eUpMin !== "" ? Number(eUpMin) : undefined,
-        gateDownMax: gateEditable && eDownMax !== "" ? Number(eDownMax) : undefined,
+        gateUpMin: isGate && eUpMin !== "" ? Number(eUpMin) : undefined,
+        gateDownMax: multiLevelGate && eDownMax !== "" ? Number(eDownMax) : undefined,
         placementYeuMax: isPlacement && eYeuMax !== "" ? Number(eYeuMax) : undefined,
         placementTbMax: isPlacement && eTbMax !== "" ? Number(eTbMax) : undefined,
       });
@@ -609,8 +612,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       return;
     }
     const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
-    
-    
+
+
     for (let i = 0; i < numQ; i++) {
       const q = builderQuestions[i];
       if (!q) continue;
@@ -641,25 +644,28 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     isSavingRef.current = true;
     setSaving(true);
     try {
-      
-      const testIdToDelete = isTestNode 
+
+      const testIdToDelete = isTestNode
         ? (content?.tests && content.tests.length > 0 ? content.tests[0].testId : null)
         : (editingNodeTest ? editingNodeTest.testId : null);
-        
+
       if (testIdToDelete) {
         await learningPathService.deleteAdminNodeTest(testIdToDelete);
       }
 
-      
+
       const testRes = await learningPathService.addAdminNodeTest(selectedNode.nodeId, {
         title: testTitleToUse,
         durationMinutes: Number(tDuration) || 15,
-        passingPercentage: selectedNode.testKind === 'PLACEMENT' ? 0 : (Number(tPass) || 0),
+        // PLACEMENT/GATE không dùng passingPercentage (ngưỡng nằm trên node) — luôn gửi 0.
+        passingPercentage: (selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE')
+          ? 0
+          : (Number(tPass) || 0),
       });
 
       const createdTestId = testRes.testId;
 
-      
+
       for (let i = 0; i < numQ; i++) {
         const q = builderQuestions[i];
         if (!q) continue;
@@ -687,7 +693,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     }
   };
 
-  
+
   const rewireAll = async (pathId: number) => {
     const g = await learningPathService.getAdminTemplateGraph(pathId);
     await syncEdges(g.edges, computeDesiredEdges(g.nodes));
@@ -721,7 +727,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     let appliesLevels: string | undefined;
 
     if (nKind === "PLACEMENT") {
-      
+
       if (stageNodes.length > 0) {
         toast.error(`Test năng lực phải đứng riêng một chặng. Chặng ${nStage} đã có node khác.`);
         return;
@@ -729,8 +735,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       appliesLevels = "1,2,3";
       lvl = null;
     } else if (nKind === "FREE_CHOICE") {
-      
-      
+
+
       if (stageHasPlacement) {
         toast.error(`Chặng ${nStage} là chặng test năng lực — không thêm node khác.`);
         return;
@@ -751,8 +757,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         return;
       }
       const sorted = [...nApplies].sort((a, b) => a - b);
-      
-      
+
+
       const contiguousPair = sorted.length <= 2 && (sorted.length < 2 || sorted[1] - sorted[0] === 1);
       if (!contiguousPair) {
         toast.error(
@@ -760,7 +766,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         );
         return;
       }
-      
+
       const overlap = stageNodes.filter(isGateLikeNode).some((g) => {
         const a = parseApplies(g.appliesLevels);
         return a.size === 0 || sorted.some((x) => a.has(x));
@@ -772,12 +778,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
       appliesLevels = sorted.join(",");
       lvl = sorted.length === 1 ? sorted[0] : null;
     } else {
-      
+
       if (stageHasPlacement) {
         toast.error(`Chặng ${nStage} là chặng test năng lực — không thêm node học.`);
         return;
       }
-      
+
       lvl = nKind === "ON_CLASS" ? null : nLevel === "" ? null : Number(nLevel);
       const atStage = stageNodes.filter((n) => n.testKind == null || n.testKind === "NONE");
       if (lvl == null) {
@@ -800,8 +806,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     setSaving(true);
     try {
       if (nKind === "FREE_CHOICE") {
-        
-        
+
+
         const variants: { lv: 1 | 2 | 3; name: string }[] = [
           { lv: 1, name: "Yếu" },
           { lv: 2, name: "TB" },
@@ -829,14 +835,14 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
           nodeType: nKind === "ON_CLASS" ? "ON_CLASS" : "AT_HOME",
           testKind: nKind === "GATE" ? "GATE" : nKind === "PLACEMENT" ? "PLACEMENT" : "NONE",
           appliesLevels,
-          
+
           displayOrder: 0,
           isRequired: true,
           stageOrder: nStage,
           level: lvl,
         });
 
-        
+
         if (nKind === "PLACEMENT") {
           const testRes = await learningPathService.addAdminNodeTest(res.nodeId, {
             title: nTitle.trim(),
@@ -886,7 +892,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   const removeNode = async () => {
     if (!selectedNode || !path) return;
     const x = selectedNode;
-    
+
     const isFC = x.testKind === "FREE_CHOICE";
     const group = isFC
       ? nodes.filter((n) => n.testKind === "FREE_CHOICE" && (n.stageOrder ?? 0) === (x.stageOrder ?? 0))
@@ -899,10 +905,10 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         try {
           await learningPathService.deleteAdminNode(n.nodeId);
         } catch {
-          
+
         }
       }
-      
+
       const deletedStage = x.stageOrder ?? 0;
       const stillAtStage = nodes.some((n) => !delIds.has(n.nodeId) && (n.stageOrder ?? 0) === deletedStage);
       if (deletedStage > 0 && !stillAtStage) {
@@ -915,11 +921,11 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
               stageOrder: (n.stageOrder ?? 0) - 1,
             });
           } catch {
-            
+
           }
         }
       }
-      
+
       await rewireAll(path.pathId);
       toast.success("Đã xóa");
       closeDetail();
@@ -944,7 +950,7 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
         fd.append("videoUrl", mVideoUrl.trim());
         fd.append("videoTitle", mTitle.trim());
       } else if (mFile) {
-        
+
         const uploaded = await uploadService.uploadToCloudinary(mFile, "materials");
         fd.append("fileUrl", uploaded.url);
         fd.append("fileName", mFile.name);
@@ -1095,10 +1101,10 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
     return <div className="py-10 text-center text-sm text-slate-400">Đang tải lộ trình…</div>;
   }
 
-  
-  
-  
-  
+
+
+
+
   const tplFrozen = !!subjectPublished
     && (teacherMode ? !!path && path.creatorRole !== "TEACHER" : !path || path.creatorRole !== "TEACHER");
   const frozenBanner = tplFrozen ? (
@@ -1142,6 +1148,10 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
   }
 
   const isTestNode = selectedNode && (selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE' || selectedNode.testKind === 'FREE_CHOICE');
+
+  // PLACEMENT phân mức theo ngưỡng Yếu/TB, GATE phân luồng theo ngưỡng lên/xuống trên node.
+  // Cả hai đều KHÔNG dùng passingPercentage của đề — ẩn ô "% đạt" để khỏi hiểu nhầm là nó có tác dụng.
+  const hidePassPct = !!selectedNode && (selectedNode.testKind === 'PLACEMENT' || selectedNode.testKind === 'GATE');
 
   const renderQuestionBuilder = () => {
     const numQ = Math.max(0, parseInt(numQuestions, 10) || 0);
@@ -1378,8 +1388,8 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                       </span>
                     ) : (
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                        selectedNode.nodeType === 'ON_CLASS' 
-                          ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20 dark:text-blue-400' 
+                        selectedNode.nodeType === 'ON_CLASS'
+                          ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20 dark:text-blue-400'
                           : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 dark:text-emerald-400'
                       }`}>
                         <GraduationCap className="w-2.5 h-2.5" />
@@ -1389,12 +1399,12 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
 
                     {}
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                      selectedNode.level === 1 
-                        ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:text-amber-400' 
-                        : selectedNode.level === 2 
-                        ? 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 dark:text-indigo-400' 
-                        : selectedNode.level === 3 
-                        ? 'bg-teal-500/10 text-teal-600 border border-teal-500/20 dark:text-teal-400' 
+                      selectedNode.level === 1
+                        ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20 dark:text-amber-400'
+                        : selectedNode.level === 2
+                        ? 'bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 dark:text-indigo-400'
+                        : selectedNode.level === 3
+                        ? 'bg-teal-500/10 text-teal-600 border border-teal-500/20 dark:text-teal-400'
                         : 'bg-slate-500/10 text-slate-600 border border-slate-500/20 dark:text-slate-400'
                     }`}>
                       Mức: {selectedNode.level === 1 ? 'Yếu' : selectedNode.level === 2 ? 'TB' : selectedNode.level === 3 ? 'Khá' : 'Chung'}
@@ -1428,43 +1438,45 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <label className="text-[11px] font-medium text-muted-foreground">Tiêu đề bài kiểm tra</label>
-                        <input 
-                          className="lp-input" 
-                          placeholder="Tiêu đề test" 
-                          value={tTitle} 
-                          onChange={(e) => setTTitle(e.target.value)} 
+                        <input
+                          className="lp-input"
+                          placeholder="Tiêu đề test"
+                          value={tTitle}
+                          onChange={(e) => setTTitle(e.target.value)}
                         />
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className={`grid gap-3 ${hidePassPct ? 'grid-cols-2' : 'grid-cols-3'}`}>
                         <div className="space-y-1">
                           <label className="text-[11px] font-medium text-muted-foreground">Thời lượng (phút)</label>
-                          <input 
-                            type="number" 
-                            min={1} 
-                            className="lp-input" 
-                            value={tDuration} 
-                            onChange={(e) => setTDuration(e.target.value)} 
+                          <input
+                            type="number"
+                            min={1}
+                            className="lp-input"
+                            value={tDuration}
+                            onChange={(e) => setTDuration(e.target.value)}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[11px] font-medium text-muted-foreground">% đạt</label>
-                          <input 
-                            type="number" 
-                            min={0} 
-                            max={100}
-                            className="lp-input" 
-                            value={tPass} 
-                            onChange={(e) => setTPass(e.target.value)} 
-                          />
-                        </div>
+                        {!hidePassPct && (
+                          <div className="space-y-1">
+                            <label className="text-[11px] font-medium text-muted-foreground">% đạt</label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              className="lp-input"
+                              value={tPass}
+                              onChange={(e) => setTPass(e.target.value)}
+                            />
+                          </div>
+                        )}
                         <div className="space-y-1">
                           <label className="text-[11px] font-medium text-muted-foreground">Số câu hỏi</label>
-                          <input 
-                            type="number" 
-                            min={0} 
-                            className="lp-input" 
-                            value={numQuestions} 
-                            onChange={(e) => handleNumQuestionsChange(e.target.value)} 
+                          <input
+                            type="number"
+                            min={0}
+                            className="lp-input"
+                            value={numQuestions}
+                            onChange={(e) => handleNumQuestionsChange(e.target.value)}
                           />
                         </div>
                       </div>
@@ -1651,13 +1663,31 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                       <section className="bg-muted/20 border border-border/80 p-4 rounded-xl space-y-3 transition-all hover:border-border">
                         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
                           <Settings className="w-4 h-4 text-primary shrink-0" />
-                          <span>{selectedNode.testKind === "GATE" ? "Ngưỡng phân luồng" : "Ngưỡng phân mức năng lực"}</span>
+                          <span>
+                            {selectedNode.testKind !== "GATE"
+                              ? "Ngưỡng phân mức năng lực"
+                              : parseApplies(selectedNode.appliesLevels).size === 1
+                                ? "Ngưỡng đạt"
+                                : "Ngưỡng phân luồng"}
+                          </span>
                         </div>
                         {selectedNode.testKind === "GATE" && parseApplies(selectedNode.appliesLevels).size === 1 ? (
-                          <p className="text-xs text-slate-500">
-                            Test này chỉ áp dụng 1 mức — là bài chặn đường (làm để mở bài kế tiếp),
-                            không đổi mức nên không cần ngưỡng lên/xuống.
-                          </p>
+                          <>
+                            <div className="space-y-1">
+                              <label className="text-[11px] font-medium text-muted-foreground">Ngưỡng đạt (≥ %)</label>
+                              <input type="number" className="lp-input" value={eUpMin} onChange={(e) => setEUpMin(e.target.value)} placeholder="vd 80" />
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              Test này chỉ áp dụng 1 mức — là bài chặn đường, không đổi mức nên không có ngưỡng xuống.
+                              Học sinh phải đạt ≥ ngưỡng này thì node kế tiếp mới mở khoá; chưa đạt thì làm lại tự do.
+                              Bỏ trống ngưỡng = nộp bài là qua.
+                            </p>
+                            <div className="flex justify-end pt-1">
+                              <button onClick={saveNodeEdit} disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-xs">
+                                Lưu ngưỡng
+                              </button>
+                            </div>
+                          </>
                         ) : (
                           <>
                             <div className="grid grid-cols-2 gap-3">
@@ -1705,43 +1735,43 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
                           <Settings className="w-4 h-4 text-primary shrink-0" />
                           <span>
-                            {selectedNode.testKind === 'PLACEMENT' ? 'Cấu hình bài test năng lực' : 
+                            {selectedNode.testKind === 'PLACEMENT' ? 'Cấu hình bài test năng lực' :
                              selectedNode.testKind === 'GATE' ? 'Cấu hình bài test chặng' : 'Cấu hình bài test tự chọn'}
                           </span>
                         </div>
                         <div className="space-y-3">
-                          <div className={`grid gap-3 ${selectedNode.testKind === 'PLACEMENT' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                          <div className={`grid gap-3 ${hidePassPct ? 'grid-cols-2' : 'grid-cols-3'}`}>
                             <div className="space-y-1">
                               <label className="text-[11px] font-medium text-muted-foreground">Thời lượng (phút)</label>
-                              <input 
-                                type="number" 
-                                min={1} 
-                                className="lp-input" 
-                                value={tDuration} 
-                                onChange={(e) => setTDuration(e.target.value)} 
+                              <input
+                                type="number"
+                                min={1}
+                                className="lp-input"
+                                value={tDuration}
+                                onChange={(e) => setTDuration(e.target.value)}
                               />
                             </div>
-                            {selectedNode.testKind !== 'PLACEMENT' && (
+                            {!hidePassPct && (
                               <div className="space-y-1">
                                 <label className="text-[11px] font-medium text-muted-foreground">% đạt</label>
-                                <input 
-                                  type="number" 
-                                  min={0} 
+                                <input
+                                  type="number"
+                                  min={0}
                                   max={100}
-                                  className="lp-input" 
-                                  value={tPass} 
-                                  onChange={(e) => setTPass(e.target.value)} 
+                                  className="lp-input"
+                                  value={tPass}
+                                  onChange={(e) => setTPass(e.target.value)}
                                 />
                               </div>
                             )}
                             <div className="space-y-1">
                               <label className="text-[11px] font-medium text-muted-foreground">Số câu hỏi</label>
-                              <input 
-                                type="number" 
-                                min={0} 
-                                className="lp-input" 
-                                value={numQuestions} 
-                                onChange={(e) => handleNumQuestionsChange(e.target.value)} 
+                              <input
+                                type="number"
+                                min={0}
+                                className="lp-input"
+                                value={numQuestions}
+                                onChange={(e) => handleNumQuestionsChange(e.target.value)}
                               />
                             </div>
                           </div>
@@ -2183,23 +2213,23 @@ export function LearningPathManager({ subjectId, subjectPublished, initialPathId
                   {}
                   <div className="grid grid-cols-2 gap-3 mt-2">
                     <Field label="Thời lượng làm test (phút)">
-                      <input 
-                        type="number" 
-                        min={1} 
-                        className="lp-input" 
-                        value={tDuration} 
-                        onChange={(e) => setTDuration(e.target.value)} 
-                        placeholder="vd 15" 
+                      <input
+                        type="number"
+                        min={1}
+                        className="lp-input"
+                        value={tDuration}
+                        onChange={(e) => setTDuration(e.target.value)}
+                        placeholder="vd 15"
                       />
                     </Field>
                     <Field label="Số lượng câu hỏi">
-                      <input 
-                        type="number" 
-                        min={0} 
-                        className="lp-input" 
-                        value={numQuestions} 
-                        onChange={(e) => handleNumQuestionsChange(e.target.value)} 
-                        placeholder="vd 5" 
+                      <input
+                        type="number"
+                        min={0}
+                        className="lp-input"
+                        value={numQuestions}
+                        onChange={(e) => handleNumQuestionsChange(e.target.value)}
+                        placeholder="vd 5"
                       />
                     </Field>
                   </div>

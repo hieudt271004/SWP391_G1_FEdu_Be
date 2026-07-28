@@ -39,17 +39,14 @@ public class ClassroomServiceImpl implements ClassroomService {
     public ClassroomResponse createClassroom(ClassroomRequest request) {
         log.info("Creating classroom '{}'", request.getClassName());
 
-        if (request.getTerm() != null && request.getAcademicYear() != null) {
-            SemesterRelation relation = getSemesterRelation(request.getTerm(), request.getAcademicYear());
-            if (relation == SemesterRelation.PAST) {
-                throw new com.fedu.fedu.exception.InvalidDataException("Không thể tạo lớp học với học kỳ trong quá khứ.");
-            }
+        com.fedu.fedu.entity.Semester semester = resolveSemester(request.getSemesterId());
+        if (semester != null && getSemesterRelation(semester) == SemesterRelation.PAST) {
+            throw new com.fedu.fedu.exception.InvalidDataException("Không thể tạo lớp học với học kỳ trong quá khứ.");
         }
 
         Classroom classroom = Classroom.builder()
                 .className(request.getClassName().trim())
-                .term(request.getTerm())
-                .academicYear(request.getAcademicYear())
+                .semester(semester)
                 .description(request.getDescription())
                 .status(ClassroomStatus.INACTIVE)
                 .isDeleted(false)
@@ -68,14 +65,17 @@ public class ClassroomServiceImpl implements ClassroomService {
         Classroom classroom = classroomRepository.findById(classroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Classroom not found with id: " + classroomId));
 
+        com.fedu.fedu.entity.Semester newSemester = resolveSemester(request.getSemesterId());
+
         if (classroom.getStatus() == ClassroomStatus.COMPLETED) {
-            if (classroom.getTerm() != request.getTerm() || !java.util.Objects.equals(classroom.getAcademicYear(), request.getAcademicYear())) {
+            Long oldSemId = classroom.getSemester() != null ? classroom.getSemester().getSemesterId() : null;
+            if (!java.util.Objects.equals(oldSemId, request.getSemesterId())) {
                 throw new com.fedu.fedu.exception.InvalidDataException("Không thể chỉnh sửa học kỳ của lớp học đã kết thúc.");
             }
         }
 
-        if (request.getTerm() != null && request.getAcademicYear() != null) {
-            SemesterRelation relation = getSemesterRelation(request.getTerm(), request.getAcademicYear());
+        if (newSemester != null) {
+            SemesterRelation relation = getSemesterRelation(newSemester);
             if (classroom.getStatus() == ClassroomStatus.ACTIVE) {
                 if (relation != SemesterRelation.PRESENT) {
                     throw new com.fedu.fedu.exception.InvalidDataException("Lớp học đang hoạt động chỉ có thể chọn học kỳ hiện tại.");
@@ -88,8 +88,7 @@ public class ClassroomServiceImpl implements ClassroomService {
         }
 
         classroom.setClassName(request.getClassName().trim());
-        classroom.setTerm(request.getTerm());
-        classroom.setAcademicYear(request.getAcademicYear());
+        classroom.setSemester(newSemester);
         classroom.setDescription(request.getDescription());
         // Trạng thái vòng đời chỉ đổi qua updateClassroomStatus (admin), không qua update thông tin.
 
@@ -118,10 +117,10 @@ public class ClassroomServiceImpl implements ClassroomService {
         }
 
         if (status == ClassroomStatus.ACTIVE) {
-            if (classroom.getTerm() == null || classroom.getAcademicYear() == null) {
+            if (classroom.getSemester() == null) {
                 throw new com.fedu.fedu.exception.InvalidDataException("Vui lòng thiết lập học kỳ trước khi bắt đầu lớp học.");
             }
-            SemesterRelation relation = getSemesterRelation(classroom.getTerm(), classroom.getAcademicYear());
+            SemesterRelation relation = getSemesterRelation(classroom.getSemester());
             if (relation == SemesterRelation.FUTURE) {
                 throw new com.fedu.fedu.exception.InvalidDataException("Không thể bắt đầu lớp học thuộc học kỳ tương lai.");
             }
@@ -243,6 +242,7 @@ public class ClassroomServiceImpl implements ClassroomService {
         return ClassroomResponse.builder()
                 .classroomId(classroom.getClassroomId())
                 .className(classroom.getClassName())
+                .semesterId(classroom.getSemester() != null ? classroom.getSemester().getSemesterId() : null)
                 .term(classroom.getTerm())
                 .academicYear(classroom.getAcademicYear())
                 .semesterLabel(classroom.semesterLabel())
@@ -312,19 +312,23 @@ public class ClassroomServiceImpl implements ClassroomService {
         PAST, PRESENT, FUTURE
     }
 
-    private SemesterRelation getSemesterRelation(String targetTerm, Integer targetYear) {
-        if (targetTerm == null || targetYear == null) {
+    private com.fedu.fedu.entity.Semester resolveSemester(Long semesterId) {
+        if (semesterId == null) {
+            return null;
+        }
+        return semesterRepository.findById(semesterId)
+                .orElseThrow(() -> new com.fedu.fedu.exception.InvalidDataException(
+                        "Học kỳ đã chọn không tồn tại trên hệ thống."));
+    }
+
+    private SemesterRelation getSemesterRelation(com.fedu.fedu.entity.Semester sem) {
+        if (sem == null || sem.getStartDate() == null || sem.getEndDate() == null) {
             return SemesterRelation.PRESENT;
         }
-
-        com.fedu.fedu.entity.Semester targetSem = semesterRepository.findByTermAndAcademicYear(targetTerm, targetYear)
-                .orElseThrow(() -> new com.fedu.fedu.exception.InvalidDataException(
-                        "Học kỳ " + targetTerm + " " + targetYear + " chưa được cấu hình trên hệ thống."));
-
         java.time.LocalDate now = java.time.LocalDate.now();
-        if (now.isBefore(targetSem.getStartDate())) {
+        if (now.isBefore(sem.getStartDate())) {
             return SemesterRelation.FUTURE;
-        } else if (now.isAfter(targetSem.getEndDate())) {
+        } else if (now.isAfter(sem.getEndDate())) {
             return SemesterRelation.PAST;
         } else {
             return SemesterRelation.PRESENT;

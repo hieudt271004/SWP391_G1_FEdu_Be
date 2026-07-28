@@ -21,13 +21,6 @@ public interface StudentMaterialProgressRepository extends JpaRepository<Student
            "AND p.material.materialId = :materialId")
     boolean existsByEnrollmentAndMaterial(@Param("enrollmentId") Long enrollmentId, @Param("materialId") Long materialId);
 
-    @Query("SELECT COUNT(p) FROM StudentMaterialProgress p " +
-           "WHERE p.classroomSubjectStudent.student.userId = :studentId " +
-           "AND p.material.learningNode.nodeId IN :nodeIds")
-    int countCompletedMaterialsByStudentAndNodeIds(
-            @Param("studentId") Long studentId,
-            @Param("nodeIds") java.util.Collection<Long> nodeIds);
-
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM StudentMaterialProgress p " +
            "WHERE p.classroomSubjectStudent.student.userId = :studentId " +

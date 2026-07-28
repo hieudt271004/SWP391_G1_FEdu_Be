@@ -14,6 +14,9 @@ public interface PopQuizService {
 
     PopQuizAssignmentResponse createAndAssign(Long nodeId, CreatePopQuizRequest request, Long teacherId);
 
+    /** Các đề trong lộ trình lớp-môn (của node) có thể tái dùng để giao pop quiz. */
+    java.util.List<AssignablePopQuizTestResponse> getAssignableTests(Long nodeId, Long teacherId);
+
     PopQuizAssignmentResponse getActiveAssignment(Long nodeId, Long teacherId);
 
     PopQuizResultsResponse getResults(Long assignmentId, Long teacherId);

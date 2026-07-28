@@ -45,8 +45,9 @@ INSERT INTO subjects (subject_id, subject_code, subject_name, description, statu
   (1, 'JAVA101', 'Lập trình Java cơ bản',   'Nhập môn lập trình Java: cú pháp, OOP, cấu trúc dữ liệu cơ bản.', 'published', 9, 1, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   (2, 'WEB201',  'Phát triển Web Frontend', 'HTML, CSS, JavaScript và các kỹ thuật xây dựng giao diện web.',   'published', 9, 1, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-INSERT INTO classrooms (classroom_id, class_name, description, status, term, academic_year, is_deleted, created_at, updated_at) VALUES
-  (1, 'SE1801', 'Lớp demo dành cho giáo viên trải nghiệm hệ thống', 'active', 'SUMMER', 2026, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+-- semester_id = 5 (SUMMER 2026) theo V2__reference_data.sql
+INSERT INTO classrooms (classroom_id, class_name, description, status, semester_id, is_deleted, created_at, updated_at) VALUES
+  (1, 'SE1801', 'Lớp demo dành cho giáo viên trải nghiệm hệ thống', 'active', 5, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO classroom_subjects (id, classroom_id, subject_id, lecturer_id, id_quiz_start, created_at, updated_at) VALUES
   (1, 1, 1, 2, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),

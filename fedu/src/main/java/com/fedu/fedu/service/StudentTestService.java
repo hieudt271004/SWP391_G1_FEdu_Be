@@ -1,6 +1,7 @@
 package com.fedu.fedu.service;
 
 import com.fedu.fedu.dto.req.AttemptSubmissionRequest;
+import com.fedu.fedu.dto.res.AttemptStartResponse;
 import com.fedu.fedu.dto.res.AttemptSubmissionResultResponse;
 import com.fedu.fedu.dto.res.StudentTestDetailsResponse;
 import com.fedu.fedu.entity.StudentTestAttempt;
@@ -16,7 +17,10 @@ public interface StudentTestService {
 
     StudentTestDetailsResponse getTestDetailsForPlacement(Long testId);
     
-    StudentTestAttempt startTestAttempt(Long testId, Long studentId);
+    /**
+     * Mở một lượt làm bài mới. Trả kèm remainingSeconds để client đếm ngược và tự nộp khi hết giờ.
+     */
+    AttemptStartResponse startTestAttempt(Long testId, Long studentId);
 
     
 

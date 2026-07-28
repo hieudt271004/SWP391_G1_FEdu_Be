@@ -38,6 +38,7 @@ import { resolveAssetUrl, MaterialPreview } from '../../components/learningPath/
 import type { ClassroomSubjectResponse } from '../../types/classroomSubject';
 import type { LearningNodeResponse, NodeContentResponse, NodeEdgeResponse } from '../../services/learningPath.service';
 import { NodeDiscussion } from '../../components/learningPath/NodeDiscussion';
+import { getLevelLabel } from '../../utils/levels';
 
 import {
   Dialog,
@@ -76,7 +77,7 @@ export function StudentLearningPathPage() {
   const [graphState, setGraphState] = useState<string | null>(null);
   const [currentLevel, setCurrentLevel] = useState<number | null>(null);
   const [nodeContents, setNodeContents] = useState<Record<number, NodeContentResponse>>({});
-  const [totalMaterials, setTotalMaterials] = useState<number>(0);
+  const [totalNodes, setTotalNodes] = useState<number>(0);
   const [totalCompleted, setTotalCompleted] = useState<number>(0);
   
   
@@ -139,8 +140,8 @@ export function StudentLearningPathPage() {
       return ((a.displayOrder ?? 0) - (b.displayOrder ?? 0)) || (a.nodeId - b.nodeId);
     });
     setNodes(sortedNodes);
-    setTotalMaterials(graph.totalMaterials || 0);
-    setTotalCompleted(graph.completedMaterials || 0);
+    setTotalNodes(graph.totalNodes || 0);
+    setTotalCompleted(graph.completedNodes || 0);
 
     // Fetch current level of the student
     try {
@@ -396,6 +397,11 @@ export function StudentLearningPathPage() {
 
     if (node?.testKind && node.testKind !== 'NONE') return false;
 
+    // Node học trên lớp tự hoàn thành theo giờ buổi học (backend), không phải do học xong tài liệu
+    // chuẩn bị. Nếu tự complete ở đây sẽ mở chặng sau và ẩn link "Vào buổi học trực tiếp" trước khi
+    // buổi live diễn ra.
+    if (node?.nodeType === 'ON_CLASS') return false;
+
     const materials = content.materials || [];
     const tests = content.tests || [];
     const exercises = content.exercises || [];
@@ -515,13 +521,13 @@ export function StudentLearningPathPage() {
 
   
   const progressStats = useMemo(() => {
-    if (totalMaterials === 0) return { completed: 0, total: 0, percent: 0 };
+    if (totalNodes === 0) return { completed: 0, total: 0, percent: 0 };
     return {
       completed: totalCompleted,
-      total: totalMaterials,
-      percent: Math.round((totalCompleted / totalMaterials) * 100)
+      total: totalNodes,
+      percent: Math.round((totalCompleted / totalNodes) * 100)
     };
-  }, [totalMaterials, totalCompleted]);
+  }, [totalNodes, totalCompleted]);
 
   
   const activeNode = useMemo(() => {
@@ -541,6 +547,63 @@ export function StudentLearningPathPage() {
       .filter(n => !Number.isNaN(n));
     return applies.length === 1;
   }, [activeNode]);
+
+  // Gate áp dụng cho những mức nào (appliesLevels là CSV kiểu "2,3"). Rỗng = mọi mức.
+  const gateLevels = useMemo(() => {
+    if (activeNode?.testKind !== 'GATE') return [] as number[];
+    return (activeNode.appliesLevels ?? '')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => !Number.isNaN(n))
+      .sort((a, b) => a - b);
+  }, [activeNode]);
+
+  const gateScopeLabel = useMemo(() => {
+    if (activeNode?.testKind !== 'GATE') return null;
+    if (isSingleLevelGate) {
+      const lv = activeNode.level ?? (gateLevels.length === 1 ? gateLevels[0] : null);
+      return lv != null ? `Bài riêng cho mức ${getLevelLabel(lv)}` : 'Bài riêng cho một mức';
+    }
+    if (gateLevels.length === 0) return 'Bài chung cho tất cả các mức';
+    return `Bài chung cho mức ${gateLevels.map(lv => getLevelLabel(lv)).join(' và ')}`;
+  }, [activeNode, isSingleLevelGate, gateLevels]);
+
+  // Hậu quả CỤ THỂ theo mức hiện tại của học sinh, bám đúng LevelRoutingService.applyGateRouting:
+  // điểm >= ngưỡng lên → min(mức+1, mức cao nhất của bài); <= ngưỡng xuống → max(mức-1, mức thấp
+  // nhất của bài); ở giữa → giữ nguyên. Vì bị kẹp như vậy nên học sinh đang đứng ở đầu/cuối khoảng
+  // sẽ KHÔNG lên/xuống được — phải nói thẳng thay vì hiện chung chung "Lên Level khi ≥ 80%".
+  const gateOutcomes = useMemo(() => {
+    if (activeNode?.testKind !== 'GATE' || isSingleLevelGate || currentLevel == null) return null;
+    if (gateLevels.length > 0 && !gateLevels.includes(currentLevel)) return null;
+    const minA = gateLevels.length > 0 ? gateLevels[0] : 1;
+    const maxA = gateLevels.length > 0 ? gateLevels[gateLevels.length - 1] : 3;
+    const up = activeNode.gateUpMin;
+    const down = activeNode.gateDownMax;
+    const upLevel = Math.min(currentLevel + 1, maxA);
+    const downLevel = Math.max(currentLevel - 1, minA);
+    const here = getLevelLabel(currentLevel);
+    return {
+      up: up == null ? null : {
+        range: `Từ ${up}% trở lên`,
+        text: upLevel === currentLevel
+          ? `Giữ nguyên mức ${here} — bạn đã ở mức cao nhất mà bài này có thể đưa lên.`
+          : `Lên mức ${getLevelLabel(upLevel)}.`,
+        tone: upLevel === currentLevel ? 'flat' : 'good',
+      },
+      mid: up != null && down != null ? {
+        range: `Trên ${down}% và dưới ${up}%`,
+        text: `Giữ nguyên mức ${here}.`,
+        tone: 'flat',
+      } : null,
+      down: down == null ? null : {
+        range: `Từ ${down}% trở xuống`,
+        text: downLevel === currentLevel
+          ? `Giữ nguyên mức ${here} — bạn đã ở mức thấp nhất mà bài này có thể hạ xuống.`
+          : `Xuống mức ${getLevelLabel(downLevel)}.`,
+        tone: downLevel === currentLevel ? 'flat' : 'bad',
+      },
+    };
+  }, [activeNode, isSingleLevelGate, currentLevel, gateLevels]);
 
   // Gate chưa hoàn thành (chưa đạt ngưỡng) vẫn giữ node OPEN → cho làm lại tự do, không cần xin phép GV.
   const isRetryableGate = activeNode?.testKind === 'GATE' && !isNodeCompleted;
@@ -791,7 +854,7 @@ export function StudentLearningPathPage() {
           <div className="mt-4 space-y-1.5">
             <Progress value={progressStats.percent} className="h-1.5 bg-muted [&>div]:bg-primary rounded-full" />
             <div className="flex justify-between text-[10px] font-bold text-muted-foreground mb-0.5">
-              <span>Đã hoàn thành {progressStats.completed}/{progressStats.total} học liệu</span>
+              <span>Đã hoàn thành {progressStats.completed}/{progressStats.total} bài học</span>
               <span className="text-foreground">{progressStats.percent}%</span>
             </div>
           </div>
@@ -1086,11 +1149,14 @@ export function StudentLearningPathPage() {
                     </div>
 
                     <div className="border border-border rounded-lg p-5 bg-card flex flex-col gap-5 shadow-sm">
+                      {/* Số cột = số ô thật sự render: phân loại có 3 ngưỡng (5 ô), gate nhiều mức
+                          có ngưỡng lên/xuống (4 ô), còn lại 3 ô. */}
                       <div className={`grid gap-6 divide-x divide-border ${
-                        (activeNode?.testKind === 'GATE' && (activeNode.gateUpMin != null || activeNode.gateDownMax != null)) ||
-                        (activeNode?.testKind === 'PLACEMENT' && (activeNode.placementYeuMax != null || activeNode.placementTbMax != null))
-                          ? 'grid-cols-5' 
-                          : 'grid-cols-3'
+                        activeNode?.testKind === 'PLACEMENT' && (activeNode.placementYeuMax != null || activeNode.placementTbMax != null)
+                          ? 'grid-cols-5'
+                          : activeNode?.testKind === 'GATE' && !isSingleLevelGate && (activeNode.gateUpMin != null || activeNode.gateDownMax != null)
+                            ? 'grid-cols-4'
+                            : 'grid-cols-3'
                       }`}>
                         <div className="space-y-1 pl-0">
                           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Thời lượng</span>
@@ -1117,13 +1183,24 @@ export function StudentLearningPathPage() {
                               </p>
                             </div>
                           </>
-                        ) : activeNode?.testKind === 'GATE' ? null : (
+                        ) : activeNode?.testKind === 'GATE' ? (
+                          // Gate 1 mức không đổi mức của học sinh: gateUpMin chính là ngưỡng đạt
+                          // để mở bài kế tiếp, nên hiện đúng một ô thay vì "lên/hạ level".
+                          isSingleLevelGate ? (
+                            <div className="space-y-1 pl-6">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Ngưỡng đạt</span>
+                              <p className="text-sm font-bold text-foreground">
+                                {activeNode.gateUpMin != null ? `≥ ${activeNode.gateUpMin}%` : 'Nộp bài là qua'}
+                              </p>
+                            </div>
+                          ) : null
+                        ) : (
                           <div className="space-y-1 pl-6">
                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Yêu cầu đạt</span>
                             <p className="text-sm font-bold text-foreground">{activeItem.data.passingPercentage || 0}%</p>
                           </div>
                         )}
-                        {activeNode?.testKind === 'GATE' && (activeNode.gateUpMin != null || activeNode.gateDownMax != null) && (
+                        {activeNode?.testKind === 'GATE' && !isSingleLevelGate && (activeNode.gateUpMin != null || activeNode.gateDownMax != null) && (
                           <>
                             <div className="space-y-1 pl-6">
                               <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Lên Level khi ≥</span>
@@ -1132,7 +1209,7 @@ export function StudentLearningPathPage() {
                               </p>
                             </div>
                             <div className="space-y-1 pl-6">
-                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Hạ Level khi &lt;</span>
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Hạ Level khi ≤</span>
                               <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
                                 {activeNode.gateDownMax != null ? `${activeNode.gateDownMax}%` : '—'}
                               </p>
@@ -1164,6 +1241,62 @@ export function StudentLearningPathPage() {
                           </p>
                         </div>
                       </div>
+
+                      {activeNode?.testKind === 'GATE' && (
+                        <div className="border-t border-border pt-4 space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+                              isSingleLevelGate
+                                ? 'border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-300'
+                                : 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300'
+                            }`}>
+                              {gateScopeLabel}
+                            </span>
+                            {currentLevel != null && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                                Mức hiện tại của bạn:
+                                <b className="text-foreground">{getLevelLabel(currentLevel)}</b>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block">
+                              Kết quả bài này ảnh hưởng thế nào
+                            </span>
+                            {isSingleLevelGate ? (
+                              <p className="text-xs leading-relaxed text-muted-foreground">
+                                {activeNode.gateUpMin != null
+                                  ? `Đạt từ ${activeNode.gateUpMin}% trở lên thì bài kế tiếp mở khoá. Dưới ngưỡng đó thì bài kế tiếp vẫn khoá và bạn được làm lại tự do, không giới hạn số lần. `
+                                  : 'Nộp bài là bài kế tiếp mở khoá. '}
+                                <b className="text-foreground">Dù điểm cao hay thấp, mức {getLevelLabel(activeNode.level ?? (gateLevels.length === 1 ? gateLevels[0] : null))} của bạn cũng không thay đổi.</b>
+                              </p>
+                            ) : gateOutcomes ? (
+                              <ul className="space-y-1.5">
+                                {[gateOutcomes.up, gateOutcomes.mid, gateOutcomes.down]
+                                  .filter((row): row is NonNullable<typeof row> => row != null)
+                                  .map((row, i) => (
+                                    <li key={i} className="flex items-start gap-2 text-xs leading-relaxed">
+                                      <span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${
+                                        row.tone === 'good' ? 'bg-emerald-500'
+                                          : row.tone === 'bad' ? 'bg-rose-500'
+                                            : 'bg-muted-foreground/40'
+                                      }`} />
+                                      <span>
+                                        <b className="text-foreground tabular-nums">{row.range}</b>
+                                        <span className="text-muted-foreground"> → {row.text}</span>
+                                      </span>
+                                    </li>
+                                  ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs leading-relaxed text-muted-foreground">
+                                Bài chung có thể đưa bạn lên hoặc xuống một mức tuỳ điểm số, trong phạm vi các mức mà bài áp dụng.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {activeItem.data.description && (
                         <div className="border-t border-border pt-4">

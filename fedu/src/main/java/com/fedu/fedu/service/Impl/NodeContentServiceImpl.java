@@ -438,18 +438,23 @@ public class NodeContentServiceImpl implements NodeContentService {
         return mapToTestResponse(test);
     }
 
-    // Bài FREE_CHOICE/GATE không có ngưỡng đạt thì HS lên/ngang mức trượt vĩnh viễn trong im lặng
-    // (passed luôn false) — bắt buộc giáo viên cấu hình ngay từ lúc tạo/sửa đề.
     private void assertThresholdConfigured(LearningNode node, java.math.BigDecimal passingPercentage) {
         com.fedu.fedu.utils.enums.NodeTestKind kind = node.getTestKind();
-        if ((kind == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE
-                || kind == com.fedu.fedu.utils.enums.NodeTestKind.GATE)
-                && passingPercentage == null) {
+        if (kind == com.fedu.fedu.utils.enums.NodeTestKind.FREE_CHOICE && passingPercentage == null) {
             throw new InvalidDataException(
-                    "Bài test thuộc node " + (kind == com.fedu.fedu.utils.enums.NodeTestKind.GATE
-                            ? "phân luồng (GATE)" : "tự chọn (FREE_CHOICE)")
-                            + " bắt buộc phải có ngưỡng đạt (%) — học sinh cần ngưỡng này để được mở bài tiếp theo.");
+                    "Bài test thuộc node tự chọn (FREE_CHOICE) bắt buộc phải có ngưỡng đạt (%) "
+                            + "— học sinh cần đạt ngưỡng này thì việc đổi mức mới có hiệu lực.");
         }
+    }
+
+    private BigDecimal effectivePassThreshold(Test test) {
+        LearningNode node = test.getLearningNode();
+        if (node != null
+                && node.getTestKind() == com.fedu.fedu.utils.enums.NodeTestKind.GATE
+                && node.getGateUpMin() != null) {
+            return node.getGateUpMin();
+        }
+        return test.getPassingPercentage() != null ? test.getPassingPercentage() : BigDecimal.ZERO;
     }
 
     @Override
@@ -459,7 +464,7 @@ public class NodeContentServiceImpl implements NodeContentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Test not found with id: " + testId));
 
         List<StudentTestAttempt> attempts = studentTestAttemptRepository.findByTestTestId(testId);
-        BigDecimal passingPercentage = test.getPassingPercentage() != null ? test.getPassingPercentage() : BigDecimal.ZERO;
+        BigDecimal passThreshold = effectivePassThreshold(test);
 
         return attempts.stream()
                 .map(attempt -> {
@@ -474,7 +479,7 @@ public class NodeContentServiceImpl implements NodeContentService {
 
                     Boolean passed = null;
                     if (attempt.getScore() != null) {
-                        passed = attempt.getScore().compareTo(passingPercentage) >= 0;
+                        passed = attempt.getScore().compareTo(passThreshold) >= 0;
                     }
 
                     return StudentAttemptResponse.builder()
@@ -510,9 +515,9 @@ public class NodeContentServiceImpl implements NodeContentService {
                     }
 
                     Boolean passed = null;
-                    BigDecimal passingPercentage = attempt.getTest().getPassingPercentage() != null ? attempt.getTest().getPassingPercentage() : BigDecimal.ZERO;
+                    BigDecimal passThreshold = effectivePassThreshold(attempt.getTest());
                     if (attempt.getScore() != null) {
-                        passed = attempt.getScore().compareTo(passingPercentage) >= 0;
+                        passed = attempt.getScore().compareTo(passThreshold) >= 0;
                     }
 
                     return StudentAttemptResponse.builder()

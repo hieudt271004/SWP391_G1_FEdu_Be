@@ -86,6 +86,62 @@ public final class NodeRoutingUtils {
     }
 
 
+    /**
+     * Đếm tiến độ {completed, total} theo nhánh học sinh ĐÃ ĐI ở từng chặng, không chỉ mức hiện tại.
+     * Học sinh có thể bị chuyển mức nhiều lần (gate/free-choice/thi lại placement); bài đã hoàn
+     * thành ở nhánh mức cũ là công sức thật — nếu chỉ lọc theo mức hiện tại thì tiến độ sụt ảo
+     * ngay sau mỗi lần chuyển mức. Mỗi chặng lấy nhánh mà học sinh thực sự đi (node theo mức có
+     * progress OPEN/IN_PROGRESS/COMPLETED, ưu tiên mức hiện tại), chặng chưa chạm tới tính theo
+     * mức hiện tại. Node đã COMPLETED luôn được tính dù thuộc nhánh nào. Bài phân loại không
+     * phải nội dung học nên bỏ qua. Dùng chung cho student graph lẫn báo cáo giáo viên để hai
+     * phía luôn ra cùng một con số.
+     */
+    public static int[] progressCounts(Collection<LearningNode> pathNodes,
+                                       Map<Long, StudentProgressStatus> statusByNode,
+                                       Integer studentLevel) {
+        Map<Integer, Integer> activeLevelByStage = new java.util.HashMap<>();
+        for (LearningNode n : pathNodes) {
+            if (n.getLevel() == null) {
+                continue;
+            }
+            StudentProgressStatus s = statusByNode.get(n.getNodeId());
+            boolean walked = s == StudentProgressStatus.COMPLETED
+                    || s == StudentProgressStatus.IN_PROGRESS
+                    || s == StudentProgressStatus.OPEN;
+            if (!walked) {
+                continue;
+            }
+            int stage = n.getStageOrder() != null ? n.getStageOrder() : 0;
+            // Mức hiện tại thắng: sau khi chuyển mức, nhánh cũ COMPLETED và nhánh mới được mở lại
+            // có thể cùng chặng — chặng đó phải theo nhánh mới (bài cũ vẫn tính nhờ vế isCompleted).
+            if (!activeLevelByStage.containsKey(stage) || n.getLevel().equals(studentLevel)) {
+                activeLevelByStage.put(stage, n.getLevel());
+            }
+        }
+
+        int total = 0;
+        int completed = 0;
+        for (LearningNode n : pathNodes) {
+            if (n.getTestKind() == NodeTestKind.PLACEMENT) {
+                continue;
+            }
+            int stage = n.getStageOrder() != null ? n.getStageOrder() : 0;
+            Integer active = activeLevelByStage.get(stage);
+            boolean isCompleted = statusByNode.get(n.getNodeId()) == StudentProgressStatus.COMPLETED;
+            boolean countable = n.getLevel() == null
+                    || n.getLevel().equals(active)
+                    || isCompleted
+                    || (active == null && n.getLevel().equals(studentLevel));
+            if (countable) {
+                total++;
+                if (isCompleted) {
+                    completed++;
+                }
+            }
+        }
+        return new int[]{completed, total};
+    }
+
     public static boolean isSingleLevelGate(LearningNode node) {
         if (node.getTestKind() != NodeTestKind.GATE) {
             return false;

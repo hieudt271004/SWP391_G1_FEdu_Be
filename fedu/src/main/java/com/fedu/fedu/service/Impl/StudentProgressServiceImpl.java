@@ -28,9 +28,6 @@ public class StudentProgressServiceImpl implements StudentProgressService {
     private final StudentNodeProgressRepository studentNodeProgressRepository;
     private final NodeMaterialRepository nodeMaterialRepository;
     private final StudentMaterialProgressRepository studentMaterialProgressRepository;
-    private final NodeExerciseRepository nodeExerciseRepository;
-    private final SubmissionRepository submissionRepository;
-    private final TestRepository testRepository;
     private final StudentTestAttemptRepository studentTestAttemptRepository;
 
     @Override
@@ -118,6 +115,32 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 p.setCompletedAt(java.time.LocalDateTime.now());
                 studentNodeProgressRepository.save(p);
                 healed = true;
+            }
+        }
+
+        // Chốt chặn: khóa lại node theo mức đang OPEN/IN_PROGRESS nhưng chặng của nó học sinh đã
+        // hoàn thành ở mức khác. Đây là các node từng bị mở sai (trước khi guard ở
+        // openMainTargetIfEligible được thêm); recompute chỉ mở LOCKED→OPEN nên không tự sửa được,
+        // phải khóa lại chủ động. KHÔNG đụng node COMPLETED để tránh khóa nhầm chặng đã clear.
+        {
+            Set<Integer> stagesClearedOther =
+                    com.fedu.fedu.utils.NodeRoutingUtils.stagesClearedAtOtherLevel(progressList, level);
+            boolean relocked = false;
+            for (StudentNodeProgress p : progressList) {
+                if (p.getStatus() != StudentProgressStatus.OPEN
+                        && p.getStatus() != StudentProgressStatus.IN_PROGRESS) continue;
+                if (com.fedu.fedu.utils.NodeRoutingUtils.alreadyClearedAtOtherLevel(
+                        p.getLearningNode(), stagesClearedOther)) {
+                    p.setStatus(StudentProgressStatus.LOCKED);
+                    p.setUnlockedAt(null);
+                    studentNodeProgressRepository.save(p);
+                    relocked = true;
+                }
+            }
+            if (relocked) {
+                healed = true;
+                progressList = studentNodeProgressRepository
+                        .findByStudentUserIdAndLearningPathPathId(studentId, path.getPathId());
             }
         }
 
@@ -244,32 +267,13 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .collect(Collectors.toList());
 
 
-        Set<Long> countableNodeIds = nodes.stream()
-                .filter(n -> {
-                    StudentNodeProgress p = progressMap.get(n.getNodeId());
-                    if (p != null && p.getStatus() == StudentProgressStatus.COMPLETED) {
-                        return true;
-                    }
-                    return n.getLevel() == null || n.getLevel().equals(level);
-                })
-                .map(LearningNode::getNodeId)
-                .collect(Collectors.toSet());
-
-        int totalMaterials = 0;
-        int completedMaterials = 0;
-        if (!countableNodeIds.isEmpty()) {
-            int totalMat = nodeMaterialRepository.countByLearningNodeNodeIdInAndIsDeletedFalse(countableNodeIds);
-            int completedMat = studentMaterialProgressRepository.countCompletedMaterialsByStudentAndNodeIds(studentId, countableNodeIds);
-
-            int totalExe = nodeExerciseRepository.countByLearningNodeNodeIdInAndIsDeletedFalse(countableNodeIds);
-            int completedExe = submissionRepository.countCompletedExercisesByStudentAndNodeIds(studentId, countableNodeIds);
-
-            int totalTst = testRepository.countByLearningNodeNodeIdInAndIsDeletedFalse(countableNodeIds);
-            int completedTst = studentTestAttemptRepository.countCompletedTestsByStudentAndNodeIds(studentId, countableNodeIds);
-
-            totalMaterials = totalMat + totalExe + totalTst;
-            completedMaterials = completedMat + completedExe + completedTst;
-        }
+        // Đếm theo NODE bằng quy tắc dùng chung với báo cáo giáo viên (NodeRoutingUtils.progressCounts):
+        // mỗi chặng tính theo nhánh học sinh đã đi, nên chuyển mức không làm tiến độ sụt ảo.
+        Map<Long, StudentProgressStatus> statusByNode = progressMap.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getStatus()));
+        int[] progressCounts = com.fedu.fedu.utils.NodeRoutingUtils.progressCounts(nodes, statusByNode, level);
+        int completedNodes = progressCounts[0];
+        int totalNodes = progressCounts[1];
 
         return ClassroomGraphResponse.builder()
                 .classroomSubjectId(classroomSubjectId)
@@ -279,8 +283,8 @@ public class StudentProgressServiceImpl implements StudentProgressService {
                 .nodes(nodeResponses)
                 .edges(edgeResponses)
                 .availableTemplates(null)
-                .totalMaterials(totalMaterials)
-                .completedMaterials(completedMaterials)
+                .totalNodes(totalNodes)
+                .completedNodes(completedNodes)
                 .build();
     }
 

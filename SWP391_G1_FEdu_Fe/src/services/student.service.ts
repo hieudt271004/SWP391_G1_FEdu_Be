@@ -53,6 +53,12 @@ export interface AttemptSubmission {
 
 export interface StudentTestAttempt {
   attemptId: number;
+  startedAt?: string;
+  durationMinutes?: number | null;
+  /** Số giây còn lại do máy chủ tính. null = đề không giới hạn thời gian (không đếm ngược). */
+  remainingSeconds?: number | null;
+  status?: string;
+  tabOutCount?: number;
 }
 
 

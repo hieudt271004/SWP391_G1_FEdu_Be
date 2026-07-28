@@ -28,6 +28,7 @@ export function NodeTestPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [attemptId, setAttemptId] = useState<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<AttemptResult | null>(null);
@@ -64,6 +65,8 @@ export function NodeTestPage() {
     try {
       const attempt = await studentService.startAttempt(id);
       setAttemptId(attempt.attemptId);
+      // Mốc đếm ngược do máy chủ cấp; null nghĩa là đề không giới hạn thời gian.
+      setRemainingSeconds(attempt.remainingSeconds ?? null);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Không bắt đầu được bài test');
     } finally {
@@ -85,7 +88,11 @@ export function NodeTestPage() {
     }
   };
 
-  
+  const handleTimeUp = useCallback(() => {
+    toast.warning('Hết giờ làm bài — hệ thống đang nộp bài của bạn.', { duration: 6000 });
+  }, []);
+
+
   const handleTabOut = useCallback(async () => {
     if (attemptId == null) return;
     try {
@@ -224,6 +231,8 @@ export function NodeTestPage() {
         onStart={handleStart}
         onSubmit={handleSubmit}
         onTabOut={handleTabOut}
+        remainingSeconds={remainingSeconds}
+        onTimeUp={handleTimeUp}
       />
     </div>
   );

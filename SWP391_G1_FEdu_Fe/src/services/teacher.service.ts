@@ -37,6 +37,15 @@ export interface PopQuizAssignmentResponse {
   status: 'OPEN' | 'CLOSED';
 }
 
+export interface AssignablePopQuizTest {
+  testId: number;
+  title: string;
+  durationMinutes?: number;
+  questionCount: number;
+  sourceNodeTitle?: string;
+  stageOrder?: number;
+}
+
 export interface PopQuizResultsResponse {
   assignmentId: number;
   title: string;
@@ -97,6 +106,9 @@ export const teacherService = {
   
   getActivePopQuiz: (nodeId: number) =>
     http.get<PopQuizAssignmentResponse>(`/teacher-manage/on-class/${nodeId}/pop-quiz/active`),
+
+  getAssignablePopQuizTests: (nodeId: number) =>
+    http.get<AssignablePopQuizTest[]>(`/teacher-manage/on-class/${nodeId}/pop-quiz/assignable-tests`),
 
   createPopQuiz: (nodeId: number, req: CreatePopQuizRequest) =>
     http.post<PopQuizAssignmentResponse>(`/teacher-manage/on-class/${nodeId}/pop-quiz`, req),

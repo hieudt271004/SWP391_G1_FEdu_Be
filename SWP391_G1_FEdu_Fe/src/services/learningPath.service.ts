@@ -129,8 +129,9 @@ export interface ClassroomGraphResponse {
   missingLevels?: number[];
   availableTemplates?: AvailableTemplateResponse[];
   quizStartTestId?: number | null;
-  totalMaterials?: number;
-  completedMaterials?: number;
+  /** Số bài học tính vào tiến độ: bỏ bài phân loại, chỉ gồm node chung và node đúng mức của học sinh. */
+  totalNodes?: number;
+  completedNodes?: number;
 }
 
 export interface CreateLearningNodeRequest {

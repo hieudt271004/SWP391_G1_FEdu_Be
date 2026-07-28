@@ -12,8 +12,11 @@ public interface TestRepository extends JpaRepository<Test, Long> {
     List<Test> findByLearningNodeNodeIdAndIsDeletedFalse(Long nodeId);
     Optional<Test> findByTestIdAndIsDeletedFalse(Long testId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(t) FROM Test t " +
-           "WHERE t.learningNode.nodeId IN :nodeIds " +
-           "AND t.isDeleted = false")
-    int countByLearningNodeNodeIdInAndIsDeletedFalse(@org.springframework.data.repository.query.Param("nodeIds") java.util.Collection<Long> nodeIds);
+    // Mọi đề (còn sống) thuộc lộ trình của một lớp-môn — để chọn đề có sẵn giao pop quiz.
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT t FROM Test t " +
+            "WHERE t.learningNode.learningPath.classroomSubject.id = :csId " +
+            "AND t.isDeleted = false")
+    List<Test> findByClassroomSubjectId(
+            @org.springframework.data.repository.query.Param("csId") Long csId);
 }

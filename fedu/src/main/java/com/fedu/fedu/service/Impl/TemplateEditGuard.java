@@ -15,21 +15,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-
-
-
-
-
-
-
-
 @Component
 @RequiredArgsConstructor
 public class TemplateEditGuard {
 
     private final UserAccountRepository userAccountRepository;
     private final ClassroomSubjectRepository classroomSubjectRepository;
-
 
     public void assertTemplateEditable(LearningPath path) {
         if (path == null) return;
@@ -44,8 +35,7 @@ public class TemplateEditGuard {
                 .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
 
         if (!isAdminTemplate(path)) {
-            
-            
+
             UserAccount actor = userAccountRepository.findByEmail(auth.getName()).orElse(null);
             boolean owns = actor != null && path.getCreatedBy() != null
                     && path.getCreatedBy().getUserId() == actor.getUserId();
@@ -54,7 +44,6 @@ public class TemplateEditGuard {
             }
             return;
         }
-
         
         if (!isAdmin) {
             throw new AccessDeniedException("Template của khoa chỉ quản trị viên được chỉnh sửa");
@@ -66,7 +55,6 @@ public class TemplateEditGuard {
                             + "Các lớp đã clone không bị ảnh hưởng.");
         }
     }
-
 
     public void assertNodeEditable(LearningNode node) {
         if (node != null) assertTemplateEditable(node.getLearningPath());

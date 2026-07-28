@@ -211,11 +211,13 @@ export function StudentCoursesPage() {
               if (graph?.state === 'NEED_PLACEMENT' || graph?.state === 'PLACEMENT_PENDING') {
                 levelsMap[s.classroomSubjectId] = null;
               }
-              if (graph && graph.nodes && graph.nodes.length > 0) {
-                const completedCount = graph.nodes.filter(n => n.studentStatus === 'COMPLETED').length;
+              // Dùng totalNodes/completedNodes backend đã đếm theo nhánh học sinh đã đi
+              // (NodeRoutingUtils.progressCounts) — không tự đếm COMPLETED / toàn bộ node nữa,
+              // vì mẫu số đó gộp cả các nhánh mức khác nên % thấp hơn thực tế.
+              if (graph && graph.totalNodes != null) {
                 progressMap[s.classroomSubjectId] = {
-                  completed: completedCount,
-                  total: graph.nodes.length
+                  completed: graph.completedNodes ?? 0,
+                  total: graph.totalNodes
                 };
               } else {
                 progressMap[s.classroomSubjectId] = { completed: 0, total: 0 };

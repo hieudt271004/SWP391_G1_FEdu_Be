@@ -803,7 +803,6 @@ export function TeacherLiveSessionPage() {
               students={students}
               live={state.live}
               pollTick={pollTick}
-              tests={tests}
             />
           )}
         </div>
